@@ -2,7 +2,6 @@ import React, {useEffect, useState} from "react";
 import {useAuth} from "../../../context/AuthContext";
 import {useParams} from "react-router-dom";
 import {useWialon} from "../../../context/WialonProvider";
-import {FaPlus, FaMinus} from "react-icons/fa";
 
 const NewEventModal = ({edited, eventTypes}) => {
   const [bitacora, setBitacora] = useState(null);
@@ -47,43 +46,6 @@ const NewEventModal = ({edited, eventTypes}) => {
 
       // Fetch data or perform any other necessary actions here
     };
-
-    // const fetchAllUnits = async (sess, retries = 3, delay = 1000) => {
-    //   try {
-    //     const flags =
-    //       window.wialon.item.Item.dataFlag.base | window.wialon.item.Unit.dataFlag.lastMessage;
-
-    //     sess.loadLibrary("itemIcon");
-
-    //     // Ensure the library is loaded
-    //     await new Promise((resolve, reject) => {
-    //       const timeout = setTimeout(() => reject("Library load timeout"), 5000);
-    //       sess.updateDataFlags([{type: "type", data: "avl_unit", flags, mode: 0}], (code) => {
-    //         clearTimeout(timeout);
-    //         if (code) {
-    //           reject(window.wialon.core.Errors.getErrorText(code));
-    //         } else {
-    //           resolve();
-    //         }
-    //       });
-    //     });
-
-    //     const fetchedUnits = sess.getItems("avl_unit") || [];
-    //     const unitDetails = fetchedUnits.map((unit) => ({id: unit.getId(), name: unit.getName()}));
-    //     setUnits(unitDetails); // Store the fetched units
-
-    //     console.log("Unidades obtenidas:", unitDetails); // 👈 Debugging point
-    //   } catch (error) {
-    //     console.error("Error al obtener unidades, reintentando...", error);
-    //     if (retries > 0) {
-    //       console.log(`Retrying in ${delay}ms...`);
-    //       setTimeout(() => fetchAllUnits(sess, retries - 1, delay), delay);
-    //     } else {
-    //       console.log("Max retries reached, failing...");
-    //       setUnits([]); // Reset units on failure
-    //     }
-    //   }
-    // };
 
     fetchBitacora();
     init();
@@ -138,16 +100,15 @@ const NewEventModal = ({edited, eventTypes}) => {
     if (unidadEncontrada) {
       const sess = window.wialon.core.Session.getInstance();
       const unit = sess.getItems("avl_unit").find((u) => u.getId() === unidadEncontrada.id);
+      console.log(unit);
 
       if (unit) {
-        // Obtener la posición de la unidad
+        //Obtener la posición de la unidad
         const pos = unit.getPosition();
         let ubicacion = "";
-
         const currentTime = Math.floor(Date.now() / 1000); // Tiempo actual en segundos
         const timeDiffInSeconds = pos ? currentTime - pos.t : 0;
         const duracion = formatDuration(timeDiffInSeconds); // Convertir a formato "20h ago"
-
         // Usar await para esperar la respuesta de la dirección
         try {
           const address = await getAddressFromCoordinates(pos.x, pos.y);
@@ -155,53 +116,75 @@ const NewEventModal = ({edited, eventTypes}) => {
         } catch (error) {
           console.error("Error al obtener la dirección:", error);
         }
-
         const velocidad = pos ? pos.s : ""; // Velocidad
         const coordenadas = pos ? `${pos.y}, ${pos.x}` : ""; // Coordenadas
         const ultimo_posicionamiento = pos ? window.wialon.util.DateTime.formatTime(pos.t) : ""; // Último mensaje
+        // setNewEvent((prev) => ({
+        //   ...prev,
+        //   // ubicacion: ubicacion || "",
+        //   // velocidad: velocidad || 0, // Si no hay velocidad, asignar valor por defecto
+        //   // coordenadas: coordenadas || "",
+        //   // ultimo_posicionamiento: ultimo_posicionamiento || "",
+        //   // duracion: duracion || "", // Duración en formato "20h ago"
+        //   nombre: unidadEncontrada.name || "",
+        //   descripcion: unidadEncontrada.description || "",
+        //   frecuencia: 0, // Lo dejamos como 0 si no hay un valor específico
+        //   registrado_por: `${user?.firstName} ${user?.lastName}`,
+        //   transportes: selectedTransportes,
+        // }));
 
         setNewEvent((prev) => ({
           ...prev,
-          ubicacion: ubicacion || "",
-          velocidad: velocidad || 0, // Si no hay velocidad, asignar valor por defecto
-          coordenadas: coordenadas || "",
-          ultimo_posicionamiento: ultimo_posicionamiento || "",
-          duracion: duracion || "", // Duración en formato "20h ago"
           nombre: unidadEncontrada.name || "",
           descripcion: unidadEncontrada.description || "",
-          frecuencia: 0, // Lo dejamos como 0 si no hay un valor específico
-          registrado_por: `${user?.firstName} ${user?.lastName}`,
-          transportes: transportes,
-        }));
-      } else {
-        setNewEvent((prev) => ({
-          ...prev,
-          ubicacion: "",
-          velocidad: "",
-          coordenadas: "",
-          ultimo_posicionamiento: "",
-          duracion: "",
-          nombre: "",
-          descripcion: "",
           frecuencia: 0,
           registrado_por: `${user?.firstName} ${user?.lastName}`,
-          transportes: transportes,
+          transportes: transportes.map((transporte) =>
+            transporte.id.split("_")[1] === unidadEncontrada.name
+              ? {
+                  ...transporte,
+                  registro: {
+                    ...transporte.registro,
+                    duracion: duracion || "",
+                    ubicacion: ubicacion || "",
+                    velocidad: velocidad || 0,
+                    coordenadas: coordenadas || "",
+                    ultimo_posicionamiento: ultimo_posicionamiento || "",
+                  },
+                }
+              : transporte
+          ),
         }));
       }
-    } else {
-      setNewEvent((prev) => ({
-        ...prev,
-        ubicacion: "",
-        velocidad: "",
-        coordenadas: "",
-        ultimo_posicionamiento: "",
-        duracion: "",
-        nombre: "",
-        descripcion: "",
-        frecuencia: 0,
-        registrado_por: `${user?.firstName} ${user?.lastName}`,
-        transportes: transportes,
-      }));
+      //else {
+      //     setNewEvent((prev) => ({
+      //       ...prev,
+      //       ubicacion: "",
+      //       velocidad: "",
+      //       coordenadas: "",
+      //       ultimo_posicionamiento: "",
+      //       duracion: "",
+      //       nombre: "",
+      //       descripcion: "",
+      //       frecuencia: 0,
+      //       registrado_por: `${user?.firstName} ${user?.lastName}`,
+      //       transportes: transportes,
+      //     }));
+      //   }
+      // } else {
+      //   setNewEvent((prev) => ({
+      //     ...prev,
+      //     ubicacion: "",
+      //     velocidad: "",
+      //     coordenadas: "",
+      //     ultimo_posicionamiento: "",
+      //     duracion: "",
+      //     nombre: "",
+      //     descripcion: "",
+      //     frecuencia: 0,
+      //     registrado_por: `${user?.firstName} ${user?.lastName}`,
+      //     transportes: transportes,
+      //   }));
     }
   };
 
@@ -280,6 +263,7 @@ const NewEventModal = ({edited, eventTypes}) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    console.log(newEvent);
 
     if (selectedTransportes.length === 0) {
       alert("Favor de seleccionar un transporte.");
@@ -524,33 +508,47 @@ const NewEventModal = ({edited, eventTypes}) => {
                 {selectedTransportes.map((t) => (
                   <div key={t.id} className="border mb-2 rounded">
                     <div
-                      className="flex items-center justify-center w-full cursor-pointer bg-gray-200 p-3 rounded"
+                      className="d-flex justify-content-between align-items-center cursor-pointer border p-2 rounded"
                       onClick={() => toggleCollapse(t.id)}>
                       <div className="whitespace-nowrap">
                         GPS ID: {t.id.includes("_") ? t.id.split("_")[1] : t.id}
                       </div>
 
                       <div className="ml-auto flex items-center w-[25px]">
-                        {openTransportId === t.id ? <FaMinus /> : <FaPlus />}
+                        {openTransportId === t.id ? "-" : "+"}
                       </div>
                     </div>
 
                     {openTransportId === t.id && (
                       <div className="p-2 mt-2 border-t">
                         <p>
-                          <strong>Duracion:</strong> {t.nombre}
+                          <strong>Duración:</strong>{" "}
+                          {newEvent.transportes?.find((transporte) => transporte.id === t.id)
+                            ?.registro?.duracion || "N/A"}
                         </p>
+
                         <p>
-                          <strong>Ubicacion:</strong> {t.detalles}
+                          <strong>Ubicación:</strong>{" "}
+                          {newEvent.transportes?.find((transporte) => transporte.id === t.id)
+                            ?.registro?.ubicacion || "N/A"}
                         </p>
+
                         <p>
-                          <strong>Velocidad:</strong> {t.detalles}
+                          <strong>Velocidad:</strong>{" "}
+                          {newEvent.transportes?.find((transporte) => transporte.id === t.id)
+                            ?.registro?.velocidad || "N/A"}
                         </p>
+
                         <p>
-                          <strong>Ultimo posicionamiento:</strong> {t.detalles}
+                          <strong>Ultimo posicionamiento:</strong>{" "}
+                          {newEvent.transportes?.find((transporte) => transporte.id === t.id)
+                            ?.registro?.ultimo_posicionamiento || "N/A"}
                         </p>
+
                         <p>
-                          <strong>Coordenadas:</strong> {t.detalles}
+                          <strong>Coordenadas:</strong>{" "}
+                          {newEvent.transportes?.find((transporte) => transporte.id === t.id)
+                            ?.registro?.coordenadas || "N/A"}
                         </p>
                       </div>
                     )}

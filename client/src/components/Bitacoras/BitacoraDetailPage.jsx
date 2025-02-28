@@ -457,11 +457,11 @@ const BitacoraDetailPage = ({edited}) => {
       _id,
       nombre,
       descripcion,
-      ubicacion,
-      duracion,
-      ultimo_posicionamiento,
-      velocidad,
-      coordenadas,
+      // ubicacion,
+      // duracion,
+      // ultimo_posicionamiento,
+      // velocidad,
+      // coordenadas,
       createdAt,
       registrado_por,
       frecuencia,
@@ -472,11 +472,11 @@ const BitacoraDetailPage = ({edited}) => {
       nombre,
       registrado_por,
       descripcion,
-      ubicacion,
-      duracion,
-      ultimo_posicionamiento,
-      velocidad,
-      coordenadas,
+      // ubicacion,
+      // duracion,
+      // ultimo_posicionamiento,
+      // velocidad,
+      // coordenadas,
       frecuencia,
       createdAt,
       transportes,
@@ -517,6 +517,45 @@ const BitacoraDetailPage = ({edited}) => {
     const handleCloseTransporteModal = () => {
       setShowTransporteModal(false);
       setSelectedTransporte(null);
+    };
+
+    const CollapsibleTransporte = ({transporte}) => {
+      const [isOpen, setIsOpen] = useState(false);
+
+      const toggleCollapse = () => {
+        setIsOpen(!isOpen);
+      };
+
+      return (
+        <div className="mb-3">
+          <div
+            className="d-flex justify-content-between align-items-center cursor-pointer border p-2 rounded"
+            onClick={toggleCollapse}>
+            <span>{transporte.id.includes("_") ? transporte.id.split("_")[1] : transporte.id}</span>
+            <span>{isOpen ? "-" : "+"}</span>
+          </div>
+          {isOpen && (
+            <div className="mt-2">
+              <p>
+                <strong>Duracion :</strong> {transporte.registro.duracion}
+              </p>
+              <p>
+                <strong>Ubicacion :</strong> {transporte.registro.ubicacion}
+              </p>
+              <p>
+                <strong>Velocidad :</strong> {transporte.registro.velocidad}
+              </p>
+              <p>
+                <strong>Ultimo Posicionamiento :</strong>{" "}
+                {transporte.registro.ultimo_posicionamiento}
+              </p>
+              <p>
+                <strong>Coordenadas :</strong> {transporte.registro.coordenadas}
+              </p>
+            </div>
+          )}
+        </div>
+      );
     };
 
     return (
@@ -562,7 +601,8 @@ const BitacoraDetailPage = ({edited}) => {
                 )}
               </div>
             </div>
-            <div className="col-md-6">
+            {/* Past right col */}
+            {/* <div className="col-md-6">
               <p className="card-text">
                 <strong>Transportes:</strong>{" "}
                 {transportes && transportes.length > 0
@@ -608,6 +648,16 @@ const BitacoraDetailPage = ({edited}) => {
               <p className="card-text">
                 <strong>Hora:</strong> {new Date(createdAt).toLocaleTimeString()}
               </p>
+            </div> */}
+
+            {/* New right col */}
+            <div className="col-md-6">
+              <p className="fw-bold text-center fs-5">Transportes</p>
+              {event.transportes.map((t, i) => (
+                <div key={i}>
+                  <CollapsibleTransporte transporte={t} />
+                </div>
+              ))}
             </div>
           </div>
         </div>
@@ -699,7 +749,11 @@ const BitacoraDetailPage = ({edited}) => {
                 <Form.Control
                   type="text"
                   name="nombre"
-                  value={formData.transportes.map((transporte) => transporte.id).join(", ")}
+                  value={formData.transportes
+                    .map((transporte) =>
+                      transporte.id.includes("_") ? transporte.id.split("_")[1] : transporte.id
+                    )
+                    .join(", ")}
                   onChange={handleInputChange}
                   disabled
                 />
