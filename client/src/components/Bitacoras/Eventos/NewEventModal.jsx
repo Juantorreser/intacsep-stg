@@ -2,6 +2,7 @@ import React, {useEffect, useState} from "react";
 import {useAuth} from "../../../context/AuthContext";
 import {useParams} from "react-router-dom";
 import {useWialon} from "../../../context/WialonProvider";
+import {FaPlus, FaMinus} from "react-icons/fa";
 
 const NewEventModal = ({edited, eventTypes}) => {
   const [bitacora, setBitacora] = useState(null);
@@ -13,15 +14,15 @@ const NewEventModal = ({edited, eventTypes}) => {
   // const [units, setUnits] = useState([]);
   const token = import.meta.env.VITE_WIALON_TOKEN;
   const {units} = useWialon();
+  const [openTransportId, setOpenTransportId] = useState(null);
+
+  const toggleCollapse = (id) => {
+    setOpenTransportId(openTransportId === id ? null : id);
+  };
 
   const [newEvent, setNewEvent] = useState({
     nombre: "",
     descripcion: "",
-    ubicacion: "",
-    ultimo_posicionamiento: "",
-    velocidad: "",
-    coordenadas: "",
-    duracion: "",
     frecuencia: 0,
     registrado_por: `${user?.firstName} ${user?.lastName}`,
     transportes: transportes,
@@ -502,76 +503,6 @@ const NewEventModal = ({edited, eventTypes}) => {
                 />
               </div>
               <div className="mb-3">
-                <label htmlFor="ubicacion" className="form-label">
-                  Ubicación
-                </label>
-                <input
-                  type="text"
-                  className="form-control"
-                  id="ubicacion"
-                  name="ubicacion"
-                  value={newEvent.ubicacion}
-                  onChange={handleChange}
-                  required
-                />
-              </div>
-              <div className="mb-3">
-                <label htmlFor="duracion" className="form-label">
-                  Duración
-                </label>
-                <input
-                  type="text"
-                  className="form-control"
-                  id="duracion"
-                  name="duracion"
-                  value={newEvent.duracion}
-                  onChange={handleChange}
-                  required
-                />
-              </div>
-              <div className="mb-3">
-                <label htmlFor="ultimo_posicionamiento" className="form-label">
-                  Último Posicionamiento
-                </label>
-                <input
-                  type="text"
-                  className="form-control"
-                  id="ultimo_posicionamiento"
-                  name="ultimo_posicionamiento"
-                  value={newEvent.ultimo_posicionamiento}
-                  onChange={handleChange}
-                  required
-                />
-              </div>
-              <div className="mb-3">
-                <label htmlFor="velocidad" className="form-label">
-                  Velocidad
-                </label>
-                <input
-                  type="text"
-                  className="form-control"
-                  id="velocidad"
-                  name="velocidad"
-                  value={newEvent.velocidad}
-                  onChange={handleChange}
-                  required
-                />
-              </div>
-              <div className="mb-3">
-                <label htmlFor="coordenadas" className="form-label">
-                  Coordenadas
-                </label>
-                <input
-                  type="text"
-                  className="form-control"
-                  id="coordenadas"
-                  name="coordenadas"
-                  value={newEvent.coordenadas}
-                  onChange={handleChange}
-                  required
-                />
-              </div>
-              <div className="mb-3">
                 <label htmlFor="frecuencia" className="form-label">
                   Frecuencia
                 </label>
@@ -586,6 +517,45 @@ const NewEventModal = ({edited, eventTypes}) => {
                   onChange={handleChange}
                   required
                 />
+              </div>
+              <hr />
+
+              <div>
+                {selectedTransportes.map((t) => (
+                  <div key={t.id} className="border mb-2 rounded">
+                    <div
+                      className="flex items-center justify-center w-full cursor-pointer bg-gray-200 p-3 rounded"
+                      onClick={() => toggleCollapse(t.id)}>
+                      <div className="whitespace-nowrap">
+                        GPS ID: {t.id.includes("_") ? t.id.split("_")[1] : t.id}
+                      </div>
+
+                      <div className="ml-auto flex items-center w-[25px]">
+                        {openTransportId === t.id ? <FaMinus /> : <FaPlus />}
+                      </div>
+                    </div>
+
+                    {openTransportId === t.id && (
+                      <div className="p-2 mt-2 border-t">
+                        <p>
+                          <strong>Duracion:</strong> {t.nombre}
+                        </p>
+                        <p>
+                          <strong>Ubicacion:</strong> {t.detalles}
+                        </p>
+                        <p>
+                          <strong>Velocidad:</strong> {t.detalles}
+                        </p>
+                        <p>
+                          <strong>Ultimo posicionamiento:</strong> {t.detalles}
+                        </p>
+                        <p>
+                          <strong>Coordenadas:</strong> {t.detalles}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                ))}
               </div>
 
               <div className="text-end">

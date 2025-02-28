@@ -23,6 +23,13 @@ const TransporteSchema = new mongoose.Schema(
     telefono: String,
     inicioMonitoreo: {type: Date},
     finalMonitoreo: {type: Date},
+    registro: {
+      ubicacion: {type: String, default: ""},
+      ultimo_posicionamiento: {type: String, default: ""},
+      duracion: String,
+      velocidad: {type: String, default: ""},
+      coordenadas: {type: String, default: ""},
+    },
   },
   {timestamps: true} // Esto agregará automáticamente los campos `createdAt` y `updatedAt`
 );
@@ -31,13 +38,8 @@ const EventoSchema = new mongoose.Schema(
   {
     nombre: {type: String, required: true},
     descripcion: {type: String, required: true},
-    ubicacion: {type: String, default: ""},
-    ultimo_posicionamiento: {type: String, default: ""},
-    duracion: String,
-    velocidad: {type: String, default: ""},
-    coordenadas: {type: String, default: ""},
-    frecuencia: {type: Number, defaul: 0},
     registrado_por: {type: String, default: "Nombre Usuario"},
+    frecuencia: {type: Number, defaul: 0},
     transportes: [TransporteSchema],
   },
   {timestamps: true} // Esto agregará automáticamente los campos `createdAt` y `updatedAt`
