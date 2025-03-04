@@ -127,23 +127,30 @@ const NewEventModal = ({edited, eventTypes}) => {
     // 🔥 Ver qué hay en `newEvent` antes de actualizar
     console.log("🔍 Estado antes de actualizar:", newEvent.transportes);
 
+    console.log(duracion);
+    transportes.forEach((transporte) => {
+      console.log("Comparing:", transporte.id.split("_")[0], "with", unidadEncontrada.id);
+    });
+
+    const updatedTransportes = transportes.map((transporte) =>
+      transporte.id.split("_")[0] == unidadEncontrada.id
+        ? {
+            ...transporte,
+            registro: {
+              duracion: duracion,
+              ubicacion: ubicacion,
+              velocidad: velocidad,
+              coordenadas: coordenadas,
+              ultimo_posicionamiento: ultimo_posicionamiento,
+            },
+          }
+        : transporte
+    );
+
+    console.log(updatedTransportes);
+
     // Actualizar correctamente sin mutar el estado
     setNewEvent((prev) => {
-      const updatedTransportes = prev.transportes.map((transporte) =>
-        transporte.id.split("_")[0] === unidadEncontrada.id
-          ? {
-              ...transporte,
-              registro: {
-                duracion,
-                ubicacion,
-                velocidad,
-                coordenadas,
-                ultimo_posicionamiento,
-              },
-            }
-          : transporte
-      );
-
       console.log("✅ Estado actualizado de newEvent.transportes:", updatedTransportes);
 
       return {...prev, transportes: updatedTransportes};
@@ -216,18 +223,15 @@ const NewEventModal = ({edited, eventTypes}) => {
     const isCierreDeServicio = newEvent.nombre === "Cierre de servicio";
     const currentDate = new Date().toISOString();
 
-    const updatedTransportes = selectedTransportes.map((transporte) => ({
+    console.log(newEvent);
+
+    const updatedTransportes = newEvent.transportes.map((transporte) => ({
       ...transporte,
       inicioMonitoreo: isValidacion ? currentDate : transporte.inicioMonitoreo,
       finalMonitoreo: isCierreDeServicio ? currentDate : transporte.finalMonitoreo,
-      // registro: {
-      //   duracion: "N/A",
-      //   ubicacion: "N/A",
-      //   velocidad: "N/A",
-      //   coordenadas: "N/A",
-      //   ultimo_posicionamiento: "N/A",
-      // },
     }));
+
+    console.log(`Aqui seguro: `, updatedTransportes);
 
     console.log(
       "🚀 Enviando datos al backend:",
