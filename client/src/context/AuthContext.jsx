@@ -43,19 +43,19 @@ const AuthProvider = ({children}) => {
     logout();
   };
 
-  useEffect(() => {
-    handleUserActivity(); // Initialize the inactivity timer
+  // useEffect(() => {
+  //   handleUserActivity(); // Initialize the inactivity timer
 
-    window.addEventListener("mousemove", handleUserActivity);
-    window.addEventListener("keypress", handleUserActivity);
-    return () => {
-      window.removeEventListener("mousemove", handleUserActivity);
-      window.removeEventListener("keypress", handleUserActivity);
-      if (inactivityTimeoutRef.current) {
-        clearTimeout(inactivityTimeoutRef.current);
-      }
-    };
-  }, [user, seconds]);
+  //   window.addEventListener("mousemove", handleUserActivity);
+  //   window.addEventListener("keypress", handleUserActivity);
+  //   return () => {
+  //     window.removeEventListener("mousemove", handleUserActivity);
+  //     window.removeEventListener("keypress", handleUserActivity);
+  //     if (inactivityTimeoutRef.current) {
+  //       clearTimeout(inactivityTimeoutRef.current);
+  //     }
+  //   };
+  // }, [user, seconds]);
 
   const verifyToken = async () => {
     try {
