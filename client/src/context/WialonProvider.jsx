@@ -1,4 +1,4 @@
-import React, {createContext, useContext, useEffect, useState} from "react";
+import React, {createContext, useContext, useEffect, useState, useRef} from "react";
 
 const WialonContext = createContext(null);
 
@@ -6,7 +6,8 @@ export const useWialon = () => useContext(WialonContext);
 
 export const WialonProvider = ({children}) => {
   const [session, setSession] = useState(null);
-  const [units, setUnits] = useState([]); // Store fetched units
+  const [units, setUnits] = useState([]);
+  const initialized = useRef(false); // 👈 Track if fetchAllUnits was already executed
 
   const fetchAllUnits = async (sess, retries = 3, delay = 1000) => {
     try {
@@ -29,7 +30,7 @@ export const WialonProvider = ({children}) => {
 
       const fetchedUnits = sess.getItems("avl_unit") || [];
       const unitDetails = fetchedUnits.map((unit) => ({id: unit.getId(), name: unit.getName()}));
-      setUnits(unitDetails); // Store fetched units
+      setUnits(unitDetails);
 
       console.log("Unidades obtenidas:", unitDetails);
     } catch (error) {
@@ -39,12 +40,17 @@ export const WialonProvider = ({children}) => {
         setTimeout(() => fetchAllUnits(sess, retries - 1, delay), delay);
       } else {
         console.log("Max retries reached, failing...");
-        setUnits([]); // Reset units on failure
+        setUnits([]);
       }
     }
   };
 
   useEffect(() => {
+    if (initialized.current) {
+      return;
+    } // 👈 Prevent multiple fetches
+    initialized.current = true; // 👈 Mark as initialized
+
     const sess = window.wialon.core.Session.getInstance();
     const token = import.meta.env.VITE_WIALON_TOKEN;
 
@@ -56,7 +62,7 @@ export const WialonProvider = ({children}) => {
       } else {
         console.log("Wialon logged in successfully!");
         setSession(sess);
-        fetchAllUnits(sess); // Fetch units after successful login
+        fetchAllUnits(sess);
       }
     });
 

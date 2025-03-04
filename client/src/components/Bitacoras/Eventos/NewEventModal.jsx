@@ -83,69 +83,71 @@ const NewEventModal = ({edited, eventTypes}) => {
   };
 
   const getUnitInfo = async (transporteId) => {
-    // Extraer el ID correcto: tomar la parte antes del '_'
+    console.log(`Ejecutando getUnitInfo para transporte ID: ${transporteId}`);
+
     const formattedTransporteId = transporteId.includes("_")
       ? transporteId.split("_")[0]
       : transporteId;
 
-    console.log("ID recibido:", transporteId);
-    console.log("ID formateado:", formattedTransporteId);
-    console.log(units);
-
-    // Buscar si existe una unidad con el id igual al ID formateado
     const unidadEncontrada = units.find((unit) => unit.id == formattedTransporteId);
-
-    if (unidadEncontrada) {
-      const sess = window.wialon.core.Session.getInstance();
-      const unit = sess.getItems("avl_unit").find((u) => u.getId() === unidadEncontrada.id);
-      console.log(unit);
-
-      if (unit) {
-        //Obtener la posición de la unidad
-        const pos = unit.getPosition();
-        let ubicacion = "";
-        const currentTime = Math.floor(Date.now() / 1000); // Tiempo actual en segundos
-        const timeDiffInSeconds = pos ? currentTime - pos.t : 0;
-        const duracion = formatDuration(timeDiffInSeconds); // Convertir a formato "20h ago"
-        // Usar await para esperar la respuesta de la dirección
-        try {
-          const address = await getAddressFromCoordinates(pos.x, pos.y);
-          ubicacion = Array.isArray(address) ? address.join(", ") : address;
-        } catch (error) {
-          console.error("Error al obtener la dirección:", error);
-        }
-        const velocidad = pos ? pos.s : ""; // Velocidad
-        const coordenadas = pos ? `${pos.y}, ${pos.x}` : ""; // Coordenadas
-        const ultimo_posicionamiento = pos ? window.wialon.util.DateTime.formatTime(pos.t) : ""; // Último mensaje
-
-        setNewEvent((prev) => ({
-          ...prev,
-          transportes: transportes.map((transporte) =>
-            transporte.id.split("_")[0] === unidadEncontrada?.id
-              ? {
-                  ...transporte,
-                  registro: {
-                    duracion: duracion || "N/A",
-                    ubicacion: ubicacion || "N/A",
-                    velocidad: velocidad || "N/A",
-                    coordenadas: coordenadas || "N/A",
-                    ultimo_posicionamiento: ultimo_posicionamiento || "N/A",
-                  },
-                }
-              : {
-                  ...transporte,
-                  registro: transporte.registro || {
-                    duracion: "N/A",
-                    ubicacion: "N/A",
-                    velocidad: "N/A",
-                    coordenadas: "N/A",
-                    ultimo_posicionamiento: "N/A",
-                  },
-                }
-          ),
-        }));
-      }
+    if (!unidadEncontrada) {
+      console.error(`No se encontró unidad para ID: ${formattedTransporteId}`);
+      return;
     }
+
+    const sess = window.wialon.core.Session.getInstance();
+    const unit = sess.getItems("avl_unit").find((u) => u.getId() === unidadEncontrada.id);
+
+    if (!unit) {
+      console.error(`No se encontró el objeto unit en Wialon para ID: ${unidadEncontrada.id}`);
+      return;
+    }
+
+    const pos = unit.getPosition();
+    if (!pos) {
+      console.error(`No se encontró posición para unidad: ${unidadEncontrada.id}`);
+      return;
+    }
+
+    console.log(`📡 Datos obtenidos de Wialon para ${unidadEncontrada.id}:`, pos);
+
+    let ubicacion = "";
+    try {
+      const address = await getAddressFromCoordinates(pos.x, pos.y);
+      ubicacion = Array.isArray(address) ? address.join(", ") : address;
+    } catch (error) {
+      console.error("Error al obtener la dirección:", error);
+    }
+
+    const duracion = formatDuration(Math.floor(Date.now() / 1000) - pos.t);
+    const velocidad = pos.s || "N/A";
+    const coordenadas = `${pos.y}, ${pos.x}`;
+    const ultimo_posicionamiento = window.wialon.util.DateTime.formatTime(pos.t);
+
+    // 🔥 Ver qué hay en `newEvent` antes de actualizar
+    console.log("🔍 Estado antes de actualizar:", newEvent.transportes);
+
+    // Actualizar correctamente sin mutar el estado
+    setNewEvent((prev) => {
+      const updatedTransportes = prev.transportes.map((transporte) =>
+        transporte.id.split("_")[0] === unidadEncontrada.id
+          ? {
+              ...transporte,
+              registro: {
+                duracion,
+                ubicacion,
+                velocidad,
+                coordenadas,
+                ultimo_posicionamiento,
+              },
+            }
+          : transporte
+      );
+
+      console.log("✅ Estado actualizado de newEvent.transportes:", updatedTransportes);
+
+      return {...prev, transportes: updatedTransportes};
+    });
   };
 
   // Función para formatear el tiempo transcurrido en "X time ago"
@@ -190,27 +192,8 @@ const NewEventModal = ({edited, eventTypes}) => {
           : prev.filter((transporte) => transporte.id !== transporteToAdd.id);
       }
 
-      // Si solo un transporte está seleccionado, obtenemos su info
-      if (newSelection.length === 1) {
-        getUnitInfo(newSelection[0].id);
-      }
-
-      // Si no hay transportes seleccionados, limpiar campos
-      if (newSelection.length === 0) {
-        setNewEvent((prev) => ({
-          ...prev,
-          ubicacion: "",
-          velocidad: "",
-          coordenadas: "",
-          ultimo_posicionamiento: "",
-          duracion: "",
-          nombre: "",
-          descripcion: "",
-          frecuencia: 0,
-          registrado_por: `${user?.firstName} ${user?.lastName}`,
-          transportes: [], // Asegurar que se borren los transportes
-        }));
-      }
+      // Obtener la información de Wialon para cada transporte seleccionado
+      newSelection.forEach((t) => getUnitInfo(t.id));
 
       return newSelection;
     });
@@ -223,7 +206,6 @@ const NewEventModal = ({edited, eventTypes}) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log(newEvent);
 
     if (selectedTransportes.length === 0) {
       alert("Favor de seleccionar un transporte.");
@@ -234,14 +216,111 @@ const NewEventModal = ({edited, eventTypes}) => {
     const isCierreDeServicio = newEvent.nombre === "Cierre de servicio";
     const currentDate = new Date().toISOString();
 
-    // Solo actualizamos los transportes seleccionados
     const updatedTransportes = selectedTransportes.map((transporte) => ({
       ...transporte,
       inicioMonitoreo: isValidacion ? currentDate : transporte.inicioMonitoreo,
       finalMonitoreo: isCierreDeServicio ? currentDate : transporte.finalMonitoreo,
+      registro: transporte.registro || {
+        duracion: "N/A",
+        ubicacion: "N/A",
+        velocidad: "N/A",
+        coordenadas: "N/A",
+        ultimo_posicionamiento: "N/A",
+      },
     }));
 
-    console.log(updatedTransportes);
+    console.log(
+      "🚀 Enviando datos al backend:",
+      JSON.stringify(
+        {
+          nombre: newEvent.nombre,
+          descripcion: newEvent.descripcion,
+          registrado_por: `${user.firstName} ${user.lastName}`,
+          frecuencia: newEvent.frecuencia,
+          transportes: updatedTransportes,
+        },
+        null,
+        2
+      )
+    );
+
+    if (bitacora.status === "nueva" && newEvent.nombre === "Validación") {
+      try {
+        const response = await fetch(`${baseUrl}/bitacora/${id}/status`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            status: "validada",
+            inicioMonitoreo: new Date().toISOString(), // Set the start time
+          }),
+          credentials: "include",
+        });
+        if (response.ok) {
+          const updatedBitacora = await response.json();
+          setBitacora(updatedBitacora);
+          setIsEventStarted(true);
+          setFinishButtonDisabled(false);
+        } else {
+          console.error("Failed to start bitácora:", response.statusText);
+        }
+      } catch (e) {
+        console.error("Error starting bitácora:", e);
+      }
+    }
+
+    if (bitacora.status === "validada" && newEvent.nombre === "Inicio de recorrido") {
+      try {
+        const response = await fetch(`${baseUrl}/bitacora/${id}/status`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            status: "iniciada",
+            inicioMonitoreo: new Date().toISOString(), // Set the start time
+          }),
+          credentials: "include",
+        });
+        if (response.ok) {
+          const updatedBitacora = await response.json();
+          setBitacora(updatedBitacora);
+          setIsEventStarted(true);
+          setFinishButtonDisabled(false);
+        } else {
+          console.error("Failed to start bitácora:", response.statusText);
+        }
+      } catch (e) {
+        console.error("Error starting bitácora:", e);
+      }
+    }
+
+    if (bitacora.status === "iniciada" && newEvent.nombre === "Cierre de servicio") {
+      try {
+        const response = await fetch(`${baseUrl}/bitacora/${id}/status`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            status: "cerrada",
+            inicioMonitoreo: new Date().toISOString(), // Set the start time
+          }),
+          credentials: "include",
+        });
+        if (response.ok) {
+          const updatedBitacora = await response.json();
+          setBitacora(updatedBitacora);
+          setIsEventStarted(true);
+          setFinishButtonDisabled(false);
+        } else {
+          console.error("Failed to start bitácora:", response.statusText);
+        }
+      } catch (e) {
+        console.error("Error starting bitácora:", e);
+      }
+    }
 
     try {
       const response = await fetch(`${baseUrl}/bitacora/${id}/event`, {
@@ -250,110 +329,23 @@ const NewEventModal = ({edited, eventTypes}) => {
         body: JSON.stringify({
           nombre: newEvent.nombre,
           descripcion: newEvent.descripcion,
-          ubicacion: newEvent.ubicacion,
-          ultimo_posicionamiento: newEvent.ultimo_posicionamiento,
-          velocidad: newEvent.velocidad,
-          coordenadas: newEvent.coordenadas,
-          duracion: newEvent.duracion,
           registrado_por: `${user.firstName} ${user.lastName}`,
           frecuencia: newEvent.frecuencia,
-          transportes: updatedTransportes, // Aquí solo enviamos los seleccionados
+          transportes: updatedTransportes,
         }),
         credentials: "include",
       });
 
-      if (bitacora.status === "nueva") {
-        try {
-          const response = await fetch(`${baseUrl}/bitacora/${id}/status`, {
-            method: "PATCH",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              status: "validada",
-              inicioMonitoreo: new Date().toISOString(), // Set the start time
-            }),
-            credentials: "include",
-          });
-          if (response.ok) {
-            const updatedBitacora = await response.json();
-            setBitacora(updatedBitacora);
-            setIsEventStarted(true);
-            setFinishButtonDisabled(false);
-          } else {
-            console.error("Failed to start bitácora:", response.statusText);
-          }
-        } catch (e) {
-          console.error("Error starting bitácora:", e);
-        }
+      if (!response.ok) {
+        console.error("Error en respuesta del servidor:", response.statusText);
+        return;
       }
 
-      if (bitacora.status === "validada" && newEvent.nombre === "Inicio de recorrido") {
-        try {
-          const response = await fetch(`${baseUrl}/bitacora/${id}/status`, {
-            method: "PATCH",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              status: "iniciada",
-              inicioMonitoreo: new Date().toISOString(), // Set the start time
-            }),
-            credentials: "include",
-          });
-          if (response.ok) {
-            const updatedBitacora = await response.json();
-            setBitacora(updatedBitacora);
-            setIsEventStarted(true);
-            setFinishButtonDisabled(false);
-          } else {
-            console.error("Failed to start bitácora:", response.statusText);
-          }
-        } catch (e) {
-          console.error("Error starting bitácora:", e);
-        }
-      }
-
-      if (bitacora.status === "iniciada" && newEvent.nombre === "Cierre de servicio") {
-        try {
-          const response = await fetch(`${baseUrl}/bitacora/${id}/status`, {
-            method: "PATCH",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              status: "cerrada",
-              inicioMonitoreo: new Date().toISOString(), // Set the start time
-            }),
-            credentials: "include",
-          });
-          if (response.ok) {
-            const updatedBitacora = await response.json();
-            setBitacora(updatedBitacora);
-            setIsEventStarted(true);
-            setFinishButtonDisabled(false);
-          } else {
-            console.error("Failed to start bitácora:", response.statusText);
-          }
-        } catch (e) {
-          console.error("Error starting bitácora:", e);
-        }
-      }
-
-      if (response.ok) {
-        const updatedBitacora = await response.json();
-        setBitacora(updatedBitacora);
-        setNewEvent({
-          nombre: "",
-          descripcion: "",
-          transportes: updatedBitacora.transportes,
-          frecuencia: 0,
-        });
-      } else {
-        console.error("Failed to add event:", response.statusText);
-      }
+      const updatedBitacora = await response.json();
+      console.log("✅ Evento guardado en la DB:", updatedBitacora);
+      setBitacora(updatedBitacora);
     } catch (e) {
-      console.error("Error adding event:", e);
+      console.error("Error en handleSubmit:", e);
     }
   };
 
