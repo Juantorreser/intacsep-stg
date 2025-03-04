@@ -120,7 +120,7 @@ const NewEventModal = ({edited, eventTypes}) => {
     }
 
     const duracion = formatDuration(Math.floor(Date.now() / 1000) - pos.t);
-    const velocidad = pos.s || "N/A";
+    const velocidad = pos.s;
     const coordenadas = `${pos.y}, ${pos.x}`;
     const ultimo_posicionamiento = window.wialon.util.DateTime.formatTime(pos.t);
 
