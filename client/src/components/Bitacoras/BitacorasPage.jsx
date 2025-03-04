@@ -467,9 +467,9 @@ const BitacorasPage = () => {
                       <th className="text-center half relative">
                         <i className="fa fa-download"></i>
                       </th>
-                      <th className="text-center half">
+                      {/* <th className="text-center half">
                         <i className="fa fa-clipboard-check"></i>
-                      </th>
+                      </th> */}
                       {/* <th className="text-center half">
                         <i className="fa fa-eye"></i>
                       </th> */}
@@ -560,7 +560,7 @@ const BitacorasPage = () => {
                       </th>
                       <th className="two"></th>
                       <th className="half"></th>
-                      <th className="half"></th>
+                      {/* <th className="half"></th> */}
                       {/* <th className="half"></th> */}
                     </tr>
                   </thead>
@@ -620,7 +620,7 @@ const BitacorasPage = () => {
                               <i className="fa fa-file-pdf"></i>
                             </button>
                           </td>
-                          <td className="text-center half position-relative">
+                          {/* <td className="text-center half position-relative">
                             <button
                               className={
                                 bitacora.edited === false
@@ -632,7 +632,7 @@ const BitacorasPage = () => {
                               disabled={bitacora.edited == false}>
                               <i className="fa fa-file-pdf"></i>
                             </button>
-                          </td>
+                          </td> */}
                           {/* <td className="text-center half position-relative">
                             <button
                               className={
