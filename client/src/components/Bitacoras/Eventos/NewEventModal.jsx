@@ -62,17 +62,17 @@ const NewEventModal = ({edited, eventTypes}) => {
           setBitacora(data.edited_bitacora);
           // setEditedBitacora(data.edited_bitacora);
           setTransportes(data.edited_bitacora.transportes);
-          setSelectedTransportes(data.transportes);
+          // setSelectedTransportes(data.transportes);
         } else if (!edited && data.edited_bitacora) {
           setBitacora(data);
           // setEditedBitacora(data.edited_bitacora);
           setTransportes(data.transportes);
-          setSelectedTransportes(data.transportes);
+          // setSelectedTransportes(data.transportes);
         } else {
           setBitacora(data);
           // setEditedBitacora(data);
           setTransportes(data.transportes);
-          setSelectedTransportes(data.transportes);
+          // setSelectedTransportes(data.transportes);
         }
       } else {
         console.error("Failed to fetch bitácora:", response.statusText);
@@ -220,13 +220,13 @@ const NewEventModal = ({edited, eventTypes}) => {
       ...transporte,
       inicioMonitoreo: isValidacion ? currentDate : transporte.inicioMonitoreo,
       finalMonitoreo: isCierreDeServicio ? currentDate : transporte.finalMonitoreo,
-      registro: transporte.registro || {
-        duracion: "N/A",
-        ubicacion: "N/A",
-        velocidad: "N/A",
-        coordenadas: "N/A",
-        ultimo_posicionamiento: "N/A",
-      },
+      // registro: {
+      //   duracion: "N/A",
+      //   ubicacion: "N/A",
+      //   velocidad: "N/A",
+      //   coordenadas: "N/A",
+      //   ultimo_posicionamiento: "N/A",
+      // },
     }));
 
     console.log(
