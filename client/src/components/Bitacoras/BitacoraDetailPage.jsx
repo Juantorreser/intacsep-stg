@@ -867,10 +867,10 @@ const BitacoraDetailPage = ({edited}) => {
   const handleEditSubmit = async (e, updatedBitacora) => {
     e.preventDefault();
     console.log("Submitting changes...");
-    console.log(updatedBitacora.eventos);
+
 
     const submitBitacora = updatedBitacora ? updatedBitacora : bitacora;
-
+    console.log(submitBitacora);
     try {
       const response = await fetch(`${baseUrl}/bitacora/${id}`, {
         method: "PATCH",

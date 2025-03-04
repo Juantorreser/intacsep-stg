@@ -529,18 +529,9 @@ app.get("/bitacora/:id", async (req, res) => {
 
 app.patch("/bitacora/:id/event", async (req, res) => {
   const {id} = req.params;
-  const {
-    nombre,
-    descripcion,
-    // ubicacion,
-    // duracion,
-    // ultimo_posicionamiento,
-    // velocidad,
-    // coordenadas,
-    registrado_por,
-    frecuencia,
-    transportes,
-  } = req.body;
+  const {nombre, descripcion, registrado_por, frecuencia, transportes} = req.body;
+
+  console.log(transportes);
 
   try {
     // Find the bitacora by its ID
