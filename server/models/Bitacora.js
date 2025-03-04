@@ -26,7 +26,7 @@ const TransporteSchema = new mongoose.Schema(
     registro: {
       ubicacion: {type: String, default: ""},
       ultimo_posicionamiento: {type: String, default: ""},
-      duracion: String,
+      duracion: {type: String, default: ""},
       velocidad: {type: String, default: ""},
       coordenadas: {type: String, default: ""},
     },
