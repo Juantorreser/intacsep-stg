@@ -1,0 +1,614 @@
+@import url("https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap");
+
+// Variables
+$fontFamily: "Poppins", sans-serif;
+$primary: #4ca6f6;
+$secondary: #105fa5;
+$alternative: #b8ddff;
+$white: #e5e6e7;
+$bg: #181920;
+$gray: #223b53;
+//$gray: #30373e;
+
+#root {
+  font-family: $fontFamily;
+  .cursor-pointer {
+    cursor: pointer;
+  }
+  .bg-body {
+    background-color: $bg !important;
+  }
+
+  .text-black {
+    color: $gray !important;
+  }
+
+  .text-white {
+    color: rgba(255, 255, 255, 0.829);
+  }
+
+  .bg-body-tertiary {
+    background-color: $gray !important;
+  }
+
+  .col {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .row {
+    display: flex;
+    flex-direction: row;
+  }
+
+  .letter-spacing-sm {
+    letter-spacing: 0.05em;
+  }
+
+  .letter-spacing-md {
+    letter-spacing: 0.1em;
+  }
+
+  .letter-spacing-lg {
+    letter-spacing: 0.3em;
+  }
+
+  footer {
+    height: 15%;
+    margin-top: auto;
+    font-size: 0.85rem;
+    position: absolute;
+    bottom: 5px;
+    left: 0;
+  }
+
+  #login {
+    background-image: url("/loginBg.webp");
+    background-size: cover;
+    background-position: center center;
+    background-color: $bg;
+    width: 100%;
+    height: 100vh;
+    display: flex;
+    color: $white;
+    padding: 0;
+    margin: 0;
+
+    .loginCard {
+      background-color: $bg;
+      border-radius: 5px;
+      z-index: 10;
+    }
+
+    .backdrop {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100svh;
+      background-color: #000000af;
+      z-index: 1;
+    }
+
+    input {
+      color: white;
+    }
+    .form-control {
+      background-color: $bg;
+      min-width: 300px;
+      margin: 0 5px;
+    }
+    .form-floating {
+      background-color: $bg;
+    }
+    a {
+      text-decoration: none;
+      color: white;
+      font-weight: 100;
+      margin-block: 15px;
+    }
+    .form-floating > .form-control-plaintext ~ label::after,
+    .form-floating > .form-control:focus ~ label::after,
+    .form-floating > .form-control:not(:placeholder-shown) ~ label::after,
+    .form-floating > .form-select ~ label::after {
+      background-color: white;
+    }
+    .form-floating > .form-control-plaintext ~ label,
+    .form-floating > .form-control:focus ~ label,
+    .form-floating > .form-control:not(:placeholder-shown) ~ label,
+    .form-floating > .form-select ~ label {
+      color: black;
+      opacity: 85%;
+    }
+
+    .registerSwitch {
+      cursor: pointer;
+    }
+  }
+
+  .sidebar-wrapper {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 17%; /* Adjust based on your preference */
+    height: 100%;
+    z-index: 1000;
+    background-color: #f8f9fa; /* or any background color */
+    margin-top: 60px;
+  }
+
+  .content-wrapper {
+    margin-left: 17%; /* Same as the sidebar width */
+    margin-top: 80px;
+    width: 83%; /* Adjust based on your sidebar width */
+    padding: 0;
+    min-height: 83svh;
+  }
+
+  @media (max-width: 768px) {
+    .sidebar-wrapper {
+      display: none; /* Hide sidebar on smaller screens */
+    }
+    .content-wrapper {
+      margin-left: 0;
+      width: 100%;
+    }
+  }
+  .navbar {
+    height: 60px;
+  }
+
+  #resetPwd {
+    background-color: $bg;
+    color: $white;
+    input {
+      color: white;
+    }
+    .form-control {
+      background-color: $bg;
+      min-width: 300px;
+      margin: 0 5px;
+    }
+    .form-floating {
+      background-color: $bg;
+    }
+    a {
+      text-decoration: none;
+      color: white;
+      font-weight: 100;
+      margin-block: 15px;
+    }
+    .form-floating > .form-control-plaintext ~ label::after,
+    .form-floating > .form-control:focus ~ label::after,
+    .form-floating > .form-control:not(:placeholder-shown) ~ label::after,
+    .form-floating > .form-select ~ label::after {
+      background-color: white;
+    }
+    .form-floating > .form-control-plaintext ~ label,
+    .form-floating > .form-control:focus ~ label,
+    .form-floating > .form-control:not(:placeholder-shown) ~ label,
+    .form-floating > .form-select ~ label {
+      color: black;
+      opacity: 85%;
+    }
+  }
+
+  #leftsidebar {
+    // .itemLine::before{
+    //     content: "";
+    //     position: absolute;
+    //     left: 13%;
+    //     height: 32px;
+    //     width: 3px;
+    //     background-color: rgba(255, 255, 255, 0.5);
+    // }
+    // .itemLine2::before{
+    //     content: "";
+    //     position: absolute;
+    //     left: 21%;
+    //     height: 32px;
+    //     width: 3px;
+    //     background-color: rgba(255, 255, 255, 0.5);
+    // }
+  }
+
+  #bitacoraDetail {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+
+    .content-wrapper {
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      .scrollable-content {
+        flex-grow: 1;
+        overflow-y: hidden;
+        height: calc(100vh - 210px);
+        position: relative;
+      }
+
+      .eventsTitle {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        background-color: white;
+        padding: 10px 0;
+      }
+    }
+  }
+
+  .btn-disabled {
+    background-color: #6c757d; /* Bootstrap's grey color */
+    border-color: #6c757d; /* Match the border color */
+    cursor: not-allowed; /* Change cursor to indicate disabled state */
+  }
+
+  .btn-disabled:focus,
+  .btn-disabled:hover {
+    background-color: #6c757d; /* Ensure the button remains grey when focused or hovered */
+    border-color: #6c757d; /* Ensure the border remains grey */
+  }
+
+  .inactivity-popup {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.8);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    color: #fff;
+    z-index: 1000000;
+
+    & .content {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      background-color: white;
+      color: $gray;
+      padding-inline: 50px;
+      padding-block: 50px;
+      border-radius: 10px;
+    }
+
+    & i {
+      font-size: 80px;
+      margin-bottom: 20px;
+    }
+
+    & h1 {
+      font-weight: 700;
+      margin-bottom: 20px;
+    }
+
+    & p {
+      margin-bottom: 10px;
+    }
+
+    & button {
+      padding: 10px 20px;
+      background-color: #007bff;
+      border: none;
+      color: #fff;
+      cursor: pointer;
+      border-radius: 5px;
+    }
+  }
+}
+
+#pdfBitacora {
+  $pdfBlack: #21354b;
+  $pdfBlue: #1b75bc;
+  $pdfLBlue: #00aeef;
+
+  font-family: Arial, Helvetica, sans-serif;
+  border: none;
+  padding: 20px 10px;
+  color: $pdfBlack;
+  .header {
+    text-align: start;
+    border-bottom: dashed $pdfBlue 2px;
+    .flex-center {
+      width: 100%;
+      display: flex;
+      flex-direction: row;
+      justify-content: center;
+      img {
+        width: 150px;
+        margin-bottom: 25px;
+      }
+    }
+
+    h1 {
+      text-align: center;
+      font-weight: 900;
+      font-size: 3rem;
+      position: relative; /* Ensure the h1 element is positioned relative for the pseudo-element to align correctly */
+      color: $pdfBlack;
+    }
+
+    h1::before {
+      width: 10px;
+      height: 130px;
+      content: "";
+      background-color: $pdfBlue;
+      position: absolute; /* Position the pseudo-element absolutely within the h1 element */
+      top: 0; /* Adjust the position as needed */
+      left: -30px; /* Adjust the position as needed */
+    }
+  }
+
+  .transportes,
+  .eventos {
+    margin-top: 30px;
+    padding-bottom: 20px;
+    border-bottom: dashed $pdfBlue 2px;
+    h2 {
+      font-size: 1.8rem;
+      font-weight: 800;
+      color: $pdfBlack;
+    }
+  }
+
+  .body {
+    margin-top: 30px;
+    padding-bottom: 20px;
+    border-bottom: dashed $pdfBlue 2px;
+  }
+  .transportCard {
+    border-radius: 10px;
+    // border: $pdfBlack solid 2px;
+    margin-bottom: 15px;
+    background-color: #f7f7f7;
+    .title {
+      background: $pdfBlue;
+      text-align: center;
+      justify-content: center;
+      padding-block: 5px;
+      border-radius: 10px 10px 0 0;
+    }
+
+    .divider {
+      height: 100px;
+      width: 1px;
+      background-color: $pdfBlack;
+    }
+  }
+  .event-card {
+    width: 95%;
+    .title {
+      h3 {
+        width: fit-content;
+        font-weight: 700;
+        background-color: $pdfBlue;
+        padding: 5px 10px;
+        border-radius: 10px;
+        color: rgb(238, 238, 238);
+      }
+      p {
+        margin-bottom: 2px;
+      }
+    }
+
+    .line {
+      justify-content: center;
+      align-items: center;
+      display: flex;
+      flex-direction: column;
+
+      .circle {
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        background-color: $pdfLBlue;
+      }
+      .line {
+        width: 5px;
+        height: 85%;
+        background-color: $pdfBlack;
+      }
+    }
+  }
+}
+
+.table-wrapper {
+  display: flex;
+  flex-direction: column;
+  height: 60vh; /* Full viewport height */
+}
+
+@media (min-width: 1400px) {
+  .table-wrapper {
+    height: 80vh; /* Full viewport height */
+  }
+}
+
+.table-container {
+  flex: 1; /* Allow this section to grow and shrink as needed */
+  overflow-y: auto; /* Enable vertical scrolling */
+  overflow-x: auto; /* Enable horizontal scrolling */
+  display: flex;
+  flex-direction: column;
+  -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
+}
+
+.table-container table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 0; /* Ensure no margin affects layout */
+  table-layout: auto; /* Automatic layout based on content */
+  min-width: 700px; /* Ensure table has a minimum width */
+}
+
+.table-container tr {
+  display: table;
+  table-layout: fixed;
+  width: 100%;
+}
+
+.table-container thead {
+  position: sticky;
+  top: 0;
+  background: white; /* Ensure the header is visible */
+  z-index: 100;
+  overflow-x: auto; /* Enable horizontal scrolling */
+  -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
+}
+
+.table-container thead th,
+.table-container tbody td {
+  font-size: 0.8rem;
+  padding: 8px;
+  border: 1px solid #ddd;
+  text-align: left;
+  white-space: wrap;
+  text-align: center;
+}
+
+.table-container thead th {
+  white-space: nowrap; /* Prevent text from wrapping */
+  text-align: center;
+
+  & select,
+  & input {
+    font-size: 0.7rem;
+  }
+}
+
+@media (min-width: 800px) {
+  .table-container thead th,
+  .table-container tbody td {
+    &.one {
+      width: 7%; /* Adjust as needed */
+    }
+    &.half {
+      width: 4%; /* Adjust as needed */
+    }
+    &.two {
+      width: 10%; /* Adjust as needed */
+    }
+    & button {
+      width: 35px;
+      height: 35px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+
+      & i {
+        font-size: 0.9rem;
+        padding: 0;
+        margin: 0;
+      }
+    }
+  }
+}
+
+/* Styles for screens smaller than 768px */
+@media (max-width: 1150px) {
+  .table-container {
+    overflow-x: auto; /* Ensure table is scrollable horizontally */
+    -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
+  }
+
+  .table-container table {
+    width: 100%; /* Ensure the table fits within the container */
+    min-width: 1000px; /* Set a minimum width for the table */
+  }
+
+  .table-container thead th,
+  .table-container tbody td {
+    white-space: wrap; /* Prevent text from wrapping */
+  }
+
+  .table-container thead th,
+  .table-container tbody td {
+    button {
+      & i {
+        font-size: 0.9rem;
+        padding: 0;
+        margin: 0;
+      }
+    }
+
+    &.one {
+      width: 25%; /* Adjust as needed */
+    }
+    &.half {
+      width: 15%; /* Adjust as needed */
+    }
+    &.two {
+      width: 40%; /* Adjust as needed */
+    }
+  }
+}
+
+.semaforo {
+  margin: auto;
+  width: 90%;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  & .circle {
+    height: 20px;
+    width: 20px;
+    border-radius: 50%;
+  }
+}
+
+.semaforoEvent {
+  margin-left: 10px;
+  width: 20px;
+  height: 30px;
+  display: flex;
+  align-items: start;
+  justify-content: center;
+
+  & .circle {
+    height: 20px;
+    width: 20px;
+    border-radius: 50%;
+  }
+}
+
+#detailHeader {
+  padding-block: 10px;
+  box-shadow: 0 8px 10px rgba(82, 82, 82, 0.1);
+  z-index: 1000;
+}
+
+#profileModal {
+  z-index: 1000;
+}
+
+.s-font {
+  font-size: 0.7rem;
+}
+.m-font {
+  font-size: 0.85rem;
+}
+.itemsSelector {
+  font-size: 0.8rem !important;
+  width: fit-content !important;
+  border: none !important;
+  padding: 10px 27px 10px 10px !important;
+}
+
+.pageLink {
+  text-decoration: none !important;
+  color: black !important;
+  border: none !important;
+  font-size: 0.9rem !important;
+}
+
+.icon-btn {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+}

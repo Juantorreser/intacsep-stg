@@ -1,0 +1,15 @@
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteBase /
+    
+    # Allow access to the index.html file
+    RewriteRule ^index\.html$ - [L]
+    
+    # Conditions to prevent rewriting for existing files, directories, and symbolic links
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteCond %{REQUEST_FILENAME} !-l
+    
+    # Rewrite all other requests to index.html
+    RewriteRule . /index.html [L]
+</IfModule>
