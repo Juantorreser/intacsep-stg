@@ -255,8 +255,8 @@ const BitacoraDetail = React.forwardRef(({bitacora, transporteId = ""}, ref) => 
             <Row md={12} key={index}>
               <Container className="mb-4 event-card">
                 <Row>
-                  <Col md={6} className="title">
-                    <h3>{evento.nombre}</h3>
+                  <Col md={6}>
+                    <h3 className="text-center fw-bold ">{evento.nombre}</h3>
                     <p>
                       <strong>Descripción:</strong>
                     </p>
@@ -266,24 +266,6 @@ const BitacoraDetail = React.forwardRef(({bitacora, transporteId = ""}, ref) => 
                     </p>
                     <p className="mt-4">
                       <strong>Frecuencia: </strong> {`${evento.frecuencia} min`}
-                    </p>
-                  </Col>
-                  <Col md={1} className="line">
-                    <div className="circle"></div>
-                    <div className="line"></div>
-                  </Col>
-                  <Col md={5} className="fields">
-                    <p className="mt-4">
-                      <strong>Ubicación: </strong> {evento.ubicacion}
-                    </p>
-                    <p className="mt-4">
-                      <strong>Último Posicionamiento: </strong> {evento.ultimo_posicionamiento}
-                    </p>
-                    <p className="mt-4">
-                      <strong>Velocidad: </strong> {evento.velocidad}
-                    </p>
-                    <p className="mt-4">
-                      <strong>Coordenadas: </strong> {evento.coordenadas}
                     </p>
                     <p className="mt-4">
                       <strong>Fecha:</strong>{" "}
@@ -297,6 +279,59 @@ const BitacoraDetail = React.forwardRef(({bitacora, transporteId = ""}, ref) => 
                         timeZone: "America/Mexico_City",
                       })}
                     </p>
+                  </Col>
+                  <Col md={1} className="line">
+                    <div className="circle"></div>
+                    <div className="line"></div>
+                  </Col>
+                  <Col md={5} className="fields">
+                    <p className=" fw-bold fs-6 text-center">
+                      {evento.transportes?.length > 1 ? "Transportes: " : "Transporte:"}
+                    </p>
+                    {evento.transportes?.map((t) => (
+                      <Row>
+                        <p className="text-center fst-italic fw-bold">{t.id}</p>
+                        <Col>
+                          <p>
+                            <span className="fw-bold">Duración:</span>
+                            {` ${t.registro.duracion}`}
+                          </p>
+                          <p>
+                            <span className="fw-bold">Coordenadas:</span>
+                            {` ${t.registro.ubicacion}`}
+                          </p>
+                          <p>
+                            <span className="fw-bold">Velocidad:</span>
+                            {` ${t.registro.velocidad} km/h`}
+                          </p>
+                        </Col>
+                        <Col>
+                          <p>
+                            <span className="fw-bold">Ubicación:</span>
+                            {` ${t.registro.ubicacion}`}
+                          </p>
+
+                          <p>
+                            <span className="fw-bold">Último posicionamiento:</span>
+                            {` ${t.registro.ultimo_posicionamiento}`}
+                          </p>
+                        </Col>
+                        <hr />
+                      </Row>
+                    ))}
+
+                    {/* <p className="mt-4">
+                      <strong>Ubicación: </strong> {evento.ubicacion}
+                    </p>
+                    <p className="mt-4">
+                      <strong>Último Posicionamiento: </strong> {evento.ultimo_posicionamiento}
+                    </p>
+                    <p className="mt-4">
+                      <strong>Velocidad: </strong> {evento.velocidad}
+                    </p>
+                    <p className="mt-4">
+                      <strong>Coordenadas: </strong> {evento.coordenadas}
+                    </p> */}
                   </Col>
                 </Row>
               </Container>
