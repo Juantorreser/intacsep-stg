@@ -82,6 +82,30 @@ const NewEventModal = ({edited, eventTypes}) => {
     }
   };
 
+  // Función para formatear el tiempo transcurrido en "X time ago"
+  const formatDuration = (seconds) => {
+    if (seconds < 60) return `Hace ${seconds}s`;
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return `Hace ${minutes}m`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `Hace ${hours}h`;
+    const days = Math.floor(hours / 24);
+    return `Hace ${days}d`;
+  };
+
+  // Función asincrónica para obtener la dirección a partir de las coordenadas
+  const getAddressFromCoordinates = (longitude, latitude) => {
+    return new Promise((resolve, reject) => {
+      window.wialon.util.Gis.getLocations([{lon: longitude, lat: latitude}], (code, address) => {
+        if (!code) {
+          resolve(address); // Si se obtiene la dirección correctamente
+        } else {
+          reject("Dirección no encontrada");
+        }
+      });
+    });
+  };
+
   const getUnitInfo = async (transporteId) => {
     console.log(`Ejecutando getUnitInfo para transporte ID: ${transporteId}`);
 
@@ -124,86 +148,47 @@ const NewEventModal = ({edited, eventTypes}) => {
     const coordenadas = `${pos.y}, ${pos.x}`;
     const ultimo_posicionamiento = window.wialon.util.DateTime.formatTime(pos.t);
 
-    // 🔥 Ver qué hay en `newEvent` antes de actualizar
-    console.log("🔍 Estado antes de actualizar:", newEvent.transportes);
-
-    console.log(duracion);
-    transportes.forEach((transporte) => {
-      console.log("Comparing:", transporte.id.split("_")[0], "with", unidadEncontrada.id);
-    });
-
-    const updatedTransportes = transportes.map((transporte) =>
-      transporte.id.split("_")[0] == unidadEncontrada.id
-        ? {
-            ...transporte,
-            registro: {
-              duracion: duracion,
-              ubicacion: ubicacion,
-              velocidad: velocidad,
-              coordenadas: coordenadas,
-              ultimo_posicionamiento: ultimo_posicionamiento,
-            },
-          }
-        : transporte
-    );
-
-    console.log(updatedTransportes);
-
-    // Actualizar correctamente sin mutar el estado
-    setNewEvent((prev) => {
-      console.log("✅ Estado actualizado de newEvent.transportes:", updatedTransportes);
-
-      return {...prev, transportes: updatedTransportes};
-    });
+    return {duracion, velocidad, coordenadas, ultimo_posicionamiento, ubicacion};
   };
 
-  // Función para formatear el tiempo transcurrido en "X time ago"
-  const formatDuration = (seconds) => {
-    if (seconds < 60) return `Hace ${seconds}s`;
-    const minutes = Math.floor(seconds / 60);
-    if (minutes < 60) return `Hace ${minutes}m`;
-    const hours = Math.floor(minutes / 60);
-    if (hours < 24) return `Hace ${hours}h`;
-    const days = Math.floor(hours / 24);
-    return `Hace ${days}d`;
-  };
-
-  // Función asincrónica para obtener la dirección a partir de las coordenadas
-  const getAddressFromCoordinates = (longitude, latitude) => {
-    return new Promise((resolve, reject) => {
-      window.wialon.util.Gis.getLocations([{lon: longitude, lat: latitude}], (code, address) => {
-        if (!code) {
-          resolve(address); // Si se obtiene la dirección correctamente
-        } else {
-          reject("Dirección no encontrada");
-        }
-      });
-    });
-  };
-
-  const handleCheckboxChange = (e) => {
+  const handleCheckboxChange = async (e) => {
     const {value, checked} = e.target;
     const transporteId = value;
+
+    console.log(transporteId);
+
     const transporteToAdd = bitacora.transportes.find(
       (transporte) => String(transporte.id) === transporteId
     );
 
-    setSelectedTransportes((prev) => {
-      let newSelection;
+    const data = await getUnitInfo(transporteId);
 
-      if (value === "all") {
-        newSelection = checked ? bitacora.transportes : [];
-      } else {
-        newSelection = checked
-          ? [...prev, transporteToAdd]
-          : prev.filter((transporte) => transporte.id !== transporteToAdd.id);
+    console.log(data);
+
+    if (!transporteToAdd) return;
+
+    transporteToAdd.registro.ubicacion = data.ubicacion;
+    transporteToAdd.registro.duracion = data.duracion;
+    transporteToAdd.registro.ultimo_posicionamiento = data.ultimo_posicionamiento;
+    transporteToAdd.registro.velocidad = data.velocidad;
+    transporteToAdd.registro.coordenadas = data.coordenadas;
+
+    let updatedTransportes = [...newEvent.transportes]; // Keep previous selections
+
+    if (checked) {
+      if (!updatedTransportes.some((t) => t.id === transporteToAdd.id)) {
+        updatedTransportes.push(transporteToAdd);
       }
+    } else {
+      updatedTransportes = updatedTransportes.filter((t) => t.id !== transporteToAdd.id);
+    }
 
-      // Obtener la información de Wialon para cada transporte seleccionado
-      newSelection.forEach((t) => getUnitInfo(t.id));
+    newEvent.transportes = updatedTransportes; // Update newEvent directly
 
-      return newSelection;
-    });
+    setNewEvent((prev) => ({
+      ...prev,
+      transportes: updatedTransportes,
+    }));
   };
 
   const handleChange = (e) => {
@@ -214,7 +199,7 @@ const NewEventModal = ({edited, eventTypes}) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (selectedTransportes.length === 0) {
+    if (newEvent.transportes?.length === 0) {
       alert("Favor de seleccionar un transporte.");
       return;
     }
@@ -230,8 +215,6 @@ const NewEventModal = ({edited, eventTypes}) => {
       inicioMonitoreo: isValidacion ? currentDate : transporte.inicioMonitoreo,
       finalMonitoreo: isCierreDeServicio ? currentDate : transporte.finalMonitoreo,
     }));
-
-    console.log(`Aqui seguro: `, updatedTransportes);
 
     console.log(
       "🚀 Enviando datos al backend:",
@@ -378,7 +361,7 @@ const NewEventModal = ({edited, eventTypes}) => {
                 <label htmlFor="transportes" className="form-label">
                   Transportes
                 </label>
-                <div className="form-check">
+                {/* <div className="form-check">
                   <input
                     type="checkbox"
                     className="form-check-input"
@@ -388,14 +371,14 @@ const NewEventModal = ({edited, eventTypes}) => {
                     onChange={handleCheckboxChange}
                     checked={
                       bitacora?.transportes &&
-                      selectedTransportes.length === bitacora.transportes.length
+                      newEvent.transportes?.length === bitacora.transportes.length
                     }
                   />
 
                   <label className="form-check-label" htmlFor="allTransportes">
                     Todos
                   </label>
-                </div>
+                </div> */}
                 {bitacora?.transportes?.map((transporte) => {
                   const transporteId = transporte.id.includes("_")
                     ? transporte.id.split("_")[1] // Obtiene la parte después del '_'
@@ -410,7 +393,7 @@ const NewEventModal = ({edited, eventTypes}) => {
                         name="transportes"
                         value={transporte.id}
                         onChange={handleCheckboxChange}
-                        checked={selectedTransportes.includes(transporte)}
+                        checked={newEvent.transportes.includes(transporte)}
                       />
                       <label className="form-check-label" htmlFor={`transporte-${transporte.id}`}>
                         {`${transporteId} - ${transporte.tracto.eco}`}
@@ -538,7 +521,7 @@ const NewEventModal = ({edited, eventTypes}) => {
               <hr />
 
               <div>
-                {selectedTransportes.map((t) => (
+                {newEvent.transportes?.map((t) => (
                   <div key={t.id} className="border mb-2 rounded">
                     <div
                       className="d-flex justify-content-between align-items-center cursor-pointer border p-2 rounded"
@@ -548,11 +531,11 @@ const NewEventModal = ({edited, eventTypes}) => {
                       </div>
 
                       <div className="ml-auto flex items-center w-[25px]">
-                        {openTransportId === t.id ? "-" : "+"}
+                        {openTransportId == t.id ? "-" : "+"}
                       </div>
                     </div>
 
-                    {openTransportId === t.id && (
+                    {openTransportId == t.id && (
                       <div className="p-2 mt-2 border-t">
                         <p>
                           <strong>Duración:</strong>{" "}
