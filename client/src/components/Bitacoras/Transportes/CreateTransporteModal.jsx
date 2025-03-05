@@ -116,6 +116,27 @@ const CreateTransporteModal = ({show, handleClose, addTransporte, transportes, b
     const newTransporteData = {id: newId, ...transporteData};
 
     addTransporte(newTransporteData, bitacora._id);
+    setTransporteData({
+      tracto: {
+        eco: "",
+        placa: "",
+        marca: "",
+        modelo: "",
+        color: "",
+        tipo: "",
+      },
+      remolque: {
+        eco: "",
+        placa: "",
+        color: "",
+        capacidad: "",
+        sello: "",
+      },
+      lineaTransporte: "",
+      operador: "",
+      telefono: "",
+    });
+    setSearchTerm("");
     handleClose();
   };
 

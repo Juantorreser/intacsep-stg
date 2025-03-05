@@ -449,17 +449,17 @@ const NewEventModal = ({edited, eventTypes}) => {
                     );
 
                     // Verificar si TODOS los selectedTransportes están en eventos de "Validación"
-                    const allSelectedTransportesInValidacion = selectedTransportes.every((t) =>
+                    const allSelectedTransportesInValidacion = newEvent.transportes.every((t) =>
                       transportesConValidacion.has(t.id)
                     );
 
                     // Verificar si TODOS los selectedTransportes están en eventos de "Inicio de recorrido"
-                    const allSelectedTransportesInInicioRecorrido = selectedTransportes.every((t) =>
-                      transportesConInicioRecorrido.has(t.id)
+                    const allSelectedTransportesInInicioRecorrido = newEvent.transportes.every(
+                      (t) => transportesConInicioRecorrido.has(t.id)
                     );
 
                     // Verificar si TODOS los selectedTransportes están en eventos de "Arribo a destino"
-                    const allSelectedTransportesInArriboDestino = selectedTransportes.every((t) =>
+                    const allSelectedTransportesInArriboDestino = newEvent.transportes.every((t) =>
                       transportesConArriboDestino.has(t.id)
                     );
 
