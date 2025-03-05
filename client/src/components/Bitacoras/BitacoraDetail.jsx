@@ -25,7 +25,7 @@ const BitacoraDetail = React.forwardRef(({bitacora, transporteId = ""}, ref) => 
           <Row>
             <h1>Bitácora de monitoreo {bitacora.id}</h1>
           </Row>
-          <Row>
+          {/* <Row>
             <Col>
               <p>
                 <strong>Inicio Monitoreo:</strong>{" "}
@@ -46,7 +46,7 @@ const BitacoraDetail = React.forwardRef(({bitacora, transporteId = ""}, ref) => 
                 })}`}
               </p>
             </Col>
-          </Row>
+          </Row> */}
         </Container>
 
         <Container className="body">
@@ -106,116 +106,142 @@ const BitacoraDetail = React.forwardRef(({bitacora, transporteId = ""}, ref) => 
           </h6>
         </Row>
         <Col className="mt-3">
-          {filteredTransportes.map((transporte, index) => (
-            <Row key={index}>
-              <div className="card-body transportCard">
-                <div className="d-flex flex-row title text-white fw-bolder fs-5">{`${
-                  transporte.id.includes("_") ? transporte.id.split("_")[1] : transporte.id
-                }`}</div>
-                <Row>
-                  <Col>
-                    <p>
-                      <strong>Inicio Monitoreo:</strong>{" "}
-                      {`${formatDate(transporte.inicioMonitoreo)}, ${new Date(
-                        transporte.inicioMonitoreo
-                      ).toLocaleTimeString("es-MX", {
-                        timeZone: "America/Mexico_City",
-                      })}`}
-                    </p>
-                  </Col>
-                  <Col>
-                    <p>
-                      <strong>Final Monitoreo:</strong>{" "}
-                      {`${formatDate(transporte.finalMonitoreo)}, ${new Date(
-                        transporte.finalMonitoreo
-                      ).toLocaleTimeString("es-MX", {
-                        timeZone: "America/Mexico_City",
-                      })}`}
-                    </p>
-                  </Col>
-                </Row>
-                <div className="row px-4 py-3">
-                  {/* Column 1 */}
-                  <div className="col-md-6 text-center">
-                    <h5 className="fw-bold">Tracto</h5>
-                    <div className="row">
-                      <div className="col-4">
-                        <h6 className="card-subtitle mb-2">
-                          <strong>Eco:</strong> {transporte.tracto.eco}
-                        </h6>
-                        <h6 className="card-subtitle mb-2">
-                          <strong>placa:</strong> {transporte.tracto.placa}
-                        </h6>
-                      </div>
-                      <div className="col-4">
-                        <h6 className="card-subtitle mb-2">
-                          <strong>Modelo:</strong> {transporte.tracto.modelo}
-                        </h6>
-                        <h6 className="card-subtitle mb-2">
-                          <strong>Color:</strong> {transporte.tracto.color}
-                        </h6>
-                      </div>
-                      <div className="col-4">
-                        <h6 className="card-subtitle mb-2">
-                          <strong>Marca:</strong> {transporte.tracto.marca}
-                        </h6>
-                        <h6 className="card-subtitle mb-2">
-                          <strong>Tipo:</strong> {transporte.tracto.tipo}
-                        </h6>
-                      </div>
-                    </div>
-                  </div>
-                  <div className=" col-md-1">
-                    <div className="divider"></div>
-                  </div>
-                  {/* Column 4 */}
-                  <div className="col-md-5 text-center">
-                    <h5 className="fw-bold">Remolque</h5>
-                    <div className="row">
-                      <div className="col-4">
-                        <h6 className="card-subtitle mb-2">
-                          <strong>Eco:</strong> {transporte.remolque.eco}
-                        </h6>
-                        <h6 className="card-subtitle mb-2">
-                          <strong>Placa:</strong> {transporte.remolque.placa}
-                        </h6>
-                      </div>
-                      <div className="col-4">
-                        <h6 className="card-subtitle mb-2">
-                          <strong>Color:</strong> {transporte.remolque.color}
-                        </h6>
-                        <h6 className="card-subtitle mb-2">
-                          <strong>Capacidad:</strong> {transporte.remolque.capacidad}
-                        </h6>
-                      </div>
-                      <div className="col-4">
-                        <h6 className="card-subtitle mb-2">
-                          <strong>Sello:</strong> {transporte.remolque.sello}
-                        </h6>
+          {filteredTransportes.map((transporte, index) => {
+            // Find the "Validacion" event
+            const eventoValidacion = bitacora.eventos.find(
+              (evento) => evento.nombre === "Validación"
+            );
+
+            // Find the "Cierre de servicio" event
+            const eventoCierre = bitacora.eventos.find(
+              (evento) => evento.nombre === "Cierre de servicio"
+            );
+
+            // Get the corresponding transporte object inside evento.transportes
+            const transporteValidacion = eventoValidacion?.transportes.find(
+              (t) => t.id === transporte.id
+            );
+            const transporteCierre = eventoCierre?.transportes.find((t) => t.id === transporte.id);
+
+            // Extract dates from the found transportes
+            const inicioMonitoreo = transporteValidacion
+              ? transporteValidacion.inicioMonitoreo
+              : "No disponible";
+            const finalMonitoreo = transporteCierre
+              ? transporteCierre.finalMonitoreo
+              : "No disponible";
+
+            return (
+              <Row key={index}>
+                <div className="card-body transportCard">
+                  <div className="d-flex flex-row title text-white fw-bolder fs-5">{`${
+                    transporte.id.includes("_") ? transporte.id.split("_")[1] : transporte.id
+                  }`}</div>
+                  <Row>
+                    <Col>
+                      <p>
+                        <strong>Inicio Monitoreo:</strong>{" "}
+                        {`${formatDate(inicioMonitoreo)}, ${new Date(
+                          inicioMonitoreo
+                        ).toLocaleTimeString("es-MX", {
+                          timeZone: "America/Mexico_City",
+                        })}`}
+                      </p>
+                    </Col>
+                    <Col>
+                      <p>
+                        <strong>Final Monitoreo:</strong>{" "}
+                        {`${formatDate(finalMonitoreo)}, ${new Date(
+                          finalMonitoreo
+                        ).toLocaleTimeString("es-MX", {
+                          timeZone: "America/Mexico_City",
+                        })}`}
+                      </p>
+                    </Col>
+                  </Row>
+                  <div className="row px-4 py-3">
+                    {/* Column 1 */}
+                    <div className="col-md-6 text-center">
+                      <h5 className="fw-bold">Tracto</h5>
+                      <div className="row">
+                        <div className="col-4">
+                          <h6 className="card-subtitle mb-2">
+                            <strong>Eco:</strong> {transporte.tracto.eco}
+                          </h6>
+                          <h6 className="card-subtitle mb-2">
+                            <strong>placa:</strong> {transporte.tracto.placa}
+                          </h6>
+                        </div>
+                        <div className="col-4">
+                          <h6 className="card-subtitle mb-2">
+                            <strong>Modelo:</strong> {transporte.tracto.modelo}
+                          </h6>
+                          <h6 className="card-subtitle mb-2">
+                            <strong>Color:</strong> {transporte.tracto.color}
+                          </h6>
+                        </div>
+                        <div className="col-4">
+                          <h6 className="card-subtitle mb-2">
+                            <strong>Marca:</strong> {transporte.tracto.marca}
+                          </h6>
+                          <h6 className="card-subtitle mb-2">
+                            <strong>Tipo:</strong> {transporte.tracto.tipo}
+                          </h6>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                  <div className="row text-center mt-2">
-                    <div className="col-4">
-                      <h6 className="card-subtitle mb-2">
-                        <strong>Linea Transporte:</strong> {transporte.lineaTransporte}
-                      </h6>
+                    <div className=" col-md-1">
+                      <div className="divider"></div>
                     </div>
-                    <div className="col-4">
-                      <h6 className="card-subtitle mb-2">
-                        <strong>Operador:</strong> {transporte.operador}
-                      </h6>
+                    {/* Column 4 */}
+                    <div className="col-md-5 text-center">
+                      <h5 className="fw-bold">Remolque</h5>
+                      <div className="row">
+                        <div className="col-4">
+                          <h6 className="card-subtitle mb-2">
+                            <strong>Eco:</strong> {transporte.remolque.eco}
+                          </h6>
+                          <h6 className="card-subtitle mb-2">
+                            <strong>Placa:</strong> {transporte.remolque.placa}
+                          </h6>
+                        </div>
+                        <div className="col-4">
+                          <h6 className="card-subtitle mb-2">
+                            <strong>Color:</strong> {transporte.remolque.color}
+                          </h6>
+                          <h6 className="card-subtitle mb-2">
+                            <strong>Capacidad:</strong> {transporte.remolque.capacidad}
+                          </h6>
+                        </div>
+                        <div className="col-4">
+                          <h6 className="card-subtitle mb-2">
+                            <strong>Sello:</strong> {transporte.remolque.sello}
+                          </h6>
+                        </div>
+                      </div>
                     </div>
-                    <div className="col-4">
-                      <h6 className="card-subtitle mb-2">
-                        <strong>Telefono:</strong> {transporte.telefono}
-                      </h6>
+                    <div className="row text-center mt-2">
+                      <div className="col-4">
+                        <h6 className="card-subtitle mb-2">
+                          <strong>Linea Transporte:</strong> {transporte.lineaTransporte}
+                        </h6>
+                      </div>
+                      <div className="col-4">
+                        <h6 className="card-subtitle mb-2">
+                          <strong>Operador:</strong> {transporte.operador}
+                        </h6>
+                      </div>
+                      <div className="col-4">
+                        <h6 className="card-subtitle mb-2">
+                          <strong>Telefono:</strong> {transporte.telefono}
+                        </h6>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            </Row>
-          ))}
+              </Row>
+            );
+          })}
         </Col>
       </Container>
 
