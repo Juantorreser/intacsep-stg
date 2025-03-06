@@ -160,7 +160,7 @@ const CreateTransporteModal = ({show, handleClose, addTransporte, transportes, b
               /> */}
               <Form.Check
                 type="radio"
-                label="Wialon ID"
+                label="Intacsep ID"
                 name="idMethod"
                 value="wialon"
                 checked={idMethod === "wialon"}
@@ -188,7 +188,7 @@ const CreateTransporteModal = ({show, handleClose, addTransporte, transportes, b
             </Form.Group>
           ) : (
             <Form.Group className="mb-3">
-              <Form.Label>Seleccionar Wialon ID</Form.Label>
+              <Form.Label>Seleccionar Intacsep ID</Form.Label>
               <Form.Control
                 type="text"
                 placeholder="Buscar unidad..."
