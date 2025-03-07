@@ -197,6 +197,7 @@ const BitacoraDetailPage = ({edited}) => {
       if (response.ok) {
         const data = await response.json();
         setOperadores(data);
+        console.log(data);
       } else {
         console.error("Failed to fetch operadores:", response.statusText);
       }
@@ -867,7 +868,6 @@ const BitacoraDetailPage = ({edited}) => {
   const handleEditSubmit = async (e, updatedBitacora) => {
     e.preventDefault();
     console.log("Submitting changes...");
-
 
     const submitBitacora = updatedBitacora ? updatedBitacora : bitacora;
     console.log(submitBitacora);
@@ -1779,6 +1779,71 @@ const BitacoraDetailPage = ({edited}) => {
                               ...editedTransporte.remolque,
                               sello: e.target.value,
                             },
+                          })
+                        }
+                      />
+                    </div>
+                    <hr />
+                    <div className="mb-3">
+                      <label className="form-label">Linea Transporte</label>
+                      <input
+                        type="text"
+                        className="form-control"
+                        value={editedTransporte.lineaTransporte}
+                        onChange={(e) =>
+                          setEditedTransporte({
+                            ...editedTransporte,
+                            lineaTransporte: e.target.value,
+                          })
+                        }
+                      />
+                    </div>
+                    {/* <Form.Select
+                      name="operador"
+                      id="operador"
+                      value={transporteData.operador}
+                      onChange={handleChange}
+                      required>
+                      <option value="">Seleccione un operador</option>
+                      {operadores.map((operador) => (
+                        <option key={operador.id} value={operador.name}>
+                          {operador.name}
+                        </option>
+                      ))}
+                    </Form.Select> */}
+                    <div className="mb-3">
+                      <label className="form-label">Operador</label>
+                      <select
+                        name="operador"
+                        id="operador"
+                        className="form-control"
+                        value={editedTransporte.operador}
+                        required
+                        onChange={(e) =>
+                          setEditedTransporte({
+                            ...editedTransporte,
+                            operador: e.target.value,
+                          })
+                        }>
+                        <option value="">Seleccione un operador</option>
+                        <option value="">Seleccione un operador</option>
+                        {operadores.map((operador) => (
+                          <option key={operador.id} value={operador.name}>
+                            {operador.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="mb-3">
+                      <label className="form-label">Telefono</label>
+                      <input
+                        type="text"
+                        className="form-control"
+                        value={editedTransporte.telefono}
+                        onChange={(e) =>
+                          setEditedTransporte({
+                            ...editedTransporte,
+                            telefono: e.target.value,
                           })
                         }
                       />
