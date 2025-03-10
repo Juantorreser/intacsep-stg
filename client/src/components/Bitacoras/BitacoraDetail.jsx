@@ -288,37 +288,39 @@ const BitacoraDetail = React.forwardRef(({bitacora, transporteId = ""}, ref) => 
                     <p className=" fw-bold fs-6 text-center">
                       {evento.transportes?.length > 1 ? "Transportes: " : "Transporte:"}
                     </p>
-                    {evento.transportes?.map((t) => (
-                      <Row>
-                        <p className="text-center fst-italic fw-bold">{t.id}</p>
-                        <Col>
-                          <p>
-                            <span className="fw-bold">Duración:</span>
-                            {` ${t.registro.duracion}`}
-                          </p>
-                          <p>
-                            <span className="fw-bold">Coordenadas:</span>
-                            {` ${t.registro.ubicacion}`}
-                          </p>
-                          <p>
-                            <span className="fw-bold">Velocidad:</span>
-                            {` ${t.registro.velocidad} km/h`}
-                          </p>
-                        </Col>
-                        <Col>
-                          <p>
-                            <span className="fw-bold">Ubicación:</span>
-                            {` ${t.registro.ubicacion}`}
-                          </p>
+                    {evento.transportes
+                      ?.filter((t) => filteredTransportes.some((ft) => ft.id === t.id))
+                      .map((t) => (
+                        <Row>
+                          <p className="text-center fst-italic fw-bold">{t.id}</p>
+                          <Col>
+                            <p>
+                              <span className="fw-bold">Duración:</span>
+                              {` ${t.registro.duracion}`}
+                            </p>
+                            <p>
+                              <span className="fw-bold">Coordenadas:</span>
+                              {` ${t.registro.ubicacion}`}
+                            </p>
+                            <p>
+                              <span className="fw-bold">Velocidad:</span>
+                              {` ${t.registro.velocidad} km/h`}
+                            </p>
+                          </Col>
+                          <Col>
+                            <p>
+                              <span className="fw-bold">Ubicación:</span>
+                              {` ${t.registro.ubicacion}`}
+                            </p>
 
-                          <p>
-                            <span className="fw-bold">Último posicionamiento:</span>
-                            {` ${t.registro.ultimo_posicionamiento}`}
-                          </p>
-                        </Col>
-                        <hr />
-                      </Row>
-                    ))}
+                            <p>
+                              <span className="fw-bold">Último posicionamiento:</span>
+                              {` ${t.registro.ultimo_posicionamiento}`}
+                            </p>
+                          </Col>
+                          <hr />
+                        </Row>
+                      ))}
 
                     {/* <p className="mt-4">
                       <strong>Ubicación: </strong> {evento.ubicacion}
