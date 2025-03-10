@@ -161,17 +161,29 @@ const NewEventModal = ({edited, eventTypes}) => {
       (transporte) => String(transporte.id) === transporteId
     );
 
+    if (!transporteToAdd.registro) {
+      transporteToAdd.registro = {};
+    }
+
     const data = await getUnitInfo(transporteId);
 
     console.log(data);
 
     if (!transporteToAdd) return;
 
-    transporteToAdd.registro.ubicacion = data.ubicacion;
-    transporteToAdd.registro.duracion = data.duracion;
-    transporteToAdd.registro.ultimo_posicionamiento = data.ultimo_posicionamiento;
-    transporteToAdd.registro.velocidad = data.velocidad;
-    transporteToAdd.registro.coordenadas = data.coordenadas;
+    if (data) {
+      transporteToAdd.registro.ubicacion = data.ubicacion;
+      transporteToAdd.registro.duracion = data.duracion;
+      transporteToAdd.registro.ultimo_posicionamiento = data.ultimo_posicionamiento;
+      transporteToAdd.registro.velocidad = data.velocidad;
+      transporteToAdd.registro.coordenadas = data.coordenadas;
+    } else {
+      transporteToAdd.registro.ubicacion = "";
+      transporteToAdd.registro.duracion = "";
+      transporteToAdd.registro.ultimo_posicionamiento = "";
+      transporteToAdd.registro.velocidad = "";
+      transporteToAdd.registro.coordenadas = "";
+    }
 
     let updatedTransportes = [...newEvent.transportes]; // Keep previous selections
 
