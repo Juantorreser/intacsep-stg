@@ -188,7 +188,53 @@ const BitacorasPage = () => {
       });
       if (response.ok) {
         // After successful creation, you might want to refetch bitacoras
-        fetchBitacoras();
+        try {
+          setLoadingBitacoras(true);
+          const [
+            bitacorasData,
+            clientsData,
+            monitoreosData,
+            usersData,
+            origenesData,
+            destinosData,
+            operadoresData,
+          ] = await Promise.all([
+            fetchBitacoras(currentPage, itemsPerPage),
+            fetchClients(),
+            fetchMonitoreos(),
+            fetchUsers(),
+            fetchOrigenes(),
+            fetchDestinos(),
+            fetchOperadores(),
+          ]);
+
+          setBitacoras(bitacorasData.bitacoras);
+          setTotalItems(bitacorasData.totalItems);
+          setTotalPages(bitacorasData.totalPages);
+          setClients(clientsData);
+          setMonitoreos(monitoreosData);
+          setUsers(usersData);
+          setOrigenes(origenesData);
+          setDestinos(destinosData);
+          setOperadores(operadoresData);
+
+          updateFormDataFromUser();
+          setBitacoras(bitacorasData.bitacoras);
+          setTotalItems(bitacorasData.totalItems);
+          setTotalPages(bitacorasData.totalPages);
+          setClients(clientsData);
+          setMonitoreos(monitoreosData);
+          setUsers(usersData);
+          setOrigenes(origenesData);
+          setDestinos(destinosData);
+          setOperadores(operadoresData);
+
+          updateFormDataFromUser();
+        } catch (e) {
+          console.error("Verification failed:", e);
+        } finally {
+          setLoadingBitacoras(false);
+        }
         handleModalToggle();
       } else {
         console.error("Failed to create bitácora:", response.statusText);
