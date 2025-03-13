@@ -8,6 +8,7 @@ const BitacoraRouter = ({edited}) => {
   const [bitacora, setBitacora] = useState(null);
   const [loading, setLoading] = useState(true);
   const baseUrl = import.meta.env.VITE_BASE_URL;
+  console.log(id);
 
   useEffect(() => {
     const fetchBitacora = async () => {
@@ -20,7 +21,7 @@ const BitacoraRouter = ({edited}) => {
           const data = await response.json();
 
           setBitacora(data);
-          setLoading(false)
+          setLoading(false);
         } else {
           console.error("Failed to fetch bitácora:", response.statusText);
         }
