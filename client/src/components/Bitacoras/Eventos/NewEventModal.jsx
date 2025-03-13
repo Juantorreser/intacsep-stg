@@ -3,7 +3,7 @@ import {useAuth} from "../../../context/AuthContext";
 import {useParams} from "react-router-dom";
 import {useWialon} from "../../../context/WialonProvider";
 
-const NewEventModal = ({edited, eventTypes}) => {
+const NewEventModal = ({edited, eventTypes, onEventAdded}) => {
   const [bitacora, setBitacora] = useState(null);
   const {id} = useParams();
   const {verifyToken, user, setUser} = useAuth();
@@ -343,6 +343,8 @@ const NewEventModal = ({edited, eventTypes}) => {
       const updatedBitacora = await response.json();
       console.log("✅ Evento guardado en la DB:", updatedBitacora);
       setBitacora(updatedBitacora);
+
+      onEventAdded();
     } catch (e) {
       console.error("Error en handleSubmit:", e);
     }

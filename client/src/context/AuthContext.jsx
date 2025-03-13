@@ -163,7 +163,7 @@ const AuthProvider = ({children}) => {
             <p>Favor de iniciar sesión nuevamente</p>
             <button onClick={handleRedirectToLogin}>Iniciar Sesión</button>
           </div>
-        </div>
+        </div>  
       )}
     </AuthContext.Provider>
   );

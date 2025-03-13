@@ -34,6 +34,7 @@ const BitacoraDetailPage = ({edited}) => {
   const [isEditTransporteModalVisible, setEditTransporteModalVisible] = useState(false);
   const [editedTransporte, setEditedTransporte] = useState(null);
   const [selectedTransportes, setSelectedTransportes] = useState([]);
+  const [eventos, setEventos] = useState([]);
 
   const handleEditTransporte = () => {
     setEditedTransporte(selectedTransporte);
@@ -220,29 +221,30 @@ const BitacoraDetailPage = ({edited}) => {
         setTransportes(data.transportes);
         setSelectedTransportes(data.transportes);
 
-        // Ensure that transportes is populated if it doesn't already exist
-        // if (data.transportes.length == 0) {
-        //   console.log("Adding default transporte data...");
-        //   const transporteToAdd = {
-        //     id: transportes.length + 1,
-        //     tracto: {
-        //       eco: data.tracto.eco,
-        //       placa: data.tracto.placa,
-        //       marca: data.tracto.marca,
-        //       modelo: data.tracto.modelo,
-        //       color: data.tracto.color,
-        //       tipo: data.tracto.tipo,
-        //     },
-        //     remolque: {
-        //       eco: data.remolque.eco,
-        //       placa: data.remolque.placa,
-        //       color: data.remolque.color,
-        //       capacidad: data.remolque.capacidad,
-        //       sello: data.remolque.sello,
-        //     },
-        //   };
-        //   await addTransporte(transporteToAdd, data._id);
-        // }
+        setIsEventStarted(data.status === "iniciada");
+        setFinishButtonDisabled(data.status === "finalizada" || data.status === "cerrada");
+      } else {
+        console.error("Failed to fetch bitácora:", response.statusText);
+      }
+    } catch (e) {
+      console.error("Error fetching bitácora:", e);
+    }
+  };
+
+  const fetchEventos = async () => {
+    try {
+      const response = await fetch(`${baseUrl}/bitacora/${id}`, {
+        method: "GET",
+        credentials: "include",
+      });
+      if (response.ok) {
+        const data = await response.json();
+
+        setBitacora(data);
+        setEventos(data.eventos)
+        setEditedBitacora(data);
+        setTransportes(data.transportes);
+        setSelectedTransportes(data.transportes);
 
         setIsEventStarted(data.status === "iniciada");
         setFinishButtonDisabled(data.status === "finalizada" || data.status === "cerrada");
@@ -253,6 +255,10 @@ const BitacoraDetailPage = ({edited}) => {
       console.error("Error fetching bitácora:", e);
     }
   };
+
+  useEffect(() => {
+    fetchEventos();
+  }, []);
 
   useEffect(() => {
     const init = async () => {
@@ -1344,11 +1350,11 @@ const BitacoraDetailPage = ({edited}) => {
                 aria-labelledby="eventos-tab">
                 <div className="container mt-4">
                   <div>
-                    {events
+                    {eventos
                       .slice()
                       .reverse()
                       .map((event, index) => (
-                        <EventCard key={index} event={event} eventos={events} />
+                        <EventCard key={index} event={event} eventos={eventos} />
                       ))}
                   </div>
                 </div>
@@ -1358,7 +1364,7 @@ const BitacoraDetailPage = ({edited}) => {
         </div>
       </div>
 
-      <NewEventModal edited={edited} eventTypes={eventTypes} />
+      <NewEventModal edited={edited} eventTypes={eventTypes} onEventAdded={fetchEventos} />
 
       {editModalVisible && (
         <>
