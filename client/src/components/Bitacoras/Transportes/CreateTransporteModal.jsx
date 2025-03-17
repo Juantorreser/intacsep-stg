@@ -113,6 +113,13 @@ const CreateTransporteModal = ({show, handleClose, addTransporte, transportes, b
       newId = (transportes.length + 1).toString().padStart(2, "0");
     }
 
+    // Check if the ID already exists in transportes
+    const exists = transportes.some((transporte) => transporte.id === newId);
+    if (exists) {
+      alert("El transporte ya existe. Por favor, seleccione otro.");
+      return;
+    }
+
     const newTransporteData = {id: newId, ...transporteData};
 
     addTransporte(newTransporteData, bitacora._id);
@@ -150,14 +157,6 @@ const CreateTransporteModal = ({show, handleClose, addTransporte, transportes, b
           <Form.Group className="mb-3">
             <Form.Label>Método de ID</Form.Label>
             <div>
-              {/* <Form.Check
-                type="radio"
-                label="Automático"
-                name="idMethod"
-                value="automatic"
-                checked={idMethod === "automatic"}
-                onChange={() => setIdMethod("automatic")}
-              /> */}
               <Form.Check
                 type="radio"
                 label="Intacsep ID"
@@ -341,19 +340,13 @@ const CreateTransporteModal = ({show, handleClose, addTransporte, transportes, b
           </Form.Group>
           <Form.Group className="mb-3">
             <Form.Label>Operador</Form.Label>
-            <Form.Select
+            <Form.Control
+              type="text"
               name="operador"
-              id="operador"
               value={transporteData.operador}
               onChange={handleChange}
-              required>
-              <option value="">Seleccione un operador</option>
-              {operadores.map((operador) => (
-                <option key={operador.id} value={operador.name}>
-                  {operador.name}
-                </option>
-              ))}
-            </Form.Select>
+              required
+            />
           </Form.Group>
 
           <Form.Group className="mb-3">

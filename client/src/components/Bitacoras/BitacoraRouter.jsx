@@ -8,7 +8,6 @@ const BitacoraRouter = ({edited}) => {
   const [bitacora, setBitacora] = useState(null);
   const [loading, setLoading] = useState(true);
   const baseUrl = import.meta.env.VITE_BASE_URL;
-  console.log(id);
 
   useEffect(() => {
     const fetchBitacora = async () => {
