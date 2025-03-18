@@ -67,6 +67,7 @@ const Sidebar = () => {
     integrationsCollapse: false,
     catalogosCollapse: false,
     sistemaCollapse: false,
+    auditoriaCollapse: false,
   });
 
   const toggleCollapse = (item) => {
@@ -238,7 +239,7 @@ const Sidebar = () => {
                   </div>
 
                   {/* Sistema Collapsible */}
-                  <p className="">
+                  <p className="mb-2">
                     <a
                       className="text-white-50 text-decoration-none d-flex justify-content-between align-items-center me-2 itemLine p-0 mb-0"
                       role="button"
@@ -251,7 +252,8 @@ const Sidebar = () => {
                         } text-white-50 my-auto icon-toggle`}></i>
                     </a>
                   </p>
-                  <div className={`collapse ${collapsedItems.sistemaCollapse ? "show" : ""}`}>
+
+                  <div className={`collapse mb-3 ${collapsedItems.sistemaCollapse ? "show" : ""}`}>
                     <ul className="nav flex-column w-75 ms-4 gap-2 itemLine2">
                       {roleData.usuarios && (
                         <li
@@ -275,6 +277,35 @@ const Sidebar = () => {
                           onClick={openInacModal}
                           style={{fontSize: "0.85rem"}}>
                           Inactividad
+                        </li>
+                      )}
+                    </ul>
+                  </div>
+
+                  {/* Auditoria Collapsible */}
+                  <p className="">
+                    <a
+                      className="text-white-50 text-decoration-none d-flex justify-content-between align-items-center me-2 itemLine p-0 mb-0"
+                      role="button"
+                      onClick={() => toggleCollapse("auditoriaCollapse")}
+                      style={{fontSize: "0.92rem"}}>
+                      Auditoria
+                      <i
+                        className={`fa ${
+                          collapsedItems.auditoriaCollapse ? "fa-minus" : "fa-plus"
+                        } text-white-50 my-auto icon-toggle`}></i>
+                    </a>
+                  </p>
+
+                  <div
+                    className={`collapse mb-2 ${collapsedItems.auditoriaCollapse ? "show" : ""}`}>
+                    <ul className="nav flex-column w-75 ms-4 gap-2 itemLine2">
+                      {roleData.auditoriaBitacora && (
+                        <li
+                          className="text-white-50 cursor-pointer"
+                          onClick={() => navigate("/usuarios")}
+                          style={{fontSize: "0.85rem"}}>
+                          Bitacoras
                         </li>
                       )}
                     </ul>
