@@ -952,57 +952,65 @@ const BitacoraDetailPage = ({edited}) => {
             </div>
             {/* Tab Navigation */}
             <ul className="nav nav-tabs ms-2" id="bitacoraTabs" role="tablist">
-              <li className="nav-item" role="presentation">
-                <button
-                  className="nav-link active"
-                  id="detalles-tab"
-                  data-bs-toggle="tab"
-                  data-bs-target="#detalles"
-                  type="button"
-                  role="tab"
-                  aria-controls="detalles"
-                  aria-selected="true"
-                  onClick={() => handleTabClick("detalles")}>
-                  <h6 className="p-0 m-0  fw-semibold">Detalles</h6>
-                  <p className="text-center p-0 m-0" style={{fontSize: "0.8rem"}}>
-                    ID: {bitacora.bitacora_id}
-                  </p>
-                </button>
-              </li>
-              <li className="nav-item" role="presentation">
-                <button
-                  className="nav-link"
-                  id="transportes-tab"
-                  data-bs-toggle="tab"
-                  data-bs-target="#transportes"
-                  type="button"
-                  role="tab"
-                  aria-controls="transportes"
-                  aria-selected="false"
-                  onClick={() => handleTabClick("transportes")}>
-                  <h6 className="p-0 m-0  fw-semibold">Transportes</h6>
-                  <p className="text-center p-0 m-0" style={{fontSize: "0.8rem"}}>
-                    Total: {bitacora.transportes.length}
-                  </p>
-                </button>
-              </li>
-              <li className="nav-item" role="presentation">
-                <button
-                  className="nav-link block"
-                  id="eventos-tab"
-                  data-bs-toggle="tab"
-                  data-bs-target="#eventos"
-                  type="button"
-                  role="tab"
-                  aria-controls="eventos"
-                  aria-selected="false"
-                  onClick={() => handleTabClick("eventos")}>
-                  <h6 className="p-0 m-0  fw-semibold">Eventos</h6>
-                  <p className="text-center p-0 m-0" style={{fontSize: "0.8rem"}}>
-                    Total: {bitacora.eventos.length}
-                  </p>
-                </button>
-              </li>
+              {roleData?.bitDetalles && (
+                <li className="nav-item" role="presentation">
+                  <button
+                    className="nav-link active"
+                    id="detalles-tab"
+                    data-bs-toggle="tab"
+                    data-bs-target="#detalles"
+                    type="button"
+                    role="tab"
+                    aria-controls="detalles"
+                    aria-selected="true"
+                    onClick={() => handleTabClick("detalles")}>
+                    <h6 className="p-0 m-0  fw-semibold">Detalles</h6>
+                    <p className="text-center p-0 m-0" style={{fontSize: "0.8rem"}}>
+                      ID: {bitacora.bitacora_id}
+                    </p>
+                  </button>
+                </li>
+              )}
+
+              {roleData?.bitTransportes && (
+                <li className="nav-item" role="presentation">
+                  <button
+                    className="nav-link"
+                    id="transportes-tab"
+                    data-bs-toggle="tab"
+                    data-bs-target="#transportes"
+                    type="button"
+                    role="tab"
+                    aria-controls="transportes"
+                    aria-selected="false"
+                    onClick={() => handleTabClick("transportes")}>
+                    <h6 className="p-0 m-0  fw-semibold">Transportes</h6>
+                    <p className="text-center p-0 m-0" style={{fontSize: "0.8rem"}}>
+                      Total: {bitacora.transportes.length}
+                    </p>
+                  </button>
+                </li>
+              )}
+
+              {roleData?.bitEventos && (
+                <li className="nav-item" role="presentation">
+                  <button
+                    className="nav-link block"
+                    id="eventos-tab"
+                    data-bs-toggle="tab"
+                    data-bs-target="#eventos"
+                    type="button"
+                    role="tab"
+                    aria-controls="eventos"
+                    aria-selected="false"
+                    onClick={() => handleTabClick("eventos")}>
+                    <h6 className="p-0 m-0  fw-semibold">Eventos</h6>
+                    <p className="text-center p-0 m-0" style={{fontSize: "0.8rem"}}>
+                      Total: {bitacora.eventos.length}
+                    </p>
+                  </button>
+                </li>
+              )}
               {/* <li className="nav-item" role="presentation">
                 <button
                   className="nav-link"
