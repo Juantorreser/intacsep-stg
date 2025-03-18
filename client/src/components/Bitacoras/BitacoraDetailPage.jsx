@@ -241,7 +241,7 @@ const BitacoraDetailPage = ({edited}) => {
         const data = await response.json();
 
         setBitacora(data);
-        setEventos(data.eventos)
+        setEventos(data.eventos);
         setEditedBitacora(data);
         setTransportes(data.transportes);
         setSelectedTransportes(data.transportes);
@@ -608,54 +608,6 @@ const BitacoraDetailPage = ({edited}) => {
                 )}
               </div>
             </div>
-            {/* Past right col */}
-            {/* <div className="col-md-6">
-              <p className="card-text">
-                <strong>Transportes:</strong>{" "}
-                {transportes && transportes.length > 0
-                  ? transportes.map((transporte, index) => {
-                      const transporteId = transporte.id.includes("_")
-                        ? transporte.id.split("_")[1] // Obtiene la parte después del '_'
-                        : transporte.id; // Mantiene el ID original
-
-                      return (
-                        <a
-                          href="#"
-                          key={index}
-                          className="transport-link"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            handleShowTransporteModal(transporte);
-                          }}>
-                          {`${transporteId}`}
-                          {index < transportes.length - 1 ? ", " : ""}
-                        </a>
-                      );
-                    })
-                  : ""}
-              </p>
-              <p className="card-text">
-                <strong>Duracion:</strong> {duracion}
-              </p>
-              <p className="card-text">
-                <strong>Ubicación:</strong> {ubicacion}
-              </p>
-              <p className="card-text">
-                <strong>Último Posicionamiento:</strong> {ultimo_posicionamiento}
-              </p>
-              <p className="card-text">
-                <strong>Velocidad:</strong> {velocidad}
-              </p>
-              <p className="card-text">
-                <strong>Coordenadas:</strong> {coordenadas}
-              </p>
-              <p className="card-text">
-                <strong>Fecha:</strong> {new Date(createdAt).toLocaleDateString()}
-              </p>
-              <p className="card-text">
-                <strong>Hora:</strong> {new Date(createdAt).toLocaleTimeString()}
-              </p>
-            </div> */}
 
             {/* New right col */}
             <div className="col-md-6">
@@ -1051,7 +1003,7 @@ const BitacoraDetailPage = ({edited}) => {
                   </p>
                 </button>
               </li>
-              <li className="nav-item" role="presentation">
+              {/* <li className="nav-item" role="presentation">
                 <button
                   className="nav-link"
                   id="changes-tab"
@@ -1064,10 +1016,10 @@ const BitacoraDetailPage = ({edited}) => {
                   onClick={() => handleTabClick("changes")}>
                   <h6 className="p-0 m-0  fw-semibold">Logs</h6>
                   <p className="text-center p-0 m-0" style={{fontSize: "0.8rem"}}>
-                    Total: {0}
+                    Total: {bitacora.logs?.length || 0}
                   </p>
                 </button>
-              </li>
+              </li> */}
             </ul>
 
             {/* Conditional Buttons */}
@@ -1359,6 +1311,52 @@ const BitacoraDetailPage = ({edited}) => {
                   </div>
                 </div>
               </div>
+
+              {/* Logs Tab Content */}
+              {/* <div
+                className="tab-pane fade"
+                id="changes"
+                role="tabpanel"
+                aria-labelledby="changes-tab">
+                <div className="container mt-4">
+                  {bitacora.logs && bitacora.logs.length > 0 ? (
+                    <div className="table-responsive">
+                      <table className="table table-striped table-hover">
+                        <thead className="table-dark">
+                          <tr>
+                            <th>Sección</th>
+                            <th>Campo</th>
+                            <th>Valor Antiguo</th>
+                            <th>Valor Nuevo</th>
+                            <th>Fecha</th>
+                            <th>Hora</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {bitacora.logs?.map((log, index) => {
+                            const fechaObj = new Date(log.fecha);
+                            const fecha = fechaObj.toLocaleDateString(); // Formato: DD/MM/AAAA (según región)
+                            const hora = fechaObj.toLocaleTimeString(); // Formato: HH:MM:SS AM/PM
+
+                            return (
+                              <tr key={index}>
+                                <td>{log.seccion}</td>
+                                <td>{log.campo}</td>
+                                <td>{log.valorAntiguo}</td>
+                                <td>{log.valorNuevo}</td>
+                                <td>{fecha}</td>
+                                <td>{hora}</td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <p className="text-center text-muted fs-5">No hay logs que mostrar</p>
+                  )}
+                </div>
+              </div> */}
             </div>
           </div>
         </div>
