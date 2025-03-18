@@ -330,8 +330,9 @@ const Login = () => {
               target="_blank"
               rel="noopener noreferrer"
               className="opacity-25 mt-5 pt-5">
-              Powered by © Spotynet 2024 on AWS
+              Powered by © Spotynet 2024 on AWS <br />v 1.3.7
             </a>
+            <p className=" opacity-10"></p>
           </div>
         )}
       </div>
