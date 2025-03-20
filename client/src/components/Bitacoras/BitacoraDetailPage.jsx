@@ -1069,31 +1069,32 @@ const BitacoraDetailPage = ({edited}) => {
           <div className="scrollable-content flex-grow-1 overflow-auto px-3">
             <div className="tab-content" id="bitacoraTabsContent">
               {/* Detalles Tab Content */}
-              <div
-                className="tab-pane fade show active mt-4 mx-4"
-                id="detalles"
-                role="tabpanel"
-                aria-labelledby="detalles-tab">
-                <div className="card-body">
-                  <div className="row ms-1">
-                    {/* Column 1 */}
-                    <div className="col-md-6">
-                      <h6 className="card-subtitle mb-2">
-                        <strong>Folio Servicio:</strong> {bitacora.folio_servicio}
-                      </h6>
-                      <h6 className="card-subtitle mb-2">
-                        <strong>No. Bitácora:</strong> {bitacora.bitacora_id}
-                      </h6>
-                      <h6 className="card-subtitle mb-2">
-                        <strong>Cliente:</strong> {bitacora.cliente}
-                      </h6>
-                      <h6 className="card-subtitle mb-2">
-                        <strong>Estatus:</strong> {capitalizeFirstLetter(bitacora.status)}
-                      </h6>
-                      {/* <h6 className="card-subtitle mb-2">
+              {roleData?.bitDetalles && (
+                <div
+                  className="tab-pane fade show active mt-4 mx-4"
+                  id="detalles"
+                  role="tabpanel"
+                  aria-labelledby="detalles-tab">
+                  <div className="card-body">
+                    <div className="row ms-1">
+                      {/* Column 1 */}
+                      <div className="col-md-6">
+                        <h6 className="card-subtitle mb-2">
+                          <strong>Folio Servicio:</strong> {bitacora.folio_servicio}
+                        </h6>
+                        <h6 className="card-subtitle mb-2">
+                          <strong>No. Bitácora:</strong> {bitacora.bitacora_id}
+                        </h6>
+                        <h6 className="card-subtitle mb-2">
+                          <strong>Cliente:</strong> {bitacora.cliente}
+                        </h6>
+                        <h6 className="card-subtitle mb-2">
+                          <strong>Estatus:</strong> {capitalizeFirstLetter(bitacora.status)}
+                        </h6>
+                        {/* <h6 className="card-subtitle mb-2">
                                     <strong>ID Cliente:</strong> {cliente.ID_Cliente}
                                 </h6> */}
-                      {/* <h6 className="card-subtitle mb-2">
+                        {/* <h6 className="card-subtitle mb-2">
                         <strong>Operador:</strong> {bitacora.operador}
                       </h6>
                       <h6 className="card-subtitle mb-2">
@@ -1102,20 +1103,20 @@ const BitacoraDetailPage = ({edited}) => {
                       <h6 className="card-subtitle mb-2">
                         <strong>Linea Transporte:</strong> {bitacora.linea_transporte}
                       </h6> */}
-                    </div>
+                      </div>
 
-                    {/* Column 4 */}
-                    <div className="col-md-6">
-                      <h6 className="card-subtitle mb-2">
-                        <strong>Tipo Monitoreo:</strong> {bitacora.monitoreo}
-                      </h6>
-                      <h6 className="card-subtitle mb-2">
-                        <strong>Origen:</strong> {bitacora.origen}
-                      </h6>
-                      <h6 className="card-subtitle mb-2">
-                        <strong>Destino:</strong> {bitacora.destino}
-                      </h6>
-                      {/* <h6 className="card-subtitle mb-2">
+                      {/* Column 4 */}
+                      <div className="col-md-6">
+                        <h6 className="card-subtitle mb-2">
+                          <strong>Tipo Monitoreo:</strong> {bitacora.monitoreo}
+                        </h6>
+                        <h6 className="card-subtitle mb-2">
+                          <strong>Origen:</strong> {bitacora.origen}
+                        </h6>
+                        <h6 className="card-subtitle mb-2">
+                          <strong>Destino:</strong> {bitacora.destino}
+                        </h6>
+                        {/* <h6 className="card-subtitle mb-2">
                         <strong>Enlace:</strong> {bitacora.enlace}
                       </h6>
                       <h6 className="card-subtitle mb-2">
@@ -1124,11 +1125,11 @@ const BitacoraDetailPage = ({edited}) => {
                       <h6 className="card-subtitle mb-2">
                         <strong>Contraseña Acceso:</strong> {bitacora.contra_acceso}
                       </h6> */}
+                      </div>
                     </div>
-                  </div>
-                  <hr />
-                  {/* New Row for Inicio Monitoreo, Final Monitoreo, and Iniciar button */}
-                  {/* <div className="row mt-3 mx-1">
+                    <hr />
+                    {/* New Row for Inicio Monitoreo, Final Monitoreo, and Iniciar button */}
+                    {/* <div className="row mt-3 mx-1">
                     <div className="col-md-5">
                       <p className="card-text mb-2">
                         <strong>Inicio Monitoreo:</strong>{" "}
@@ -1151,50 +1152,51 @@ const BitacoraDetailPage = ({edited}) => {
                       </button>
                     </div>
                   </div> */}
-                  {bitacora.transportes.map((t) => {
-                    // Find the "Validacion" event and extract inicioMonitoreo
-                    const validacionEvento = bitacora.eventos.find(
-                      (evento) =>
-                        evento.nombre === "Validación" &&
-                        evento.transportes.some((tr) => tr.id === t.id)
-                    );
-                    const inicioMonitoreo = validacionEvento
-                      ? validacionEvento.transportes.find((tr) => tr.id === t.id)?.inicioMonitoreo
-                      : null;
+                    {bitacora.transportes.map((t) => {
+                      // Find the "Validacion" event and extract inicioMonitoreo
+                      const validacionEvento = bitacora.eventos.find(
+                        (evento) =>
+                          evento.nombre === "Validación" &&
+                          evento.transportes.some((tr) => tr.id === t.id)
+                      );
+                      const inicioMonitoreo = validacionEvento
+                        ? validacionEvento.transportes.find((tr) => tr.id === t.id)?.inicioMonitoreo
+                        : null;
 
-                    // Find the "Cierre de servicio" event and extract finalMonitoreo
-                    const cierreEvento = bitacora.eventos.find(
-                      (evento) =>
-                        evento.nombre === "Cierre de servicio" &&
-                        evento.transportes.some((tr) => tr.id === t.id)
-                    );
-                    const finalMonitoreo = cierreEvento
-                      ? cierreEvento.transportes.find((tr) => tr.id === t.id)?.finalMonitoreo
-                      : null;
+                      // Find the "Cierre de servicio" event and extract finalMonitoreo
+                      const cierreEvento = bitacora.eventos.find(
+                        (evento) =>
+                          evento.nombre === "Cierre de servicio" &&
+                          evento.transportes.some((tr) => tr.id === t.id)
+                      );
+                      const finalMonitoreo = cierreEvento
+                        ? cierreEvento.transportes.find((tr) => tr.id === t.id)?.finalMonitoreo
+                        : null;
 
-                    return (
-                      <div key={t.id}>
-                        <p className="fw-bold">{`GPS ID : ${
-                          t.id.includes("_") ? t.id.split("_")[1] : t.id
-                        }`}</p>
-                        <div>
-                          <p className="card-text mb-2">
-                            <strong>Inicio Monitoreo:</strong>{" "}
-                            {inicioMonitoreo ? formatDate(inicioMonitoreo) : "--"}
-                          </p>
+                      return (
+                        <div key={t.id}>
+                          <p className="fw-bold">{`GPS ID : ${
+                            t.id.includes("_") ? t.id.split("_")[1] : t.id
+                          }`}</p>
+                          <div>
+                            <p className="card-text mb-2">
+                              <strong>Inicio Monitoreo:</strong>{" "}
+                              {inicioMonitoreo ? formatDate(inicioMonitoreo) : "--"}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="card-text mb-2">
+                              <strong>Final Monitoreo:</strong>{" "}
+                              {finalMonitoreo ? formatDate(finalMonitoreo) : "--"}
+                            </p>
+                          </div>
+                          <hr />
                         </div>
-                        <div>
-                          <p className="card-text mb-2">
-                            <strong>Final Monitoreo:</strong>{" "}
-                            {finalMonitoreo ? formatDate(finalMonitoreo) : "--"}
-                          </p>
-                        </div>
-                        <hr />
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
+              )}
 
               {/* Transportes Tab Content */}
               <div
