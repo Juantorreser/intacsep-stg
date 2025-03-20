@@ -295,7 +295,22 @@ const NewEventModal = ({edited, eventTypes, onEventAdded}) => {
       }
     }
 
-    if (bitacora.status === "iniciada" && newEvent.nombre === "Cierre de servicio") {
+    const eventosArriboDestino =
+      bitacora?.eventos.filter((evento) => evento.nombre === "Arribo a destino") || [];
+
+    const transportesConArriboDestino = new Set(
+      eventosArriboDestino.flatMap((evento) => evento.transportes.map((t) => t.id))
+    );
+
+    const allTransportesInArriboDestino = bitacora.transportes.every((t) =>
+      transportesConArriboDestino.has(t.id)
+    );
+
+    if (
+      bitacora.status === "iniciada" &&
+      newEvent.nombre === "Cierre de servicio" &&
+      allTransportesInArriboDestino
+    ) {
       try {
         const response = await fetch(`${baseUrl}/bitacora/${id}/status`, {
           method: "PATCH",
@@ -343,12 +358,20 @@ const NewEventModal = ({edited, eventTypes, onEventAdded}) => {
       const updatedBitacora = await response.json();
       console.log("✅ Evento guardado en la DB:", updatedBitacora);
       setBitacora(updatedBitacora);
-
+      setNewEvent({
+        nombre: "",
+        descripcion: "",
+        frecuencia: 0,
+        registrado_por: `${user?.firstName} ${user?.lastName}`,
+        transportes: [],
+      });
       onEventAdded();
     } catch (e) {
       console.error("Error en handleSubmit:", e);
     }
   };
+
+  let allSelectedTransportesInArriboDestino = false;
 
   return (
     <div
@@ -375,24 +398,7 @@ const NewEventModal = ({edited, eventTypes, onEventAdded}) => {
                 <label htmlFor="transportes" className="form-label">
                   Transportes
                 </label>
-                {/* <div className="form-check">
-                  <input
-                    type="checkbox"
-                    className="form-check-input"
-                    id="allTransportes"
-                    name="transportes"
-                    value="all"
-                    onChange={handleCheckboxChange}
-                    checked={
-                      bitacora?.transportes &&
-                      newEvent.transportes?.length === bitacora.transportes.length
-                    }
-                  />
 
-                  <label className="form-check-label" htmlFor="allTransportes">
-                    Todos
-                  </label>
-                </div> */}
                 {bitacora?.transportes?.map((transporte) => {
                   const transporteId = transporte.id.includes("_")
                     ? transporte.id.split("_")[1] // Obtiene la parte después del '_'
@@ -473,9 +479,13 @@ const NewEventModal = ({edited, eventTypes, onEventAdded}) => {
                     );
 
                     // Verificar si TODOS los selectedTransportes están en eventos de "Arribo a destino"
-                    const allSelectedTransportesInArriboDestino = newEvent.transportes.every((t) =>
+                    allSelectedTransportesInArriboDestino = newEvent.transportes.every((t) =>
                       transportesConArriboDestino.has(t.id)
                     );
+
+                    if (allSelectedTransportesInArriboDestino) {
+                      return <option value="Cierre de servicio">Cierre de servicio</option>;
+                    }
 
                     if (allSelectedTransportesInValidacion) {
                       if (allSelectedTransportesInInicioRecorrido) {
@@ -527,9 +537,10 @@ const NewEventModal = ({edited, eventTypes, onEventAdded}) => {
                   max="99"
                   id="frecuencia"
                   name="frecuencia"
-                  value={newEvent.frecuencia}
+                  value={allSelectedTransportesInArriboDestino ? 0 : newEvent.frecuencia}
                   onChange={handleChange}
                   required
+                  disabled={allSelectedTransportesInArriboDestino}
                 />
               </div>
               <hr />
