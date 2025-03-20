@@ -25,28 +25,6 @@ const BitacoraDetail = React.forwardRef(({bitacora, transporteId = ""}, ref) => 
           <Row>
             <h1>Bitácora de monitoreo {bitacora.id}</h1>
           </Row>
-          {/* <Row>
-            <Col>
-              <p>
-                <strong>Inicio Monitoreo:</strong>{" "}
-                {`${formatDate(bitacora.inicioMonitoreo)}, ${new Date(
-                  bitacora.inicioMonitoreo
-                ).toLocaleTimeString("es-MX", {
-                  timeZone: "America/Mexico_City",
-                })}`}
-              </p>
-            </Col>
-            <Col>
-              <p>
-                <strong>Final Monitoreo:</strong>{" "}
-                {`${formatDate(bitacora.finalMonitoreo)}, ${new Date(
-                  bitacora.finalMonitoreo
-                ).toLocaleTimeString("es-MX", {
-                  timeZone: "America/Mexico_City",
-                })}`}
-              </p>
-            </Col>
-          </Row> */}
         </Container>
 
         <Container className="body">
@@ -54,7 +32,7 @@ const BitacoraDetail = React.forwardRef(({bitacora, transporteId = ""}, ref) => 
             <div className="card-body">
               <div className="row ">
                 {/* Column 1 */}
-                <div className="col-md-6">
+                <div className="col-6">
                   <h6 className="card-subtitle mb-2">
                     <strong>Folio Servicio:</strong> {bitacora.folio_servicio}
                   </h6>
@@ -74,7 +52,7 @@ const BitacoraDetail = React.forwardRef(({bitacora, transporteId = ""}, ref) => 
                 </div>
 
                 {/* Column 4 */}
-                <div className="col-md-6">
+                <div className="col-6">
                   <h6 className="card-subtitle mb-2">
                     <strong>Origen:</strong> {bitacora.origen}
                   </h6>
@@ -99,9 +77,9 @@ const BitacoraDetail = React.forwardRef(({bitacora, transporteId = ""}, ref) => 
           <h2>Transportes</h2>
           <h6>
             {filteredTransportes.length > 1
-              ? `${filteredTransportes.length} Transportes registrados`
+              ? `${filteredTransportes.length} Transportes Monitoreados`
               : filteredTransportes.length === 1
-              ? `${filteredTransportes.length} Transporte registrado`
+              ? `${filteredTransportes.length} Transporte Monitoreado`
               : "No transportes registrados"}
           </h6>
         </Row>
@@ -133,108 +111,108 @@ const BitacoraDetail = React.forwardRef(({bitacora, transporteId = ""}, ref) => 
 
             return (
               <Row key={index}>
+                <hr />
                 <div className="card-body transportCard">
-                  <div className="d-flex flex-row title text-white fw-bolder fs-5">{`${
+                  <div className="d-flex flex-row title fw-bold fs-4">{`${
                     transporte.id.includes("_") ? transporte.id.split("_")[1] : transporte.id
                   }`}</div>
                   <Row>
-                    <Col>
+                    <Col className="text-center">
                       <p>
-                        <strong>Inicio Monitoreo:</strong>{" "}
-                        {`${formatDate(inicioMonitoreo)}, ${new Date(
-                          inicioMonitoreo
-                        ).toLocaleTimeString("es-MX", {
+                        <strong>Inicio Monitoreo</strong> <br />
+                        {`${formatDate(inicioMonitoreo)}`}, <br />
+                        {`${new Date(inicioMonitoreo).toLocaleTimeString("es-MX", {
                           timeZone: "America/Mexico_City",
                         })}`}
                       </p>
                     </Col>
-                    <Col>
+                    <Col className="text-center">
                       <p>
-                        <strong>Final Monitoreo:</strong>{" "}
-                        {`${formatDate(finalMonitoreo)}, ${new Date(
-                          finalMonitoreo
-                        ).toLocaleTimeString("es-MX", {
+                        <strong>Final Monitoreo</strong> <br />
+                        {`${formatDate(finalMonitoreo)}`},<br />{" "}
+                        {`${new Date(finalMonitoreo).toLocaleTimeString("es-MX", {
                           timeZone: "America/Mexico_City",
                         })}`}
                       </p>
                     </Col>
                   </Row>
-                  <div className="row px-4 py-3">
+                  <div className="row text-center mt-2">
+                    <div className="col-4">
+                      <h6 className="card-subtitle mb-2">
+                        <strong>Linea Transporte </strong> <br />
+                        {transporte.lineaTransporte}
+                      </h6>
+                    </div>
+                    <div className="col-4">
+                      <h6 className="card-subtitle mb-2">
+                        <strong>Operador</strong> <br /> {transporte.operador}
+                      </h6>
+                    </div>
+                    <div className="col-4">
+                      <h6 className="card-subtitle mb-2">
+                        <strong>Telefono</strong> <br /> {transporte.telefono}
+                      </h6>
+                    </div>
+                  </div>
+                  <div className="row px-4 flex gap-3 mt-2">
                     {/* Column 1 */}
                     <div className="col-md-6 text-center">
-                      <h5 className="fw-bold">Tracto</h5>
+                      <h5 className="fw-semibold">Tracto</h5>
                       <div className="row">
                         <div className="col-4">
                           <h6 className="card-subtitle mb-2">
-                            <strong>Eco:</strong> {transporte.tracto.eco}
+                            <strong>Eco</strong>
+                            <br /> {transporte.tracto.eco}
                           </h6>
                           <h6 className="card-subtitle mb-2">
-                            <strong>placa:</strong> {transporte.tracto.placa}
-                          </h6>
-                        </div>
-                        <div className="col-4">
-                          <h6 className="card-subtitle mb-2">
-                            <strong>Modelo:</strong> {transporte.tracto.modelo}
-                          </h6>
-                          <h6 className="card-subtitle mb-2">
-                            <strong>Color:</strong> {transporte.tracto.color}
+                            <strong>placa</strong> <br /> {transporte.tracto.placa}
                           </h6>
                         </div>
                         <div className="col-4">
                           <h6 className="card-subtitle mb-2">
-                            <strong>Marca:</strong> {transporte.tracto.marca}
+                            <strong>Modelo</strong> <br /> {transporte.tracto.modelo}
                           </h6>
                           <h6 className="card-subtitle mb-2">
-                            <strong>Tipo:</strong> {transporte.tracto.tipo}
+                            <strong>Color</strong>
+                            <br /> {transporte.tracto.color}
+                          </h6>
+                        </div>
+                        <div className="col-4">
+                          <h6 className="card-subtitle mb-2">
+                            <strong>Marca</strong> <br /> {transporte.tracto.marca}
+                          </h6>
+                          <h6 className="card-subtitle mb-2">
+                            <strong>Tipo</strong> <br /> {transporte.tracto.tipo}
                           </h6>
                         </div>
                       </div>
                     </div>
-                    <div className=" col-md-1">
-                      <div className="divider"></div>
-                    </div>
                     {/* Column 4 */}
-                    <div className="col-md-5 text-center">
+                    <div className="col-md-5 text-center mt-2 pt-0">
                       <h5 className="fw-bold">Remolque</h5>
                       <div className="row">
                         <div className="col-4">
                           <h6 className="card-subtitle mb-2">
-                            <strong>Eco:</strong> {transporte.remolque.eco}
+                            <strong>Eco</strong>
+                            <br /> {transporte.remolque.eco}
                           </h6>
                           <h6 className="card-subtitle mb-2">
-                            <strong>Placa:</strong> {transporte.remolque.placa}
+                            <strong>Placa</strong> <br /> {transporte.remolque.placa}
                           </h6>
                         </div>
                         <div className="col-4">
                           <h6 className="card-subtitle mb-2">
-                            <strong>Color:</strong> {transporte.remolque.color}
+                            <strong>Color</strong> <br /> {transporte.remolque.color}
                           </h6>
                           <h6 className="card-subtitle mb-2">
-                            <strong>Capacidad:</strong> {transporte.remolque.capacidad}
+                            <strong>Capacidad</strong> <br /> {transporte.remolque.capacidad}
                           </h6>
                         </div>
                         <div className="col-4">
                           <h6 className="card-subtitle mb-2">
-                            <strong>Sello:</strong> {transporte.remolque.sello}
+                            <strong>Sello</strong> <br /> {transporte.remolque.sello}
                           </h6>
                         </div>
-                      </div>
-                    </div>
-                    <div className="row text-center mt-2">
-                      <div className="col-4">
-                        <h6 className="card-subtitle mb-2">
-                          <strong>Linea Transporte:</strong> {transporte.lineaTransporte}
-                        </h6>
-                      </div>
-                      <div className="col-4">
-                        <h6 className="card-subtitle mb-2">
-                          <strong>Operador:</strong> {transporte.operador}
-                        </h6>
-                      </div>
-                      <div className="col-4">
-                        <h6 className="card-subtitle mb-2">
-                          <strong>Telefono:</strong> {transporte.telefono}
-                        </h6>
                       </div>
                     </div>
                   </div>
@@ -253,47 +231,53 @@ const BitacoraDetail = React.forwardRef(({bitacora, transporteId = ""}, ref) => 
         <Col className="mt-3">
           {filteredEventos.map((evento, index) => (
             <Row md={12} key={index}>
-              <Container className="mb-4 event-card">
-                <Row>
-                  <Col md={6}>
-                    <h3 className="text-center fw-bold ">{evento.nombre}</h3>
+              <Container className="mb-4">
+                <div className="row w-100 d-flex justify-center items-center">
+                  <h3 className="text-center fw-bold ">{evento.nombre}</h3>
+                  <div className="col-6 d-flex flex-column mt-2">
+                    <p className=" fw-bold fs-6 text-center mb-4">
+                      Detalles
+                    </p>
                     <p>
                       <strong>Descripción:</strong>
                     </p>
                     <p>{evento.descripcion}</p>
-                    <p className="mt-4">
+                    <p className="mt-1">
                       <strong>Registrado por: </strong> {evento.registrado_por}
                     </p>
-                    <p className="mt-4">
+                    <p className="mt-1">
                       <strong>Frecuencia: </strong> {`${evento.frecuencia} min`}
                     </p>
-                    <p className="mt-4">
+                    <p className="mt-1">
                       <strong>Fecha:</strong>{" "}
                       {new Date(evento.createdAt).toLocaleDateString("es-MX", {
                         timeZone: "America/Mexico_City",
                       })}
                     </p>
-                    <p className="mt-4">
+                    <p className="mt-1">
                       <strong>Hora:</strong>{" "}
                       {new Date(evento.createdAt).toLocaleTimeString("es-MX", {
                         timeZone: "America/Mexico_City",
                       })}
                     </p>
-                  </Col>
-                  <Col md={1} className="line">
+                  </div>
+                  {/* <Col md={1} className="line">
                     <div className="circle"></div>
                     <div className="line"></div>
-                  </Col>
-                  <Col md={5} className="fields">
+                  </Col> */}
+                  <div className="col-6 d-flex flex-column text-center">
                     <p className=" fw-bold fs-6 text-center">
-                      {evento.transportes?.length > 1 ? "Transportes: " : "Transporte:"}
+                      {evento.transportes?.length > 1 ? "GPSs " : "GPSs"}
                     </p>
                     {evento.transportes
                       ?.filter((t) => filteredTransportes.some((ft) => ft.id === t.id))
                       .map((t) => (
                         <Row>
-                          <p className="text-center fst-italic fw-bold">{t.id}</p>
-                          <Col>
+                          <hr />
+                          <p className="text-center fst-italic fw-bold">
+                            GPS ID: {t.id.includes("_") ? t.id.split("_")[1] : t.id}
+                          </p>
+                          <Col className="text-start">
                             <p>
                               <span className="fw-bold">Duración:</span>
                               {` ${t.registro.duracion}`}
@@ -307,14 +291,14 @@ const BitacoraDetail = React.forwardRef(({bitacora, transporteId = ""}, ref) => 
                               {` ${t.registro.velocidad} km/h`}
                             </p>
                           </Col>
-                          <Col>
+                          <Col className="text-start">
                             <p>
                               <span className="fw-bold">Ubicación:</span>
                               {` ${t.registro.ubicacion}`}
                             </p>
 
                             <p>
-                              <span className="fw-bold">Último posicionamiento:</span>
+                              <span className="fw-bold">Último posicionamiento:</span> <br />
                               {` ${t.registro.ultimo_posicionamiento}`}
                             </p>
                           </Col>
@@ -334,8 +318,8 @@ const BitacoraDetail = React.forwardRef(({bitacora, transporteId = ""}, ref) => 
                     <p className="mt-4">
                       <strong>Coordenadas: </strong> {evento.coordenadas}
                     </p> */}
-                  </Col>
-                </Row>
+                  </div>
+                </div>
               </Container>
             </Row>
           ))}
