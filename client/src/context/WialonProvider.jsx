@@ -1,13 +1,12 @@
 import React, {createContext, useContext, useEffect, useState, useRef} from "react";
 
 const WialonContext = createContext(null);
-
 export const useWialon = () => useContext(WialonContext);
 
 export const WialonProvider = ({children}) => {
   const [session, setSession] = useState(null);
   const [units, setUnits] = useState([]);
-  const initialized = useRef(false); // 👈 Track if fetchAllUnits was already executed
+  const initialized = useRef(false); // Prevent multiple fetches
 
   const fetchAllUnits = async (sess, retries = 3, delay = 1000) => {
     try {
@@ -31,7 +30,6 @@ export const WialonProvider = ({children}) => {
       const fetchedUnits = sess.getItems("avl_unit") || [];
       const unitDetails = fetchedUnits.map((unit) => ({id: unit.getId(), name: unit.getName()}));
       setUnits(unitDetails);
-
       console.log("Unidades obtenidas:", unitDetails);
     } catch (error) {
       console.error("Error al obtener unidades, reintentando...", error);
@@ -45,30 +43,47 @@ export const WialonProvider = ({children}) => {
     }
   };
 
-  useEffect(() => {
-    if (initialized.current) {
+  const initializeWialonSession = async (token) => {
+    if (!token) {
+      console.error("No Wialon token available. Please log in.");
       return;
-    } // 👈 Prevent multiple fetches
-    initialized.current = true; // 👈 Mark as initialized
+    }
 
     const sess = window.wialon.core.Session.getInstance();
-    const token = import.meta.env.VITE_WIALON_TOKEN;
-
     sess.initSession("https://hst-api.wialon.com");
 
-    sess.loginToken(token, "", (code) => {
-      if (code) {
-        console.error("Wialon login failed:", window.wialon.core.Errors.getErrorText(code));
-      } else {
-        console.log("Wialon logged in successfully!");
-        setSession(sess);
-        fetchAllUnits(sess);
-      }
-    });
+    try {
+      await new Promise((resolve, reject) => {
+        sess.loginToken(token, "", (code) => {
+          if (code) {
+            reject(window.wialon.core.Errors.getErrorText(code));
+          } else {
+            resolve("Logged in successfully");
+          }
+        });
+      });
+
+      console.log("Wialon login successful.");
+      setSession(sess);
+      localStorage.setItem("wialonToken", token); // Store token for persistence
+      fetchAllUnits(sess);
+    } catch (error) {
+      console.error("Error during Wialon login:", error);
+    }
+  };
+
+  useEffect(() => {
+    if (initialized.current) return;
+    initialized.current = true;
+
+    const storedToken = localStorage.getItem("wialonToken") || import.meta.env.VITE_WIALON_TOKEN;
+    if (storedToken) {
+      initializeWialonSession(storedToken);
+    }
 
     return () => {
-      if (sess.getSessionId()) {
-        sess.logout(() => console.log("Wialon session closed"));
+      if (session?.getSessionId()) {
+        session.logout(() => console.log("Wialon session closed"));
       }
     };
   }, []);
