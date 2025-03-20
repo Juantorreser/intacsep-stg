@@ -48,34 +48,48 @@ const BitacoraDetailPage = ({edited}) => {
     setSelectedTransporte(transporte);
   };
 
-  const handleTransportEdit = (e) => {
-    e.preventDefault();
+const handleTransportEdit = async (e) => {
+  e.preventDefault();
 
-    // Find the index of the transporte by its ID
-    const index = bitacora.transportes.findIndex(
-      (transporte) => transporte.id === editedTransporte.id
-    );
+  const updatedTransportes = bitacora.transportes.map((transporte) =>
+    transporte.id === editedTransporte.id ? editedTransporte : transporte
+  );
 
-    if (index > -1) {
-      // Update the specific transporte in the transportes array
-      const updatedTransportes = [...bitacora.transportes];
-      updatedTransportes[index] = editedTransporte;
+  const updatedBitacora = {...bitacora, transportes: updatedTransportes};
 
-      // Update bitacora with the modified transportes array
-      const updatedBitacora = {
-        ...bitacora,
-        transportes: updatedTransportes,
-      };
+  setBitacora(updatedBitacora);
+  setSelectedTransporte(editedTransporte); // 🔥 Ensure UI updates instantly
+  setEditTransporteModalVisible(false);
 
-      setBitacora(updatedBitacora); // Update state
+  try {
+    const response = await fetch(`${baseUrl}/bitacora/${id}`, {
+      method: "PATCH",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({transportes: updatedTransportes}),
+      credentials: "include",
+    });
 
-      // Call handleEditSubmit to send updates to the API
-      handleEditSubmit(e, updatedBitacora);
-      setEditTransporteModalVisible(false);
+    if (response.ok) {
+      const updatedData = await response.json();
+      setBitacora(updatedData);
+      setSelectedTransporte(updatedData.transportes.find((t) => t.id === editedTransporte.id)); // 🔥 Ensure latest data from API
     } else {
-      console.error("Transporte not found");
+      console.error("Failed to update transporte:", response.statusText);
     }
-  };
+  } catch (error) {
+    console.error("Error updating transporte:", error);
+  }
+};
+
+
+  useEffect(() => {
+    if (selectedTransporte) {
+      const updatedTransporte = bitacora.transportes.find((t) => t.id === selectedTransporte.id);
+      if (updatedTransporte) {
+        setSelectedTransporte(updatedTransporte);
+      }
+    }
+  }, [bitacora]); // Runs whenever bitacora updates
 
   const addTransporte = async (newTransporte, id) => {
     try {
