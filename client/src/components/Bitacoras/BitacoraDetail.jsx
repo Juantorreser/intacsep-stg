@@ -284,7 +284,7 @@ const BitacoraDetail = React.forwardRef(({bitacora, transporteId = ""}, ref) => 
                             </p>
                             <p>
                               <span className="fw-bold">Coordenadas:</span>
-                              {` ${t.registro.ubicacion}`}
+                              {` ${t.registro.coordenadas}`}
                             </p>
                             <p>
                               <span className="fw-bold">Velocidad:</span>
