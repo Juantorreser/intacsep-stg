@@ -7,6 +7,7 @@ import Sidebar from "../Sidebar";
 import "jspdf-autotable"; // For table support in jsPDF
 import {sortBitacoras} from "../../utils/utils"; // Assume these functions exist
 import BitacoraDetail from "./BitacoraDetail";
+import OldBitacoraDetail from "./OldBitacoraPDF";
 import {
   fetchBitacoras,
   fetchClients,
@@ -339,10 +340,15 @@ const BitacorasPage = () => {
     document.body.appendChild(tempContainer);
 
     const root = createRoot(tempContainer);
-    if (transporteId == "") {
-      root.render(<BitacoraDetail bitacora={bitacora} />);
+
+    if (bitacora.bitacora_id <= 2025) {
+      root.render(<OldBitacoraDetail bitacora={bitacora} />);
     } else {
-      root.render(<BitacoraDetail bitacora={bitacora} transporteId={selectedTransporte} />);
+      if (transporteId == "") {
+        root.render(<BitacoraDetail bitacora={bitacora} />);
+      } else {
+        root.render(<BitacoraDetail bitacora={bitacora} transporteId={selectedTransporte} />);
+      }
     }
 
     const style = document.createElement("style");
