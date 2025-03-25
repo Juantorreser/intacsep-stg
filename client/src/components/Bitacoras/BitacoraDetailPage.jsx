@@ -741,7 +741,7 @@ const BitacoraDetailPage = ({edited}) => {
                   onChange={handleInputChange}
                 />
               </Form.Group>
-              <Form.Group className="mb-3">
+              {/* <Form.Group className="mb-3">
                 <Form.Label>Ubicación</Form.Label>
                 <Form.Control
                   type="text"
@@ -760,7 +760,7 @@ const BitacoraDetailPage = ({edited}) => {
                 />
               </Form.Group>
               <Form.Group className="mb-3">
-                <Form.Label>Velocidad</Form.Label>
+                <Form.Label>Velocidadd</Form.Label>
                 <Form.Control
                   type="text"
                   name="velocidad"
@@ -776,7 +776,7 @@ const BitacoraDetailPage = ({edited}) => {
                   value={formData.coordenadas}
                   onChange={handleInputChange}
                 />
-              </Form.Group>
+              </Form.Group> */}
               <Form.Group className="mb-3">
                 <Form.Label>Frecuencia</Form.Label>
                 <Form.Control
