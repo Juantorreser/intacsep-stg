@@ -399,28 +399,41 @@ const NewEventModal = ({edited, eventTypes, onEventAdded}) => {
                   Transportes
                 </label>
 
-                {bitacora?.transportes?.map((transporte) => {
-                  const transporteId = transporte.id.includes("_")
-                    ? transporte.id.split("_")[1] // Obtiene la parte después del '_'
-                    : transporte.id; // Mantiene el ID original
+                {bitacora?.transportes
+                  ?.filter((transporte) => {
+                    const cierreEventos =
+                      bitacora?.eventos?.filter(
+                        (evento) => evento.nombre === "Cierre de servicio"
+                      ) || [];
 
-                  return (
-                    <div className="form-check" key={transporte.id}>
-                      <input
-                        type="checkbox"
-                        className="form-check-input"
-                        id={`transporte-${transporte.id}`}
-                        name="transportes"
-                        value={transporte.id}
-                        onChange={handleCheckboxChange}
-                        checked={newEvent.transportes.includes(transporte)}
-                      />
-                      <label className="form-check-label" htmlFor={`transporte-${transporte.id}`}>
-                        {`${transporteId} - ${transporte.tracto.eco}`}
-                      </label>
-                    </div>
-                  );
-                })}
+                    const transportesEnCierre = new Set(
+                      cierreEventos.flatMap((evento) => evento.transportes.map((t) => t.id))
+                    );
+
+                    return !transportesEnCierre.has(transporte.id);
+                  })
+                  .map((transporte) => {
+                    const transporteId = transporte.id.includes("_")
+                      ? transporte.id.split("_")[1]
+                      : transporte.id;
+
+                    return (
+                      <div className="form-check" key={transporte.id}>
+                        <input
+                          type="checkbox"
+                          className="form-check-input"
+                          id={`transporte-${transporte.id}`}
+                          name="transportes"
+                          value={transporte.id}
+                          onChange={handleCheckboxChange}
+                          checked={newEvent.transportes.includes(transporte)}
+                        />
+                        <label className="form-check-label" htmlFor={`transporte-${transporte.id}`}>
+                          {`${transporteId} - ${transporte.tracto.eco}`}
+                        </label>
+                      </div>
+                    );
+                  })}
               </div>
               <div className="mb-3">
                 <label htmlFor="nombre" className="form-label">
@@ -435,77 +448,84 @@ const NewEventModal = ({edited, eventTypes, onEventAdded}) => {
                   required>
                   <option value="">Seleccionar tipo de evento</option>
 
-                  {(() => {
-                    // Filtrar eventos con nombre "Validación"
-                    const eventosValidacion =
-                      bitacora?.eventos.filter((evento) => evento.nombre === "Validación") || [];
+                  {newEvent.transportes.length == 0 ? (
+                    <option value="">Seleccionar tipo de evento</option>
+                  ) : (
+                    (() => {
+                      // Filtrar eventos con nombre "Validación"
+                      const eventosValidacion =
+                        bitacora?.eventos.filter((evento) => evento.nombre === "Validación") || [];
 
-                    // Filtrar eventos con nombre "Inicio de recorrido"
-                    const eventosInicioRecorrido =
-                      bitacora?.eventos.filter(
-                        (evento) => evento.nombre === "Inicio de recorrido"
-                      ) || [];
+                      // Filtrar eventos con nombre "Inicio de recorrido"
+                      const eventosInicioRecorrido =
+                        bitacora?.eventos.filter(
+                          (evento) => evento.nombre === "Inicio de recorrido"
+                        ) || [];
 
-                    // Filtrar eventos con nombre "Arribo a destino"
-                    const eventosArriboDestino =
-                      bitacora?.eventos.filter((evento) => evento.nombre === "Arribo a destino") ||
-                      [];
+                      // Filtrar eventos con nombre "Arribo a destino"
+                      const eventosArriboDestino =
+                        bitacora?.eventos.filter(
+                          (evento) => evento.nombre === "Arribo a destino"
+                        ) || [];
 
-                    // Extraer IDs de transportes en eventos "Validación"
-                    const transportesConValidacion = new Set(
-                      eventosValidacion.flatMap((evento) => evento.transportes.map((t) => t.id))
-                    );
+                      // Extraer IDs de transportes en eventos "Validación"
+                      const transportesConValidacion = new Set(
+                        eventosValidacion.flatMap((evento) => evento.transportes.map((t) => t.id))
+                      );
 
-                    // Extraer IDs de transportes en eventos "Inicio de recorrido"
-                    const transportesConInicioRecorrido = new Set(
-                      eventosInicioRecorrido.flatMap((evento) =>
-                        evento.transportes.map((t) => t.id)
-                      )
-                    );
+                      // Extraer IDs de transportes en eventos "Inicio de recorrido"
+                      const transportesConInicioRecorrido = new Set(
+                        eventosInicioRecorrido.flatMap((evento) =>
+                          evento.transportes.map((t) => t.id)
+                        )
+                      );
 
-                    // Extraer IDs de transportes en eventos "Arribo a destino"
-                    const transportesConArriboDestino = new Set(
-                      eventosArriboDestino.flatMap((evento) => evento.transportes.map((t) => t.id))
-                    );
+                      // Extraer IDs de transportes en eventos "Arribo a destino"
+                      const transportesConArriboDestino = new Set(
+                        eventosArriboDestino.flatMap((evento) =>
+                          evento.transportes.map((t) => t.id)
+                        )
+                      );
 
-                    // Verificar si TODOS los selectedTransportes están en eventos de "Validación"
-                    const allSelectedTransportesInValidacion = newEvent.transportes.every((t) =>
-                      transportesConValidacion.has(t.id)
-                    );
+                      // Verificar si TODOS los selectedTransportes están en eventos de "Validación"
+                      const allSelectedTransportesInValidacion = newEvent.transportes.every((t) =>
+                        transportesConValidacion.has(t.id)
+                      );
 
-                    // Verificar si TODOS los selectedTransportes están en eventos de "Inicio de recorrido"
-                    const allSelectedTransportesInInicioRecorrido = newEvent.transportes.every(
-                      (t) => transportesConInicioRecorrido.has(t.id)
-                    );
+                      // Verificar si TODOS los selectedTransportes están en eventos de "Inicio de recorrido"
+                      const allSelectedTransportesInInicioRecorrido = newEvent.transportes.every(
+                        (t) => transportesConInicioRecorrido.has(t.id)
+                      );
 
-                    // Verificar si TODOS los selectedTransportes están en eventos de "Arribo a destino"
-                    allSelectedTransportesInArriboDestino = newEvent.transportes.every((t) =>
-                      transportesConArriboDestino.has(t.id)
-                    );
+                      // Verificar si TODOS los selectedTransportes están en eventos de "Arribo a destino"
+                      allSelectedTransportesInArriboDestino = newEvent.transportes.every((t) =>
+                        transportesConArriboDestino.has(t.id)
+                      );
 
-                    if (allSelectedTransportesInValidacion) {
-                      if (allSelectedTransportesInInicioRecorrido) {
-                        // Si todos los transportes están en "Validación" y "Inicio de recorrido"
-                        return eventTypes
-                          .filter(
-                            (eventType) =>
-                              allSelectedTransportesInArriboDestino ||
-                              eventType.eventType !== "Cierre de servicio"
-                          )
-                          .map((eventType) => (
-                            <option key={eventType._id} value={eventType.eventType}>
-                              {eventType.eventType}
-                            </option>
-                          ));
-                      } else {
-                        // Si todos los transportes están en "Validación" pero no en "Inicio de recorrido", mostrar solo "Inicio de recorrido"
-                        return <option value="Inicio de recorrido">Inicio de recorrido</option>;
+                      if (allSelectedTransportesInValidacion) {
+                        if (allSelectedTransportesInInicioRecorrido) {
+                          // Si todos los transportes están en "Validación" y "Inicio de recorrido"
+                          return eventTypes
+                            .filter(
+                              (eventType) =>
+                                allSelectedTransportesInArriboDestino ||
+                                eventType.eventType !== "Cierre de servicio"
+                            )
+                            .map((eventType) => (
+                              <option key={eventType._id} value={eventType.eventType}>
+                                {eventType.eventType}
+                              </option>
+                            ));
+                        } else {
+                          // Si todos los transportes están en "Validación" pero no en "Inicio de recorrido", mostrar solo "Inicio de recorrido"
+                          return <option value="Inicio de recorrido">Inicio de recorrido</option>;
+                        }
                       }
-                    }
 
-                    // Si algún transporte no está en "Validación", solo permitir "Validación"
-                    return <option value="Validación">Validación</option>;
-                  })()}
+                      // Si algún transporte no está en "Validación", solo permitir "Validación"
+                      return <option value="Validación">Validación</option>;
+                    })()
+                  )}
                 </select>
               </div>
 
