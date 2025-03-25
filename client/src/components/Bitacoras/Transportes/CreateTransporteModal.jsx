@@ -108,7 +108,7 @@ const CreateTransporteModal = ({show, handleClose, addTransporte, transportes, b
         alert("Por favor, seleccione una unidad de Wialon.");
         return;
       }
-      newId = `${selectedUnitId}_${selectedUnitName}`;
+      newId = `${selectedUnitId}_${selectedUnitName}_${transporteData.tracto.eco}`;
     } else {
       newId = (transportes.length + 1).toString().padStart(2, "0");
     }
