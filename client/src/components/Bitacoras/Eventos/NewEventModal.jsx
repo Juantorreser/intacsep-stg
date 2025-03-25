@@ -483,10 +483,6 @@ const NewEventModal = ({edited, eventTypes, onEventAdded}) => {
                       transportesConArriboDestino.has(t.id)
                     );
 
-                    if (allSelectedTransportesInArriboDestino) {
-                      return <option value="Cierre de servicio">Cierre de servicio</option>;
-                    }
-
                     if (allSelectedTransportesInValidacion) {
                       if (allSelectedTransportesInInicioRecorrido) {
                         // Si todos los transportes están en "Validación" y "Inicio de recorrido"
@@ -537,10 +533,9 @@ const NewEventModal = ({edited, eventTypes, onEventAdded}) => {
                   max="99"
                   id="frecuencia"
                   name="frecuencia"
-                  value={allSelectedTransportesInArriboDestino ? 0 : newEvent.frecuencia}
+                  value={newEvent.frecuencia}
                   onChange={handleChange}
                   required
-                  disabled={allSelectedTransportesInArriboDestino}
                 />
               </div>
               <hr />
