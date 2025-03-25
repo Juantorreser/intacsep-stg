@@ -227,14 +227,14 @@ const Sidebar = () => {
                           Destinos
                         </li>
                       )}
-                      {roleData.operadores && (
+                      {/* {roleData.operadores && (
                         <li
                           className="text-white-50 cursor-pointer mb-3 itemLine2"
                           onClick={() => navigate("/operadores")}
                           style={{fontSize: "0.85rem"}}>
                           Operadores
                         </li>
-                      )}
+                      )} */}
                     </ul>
                   </div>
 

@@ -48,39 +48,38 @@ const BitacoraDetailPage = ({edited}) => {
     setSelectedTransporte(transporte);
   };
 
-const handleTransportEdit = async (e) => {
-  e.preventDefault();
+  const handleTransportEdit = async (e) => {
+    e.preventDefault();
 
-  const updatedTransportes = bitacora.transportes.map((transporte) =>
-    transporte.id === editedTransporte.id ? editedTransporte : transporte
-  );
+    const updatedTransportes = bitacora.transportes.map((transporte) =>
+      transporte.id === editedTransporte.id ? editedTransporte : transporte
+    );
 
-  const updatedBitacora = {...bitacora, transportes: updatedTransportes};
+    const updatedBitacora = {...bitacora, transportes: updatedTransportes};
 
-  setBitacora(updatedBitacora);
-  setSelectedTransporte(editedTransporte); // 🔥 Ensure UI updates instantly
-  setEditTransporteModalVisible(false);
+    setBitacora(updatedBitacora);
+    setSelectedTransporte(editedTransporte); // 🔥 Ensure UI updates instantly
+    setEditTransporteModalVisible(false);
 
-  try {
-    const response = await fetch(`${baseUrl}/bitacora/${id}`, {
-      method: "PATCH",
-      headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({transportes: updatedTransportes}),
-      credentials: "include",
-    });
+    try {
+      const response = await fetch(`${baseUrl}/bitacora/${id}`, {
+        method: "PATCH",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({transportes: updatedTransportes}),
+        credentials: "include",
+      });
 
-    if (response.ok) {
-      const updatedData = await response.json();
-      setBitacora(updatedData);
-      setSelectedTransporte(updatedData.transportes.find((t) => t.id === editedTransporte.id)); // 🔥 Ensure latest data from API
-    } else {
-      console.error("Failed to update transporte:", response.statusText);
+      if (response.ok) {
+        const updatedData = await response.json();
+        setBitacora(updatedData);
+        setSelectedTransporte(updatedData.transportes.find((t) => t.id === editedTransporte.id)); // 🔥 Ensure latest data from API
+      } else {
+        console.error("Failed to update transporte:", response.statusText);
+      }
+    } catch (error) {
+      console.error("Error updating transporte:", error);
     }
-  } catch (error) {
-    console.error("Error updating transporte:", error);
-  }
-};
-
+  };
 
   useEffect(() => {
     if (selectedTransporte) {
@@ -1841,26 +1840,19 @@ const handleTransportEdit = async (e) => {
                     </Form.Select> */}
                     <div className="mb-3">
                       <label className="form-label">Operador</label>
-                      <select
+                      <input
+                        type="text"
+                        className="form-control"
                         name="operador"
                         id="operador"
-                        className="form-control"
                         value={editedTransporte.operador}
-                        required
                         onChange={(e) =>
                           setEditedTransporte({
                             ...editedTransporte,
                             operador: e.target.value,
                           })
-                        }>
-                        <option value="">Seleccione un operador</option>
-                        <option value="">Seleccione un operador</option>
-                        {operadores.map((operador) => (
-                          <option key={operador.id} value={operador.name}>
-                            {operador.name}
-                          </option>
-                        ))}
-                      </select>
+                        }
+                      />
                     </div>
                     <div className="mb-3">
                       <label className="form-label">Telefono</label>
