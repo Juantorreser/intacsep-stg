@@ -341,7 +341,7 @@ const BitacorasPage = () => {
 
     const root = createRoot(tempContainer);
 
-    if (bitacora.bitacora_id <= 350) {
+    if (bitacora.bitacora_id <= 2025) {
       root.render(<OldBitacoraDetail bitacora={bitacora} />);
     } else {
       if (transporteId == "") {
