@@ -551,7 +551,11 @@ const BitacoraDetailPage = ({edited}) => {
           <div
             className="d-flex justify-content-between align-items-center cursor-pointer border p-2 rounded"
             onClick={toggleCollapse}>
-            <span>{transporte.id.includes("_") ? transporte.id.split("_")[1] : transporte.id}</span>
+            <span>
+              {transporte.id.includes("_")
+                ? `${transporte.id.split("_")[1]} - ${transporte.id.split("_")[2]}`
+                : transporte.id}
+            </span>
             <span>{isOpen ? "-" : "+"}</span>
           </div>
           {isOpen && (
@@ -723,7 +727,9 @@ const BitacoraDetailPage = ({edited}) => {
                   name="nombre"
                   value={formData.transportes
                     .map((transporte) =>
-                      transporte.id.includes("_") ? transporte.id.split("_")[1] : transporte.id
+                      transporte.id.includes("_")
+                        ? `${transporte.id.split("_")[1]} - ${transporte.id.split("_")[2]}`
+                        : transporte.id
                     )
                     .join(", ")}
                   onChange={handleInputChange}
@@ -1073,8 +1079,7 @@ const BitacoraDetailPage = ({edited}) => {
               <button
                 className="btn btn-primary rounded-5 position-absolute end-0 me-4"
                 data-bs-toggle="modal"
-                data-bs-target="#eventModal"
-                disabled={bitacora.status === "cerrada"}>
+                data-bs-target="#eventModal">
                 <FontAwesomeIcon icon={faPlus} />
               </button>
             )}
@@ -1189,7 +1194,9 @@ const BitacoraDetailPage = ({edited}) => {
                       return (
                         <div key={t.id}>
                           <p className="fw-bold">{`GPS ID : ${
-                            t.id.includes("_") ? t.id.split("_")[1] : t.id
+                            t.id.includes("_")
+                              ? `${t.id.split("_")[1]} - ${t.id.split("_")[2]}`
+                              : t.id
                           }`}</p>
                           <div>
                             <p className="card-text mb-2">
@@ -1224,7 +1231,7 @@ const BitacoraDetailPage = ({edited}) => {
                     <ul className="list-group">
                       {bitacora.transportes.map((transporte) => {
                         const transporteId = transporte.id.includes("_")
-                          ? transporte.id.split("_")[1] // Obtiene la parte después del '_'
+                          ? `${transporte.id.split("_")[1]} - ${transporte.id.split("_")[2]}` // Obtiene la parte después del '_'
                           : transporte.id; // Mantiene el ID original
 
                         return (

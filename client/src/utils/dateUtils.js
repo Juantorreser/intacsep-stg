@@ -1,11 +1,21 @@
-// utils/dateUtils.js
-
-export const formatDate = (dateString) => {
-    const options = {
+export const formatDate = (dateStr) => {
+  if (!dateStr) {
+    return "No disponible";
+  }
+  const date = new Date(dateStr);
+  return !isNaN(date.getTime())
+    ? date.toLocaleDateString("es-MX", {
+        day: "2-digit",
+        month: "2-digit",
         year: "numeric",
-        month: "long",
-        day: "numeric",
         timeZone: "America/Mexico_City",
-    };
-    return new Date(dateString).toLocaleDateString("es-MX", options);
+      }) +
+        " " +
+        date.toLocaleTimeString("es-MX", {
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+          timeZone: "America/Mexico_City",
+        })
+    : "No disponible";
 };

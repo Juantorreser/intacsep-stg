@@ -414,7 +414,7 @@ const NewEventModal = ({edited, eventTypes, onEventAdded}) => {
                   })
                   .map((transporte) => {
                     const transporteId = transporte.id.includes("_")
-                      ? transporte.id.split("_")[1]
+                      ? `${transporte.id.split("_")[1]}`
                       : transporte.id;
 
                     return (
@@ -567,7 +567,10 @@ const NewEventModal = ({edited, eventTypes, onEventAdded}) => {
                       className="d-flex justify-content-between align-items-center cursor-pointer border p-2 rounded"
                       onClick={() => toggleCollapse(t.id)}>
                       <div className="whitespace-nowrap">
-                        GPS ID: {t.id.includes("_") ? t.id.split("_")[1] : t.id}
+                        GPS ID:{" "}
+                        {t.id.includes("_")
+                          ? `${t.id.split("_")[1]} - ${t.id.split("_")[2]}`
+                          : t.id}
                       </div>
 
                       <div className="ml-auto flex items-center w-[25px]">

@@ -114,25 +114,21 @@ const BitacoraDetail = React.forwardRef(({bitacora, transporteId = ""}, ref) => 
                 <hr />
                 <div className="card-body transportCard">
                   <div className="d-flex flex-row title fw-bold fs-4">{`${
-                    transporte.id.includes("_") ? transporte.id.split("_")[1] : transporte.id
+                    transporte.id.includes("_")
+                      ? `${transporte.id.split("_")[1]} - ${transporte.id.split("_")[2]}`
+                      : transporte.id
                   }`}</div>
                   <Row>
                     <Col className="text-center">
                       <p>
                         <strong>Inicio Monitoreo</strong> <br />
-                        {`${formatDate(inicioMonitoreo)}`}, <br />
-                        {`${new Date(inicioMonitoreo).toLocaleTimeString("es-MX", {
-                          timeZone: "America/Mexico_City",
-                        })}`}
+                        {formatDate(inicioMonitoreo)}
                       </p>
                     </Col>
                     <Col className="text-center">
                       <p>
                         <strong>Final Monitoreo</strong> <br />
-                        {`${formatDate(finalMonitoreo)}`},<br />{" "}
-                        {`${new Date(finalMonitoreo).toLocaleTimeString("es-MX", {
-                          timeZone: "America/Mexico_City",
-                        })}`}
+                        {formatDate(finalMonitoreo)}
                       </p>
                     </Col>
                   </Row>
@@ -235,9 +231,7 @@ const BitacoraDetail = React.forwardRef(({bitacora, transporteId = ""}, ref) => 
                 <div className="row w-100 d-flex justify-center items-center">
                   <h3 className="text-center fw-bold ">{evento.nombre}</h3>
                   <div className="col-6 d-flex flex-column mt-2">
-                    <p className=" fw-bold fs-6 text-center mb-4">
-                      Detalles
-                    </p>
+                    <p className=" fw-bold fs-6 text-center mb-4">Detalles</p>
                     <p>
                       <strong>Descripción:</strong>
                     </p>
@@ -275,7 +269,10 @@ const BitacoraDetail = React.forwardRef(({bitacora, transporteId = ""}, ref) => 
                         <Row>
                           <hr />
                           <p className="text-center fst-italic fw-bold">
-                            GPS ID: {t.id.includes("_") ? t.id.split("_")[1] : t.id}
+                            GPS ID:{" "}
+                            {t.id.includes("_")
+                              ? `${t.id.split("_")[1]} - ${t.id.split("_")[2]}`
+                              : t.id}
                           </p>
                           <Col className="text-start">
                             <p>

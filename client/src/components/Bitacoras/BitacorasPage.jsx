@@ -341,7 +341,7 @@ const BitacorasPage = () => {
 
     const root = createRoot(tempContainer);
 
-    if (bitacora.bitacora_id <= 2025) {
+    if (bitacora.bitacora_id <= 360) {
       root.render(<OldBitacoraDetail bitacora={bitacora} />);
     } else {
       if (transporteId == "") {
@@ -844,7 +844,7 @@ const BitacorasPage = () => {
                             <option value="">Seleccionar ID</option>
                             {selectedBitacora.transportes.map((transporte) => (
                               <option value={transporte.id} key={transporte.id}>
-                                {transporte.id}
+                                {`${transporte.id.split("_")[1]} - ${transporte.id.split("_")[2]}`}
                               </option>
                             ))}
                           </select>
