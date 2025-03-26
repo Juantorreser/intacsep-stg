@@ -800,7 +800,7 @@ const BitacorasPage = () => {
                       }}></button>
                     <div className="w-100 col justify-content-center align-items-center">
                       <img src="/logo2.png" alt="" width={50} />
-                      <p className="p-0 m-0"> Metodo de Impresion</p>
+                      <p className="p-0 m-0"> Método de Impresión</p>
                     </div>
                     <hr />
                     <form onSubmit={handlePDFSubmit}>
