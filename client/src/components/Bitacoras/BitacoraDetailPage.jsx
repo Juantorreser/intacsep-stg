@@ -261,6 +261,8 @@ const BitacoraDetailPage = ({edited}) => {
 
         setIsEventStarted(data.status === "iniciada");
         setFinishButtonDisabled(data.status === "finalizada" || data.status === "cerrada");
+
+        return data; // <-- ✅ Return updated bitacora
       } else {
         console.error("Failed to fetch bitácora:", response.statusText);
       }
@@ -387,31 +389,8 @@ const BitacoraDetailPage = ({edited}) => {
     }
   };
 
-  const handleFinish = async () => {
-    if (bitacora.status === "iniciada") {
-      try {
-        const response = await fetch(`${baseUrl}/bitacora/${id}/finish`, {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            finalMonitoreo: new Date().toISOString(), // Set the finish time
-          }),
-          credentials: "include",
-        });
-        if (response.ok) {
-          const updatedBitacora = await response.json();
-          setBitacora(updatedBitacora);
-          setFinishButtonDisabled(true);
-        } else {
-          console.error("Failed to finish bitácora:", response.statusText);
-        }
-      } catch (e) {
-        console.error("Error finishing bitácora:", e);
-      }
-    }
-    if (bitacora.status === "iniciada") {
+  const handleFinish = async (latestBitacora = bitacora) => {
+    if (latestBitacora.status === "iniciada" && areAllTransportesClosed(latestBitacora)) {
       try {
         const response = await fetch(`${baseUrl}/bitacora/${id}/status`, {
           method: "PATCH",
@@ -420,25 +399,25 @@ const BitacoraDetailPage = ({edited}) => {
           },
           body: JSON.stringify({
             status: "cerrada",
-            inicioMonitoreo: new Date().toISOString(), // Set the start time
+            inicioMonitoreo: new Date().toISOString(),
           }),
           credentials: "include",
         });
+
         if (response.ok) {
           const updatedBitacora = await response.json();
           setBitacora(updatedBitacora);
           setIsEventStarted(true);
           setFinishButtonDisabled(false);
         } else {
-          console.error("Failed to start bitácora:", response.statusText);
+          console.error("Failed to close bitácora:", response.statusText);
         }
       } catch (e) {
-        console.error("Error starting bitácora:", e);
+        console.error("Error closing bitácora:", e);
       }
-      fetchBitacora();
-    }
 
-    fetchBitacora();
+      fetchBitacora(); // Keep this to refresh the state
+    }
   };
 
   const handleChange = (e) => {
@@ -842,15 +821,15 @@ const BitacoraDetailPage = ({edited}) => {
     });
   };
 
-  const areAllTransportesClosed = () => {
-    if (!bitacora || !bitacora.transportes?.length || !bitacora.eventos?.length) return false;
+  const areAllTransportesClosed = (bitacoraToCheck = bitacora) => {
+    if (!bitacoraToCheck || !bitacoraToCheck.transportes || !bitacoraToCheck.eventos) return false;
 
-    const cierreEventos = bitacora.eventos.filter((e) => e.nombre === "Cierre de servicio");
+    const cierreEventos = bitacoraToCheck.eventos.filter((e) => e.nombre === "Cierre de servicio");
     const transportesInCierre = new Set(
       cierreEventos.flatMap((e) => e.transportes.map((t) => t.id))
     );
 
-    return bitacora.transportes.every((t) => transportesInCierre.has(t.id));
+    return bitacoraToCheck.transportes.every((t) => transportesInCierre.has(t.id));
   };
 
   const handleEditSubmit = async (e, updatedBitacora) => {
@@ -1404,7 +1383,14 @@ const BitacoraDetailPage = ({edited}) => {
         </div>
       </div>
 
-      <NewEventModal edited={edited} eventTypes={eventTypes} onEventAdded={fetchEventos} />
+      <NewEventModal
+        edited={edited}
+        eventTypes={eventTypes}
+        onEventAdded={async () => {
+          const latest = await fetchEventos(); // Modify fetchEventos to return data
+          await handleFinish(latest); // Pass it into handleFinish
+        }}
+      />
 
       {editModalVisible && (
         <>

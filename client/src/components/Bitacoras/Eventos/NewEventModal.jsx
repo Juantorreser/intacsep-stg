@@ -306,35 +306,35 @@ const NewEventModal = ({edited, eventTypes, onEventAdded}) => {
       transportesConArriboDestino.has(t.id)
     );
 
-    if (
-      bitacora.status === "iniciada" &&
-      newEvent.nombre === "Cierre de servicio" &&
-      allTransportesInArriboDestino
-    ) {
-      try {
-        const response = await fetch(`${baseUrl}/bitacora/${id}/status`, {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            status: "cerrada",
-            inicioMonitoreo: new Date().toISOString(), // Set the start time
-          }),
-          credentials: "include",
-        });
-        if (response.ok) {
-          const updatedBitacora = await response.json();
-          setBitacora(updatedBitacora);
-          setIsEventStarted(true);
-          setFinishButtonDisabled(false);
-        } else {
-          console.error("Failed to start bitácora:", response.statusText);
-        }
-      } catch (e) {
-        console.error("Error starting bitácora:", e);
-      }
-    }
+    // if (
+    //   bitacora.status === "iniciada" &&
+    //   newEvent.nombre === "Cierre de servicio" &&
+    //   allTransportesInArriboDestino
+    // ) {
+    //   try {
+    //     const response = await fetch(`${baseUrl}/bitacora/${id}/status`, {
+    //       method: "PATCH",
+    //       headers: {
+    //         "Content-Type": "application/json",
+    //       },
+    //       body: JSON.stringify({
+    //         status: "cerrada",
+    //         inicioMonitoreo: new Date().toISOString(), // Set the start time
+    //       }),
+    //       credentials: "include",
+    //     });
+    //     if (response.ok) {
+    //       const updatedBitacora = await response.json();
+    //       setBitacora(updatedBitacora);
+    //       setIsEventStarted(true);
+    //       setFinishButtonDisabled(false);
+    //     } else {
+    //       console.error("Failed to start bitácora:", response.statusText);
+    //     }
+    //   } catch (e) {
+    //     console.error("Error starting bitácora:", e);
+    //   }
+    // }
 
     try {
       const response = await fetch(`${baseUrl}/bitacora/${id}/event`, {
