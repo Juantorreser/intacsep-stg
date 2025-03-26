@@ -842,6 +842,17 @@ const BitacoraDetailPage = ({edited}) => {
     });
   };
 
+  const areAllTransportesClosed = () => {
+    if (!bitacora || !bitacora.transportes?.length || !bitacora.eventos?.length) return false;
+
+    const cierreEventos = bitacora.eventos.filter((e) => e.nombre === "Cierre de servicio");
+    const transportesInCierre = new Set(
+      cierreEventos.flatMap((e) => e.transportes.map((t) => t.id))
+    );
+
+    return bitacora.transportes.every((t) => transportesInCierre.has(t.id));
+  };
+
   const handleEditSubmit = async (e, updatedBitacora) => {
     e.preventDefault();
     console.log("Submitting changes...");
@@ -1079,7 +1090,8 @@ const BitacoraDetailPage = ({edited}) => {
               <button
                 className="btn btn-primary rounded-5 position-absolute end-0 me-4"
                 data-bs-toggle="modal"
-                data-bs-target="#eventModal">
+                data-bs-target="#eventModal"
+                disabled={areAllTransportesClosed()}>
                 <FontAwesomeIcon icon={faPlus} />
               </button>
             )}
