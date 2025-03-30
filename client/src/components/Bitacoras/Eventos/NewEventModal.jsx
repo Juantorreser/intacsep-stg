@@ -205,7 +205,13 @@ const NewEventModal = ({edited, eventTypes, onEventAdded}) => {
 
   const handleChange = (e) => {
     const {name, value} = e.target;
-    setNewEvent((prev) => ({...prev, [name]: value}));
+
+    // Auto-set and disable frecuencia if event is Cierre de servicio
+    if (name === "nombre" && value.toLowerCase() === "cierre de servicio") {
+      setNewEvent((prev) => ({...prev, [name]: value, frecuencia: 0}));
+    } else {
+      setNewEvent((prev) => ({...prev, [name]: value}));
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -556,9 +562,20 @@ const NewEventModal = ({edited, eventTypes, onEventAdded}) => {
                   name="frecuencia"
                   value={newEvent.frecuencia}
                   onChange={handleChange}
+                  disabled={newEvent.nombre.toLowerCase() === "cierre de servicio"}
                   required
                 />
               </div>
+              <div className="mb-3">
+                <label className="form-label">Fecha de registro</label>
+                <input
+                  type="text"
+                  className="form-control"
+                  value={new Date().toLocaleString("es-MX", {hour12: false})}
+                  disabled
+                />
+              </div>
+
               <hr />
 
               <div>
