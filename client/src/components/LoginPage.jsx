@@ -279,7 +279,7 @@ const Login = () => {
         ) : (
           <div className=" flex flex-col justify-content-center align-items-center w-full p-5 text-center loginCard">
             <img src="./logo1.png" alt="logo" width={80} />
-            <p className="text-white">Inicio de sesión</p>
+            <p className="text-white mb-3">Inicio de sesión</p>
             <form
               onSubmit={loginUser}
               className="d-flex flex-column justify-content-center align-items-center mb-5 px-0">
