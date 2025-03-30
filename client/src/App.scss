@@ -1,6 +1,5 @@
 @import url("https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap");
 
-
 // Variables
 $fontFamily: "Poppins", sans-serif;
 $primary: #4ca6f6;
@@ -143,7 +142,7 @@ $gray: #223b53;
     display: flex;
     align-items: center;
     justify-content: center;
-    background: linear-gradient(to right, #1d1646, #09041f);
+    background: linear-gradient(to bottom right, #372e6d, #09041f);
     position: relative;
     overflow: hidden;
 
@@ -168,7 +167,7 @@ $gray: #223b53;
       transition: all 0.4s ease-in-out;
 
       &:hover {
-        transform: translateY(-5px);
+        transform: translateY(-3px);
         box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
       }
 
@@ -199,6 +198,10 @@ $gray: #223b53;
 
             &:disabled + label {
               color: rgba(255, 255, 255, 0.4);
+            }
+            &:hover {
+              transform: translateY(-0.5px);
+              box-shadow: 0 12px 20px rgba(0, 0, 0, 0.20);
             }
           }
 
@@ -301,7 +304,7 @@ $gray: #223b53;
   @keyframes fadeInUp {
     0% {
       opacity: 0;
-      transform: translateY(20px);
+      transform: translateY(50px);
     }
     100% {
       opacity: 1;
@@ -311,7 +314,7 @@ $gray: #223b53;
 
   @keyframes popIn {
     0% {
-      transform: scale(0.8);
+      transform: scale(0.6);
       opacity: 0;
     }
     100% {
@@ -322,10 +325,19 @@ $gray: #223b53;
 
   @keyframes moveBackground {
     0% {
-      transform: translate(-50%, -50%) rotate(0deg);
+      transform: translate(-150%, -150%) rotate(0deg);
+      filter: brightness(0.8) saturate(0.6);
+      opacity: 0.6;
+    }
+    50% {
+      transform: translate(-75%, -75%) rotate(180deg);
+      filter: brightness(1.2) saturate(1.4);
+      opacity: 1;
     }
     100% {
-      transform: translate(-50%, -50%) rotate(360deg);
+      transform: translate(-50%, -50%) rotate(720deg);
+      filter: brightness(1) saturate(1);
+      opacity: 0.8;
     }
   }
 
