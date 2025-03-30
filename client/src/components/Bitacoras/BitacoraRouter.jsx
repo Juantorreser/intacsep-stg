@@ -35,7 +35,9 @@ const BitacoraRouter = ({edited}) => {
   if (loading) return <p>Loading...</p>;
   if (!bitacora) return <p>Error: Bitácora no encontrada</p>;
 
-  return bitacora.bitacora_id <= 2025 ? (
+  const oldBitacorasCount = import.meta.env.VITE_OLD_BITACORAS_COUNT;
+
+  return bitacora.bitacora_id <= oldBitacorasCount ? (
     <OldBitacoraDetailPage edited={edited} />
   ) : (
     <BitacoraDetailPage edited={edited} />

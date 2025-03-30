@@ -87,12 +87,11 @@ const BitacoraDetail = React.forwardRef(({bitacora, transporteId = ""}, ref) => 
           {filteredTransportes.map((transporte, index) => {
             // Find the "Validacion" event
             const eventoValidacion = bitacora.eventos.find(
-              (evento) => evento.nombre === "Validación"
+              (evento) => evento.nombre?.toLowerCase() === "validación".toLowerCase()
             );
 
-            // Find the "Cierre de servicio" event
             const eventoCierre = bitacora.eventos.find(
-              (evento) => evento.nombre === "Cierre de servicio"
+              (evento) => evento.nombre?.toLowerCase() === "cierre de servicio".toLowerCase()
             );
 
             // Get the corresponding transporte object inside evento.transportes

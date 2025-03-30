@@ -824,7 +824,9 @@ const BitacoraDetailPage = ({edited}) => {
   const areAllTransportesClosed = (bitacoraToCheck = bitacora) => {
     if (!bitacoraToCheck || !bitacoraToCheck.transportes || !bitacoraToCheck.eventos) return false;
 
-    const cierreEventos = bitacoraToCheck.eventos.filter((e) => e.nombre === "Cierre de servicio");
+    const cierreEventos = bitacoraToCheck.eventos.filter(
+      (e) => e.nombre.toLowercase() === "cierre de servicio"
+    );
     const transportesInCierre = new Set(
       cierreEventos.flatMap((e) => e.transportes.map((t) => t.id))
     );
@@ -1165,17 +1167,17 @@ const BitacoraDetailPage = ({edited}) => {
                       // Find the "Validacion" event and extract inicioMonitoreo
                       const validacionEvento = bitacora.eventos.find(
                         (evento) =>
-                          evento.nombre === "Validación" &&
+                          evento.nombre?.toLowerCase() === "validación" &&
                           evento.transportes.some((tr) => tr.id === t.id)
                       );
                       const inicioMonitoreo = validacionEvento
                         ? validacionEvento.transportes.find((tr) => tr.id === t.id)?.inicioMonitoreo
                         : null;
 
-                      // Find the "Cierre de servicio" event and extract finalMonitoreo
+                      // Find the "CIERRE DE SERVICIO" event and extract finalMonitoreo
                       const cierreEvento = bitacora.eventos.find(
                         (evento) =>
-                          evento.nombre === "Cierre de servicio" &&
+                          evento.nombre?.toLowerCase() === "cierre de servicio" &&
                           evento.transportes.some((tr) => tr.id === t.id)
                       );
                       const finalMonitoreo = cierreEvento

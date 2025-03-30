@@ -818,19 +818,19 @@ const BitacoraDetailPage = ({edited}) => {
 
   const hasEventWithName = () => {
     const eventToStart = "Validación";
-    const eventToFinish = "Cierre de servicio";
+    const eventToFinish = "CIERRE DE SERVICIO";
 
     if (bitacora.status === "validada") {
       return events.some((event) => event.nombre === eventToStart);
     } else if (bitacora.status === "iniciada") {
-      // Obtener todos los transportes que han sido incluidos en un evento "Cierre de servicio"
+      // Obtener todos los transportes que han sido incluidos en un evento "CIERRE DE SERVICIO"
       const transportesConCierre = new Set(
         events
           .filter((event) => event.nombre === eventToFinish)
           .flatMap((event) => event.transportes.map((t) => t.id)) // Suponiendo que transportes es un array de objetos con ID
       );
 
-      // Verificar si TODOS los transportes de la bitácora están en un evento "Cierre de servicio"
+      // Verificar si TODOS los transportes de la bitácora están en un evento "CIERRE DE SERVICIO"
       return bitacora.transportes.every((transporte) => transportesConCierre.has(transporte.id));
     }
 
