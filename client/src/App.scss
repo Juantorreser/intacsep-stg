@@ -1,4 +1,7 @@
 @import url("https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap");
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
 // Variables
 $fontFamily: "Poppins", sans-serif;
@@ -62,67 +65,269 @@ $gray: #223b53;
     left: 0;
   }
 
-  #login {
-    background-image: url("/loginPage.jpg");
-    background-size: cover;
-    background-position: center center;
-    background-color: $bg;
-    width: 100%;
-    height: 100vh;
-    display: flex;
-    color: $white;
-    padding: 0;
-    margin: 0;
+  // #login {
+  //   background-image: url("/loginPage.jpg");
+  //   background-size: cover;
+  //   background-position: center center;
+  //   background-color: $bg;
+  //   width: 100%;
+  //   height: 100vh;
+  //   display: flex;
+  //   color: $white;
+  //   padding: 0;
+  //   margin: 0;
 
-    .loginCard {
-      background-color: $bg;
-      border-radius: 5px;
-      z-index: 10;
-    }
+  //   .loginCard {
+  //     background-color: $bg;
+  //     border-radius: 5px;
+  //     z-index: 10;
+  //   }
+
+  //   .backdrop {
+  //     position: absolute;
+  //     left: 0;
+  //     top: 0;
+  //     width: 100%;
+  //     height: 100svh;
+  //     background-color: #0000002d;
+  //     z-index: 1;
+  //   }
+
+  //   input {
+  //     color: white;
+  //   }
+  //   .form-control {
+  //     background-color: $bg;
+  //     min-width: 300px;
+  //     margin: 0 5px;
+  //   }
+  //   .form-floating {
+  //     background-color: $bg;
+  //   }
+  //   a {
+  //     text-decoration: none;
+  //     color: white;
+  //     font-weight: 100;
+  //     margin-block: 15px;
+  //   }
+  //   .form-floating > .form-control-plaintext ~ label::after,
+  //   .form-floating > .form-control:focus ~ label::after,
+  //   .form-floating > .form-control:not(:placeholder-shown) ~ label::after,
+  //   .form-floating > .form-select ~ label::after {
+  //     background-color: white;
+  //   }
+  //   .form-floating > .form-control-plaintext ~ label,
+  //   .form-floating > .form-control:focus ~ label,
+  //   .form-floating > .form-control:not(:placeholder-shown) ~ label,
+  //   .form-floating > .form-select ~ label {
+  //     color: black;
+  //     opacity: 85%;
+  //   }
+
+  //   .registerSwitch {
+  //     cursor: pointer;
+  //   }
+  // }
+
+  // 📁 LoginUI.module.scss
+
+  // 🎨 Variables
+
+  #login {
+    $primary: #00c6ff;
+    $primary-dark: #0072ff;
+    $text-light: #eee;
+    $bg-glass: rgba(255, 255, 255, 0.12);
+    $input-bg: rgba(255, 255, 255, 0.1);
+    $placeholder-color: rgba(255, 255, 255, 0.6);
+
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(to right, #1d1646, #09041f);
+    position: relative;
+    overflow: hidden;
 
     .backdrop {
       position: absolute;
-      left: 0;
-      top: 0;
-      width: 100%;
-      height: 100svh;
-      background-color: #0000002d;
-      z-index: 1;
+      width: 200%;
+      height: 200%;
+      background: radial-gradient(circle at center, rgba(255, 255, 255, 0.05), transparent 70%);
+      animation: moveBackground 20s linear infinite;
+      z-index: 0;
     }
 
-    input {
-      color: white;
-    }
-    .form-control {
-      background-color: $bg;
-      min-width: 300px;
-      margin: 0 5px;
-    }
-    .form-floating {
-      background-color: $bg;
-    }
-    a {
-      text-decoration: none;
-      color: white;
-      font-weight: 100;
-      margin-block: 15px;
-    }
-    .form-floating > .form-control-plaintext ~ label::after,
-    .form-floating > .form-control:focus ~ label::after,
-    .form-floating > .form-control:not(:placeholder-shown) ~ label::after,
-    .form-floating > .form-select ~ label::after {
-      background-color: white;
-    }
-    .form-floating > .form-control-plaintext ~ label,
-    .form-floating > .form-control:focus ~ label,
-    .form-floating > .form-control:not(:placeholder-shown) ~ label,
-    .form-floating > .form-select ~ label {
-      color: black;
-      opacity: 85%;
-    }
+    .loginCard {
+      background: $bg-glass;
+      backdrop-filter: blur(10px);
+      border-radius: 20px;
+      padding: 2rem;
+      box-shadow: 0 8px 32px rgba(31, 38, 135, 0.2);
+      max-width: 400px;
+      width: 90%;
+      animation: fadeInUp 0.6s ease-in-out;
+      transition: all 0.4s ease-in-out;
 
-    .registerSwitch {
-      cursor: pointer;
+      &:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
+      }
+
+      img {
+        animation: popIn 0.6s ease-in-out;
+      }
+
+      form {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+
+        .form-floating {
+          position: relative;
+          background-color: $bg-glass;
+
+          input.form-control {
+            height: 3.5rem;
+            padding: 1.25rem 1rem 0.25rem;
+            background: $input-bg;
+            color: #fff;
+
+            &:focus + label,
+            &:not(:placeholder-shown) + label {
+              transform: translateY(-1.4rem) scale(0.85);
+              color: $gray;
+            }
+
+            &:disabled + label {
+              color: rgba(255, 255, 255, 0.4);
+            }
+          }
+
+          label {
+            // position: absolute;
+            // top: 1rem;
+            // left: 1rem;
+            color: rgba(255, 255, 255, 0.6);
+            transition: all 0.25s ease-in-out;
+            pointer-events: none;
+            transform-origin: left top;
+            background: transparent;
+            // padding: 0 0.2rem;
+          }
+        }
+
+        input.form-control {
+          background: $input-bg;
+          color: #fff;
+          border: none;
+          border-bottom: 2px solid rgba(255, 255, 255, 0.4);
+          border-radius: 0;
+          padding: 0.75rem 1rem;
+          transition: all 0.3s ease-in-out;
+
+          &::placeholder {
+            color: $placeholder-color;
+          }
+
+          &:hover {
+            border-bottom-color: lighten($primary, 10%);
+            background: rgba(255, 255, 255, 0.15);
+          }
+
+          &:focus {
+            outline: none;
+            border-bottom: 2px solid $primary;
+            background: rgba(255, 255, 255, 0.18);
+            box-shadow: 0 2px 8px rgba(0, 198, 255, 0.2);
+          }
+
+          &:disabled {
+            background: rgba(255, 255, 255, 0.05);
+            color: #aaa;
+            border-bottom: 2px dashed rgba(255, 255, 255, 0.3);
+            cursor: not-allowed;
+          }
+
+          &.is-invalid {
+            border-bottom: 2px solid #ff4d4d;
+            background: rgba(255, 0, 0, 0.05);
+          }
+
+          &.is-valid {
+            border-bottom: 2px solid #32cd32;
+            background: rgba(50, 205, 50, 0.05);
+          }
+        }
+
+        .text-danger {
+          font-size: 0.875rem;
+          margin-top: 0.25rem;
+          color: #ff4d4d;
+          animation: fadeInError 0.3s ease-in;
+        }
+
+        .text-success {
+          font-size: 0.875rem;
+          margin-top: 0.25rem;
+          color: #32cd32;
+          animation: fadeInSuccess 0.3s ease-in;
+        }
+      }
+
+      @keyframes fadeInError {
+        from {
+          opacity: 0;
+          transform: translateY(-5px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      @keyframes fadeInSuccess {
+        from {
+          opacity: 0;
+          transform: translateY(-5px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+    }
+  }
+
+  // 🌀 Animations
+  @keyframes fadeInUp {
+    0% {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    100% {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes popIn {
+    0% {
+      transform: scale(0.8);
+      opacity: 0;
+    }
+    100% {
+      transform: scale(1);
+      opacity: 1;
+    }
+  }
+
+  @keyframes moveBackground {
+    0% {
+      transform: translate(-50%, -50%) rotate(0deg);
+    }
+    100% {
+      transform: translate(-50%, -50%) rotate(360deg);
     }
   }
 

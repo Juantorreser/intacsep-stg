@@ -279,30 +279,30 @@ const Login = () => {
         ) : (
           <div className=" flex flex-col justify-content-center align-items-center w-full p-5 text-center loginCard">
             <img src="./logo1.png" alt="logo" width={80} />
-            <p>Inicio de sesión</p>
+            <p className="text-white">Inicio de sesión</p>
             <form
               onSubmit={loginUser}
-              className="d-flex flex-column justify-content-center align-items-center mb-5 pb-3">
-              <div className="form-floating mb-3">
+              className="d-flex flex-column justify-content-center align-items-center mb-5 px-0">
+              <div className="form-floating mb-3 text-white">
                 <input
                   type="email"
                   name="email"
                   className="form-control"
                   id="floatingInput"
-                  placeholder="name@example.com"
+                  placeholder=""
                   required
                   value={formData.email}
                   onChange={handleForm}
                 />
                 <label htmlFor="floatingInput">Email</label>
               </div>
-              <div className="form-floating mb-2">
+              <div className="form-floating mb-2 text-white">
                 <input
                   type="password"
                   name="password"
                   className="form-control"
                   id="floatingPassword"
-                  placeholder="Password"
+                  placeholder=""
                   required
                   value={formData.password}
                   onChange={handleForm}
@@ -314,22 +314,26 @@ const Login = () => {
               </p>
               <a
                 href=""
-                className="mt-0"
+                className="mt-1 mb-2 text-white opacity-50"
                 onClick={(e) => {
                   e.preventDefault();
                   setIsResettingPassword(true);
                 }}>
                 Olvidaste tu contraseña?
               </a>
-              <button type="submit" className="btn btn-primary" disabled={isLoading}>
-                {isLoading ? "Iniciando Sesión ..." : "Iniciar sesión"}
+              <button type="submit" className="btn btn-primary rounded-1 mt-2 mb-0" disabled={isLoading}>
+                {isLoading ? (
+                  <span className="spinner-border spinner-border-sm"></span>
+                ) : (
+                  "Iniciar sesión"
+                )}
               </button>
             </form>
             <a
               href="https://www.spotynet.com/"
               target="_blank"
               rel="noopener noreferrer"
-              className="opacity-25 mt-5 pt-5">
+              className="opacity-50 mt-2 text-white text-decoration-none">
               Powered by © Spotynet 2024 on AWS <br />v 1.3.7
             </a>
             <p className=" opacity-10"></p>
