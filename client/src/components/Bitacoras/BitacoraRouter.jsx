@@ -37,7 +37,9 @@ const BitacoraRouter = ({edited}) => {
 
   const oldBitacorasCount = import.meta.env.VITE_OLD_BITACORAS_COUNT;
 
-  return bitacora.bitacora_id <= oldBitacorasCount ? (
+  console.log(parseInt(bitacora.bitacora_id));
+
+  return parseInt(bitacora.bitacora_id) <= oldBitacorasCount ? (
     <OldBitacoraDetailPage edited={edited} />
   ) : (
     <BitacoraDetailPage edited={edited} />

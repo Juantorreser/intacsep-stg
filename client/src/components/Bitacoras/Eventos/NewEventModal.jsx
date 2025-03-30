@@ -216,8 +216,8 @@ const NewEventModal = ({edited, eventTypes, onEventAdded}) => {
       return;
     }
 
-    const isValidacion = newEvent.nombre?.toLowerCase() === "validación";
-    const isCierreDeServicio = newEvent.nombre?.toLowerCase() === "cierre de servicio";
+    const isValidacion = newEvent.nombre.toLowerCase() === "validación";
+    const isCierreDeServicio = newEvent.nombre.toLowerCase() === "cierre de servicio";
     const currentDate = new Date().toISOString();
 
     console.log(newEvent);
@@ -296,7 +296,7 @@ const NewEventModal = ({edited, eventTypes, onEventAdded}) => {
     }
 
     const eventosArriboDestino =
-      bitacora?.eventos.filter((evento) => evento.nombre?.toLowerCase() === "arribo a destino") ||
+      bitacora?.eventos.filter((evento) => evento.nombre.toLowerCase() === "arribo a destino") ||
       [];
 
     const transportesConArriboDestino = new Set(
@@ -404,7 +404,7 @@ const NewEventModal = ({edited, eventTypes, onEventAdded}) => {
                   ?.filter((transporte) => {
                     const cierreEventos =
                       bitacora?.eventos?.filter(
-                        (evento) => evento.nombre?.toLowerCase === "cierre de servicio"
+                        (evento) => evento.nombre.toLowerCase() === "cierre de servicio"
                       ) || [];
 
                     const transportesEnCierre = new Set(
@@ -510,7 +510,7 @@ const NewEventModal = ({edited, eventTypes, onEventAdded}) => {
                             .filter(
                               (eventType) =>
                                 allSelectedTransportesInArriboDestino ||
-                                eventType.eventType?.toLowerCase() !== "cierre de servicio"
+                                eventType.eventType.toLowerCase() !== "cierre de servicio"
                             )
                             .map((eventType) => (
                               <option key={eventType._id} value={eventType.eventType}>
