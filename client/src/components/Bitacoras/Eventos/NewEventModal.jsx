@@ -177,30 +177,38 @@ const NewEventModal = ({edited, eventTypes, onEventAdded}) => {
       transporteToAdd.registro.ultimo_posicionamiento = data.ultimo_posicionamiento;
       transporteToAdd.registro.velocidad = data.velocidad;
       transporteToAdd.registro.coordenadas = data.coordenadas;
+
+      let updatedTransportes = [...newEvent.transportes]; // Keep previous selections
+
+      if (checked) {
+        if (!updatedTransportes.some((t) => t.id === transporteToAdd.id)) {
+          updatedTransportes.push(transporteToAdd);
+        }
+      } else {
+        updatedTransportes = updatedTransportes.filter((t) => t.id !== transporteToAdd.id);
+      }
+
+      newEvent.transportes = updatedTransportes; // Update newEvent directly
+
+      setNewEvent((prev) => ({
+        ...prev,
+        transportes: updatedTransportes,
+      }));
     } else {
+      alert("⚠️ Error al obtener datos de GPS, favor de recargar la página e intentar de nuevo.");
+      setNewEvent({
+        nombre: "",
+        descripcion: "",
+        frecuencia: 0,
+        registrado_por: `${user?.firstName} ${user?.lastName}`,
+        transportes: [],
+      });
       transporteToAdd.registro.ubicacion = "";
       transporteToAdd.registro.duracion = "";
       transporteToAdd.registro.ultimo_posicionamiento = "";
       transporteToAdd.registro.velocidad = "";
       transporteToAdd.registro.coordenadas = "";
     }
-
-    let updatedTransportes = [...newEvent.transportes]; // Keep previous selections
-
-    if (checked) {
-      if (!updatedTransportes.some((t) => t.id === transporteToAdd.id)) {
-        updatedTransportes.push(transporteToAdd);
-      }
-    } else {
-      updatedTransportes = updatedTransportes.filter((t) => t.id !== transporteToAdd.id);
-    }
-
-    newEvent.transportes = updatedTransportes; // Update newEvent directly
-
-    setNewEvent((prev) => ({
-      ...prev,
-      transportes: updatedTransportes,
-    }));
   };
 
   const handleChange = (e) => {
@@ -217,7 +225,7 @@ const NewEventModal = ({edited, eventTypes, onEventAdded}) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (newEvent.transportes?.length === 0) {
+    if (newEvent.transportes?.length === 0 || !newEvent.transportes) {
       alert("Favor de seleccionar un transporte.");
       return;
     }
