@@ -456,11 +456,6 @@ const BitacoraDetailPage = ({edited}) => {
       _id,
       nombre,
       descripcion,
-      // ubicacion,
-      // duracion,
-      // ultimo_posicionamiento,
-      // velocidad,
-      // coordenadas,
       createdAt,
       registrado_por,
       frecuencia,
@@ -471,11 +466,6 @@ const BitacoraDetailPage = ({edited}) => {
       nombre,
       registrado_por,
       descripcion,
-      // ubicacion,
-      // duracion,
-      // ultimo_posicionamiento,
-      // velocidad,
-      // coordenadas,
       frecuencia,
       createdAt,
       transportes,
@@ -563,12 +553,19 @@ const BitacoraDetailPage = ({edited}) => {
 
     return (
       <div className="card mb-3">
-        <div className="card-header text-center pt-3">
-          <h5 className="card-title fw-semibold">{nombre}</h5>
+        <div className="card-header d-flex justify-content-between align-items-center pt-3 px-3">
+          <span className="text-muted small">
+            {new Date(createdAt).toLocaleString("es-MX", {
+              dateStyle: "short",
+              timeStyle: "short",
+            })}
+          </span>
+          <h5 className="card-title fw-semibold mb-0">{nombre}</h5>
+
           <Button
             variant="primary"
             onClick={handleEditClick}
-            className="position-absolute end-0 top-0 mt-2 me-3 btn"
+            className="btn"
             disabled={
               !(
                 (roleData && roleData.edit_eventos_a && bitacora.status !== "cerrada") ||
@@ -578,6 +575,7 @@ const BitacoraDetailPage = ({edited}) => {
             <i className="fa fa-edit"></i>
           </Button>
         </div>
+
         <div className="card-body">
           <div className="row">
             <div className="col-md-6">
