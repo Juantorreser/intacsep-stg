@@ -918,6 +918,7 @@ app.get("/event_types", async (req, res) => {
   }
 });
 
+//Create a new evenType
 app.put("/event_types/:id", async (req, res) => {
   try {
     const updatedEvent = await EventType.findByIdAndUpdate(
@@ -933,14 +934,26 @@ app.put("/event_types/:id", async (req, res) => {
 });
 
 app.post("/event_types", async (req, res) => {
-  const event = new EventType({
-    eventType: req.body.eventType, // Update this to match the schema field
-  });
+  const eventType = req.body.eventType;
+
+  // Check if eventType already exists in a case-insensitive manner
   try {
+    const existingEventType = await EventType.findOne({
+      eventType: new RegExp(`^${eventType}$`, "i"),
+    });
+    if (existingEventType) {
+      return res.status(409).json({message: "Event type already exists"});
+    }
+
+    // Create a new event type if it does not exist
+    const event = new EventType({
+      eventType: eventType,
+    });
+
     const newEvent = await event.save();
     res.status(201).json(newEvent);
   } catch (err) {
-    res.status(400).json({message: err.message});
+    res.status(500).json({message: err.message});
   }
 });
 

@@ -14,6 +14,7 @@ const EventsPage = () => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [idToDelete, setIdToDelete] = useState("");
   const [showEditModal, setShowEditModal] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
 
   useEffect(() => {
     const fetchEvents = async () => {
@@ -80,8 +81,12 @@ const EventsPage = () => {
         const createdEvent = await response.json();
         setEvents([...events, createdEvent]);
         setNewEvent("");
+        setErrorMessage(""); // Clear any previous error messages
       } else {
-        console.error("Failed to create event:", response.statusText);
+        const errorData = await response.json();
+        setErrorMessage(errorData.message); // Set the error message from the response
+        alert(`ERROR: El evento "${newEvent}" ya existe!`);
+        setNewEvent("");
       }
     } catch (e) {
       console.error("Error creating event:", e);
