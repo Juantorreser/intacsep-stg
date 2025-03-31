@@ -39,6 +39,13 @@ const ProfileModal = ({showModal, handleClose}) => {
   };
 
   useEffect(() => {
+    if (showToast) {
+      const timer = setTimeout(() => setShowToast(false), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [showToast]);
+
+  useEffect(() => {
     const init = async () => {
       try {
         const data = await verifyToken();
@@ -68,6 +75,9 @@ const ProfileModal = ({showModal, handleClose}) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    console.log("Saving...");
+    console.log(id);
+
     try {
       const response = await fetch(`${baseUrl}/users/${id}`, {
         method: "PUT",
@@ -79,6 +89,7 @@ const ProfileModal = ({showModal, handleClose}) => {
       });
 
       if (response.ok) {
+        await verifyToken();
         setUser((prevUser) => ({
           ...prevUser,
           firstName: modalData.firstName,
@@ -97,122 +108,6 @@ const ProfileModal = ({showModal, handleClose}) => {
 
   return (
     <>
-      {showModal && (
-        <section id="profileModal">
-          <div className="modal-backdrop fade show"></div>
-          <div
-            className={`modal mt-5 pt-3 fade ${showModal ? "show d-block" : ""}`}
-            tabIndex="-1"
-            style={{display: showModal ? "block" : "none"}}>
-            <div className="modal-dialog">
-              <div className="modal-content">
-                <div className="modal-header">
-                  <h5 className="modal-title">Editar Perfil</h5>
-                  <button type="button" className="btn-close" onClick={handleClose}></button>
-                </div>
-                <div className="modal-body">
-                  <form onSubmit={handleSubmit}>
-                    <div className="mb-3">
-                      <label htmlFor="modalFirstName" className="form-label">
-                        Nombre
-                      </label>
-                      <input
-                        type="text"
-                        className="form-control"
-                        id="modalFirstName"
-                        name="firstName"
-                        value={modalData.firstName || ""}
-                        onChange={handleChange}
-                        required
-                      />
-                    </div>
-                    <div className="mb-3">
-                      <label htmlFor="modalLastName" className="form-label">
-                        Apellido
-                      </label>
-                      <input
-                        type="text"
-                        className="form-control"
-                        id="modalLastName"
-                        name="lastName"
-                        value={modalData.lastName || ""}
-                        onChange={handleChange}
-                        required
-                      />
-                    </div>
-                    <div className="mb-3">
-                      <label htmlFor="modalPhone" className="form-label">
-                        Telefono
-                      </label>
-                      <input
-                        type="tel"
-                        className="form-control"
-                        id="modalPhone"
-                        name="phone"
-                        value={modalData.phone || ""}
-                        onChange={handleChange}
-                        required
-                      />
-                    </div>
-                    <div className="mb-3">
-                      <label htmlFor="modalEmail" className="form-label">
-                        Email
-                      </label>
-                      <input
-                        type="text"
-                        className="form-control"
-                        id="modalLastName"
-                        name="email"
-                        value={user.email}
-                        disabled
-                        required
-                      />
-                    </div>
-                    <div className="mb-3">
-                      <label htmlFor="modalLastName" className="form-label">
-                        Role
-                      </label>
-                      <input
-                        type="text"
-                        className="form-control"
-                        id="modalLastName"
-                        name="lastName"
-                        value={user.role}
-                        disabled
-                        required
-                      />
-                    </div>
-                    <div className="mb-3">
-                      <label htmlFor="modalPassword" className="form-label">
-                        Contraseña
-                      </label>
-                      <input
-                        type="password"
-                        className="form-control"
-                        id="modalPassword"
-                        name="password"
-                        value={modalData.password || ""}
-                        onChange={handleChange}
-                        required
-                      />
-                    </div>
-
-                    <div className="modal-footer">
-                      <button type="button" className="btn btn-danger" onClick={handleClose}>
-                        Cancelar
-                      </button>
-                      <button type="submit" className="btn btn-success">
-                        Guardar
-                      </button>
-                    </div>
-                  </form>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-      )}
-
       {showToast && (
         <div className="toast position-fixed bottom-0 end-0 p-3 bg-success" style={{zIndex: 11}}>
           <div className="toast-header">
@@ -224,6 +119,80 @@ const ProfileModal = ({showModal, handleClose}) => {
           </div>
           <div className="toast-body text-white">Los cambios se han guardado correctamente.</div>
         </div>
+      )}
+
+      {showModal && (
+        <section id="profileModal">
+          <div className="pm-backdrop" onClick={handleClose}></div>
+          <div className="pm-container">
+            <div className="pm-header">
+              <h2>Editar Perfil</h2>
+              <button className="pm-close" onClick={handleClose}>
+                ×
+              </button>
+            </div>
+            <hr />
+            <form className="pm-body" onSubmit={handleSubmit}>
+              <label>
+                Nombre
+                <input
+                  type="text"
+                  name="firstName"
+                  value={modalData.firstName || ""}
+                  onChange={handleChange}
+                  required
+                />
+              </label>
+              <label>
+                Apellido
+                <input
+                  type="text"
+                  name="lastName"
+                  value={modalData.lastName || ""}
+                  onChange={handleChange}
+                  required
+                />
+              </label>
+              <label>
+                Teléfono
+                <input
+                  type="tel"
+                  name="phone"
+                  value={modalData.phone || ""}
+                  onChange={handleChange}
+                  required
+                />
+              </label>
+              <label>
+                Email
+                <input type="text" name="email" value={user.email} disabled />
+              </label>
+              <label>
+                Rol
+                <input type="text" name="role" value={user.role} disabled />
+              </label>
+              <label>
+                Contraseña
+                <input
+                  type="password"
+                  name="password"
+                  value={modalData.password || ""}
+                  onChange={handleChange}
+                  required
+                />
+              </label>
+
+              <div className="pm-footer">
+                <button type="button" className="btn btn-danger" onClick={handleClose}>
+                  Cancelar
+                </button>
+                <button type="submit" className="btn btn-success">
+                  Guardar
+                </button>
+              </div>
+            </form>
+          </div>
+        </section>
       )}
     </>
   );
