@@ -155,8 +155,14 @@ const BitacorasPage = () => {
   };
 
   const handlePDFToggle = (bitacora) => {
-    setShowPrintModal(!showPrintModal);
     setSelectedBitacora(bitacora);
+    setShowPrintModal(!showPrintModal);
+
+    const closedIds = getClosedTransportesFromEventos(bitacora);
+    const allTransportesClosed =
+      bitacora.transportes?.every((t) => closedIds.includes(t.id)) ?? false;
+
+    setSelectedOption(allTransportesClosed ? "all" : "one");
   };
 
   const handleChange = (e) => {
@@ -371,8 +377,21 @@ const BitacorasPage = () => {
     }, 10); // Adjusted delay to ensure rendering completion
   };
 
-  const handleEditClick = (bitacoraId) => {
-    navigate(`/bitacoras/${bitacoraId}/editada`);
+  const getClosedTransportesFromEventos = (bitacora) => {
+    const closedIds = new Set();
+
+    bitacora?.eventos?.forEach((evento) => {
+      if (evento.nombre === "Cierre de servicio" && evento.transportes) {
+        evento.transportes.forEach((t) => closedIds.add(t.id));
+      }
+    });
+
+    return Array.from(closedIds);
+  };
+
+  const isAnyTransporteClosed = (bitacora) => {
+    const closedIds = getClosedTransportesFromEventos(bitacora);
+    return closedIds.length > 0;
   };
 
   const handleSortChange = (field) => {
@@ -658,19 +677,12 @@ const BitacorasPage = () => {
                           <td className="text-center half position-relative">
                             <button
                               className={
-                                bitacora.status !== "finalizada" &&
-                                bitacora.status !== "cerrada" &&
-                                bitacora.status !== "cerrada (e)"
-                                  ? "btn btn-secondary icon-btn"
-                                  : "btn btn-danger icon-btn"
+                                isAnyTransporteClosed(bitacora)
+                                  ? "btn btn-danger icon-btn"
+                                  : "btn btn-secondary icon-btn"
                               }
-                              // onClick={() => generatePDF(bitacora)}
                               onClick={() => handlePDFToggle(bitacora)}
-                              disabled={
-                                bitacora.status !== "finalizada" &&
-                                bitacora.status !== "cerrada" &&
-                                bitacora.status !== "cerrada (e)"
-                              }>
+                              disabled={!isAnyTransporteClosed(bitacora)}>
                               <i className="fa fa-file-pdf"></i>
                             </button>
                           </td>
@@ -808,28 +820,45 @@ const BitacorasPage = () => {
                     <form onSubmit={handlePDFSubmit}>
                       {/* Radio Buttons */}
                       <div className="mb-3">
-                        <div>
-                          <input
-                            type="radio"
-                            id="all"
-                            name="radioOption"
-                            value="all"
-                            checked={selectedOption === "all"}
-                            onChange={handleRadioChange}
-                          />
-                          <label htmlFor="all">Todos los transportes</label>
-                        </div>
-                        <div>
-                          <input
-                            type="radio"
-                            id="one"
-                            name="radioOption"
-                            value="one"
-                            checked={selectedOption === "one"}
-                            onChange={handleRadioChange}
-                          />
-                          <label htmlFor="one">Seleccionar transporte</label>
-                        </div>
+                        {/* Check if ALL transportes are closed via eventos */}
+                        {(() => {
+                          const closedIds = getClosedTransportesFromEventos(selectedBitacora);
+                          const allClosed =
+                            selectedBitacora?.transportes?.every((t) => closedIds.includes(t.id)) ??
+                            false;
+
+                          return (
+                            <>
+                              <div>
+                                <input
+                                  type="radio"
+                                  id="all"
+                                  name="radioOption"
+                                  value="all"
+                                  checked={selectedOption === "all"}
+                                  onChange={handleRadioChange}
+                                  disabled={!allClosed}
+                                />
+                                <label htmlFor="all" className={allClosed ? "" : "text-muted"}>
+                                  Todos los transportes{" "}
+                                  {allClosed ? "" : ""}
+                                </label>
+                              </div>
+
+                              <div>
+                                <input
+                                  type="radio"
+                                  id="one"
+                                  name="radioOption"
+                                  value="one"
+                                  checked={selectedOption === "one"}
+                                  onChange={handleRadioChange}
+                                />
+                                <label htmlFor="one">Seleccionar transporte</label>
+                              </div>
+                            </>
+                          );
+                        })()}
                       </div>
 
                       {/* Conditionally Render Select Dropdown */}
@@ -844,11 +873,13 @@ const BitacorasPage = () => {
                             value={formData.selectValue}
                             onChange={handleSelectChange}>
                             <option value="">Seleccionar ID</option>
-                            {selectedBitacora.transportes.map((transporte) => (
-                              <option value={transporte.id} key={transporte.id}>
-                                {`${transporte.id.split("_")[1]} - ${transporte.id.split("_")[2]}`}
-                              </option>
-                            ))}
+                            {getClosedTransportesFromEventos(selectedBitacora).map(
+                              (transporteId) => (
+                                <option value={transporteId} key={transporteId}>
+                                  {transporteId.split("_")[1]} - {transporteId.split("_")[2]}
+                                </option>
+                              )
+                            )}
                           </select>
                         </div>
                       )}
