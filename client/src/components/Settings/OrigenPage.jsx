@@ -118,7 +118,7 @@ const OrigenPage = () => {
 
   return (
     <section id="origenPage">
-      <Header />
+      //
       <div className="w-100 d-flex">
         <div className="sidebar-wrapper">
           <Sidebar />
@@ -187,7 +187,6 @@ const OrigenPage = () => {
           </div>
         </div>
       </div>
-
       {/* Edit Modal */}
       <Modal show={showModal} onHide={() => setShowModal(false)}>
         <Modal.Header closeButton>

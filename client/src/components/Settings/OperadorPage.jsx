@@ -120,7 +120,7 @@ const OperadorPage = () => {
 
   return (
     <section id="operadores">
-      <Header />
+      //
       <div className="w-100 d-flex">
         <div className="sidebar-wrapper">
           <Sidebar />

@@ -120,7 +120,6 @@ const DestinoPage = () => {
 
   return (
     <section id="destinos">
-      <Header />
       <div className="w-100 d-flex">
         <div className="sidebar-wrapper">
           <Sidebar />
@@ -188,7 +187,6 @@ const DestinoPage = () => {
           </div>
         </div>
       </div>
-
       {/* Edit Modal */}
       <Modal show={showModal} onHide={() => setShowModal(false)}>
         <Modal.Header closeButton>
@@ -215,7 +213,6 @@ const DestinoPage = () => {
           </Button>
         </Modal.Footer>
       </Modal>
-
       {/* Delete Modal */}
       <Modal show={showDeleteModal} onHide={handleCloseDeleteModal} backdrop="static">
         <Modal.Header closeButton>

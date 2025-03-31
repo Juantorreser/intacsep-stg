@@ -188,7 +188,6 @@ const UsersPage = () => {
 
   return (
     <section id="usersPage">
-      <Header />
       <div className="w-100 d-flex">
         <div className="sidebar-wrapper">
           <Sidebar />
