@@ -452,15 +452,7 @@ const BitacoraDetailPage = ({edited}) => {
   }
 
   const EventCard = ({event, eventos}) => {
-    const {
-      _id,
-      nombre,
-      descripcion,
-      createdAt,
-      registrado_por,
-      frecuencia,
-      transportes,
-    } = event;
+    const {_id, nombre, descripcion, createdAt, registrado_por, frecuencia, transportes} = event;
     const [showModal, setShowModal] = useState(false);
     const [formData, setFormData] = useState({
       nombre,
@@ -471,7 +463,39 @@ const BitacoraDetailPage = ({edited}) => {
       transportes,
     });
 
-    const isLastEvent = events[events.length - 1] === event;
+    const [eventColor, setEventColor] = useState("#333235");
+
+    useEffect(() => {
+      const computeEventColor = () => {
+        if (!bitacora || !bitacora.eventos?.length) return "#333235";
+
+        const latestEvent = bitacora.eventos.reduce((latest, current) =>
+          new Date(latest.createdAt) > new Date(current.createdAt) ? latest : current
+        );
+
+        const frecuencia = latestEvent.frecuencia;
+        if (!frecuencia) return "#333235";
+
+        const frecuenciaMs = frecuencia * 60000;
+        const eventTimeMs = new Date(latestEvent.createdAt).getTime();
+        const currentTimeMs = new Date().getTime();
+        const elapsedTimeMs = currentTimeMs - eventTimeMs;
+
+        if (elapsedTimeMs < frecuenciaMs * 0.75) return "#51FF4E";
+        if (elapsedTimeMs < frecuenciaMs) return "#ECEC27";
+        return "#F82929";
+      };
+
+      setEventColor(computeEventColor());
+
+      const interval = setInterval(() => {
+        setEventColor(computeEventColor());
+      }, 60000); // Update every minute
+
+      return () => clearInterval(interval);
+    }, [bitacora]);
+
+    const isLastEvent = event._id === events[events.length - 1]?._id;
 
     const handleEditClick = () => setShowModal(true);
     const handleClose = () => setShowModal(false);
@@ -590,14 +614,11 @@ const BitacoraDetailPage = ({edited}) => {
                 <p> {`${frecuencia}  min`} </p>
                 {isLastEvent && (
                   <div className="semaforoEvent">
-                    {getEventColor(bitacora).map((color, index) => (
-                      <div
-                        key={index}
-                        className={`circle`}
-                        style={{
-                          backgroundColor: color,
-                        }}></div>
-                    ))}
+                    <div
+                      className="circle"
+                      style={{
+                        backgroundColor: eventColor,
+                      }}></div>
                   </div>
                 )}
               </div>
