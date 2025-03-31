@@ -110,7 +110,9 @@ const CreateTransporteModal = ({show, handleClose, addTransporte, transportes, b
       }
       newId = `${selectedUnitId}_${selectedUnitName}_${transporteData.tracto.eco}`;
     } else {
-      newId = (transportes.length + 1).toString().padStart(2, "0");
+      newId = `0_${(transportes.length + 1).toString().padStart(2, "0")}_${
+        transporteData.tracto.eco
+      }`;
     }
 
     // Check if the ID already exists in transportes
@@ -164,6 +166,14 @@ const CreateTransporteModal = ({show, handleClose, addTransporte, transportes, b
                 value="wialon"
                 checked={idMethod === "wialon"}
                 onChange={() => setIdMethod("wialon")}
+              />
+              <Form.Check
+                type="radio"
+                label="Automatico"
+                name="automatic"
+                value="automatic"
+                checked={idMethod === "automatic"}
+                onChange={() => setIdMethod("automatic")}
               />
             </div>
             {/* <Form.Control

@@ -155,60 +155,70 @@ const NewEventModal = ({edited, eventTypes, onEventAdded}) => {
     const {value, checked} = e.target;
     const transporteId = value;
 
-    console.log(transporteId);
-
     const transporteToAdd = bitacora.transportes.find(
       (transporte) => String(transporte.id) === transporteId
     );
+
+    if (!transporteToAdd) return;
 
     if (!transporteToAdd.registro) {
       transporteToAdd.registro = {};
     }
 
-    const data = await getUnitInfo(transporteId);
+    const isManual = transporteId.split("_")[0] === "0";
 
-    console.log(data);
+    if (isManual) {
+      // Manual transportes get static registro values
+      transporteToAdd.registro.ubicacion = "Manual";
+      transporteToAdd.registro.duracion = "N/A";
+      transporteToAdd.registro.ultimo_posicionamiento = "N/A";
+      transporteToAdd.registro.velocidad = "N/A";
+      transporteToAdd.registro.coordenadas = "N/A";
+    } else {
+      // Automatic GPS data fetch
+      const data = await getUnitInfo(transporteId);
 
-    if (!transporteToAdd) return;
+      if (!data) {
+        alert("⚠️ Error al obtener datos de GPS, favor de recargar la página e intentar de nuevo.");
+        setNewEvent({
+          nombre: "",
+          descripcion: "",
+          frecuencia: 0,
+          registrado_por: `${user?.firstName} ${user?.lastName}`,
+          transportes: [],
+        });
 
-    if (data) {
+        transporteToAdd.registro.ubicacion = "";
+        transporteToAdd.registro.duracion = "";
+        transporteToAdd.registro.ultimo_posicionamiento = "";
+        transporteToAdd.registro.velocidad = "";
+        transporteToAdd.registro.coordenadas = "";
+
+        return;
+      }
+
       transporteToAdd.registro.ubicacion = data.ubicacion;
       transporteToAdd.registro.duracion = data.duracion;
       transporteToAdd.registro.ultimo_posicionamiento = data.ultimo_posicionamiento;
       transporteToAdd.registro.velocidad = data.velocidad;
       transporteToAdd.registro.coordenadas = data.coordenadas;
-
-      let updatedTransportes = [...newEvent.transportes]; // Keep previous selections
-
-      if (checked) {
-        if (!updatedTransportes.some((t) => t.id === transporteToAdd.id)) {
-          updatedTransportes.push(transporteToAdd);
-        }
-      } else {
-        updatedTransportes = updatedTransportes.filter((t) => t.id !== transporteToAdd.id);
-      }
-
-      newEvent.transportes = updatedTransportes; // Update newEvent directly
-
-      setNewEvent((prev) => ({
-        ...prev,
-        transportes: updatedTransportes,
-      }));
-    } else {
-      alert("⚠️ Error al obtener datos de GPS, favor de recargar la página e intentar de nuevo.");
-      setNewEvent({
-        nombre: "",
-        descripcion: "",
-        frecuencia: 0,
-        registrado_por: `${user?.firstName} ${user?.lastName}`,
-        transportes: [],
-      });
-      transporteToAdd.registro.ubicacion = "";
-      transporteToAdd.registro.duracion = "";
-      transporteToAdd.registro.ultimo_posicionamiento = "";
-      transporteToAdd.registro.velocidad = "";
-      transporteToAdd.registro.coordenadas = "";
     }
+
+    // Update transportes in newEvent
+    let updatedTransportes = [...newEvent.transportes];
+
+    if (checked) {
+      if (!updatedTransportes.some((t) => t.id === transporteToAdd.id)) {
+        updatedTransportes.push(transporteToAdd);
+      }
+    } else {
+      updatedTransportes = updatedTransportes.filter((t) => t.id !== transporteToAdd.id);
+    }
+
+    setNewEvent((prev) => ({
+      ...prev,
+      transportes: updatedTransportes,
+    }));
   };
 
   const handleChange = (e) => {
@@ -384,6 +394,28 @@ const NewEventModal = ({edited, eventTypes, onEventAdded}) => {
     } catch (e) {
       console.error("Error en handleSubmit:", e);
     }
+  };
+
+  const handleManualRegistroChange = (transporteId, field, value) => {
+    setNewEvent((prev) => {
+      const updatedTransportes = prev.transportes.map((t) => {
+        if (t.id === transporteId) {
+          return {
+            ...t,
+            registro: {
+              ...t.registro,
+              [field]: value,
+            },
+          };
+        }
+        return t;
+      });
+
+      return {
+        ...prev,
+        transportes: updatedTransportes,
+      };
+    });
   };
 
   let allSelectedTransportesInArriboDestino = false;
@@ -606,35 +638,28 @@ const NewEventModal = ({edited, eventTypes, onEventAdded}) => {
 
                     {openTransportId == t.id && (
                       <div className="p-2 mt-2 border-t">
-                        <p>
-                          <strong>Duración:</strong>{" "}
-                          {newEvent.transportes?.find((transporte) => transporte.id === t.id)
-                            ?.registro?.duracion || "N/A"}
-                        </p>
-
-                        <p>
-                          <strong>Ubicación:</strong>{" "}
-                          {newEvent.transportes?.find((transporte) => transporte.id === t.id)
-                            ?.registro?.ubicacion || "N/A"}
-                        </p>
-
-                        <p>
-                          <strong>Velocidad:</strong>{" "}
-                          {newEvent.transportes?.find((transporte) => transporte.id === t.id)
-                            ?.registro?.velocidad || "N/A"}
-                        </p>
-
-                        <p>
-                          <strong>Ultimo posicionamiento:</strong>{" "}
-                          {newEvent.transportes?.find((transporte) => transporte.id === t.id)
-                            ?.registro?.ultimo_posicionamiento || "N/A"}
-                        </p>
-
-                        <p>
-                          <strong>Coordenadas:</strong>{" "}
-                          {newEvent.transportes?.find((transporte) => transporte.id === t.id)
-                            ?.registro?.coordenadas || "N/A"}
-                        </p>
+                        {[
+                          "duracion",
+                          "ubicacion",
+                          "velocidad",
+                          "ultimo_posicionamiento",
+                          "coordenadas",
+                        ].map((field) => (
+                          <div className="mb-2" key={field}>
+                            <label className="form-label fw-bold text-capitalize">
+                              {field.replace("_", " ")}:
+                            </label>
+                            <input
+                              type="text"
+                              className="form-control"
+                              value={t.registro?.[field] || ""}
+                              disabled={!t.id.startsWith("0_")}
+                              onChange={(e) =>
+                                handleManualRegistroChange(t.id, field, e.target.value)
+                              }
+                            />
+                          </div>
+                        ))}
                       </div>
                     )}
                   </div>

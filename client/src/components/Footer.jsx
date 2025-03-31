@@ -10,7 +10,7 @@ const Footer = () => {
         className="opacity-25 text-white mb-5">
         Powered by © Spotynet 2024 on AWS
       </a>
-      <p className="opacity-25 text-white mb-5 footer">V1.2.1</p>
+      <p className="opacity-25 text-white mb-5 footer">V 1.4.2</p>
     </footer>
   );
 };
