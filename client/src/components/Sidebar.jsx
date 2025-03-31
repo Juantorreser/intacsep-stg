@@ -112,89 +112,101 @@ const Sidebar = () => {
           </div>
 
           <div className="menu-title">Menú</div>
-          <ul className="nav">
-            {roleData?.bitacoras && (
-              <li className="nav-item">
-                <div className="nav-link-title" onClick={() => toggleCollapse("bitacorasCollapse")}>
-                  Monitoreo
-                  <i className={`fa fa-${collapsedItems.bitacorasCollapse ? "minus" : "plus"}`} />
-                </div>
-                {collapsedItems.bitacorasCollapse && (
-                  <ul className="submenu">
-                    <li onClick={() => navigate("/bitacoras")}>Bitácoras</li>
-                  </ul>
-                )}
-              </li>
-            )}
+          <div className="scrollable-content">
+            <ul className="nav">
+              {roleData?.bitacoras && (
+                <li className="nav-item">
+                  <div
+                    className="nav-link-title"
+                    onClick={() => toggleCollapse("bitacorasCollapse")}>
+                    Monitoreo
+                    <i className={`fa fa-${collapsedItems.bitacorasCollapse ? "minus" : "plus"}`} />
+                  </div>
+                  {collapsedItems.bitacorasCollapse && (
+                    <ul className="submenu">
+                      <li onClick={() => navigate("/bitacoras")}>Bitácoras</li>
+                    </ul>
+                  )}
+                </li>
+              )}
 
-            {roleData && (
-              <li className="nav-item">
-                <div className="nav-link-title" onClick={() => toggleCollapse("settingsCollapse")}>
-                  Configuración
-                  <i className={`fa fa-${collapsedItems.settingsCollapse ? "minus" : "plus"}`} />
-                </div>
-                {collapsedItems.settingsCollapse && (
-                  <ul className="submenu">
-                    {/* Nested collapses inside, same concept */}
-                    <li onClick={() => toggleCollapse("catalogosCollapse")}>
-                      Catálogos
-                      <i
-                        className={`fa fa-${collapsedItems.catalogosCollapse ? "minus" : "plus"}`}
-                      />
-                    </li>
-                    {collapsedItems.catalogosCollapse && (
-                      <ul className="submenu">
-                        {roleData.tipos_de_monitoreo && (
-                          <li onClick={() => navigate("/tipos_monitoreo")}>Tipos Monitoreo</li>
-                        )}
-                        {roleData.eventos && <li onClick={() => navigate("/eventos")}>Eventos</li>}
-                        {roleData.clientes && (
-                          <li onClick={() => navigate("/clientes")}>Clientes</li>
-                        )}
-                        {roleData.origenes && (
-                          <li onClick={() => navigate("/origenes")}>Origenes</li>
-                        )}
-                        {roleData.destinos && (
-                          <li onClick={() => navigate("/destinos")}>Destinos</li>
-                        )}
-                      </ul>
-                    )}
+              {roleData && (
+                <li className="nav-item">
+                  <div
+                    className="nav-link-title"
+                    onClick={() => toggleCollapse("settingsCollapse")}>
+                    Configuración
+                    <i className={`fa fa-${collapsedItems.settingsCollapse ? "minus" : "plus"}`} />
+                  </div>
+                  {collapsedItems.settingsCollapse && (
+                    <ul className="submenu">
+                      {/* Nested collapses inside, same concept */}
+                      <li onClick={() => toggleCollapse("catalogosCollapse")}>
+                        Catálogos
+                        <i
+                          className={`fa fa-${collapsedItems.catalogosCollapse ? "minus" : "plus"}`}
+                        />
+                      </li>
+                      {collapsedItems.catalogosCollapse && (
+                        <ul className="submenu">
+                          {roleData.tipos_de_monitoreo && (
+                            <li onClick={() => navigate("/tipos_monitoreo")}>Tipos Monitoreo</li>
+                          )}
+                          {roleData.eventos && (
+                            <li onClick={() => navigate("/eventos")}>Eventos</li>
+                          )}
+                          {roleData.clientes && (
+                            <li onClick={() => navigate("/clientes")}>Clientes</li>
+                          )}
+                          {roleData.origenes && (
+                            <li onClick={() => navigate("/origenes")}>Origenes</li>
+                          )}
+                          {roleData.destinos && (
+                            <li onClick={() => navigate("/destinos")}>Destinos</li>
+                          )}
+                        </ul>
+                      )}
 
-                    <li onClick={() => toggleCollapse("sistemaCollapse")}>
-                      Sistema
-                      <i className={`fa fa-${collapsedItems.sistemaCollapse ? "minus" : "plus"}`} />
-                    </li>
-                    {collapsedItems.sistemaCollapse && (
-                      <ul className="submenu">
-                        {roleData.usuarios && (
-                          <li onClick={() => navigate("/usuarios")}>Usuarios</li>
-                        )}
-                        {roleData.roles && <li onClick={() => navigate("/roles")}>Roles</li>}
-                        {roleData.inactividad && <li onClick={openInacModal}>Inactividad</li>}
-                      </ul>
-                    )}
+                      <li onClick={() => toggleCollapse("sistemaCollapse")}>
+                        Sistema
+                        <i
+                          className={`fa fa-${collapsedItems.sistemaCollapse ? "minus" : "plus"}`}
+                        />
+                      </li>
+                      {collapsedItems.sistemaCollapse && (
+                        <ul className="submenu">
+                          {roleData.usuarios && (
+                            <li onClick={() => navigate("/usuarios")}>Usuarios</li>
+                          )}
+                          {roleData.roles && <li onClick={() => navigate("/roles")}>Roles</li>}
+                          {roleData.inactividad && <li onClick={openInacModal}>Inactividad</li>}
+                        </ul>
+                      )}
 
-                    <li onClick={() => toggleCollapse("auditoriaCollapse")}>
-                      Auditoría
-                      <i
-                        className={`fa fa-${collapsedItems.auditoriaCollapse ? "minus" : "plus"}`}
-                      />
-                    </li>
-                    {collapsedItems.auditoriaCollapse && (
-                      <ul className="submenu">
-                        {roleData.auditoriaBitacora && (
-                          <li onClick={() => navigate("/usuarios")}>Bitácoras</li>
-                        )}
-                      </ul>
-                    )}
-                  </ul>
-                )}
-              </li>
-            )}
-          </ul>
-
+                      <li onClick={() => toggleCollapse("auditoriaCollapse")}>
+                        Auditoría
+                        <i
+                          className={`fa fa-${collapsedItems.auditoriaCollapse ? "minus" : "plus"}`}
+                        />
+                      </li>
+                      {collapsedItems.auditoriaCollapse && (
+                        <ul className="submenu">
+                          {roleData.auditoriaBitacora && (
+                            <li onClick={() => navigate("/usuarios")}>Bitácoras</li>
+                          )}
+                        </ul>
+                      )}
+                    </ul>
+                  )}
+                </li>
+              )}
+            </ul>
+          </div>
           <div className="footer-wrapper">
-            <Footer />
+            <div className="logout-title" onClick={logout}>
+              <p className="p-0 m-0">Cerrar Sesión</p>
+              <i className="fas fa-power-off"></i>
+            </div>
           </div>
         </div>
       </aside>
