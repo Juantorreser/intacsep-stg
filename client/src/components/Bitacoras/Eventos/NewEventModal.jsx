@@ -169,24 +169,18 @@ const NewEventModal = ({edited, eventTypes, onEventAdded}) => {
 
     if (isManual) {
       // Manual transportes get static registro values
-      transporteToAdd.registro.ubicacion = "Manual";
-      transporteToAdd.registro.duracion = "N/A";
-      transporteToAdd.registro.ultimo_posicionamiento = "N/A";
-      transporteToAdd.registro.velocidad = "N/A";
-      transporteToAdd.registro.coordenadas = "N/A";
+      transporteToAdd.registro.ubicacion = "";
+      transporteToAdd.registro.duracion = "";
+      transporteToAdd.registro.ultimo_posicionamiento = "";
+      transporteToAdd.registro.velocidad = "";
+      transporteToAdd.registro.coordenadas = "";
     } else {
       // Automatic GPS data fetch
       const data = await getUnitInfo(transporteId);
+      console.log(data);
 
       if (!data) {
-        alert("⚠️ Error al obtener datos de GPS, favor de recargar la página e intentar de nuevo.");
-        setNewEvent({
-          nombre: "",
-          descripcion: "",
-          frecuencia: 0,
-          registrado_por: `${user?.firstName} ${user?.lastName}`,
-          transportes: [],
-        });
+        console.log("⚠️ No se pudo obtener datos de GPS. Activando modo manual.");
 
         transporteToAdd.registro.ubicacion = "";
         transporteToAdd.registro.duracion = "";
@@ -194,14 +188,33 @@ const NewEventModal = ({edited, eventTypes, onEventAdded}) => {
         transporteToAdd.registro.velocidad = "";
         transporteToAdd.registro.coordenadas = "";
 
-        return;
-      }
+        // Aún así, agregar el transporte a la lista
+        let updatedTransportes = [...newEvent.transportes];
+        if (!updatedTransportes.some((t) => t.id === transporteToAdd.id)) {
+          updatedTransportes.push(transporteToAdd);
+        }
 
-      transporteToAdd.registro.ubicacion = data.ubicacion;
-      transporteToAdd.registro.duracion = data.duracion;
-      transporteToAdd.registro.ultimo_posicionamiento = data.ultimo_posicionamiento;
-      transporteToAdd.registro.velocidad = data.velocidad;
-      transporteToAdd.registro.coordenadas = data.coordenadas;
+        if (checked) {
+          if (!updatedTransportes.some((t) => t.id === transporteToAdd.id)) {
+            updatedTransportes.push(transporteToAdd);
+          }
+        } else {
+          updatedTransportes = updatedTransportes.filter((t) => t.id !== transporteToAdd.id);
+        }
+
+        setNewEvent((prev) => ({
+          ...prev,
+          transportes: updatedTransportes,
+        }));
+
+        return; // Exit early since GPS data failed
+      } else {
+        transporteToAdd.registro.ubicacion = data.ubicacion;
+        transporteToAdd.registro.duracion = data.duracion;
+        transporteToAdd.registro.ultimo_posicionamiento = data.ultimo_posicionamiento;
+        transporteToAdd.registro.velocidad = data.velocidad;
+        transporteToAdd.registro.coordenadas = data.coordenadas;
+      }
     }
 
     // Update transportes in newEvent
@@ -465,15 +478,23 @@ const NewEventModal = ({edited, eventTypes, onEventAdded}) => {
                       : transporte.id;
 
                     return (
-                      <div className="form-check" key={transporte.id}>
+                      <div
+                        className={`transportes-checkbox ${
+                          newEvent.transportes.some((t) => t.id === transporte.id) ? "checked" : ""
+                        }`}
+                        key={transporte.id}>
                         <input
                           type="checkbox"
-                          className="form-check-input"
+                          className={`form-check-input ${
+                            newEvent.transportes.some((t) => t.id === transporte.id)
+                              ? "border-success"
+                              : ""
+                          }`}
                           id={`transporte-${transporte.id}`}
                           name="transportes"
                           value={transporte.id}
                           onChange={handleCheckboxChange}
-                          checked={newEvent.transportes.includes(transporte)}
+                          checked={newEvent.transportes.some((t) => t.id === transporte.id)}
                         />
                         <label className="form-check-label" htmlFor={`transporte-${transporte.id}`}>
                           {`${transporteId} - ${transporte.tracto.eco}`}
@@ -620,24 +641,30 @@ const NewEventModal = ({edited, eventTypes, onEventAdded}) => {
 
               <div>
                 {newEvent.transportes?.map((t) => (
-                  <div key={t.id} className="border mb-2 rounded">
+                  <div key={t.id} className="border mb-2 rounded shadow-sm">
                     <div
-                      className="d-flex justify-content-between align-items-center cursor-pointer border p-2 rounded"
+                      className="d-flex justify-content-between align-items-center p-2 bg-light border-bottom"
+                      style={{cursor: "pointer"}}
                       onClick={() => toggleCollapse(t.id)}>
-                      <div className="whitespace-nowrap">
-                        GPS ID:{" "}
+                      <div className="fw-bold">
                         {t.id.includes("_")
                           ? `${t.id.split("_")[1]} - ${t.id.split("_")[2]}`
                           : t.id}
                       </div>
 
-                      <div className="ml-auto flex items-center w-[25px]">
-                        {openTransportId == t.id ? "-" : "+"}
+                      <div className="d-flex align-items-center gap-2">
+                        <span
+                          className={`badge ${
+                            t.id.startsWith("0_") ? "bg-secondary" : "bg-success"
+                          }`}>
+                          {t.id.startsWith("0_") ? "Manual" : "GPS"}
+                        </span>
+                        <span className="ms-2 fs-5">{openTransportId === t.id ? "−" : "+"}</span>
                       </div>
                     </div>
 
-                    {openTransportId == t.id && (
-                      <div className="p-2 mt-2 border-t">
+                    {openTransportId === t.id && (
+                      <div className="p-3">
                         {[
                           "duracion",
                           "ubicacion",
@@ -645,18 +672,24 @@ const NewEventModal = ({edited, eventTypes, onEventAdded}) => {
                           "ultimo_posicionamiento",
                           "coordenadas",
                         ].map((field) => (
-                          <div className="mb-2" key={field}>
+                          <div className="mb-3" key={field}>
                             <label className="form-label fw-bold text-capitalize">
-                              {field.replace("_", " ")}:
+                              {field.replace("_", " ")}{" "}
+                              {t.id.startsWith("0_") && (
+                                <span className="text-danger fw-normal ms-1">(Requerido)</span>
+                              )}
                             </label>
                             <input
                               type="text"
-                              className="form-control"
+                              className={`form-control ${
+                                t.id.startsWith("0_") ? "border-danger" : ""
+                              }`}
                               value={t.registro?.[field] || ""}
-                              disabled={!t.id.startsWith("0_")}
                               onChange={(e) =>
                                 handleManualRegistroChange(t.id, field, e.target.value)
                               }
+                              required={t.id.startsWith("0_")}
+                              placeholder={t.id.startsWith("0_") ? "Ingresa valor manualmente" : ""}
                             />
                           </div>
                         ))}
