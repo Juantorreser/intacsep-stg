@@ -38,6 +38,8 @@ const CreateTransporteModal = ({show, handleClose, addTransporte, transportes, b
   useEffect(() => {
     fetchOperadores();
     fetchAllUnits();
+    console.log("Cached token:", localStorage.getItem("wialon_token"));
+
   }, []);
 
   const fetchOperadores = async () => {

@@ -1,7 +1,6 @@
 import React, {useEffect, useState} from "react";
 import {useAuth} from "../../../context/AuthContext";
 import {useParams} from "react-router-dom";
-import {useWialon} from "../../../context/WialonProvider";
 
 const NewEventModal = ({edited, eventTypes, onEventAdded}) => {
   const [bitacora, setBitacora] = useState(null);
@@ -9,7 +8,9 @@ const NewEventModal = ({edited, eventTypes, onEventAdded}) => {
   const {verifyToken, user, setUser} = useAuth();
   const baseUrl = import.meta.env.VITE_BASE_URL;
   const [selectedTransportes, setSelectedTransportes] = useState([]);
-  const [transportes, setTransportes] = useState(bitacora?.transportes || []);
+  const [transportes, setTransportes] = useState([]);
+  const [units, setUnits] = useState();
+
   // const [units, setUnits] = useState([]);
   const token = import.meta.env.VITE_WIALON_TOKEN;
   // const {units} = useWialon();
@@ -28,25 +29,19 @@ const NewEventModal = ({edited, eventTypes, onEventAdded}) => {
   });
 
   useEffect(() => {
-    if (!token) {
-      return;
-    }
-
     const init = async () => {
       try {
-        const data = await verifyToken(); // Ensure user is verified
-        setUser(data);
-      } catch (e) {
-        console.log("Error verifying token or fetching user:", e);
+        const userData = await verifyToken();
+        setUser(userData);
+        await fetchBitacora(); // Only fetch after token is verified
+      } catch (error) {
+        console.error("Token verification or Bitacora fetch failed:", error);
         navigate("/login");
-        return; // Stop execution if token verification fails
       }
-
-      // Fetch data or perform any other necessary actions here
     };
 
-    fetchBitacora();
-    init();
+    if (token) init();
+    fetchUnitsFromWialon();
   }, [token]);
 
   const fetchBitacora = async () => {
@@ -82,6 +77,44 @@ const NewEventModal = ({edited, eventTypes, onEventAdded}) => {
     }
   };
 
+  const fetchUnitsFromWialon = (retryCount = 0) => {
+    const MAX_RETRIES = 5;
+    const RETRY_DELAY = 3000;
+
+    const sess = window.wialon.core.Session.getInstance();
+
+    if (!sess.getBaseUrl()) {
+      sess.initSession("https://hst-api.wialon.com");
+    }
+
+    sess.loginToken(token, "", (code) => {
+      if (code) {
+        console.warn(`Login failed (code ${code}). Retrying...`);
+
+        if (retryCount < MAX_RETRIES) {
+          setTimeout(() => fetchUnitsFromWialon(retryCount + 1), RETRY_DELAY * (retryCount + 1));
+        } else {
+          console.error("❌ Max retries reached for Wialon login.");
+        }
+
+        return;
+      }
+
+      const flags = window.wialon.item.Item.dataFlag.base;
+
+      sess.updateDataFlags([{type: "type", data: "avl_unit", flags, mode: 0}], (code) => {
+        if (code) {
+          console.error("⚠️ Failed to update Wialon data flags:", code);
+          return;
+        }
+
+        const units = sess.getItems("avl_unit") || [];
+        const parsed = units.map((u) => ({id: u.getId(), name: u.getName()}));
+        setUnits(parsed);
+      });
+    });
+  };
+
   // Función para formatear el tiempo transcurrido en "X time ago"
   const formatDuration = (seconds) => {
     if (seconds < 60) return `Hace ${seconds}s`;
@@ -94,61 +127,60 @@ const NewEventModal = ({edited, eventTypes, onEventAdded}) => {
   };
 
   // Función asincrónica para obtener la dirección a partir de las coordenadas
-  const getAddressFromCoordinates = (longitude, latitude) => {
+  const getAddressFromCoordinates = (lon, lat) => {
     return new Promise((resolve, reject) => {
-      window.wialon.util.Gis.getLocations([{lon: longitude, lat: latitude}], (code, address) => {
-        if (!code) {
-          resolve(address); // Si se obtiene la dirección correctamente
-        } else {
-          reject("Dirección no encontrada");
-        }
+      if (!lon || !lat) return reject("Invalid coordinates");
+
+      window.wialon.util.Gis.getLocations([{lon, lat}], (code, res) => {
+        if (code === 0) resolve(res[0]);
+        else reject("No se pudo obtener la dirección.");
       });
     });
   };
 
   const getUnitInfo = async (transporteId) => {
-    console.log(`Ejecutando getUnitInfo para transporte ID: ${transporteId}`);
+    if (!units || !units.length) {
+      console.warn("⚠️ Units not loaded.");
+      return null;
+    }
 
-    const formattedTransporteId = transporteId.includes("_")
-      ? transporteId.split("_")[0]
-      : transporteId;
+    const formattedId = transporteId.split("_")[0];
+    const found = units.find((u) => u.id == formattedId);
 
-    const unidadEncontrada = units.find((unit) => unit.id == formattedTransporteId);
-    if (!unidadEncontrada) {
-      console.error(`No se encontró unidad para ID: ${formattedTransporteId}`);
-      return;
+    if (!found) {
+      console.warn(`❌ Unidad no encontrada para ID: ${formattedId}`);
+      return null;
     }
 
     const sess = window.wialon.core.Session.getInstance();
-    const unit = sess.getItems("avl_unit").find((u) => u.getId() === unidadEncontrada.id);
+    const unit = sess.getItems("avl_unit").find((u) => u.getId() === found.id);
 
-    if (!unit) {
-      console.error(`No se encontró el objeto unit en Wialon para ID: ${unidadEncontrada.id}`);
-      return;
+    if (!unit || typeof unit.getPosition !== "function") {
+      console.warn("⚠️ Unidad no disponible en sesión.");
+      return null;
     }
 
     const pos = unit.getPosition();
     if (!pos) {
-      console.error(`No se encontró posición para unidad: ${unidadEncontrada.id}`);
-      return;
+      console.warn("⚠️ Posición no encontrada.");
+      return null;
     }
-
-    console.log(`📡 Datos obtenidos de Wialon para ${unidadEncontrada.id}:`, pos);
 
     let ubicacion = "";
     try {
       const address = await getAddressFromCoordinates(pos.x, pos.y);
       ubicacion = Array.isArray(address) ? address.join(", ") : address;
-    } catch (error) {
-      console.error("Error al obtener la dirección:", error);
+    } catch (e) {
+      console.warn("⚠️ Dirección no encontrada:", e);
     }
 
-    const duracion = formatDuration(Math.floor(Date.now() / 1000) - pos.t);
-    const velocidad = pos.s;
-    const coordenadas = `${pos.y}, ${pos.x}`;
-    const ultimo_posicionamiento = window.wialon.util.DateTime.formatTime(pos.t);
-
-    return {duracion, velocidad, coordenadas, ultimo_posicionamiento, ubicacion};
+    return {
+      duracion: formatDuration(Math.floor(Date.now() / 1000) - pos.t),
+      velocidad: pos.s,
+      coordenadas: `${pos.y}, ${pos.x}`,
+      ultimo_posicionamiento: window.wialon.util.DateTime.formatTime(pos.t),
+      ubicacion,
+    };
   };
 
   const handleCheckboxChange = async (e) => {
