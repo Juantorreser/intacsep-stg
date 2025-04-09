@@ -33,7 +33,7 @@ const CreateTransporteModal = ({show, handleClose, addTransporte, transportes, b
   const [operadores, setOperadores] = useState([]);
   const token = import.meta.env.VITE_WIALON_TOKEN;
   const baseUrl = import.meta.env.VITE_BASE_URL;
-  const {units} = useWialon();
+  const [units, setUnits] = useState();
 
   useEffect(() => {
     fetchOperadores();
@@ -59,21 +59,51 @@ const CreateTransporteModal = ({show, handleClose, addTransporte, transportes, b
   };
 
   //Get Wialon Units
-  const fetchAllUnits = () => {
+  const fetchAllUnits = (retryCount = 0) => {
     const sess = window.wialon.core.Session.getInstance();
-    if (!token) return;
+    const MAX_RETRIES = 5;
+    const RETRY_DELAY = 3000;
 
-    sess.initSession("https://hst-api.wialon.com");
+    if (!token) {
+      console.warn("Wialon token is not available.");
+      return;
+    }
+
+    // Avoid re-initializing the session every time
+    if (!sess.getBaseUrl()) {
+      sess.initSession("https://hst-api.wialon.com");
+    }
+
     sess.loginToken(token, "", (code) => {
-      if (!code) {
-        const flags = window.wialon.item.Item.dataFlag.base;
-        sess.updateDataFlags([{type: "type", data: "avl_unit", flags, mode: 0}], (code) => {
-          if (!code) {
-            const units = sess.getItems("avl_unit") || [];
-            setUnitInfo(units.map((unit) => ({id: unit.getId(), name: unit.getName()})));
-          }
-        });
+      if (code) {
+        console.error("Wialon login failed with code:", code);
+
+        if (retryCount < MAX_RETRIES) {
+          const delay = RETRY_DELAY * (retryCount + 1);
+          console.log(`Retrying login in ${delay / 1000}s...`);
+          setTimeout(() => fetchAllUnits(retryCount + 1), delay);
+        } else {
+          console.error("Maximum retry attempts reached. Could not connect to Wialon.");
+        }
+
+        return;
       }
+
+      const flags = window.wialon.item.Item.dataFlag.base;
+
+      sess.updateDataFlags([{type: "type", data: "avl_unit", flags, mode: 0}], (code) => {
+        if (code) {
+          console.error("Failed to update Wialon data flags. Code:", code);
+          return;
+        }
+
+        const units = sess.getItems("avl_unit") || [];
+        const unitList = units.map((unit) => ({
+          id: unit.getId(),
+          name: unit.getName(),
+        }));
+        setUnits(unitList);
+      });
     });
   };
 
@@ -198,27 +228,25 @@ const CreateTransporteModal = ({show, handleClose, addTransporte, transportes, b
           ) : (
             <Form.Group className="mb-3">
               <Form.Label>Seleccionar Intacsep ID</Form.Label>
-              <Form.Control
-                type="text"
-                placeholder="Buscar unidad..."
-                value={searchTerm} // Shows what user is typing or selecting
+              <Form.Select
+                className="unit-select"
+                value={selectedUnitId}
                 onChange={(e) => {
-                  setSearchTerm(e.target.value); // Allow searching
-                  const selectedUnit = units.find((unit) => unit.name === e.target.value);
-                  if (selectedUnit) {
-                    setSelectedUnitId(selectedUnit.id); // Save the selected ID
-                    setSelectedUnitName(selectedUnit.name); // Show name in input field
+                  const unitId = e.target.value;
+                  const selected = units?.find((u) => u.id.toString() === unitId);
+                  if (selected) {
+                    setSelectedUnitId(selected.id);
+                    setSelectedUnitName(selected.name);
+                    setSearchTerm(selected.name); // optional if you still use the input box later
                   }
-                }}
-                list="unitList"
-              />
-              <datalist id="unitList">
-                {units
-                  .filter((unit) => unit.name.toLowerCase().includes(searchTerm.toLowerCase()))
-                  .map((unit) => (
-                    <option key={unit.id} value={unit.name} />
-                  ))}
-              </datalist>
+                }}>
+                <option value="">Seleccione una unidad</option>
+                {units?.map((unit) => (
+                  <option key={unit.id} value={unit.id}>
+                    {unit.name}
+                  </option>
+                ))}
+              </Form.Select>
             </Form.Group>
           )}
 

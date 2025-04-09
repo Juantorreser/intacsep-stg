@@ -12,7 +12,7 @@ const NewEventModal = ({edited, eventTypes, onEventAdded}) => {
   const [transportes, setTransportes] = useState(bitacora?.transportes || []);
   // const [units, setUnits] = useState([]);
   const token = import.meta.env.VITE_WIALON_TOKEN;
-  const {units} = useWialon();
+  // const {units} = useWialon();
   const [openTransportId, setOpenTransportId] = useState(null);
 
   const toggleCollapse = (id) => {

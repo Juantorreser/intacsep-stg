@@ -1009,3 +1009,20 @@ $gray: #223b53;
     background-color: #e9f7ef;
   }
 }
+
+.unit-select {
+  border: 1px solid #ced4da;
+  border-radius: 6px;
+  font-size: 1rem;
+  padding: 0.5rem;
+
+  &:focus {
+    border-color: #198754; // Bootstrap success color
+    box-shadow: 0 0 0 0.2rem rgba(25, 135, 84, 0.25);
+  }
+
+  option {
+    padding: 0.5rem;
+    font-size: 0.95rem;
+  }
+}

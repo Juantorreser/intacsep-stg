@@ -10,9 +10,7 @@ import {WialonProvider} from "./context/WialonProvider.jsx";
 ReactDOM.createRoot(document.getElementById("root")).render(
   <BrowserRouter>
     <AuthProvider>
-      <WialonProvider>
-        <App />
-      </WialonProvider>
+      <App />
     </AuthProvider>
   </BrowserRouter>
 );
