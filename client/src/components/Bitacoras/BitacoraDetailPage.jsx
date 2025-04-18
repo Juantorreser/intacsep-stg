@@ -9,6 +9,7 @@ import {Modal, Button, Form, Row} from "react-bootstrap";
 import "bootstrap/dist/js/bootstrap.bundle.min.js";
 import CreateTransporteModal from "./Transportes/CreateTransporteModal";
 import NewEventModal from "./Eventos/NewEventModal";
+import {createAuditoria, generateAuditoriasFromChanges} from "../../utils/auditoria";
 
 const BitacoraDetailPage = ({edited}) => {
   const {id} = useParams();
@@ -73,6 +74,16 @@ const BitacoraDetailPage = ({edited}) => {
         const updatedData = await response.json();
         setBitacora(updatedData);
         setSelectedTransporte(updatedData.transportes.find((t) => t.id === editedTransporte.id)); // 🔥 Ensure latest data from API
+        await createAuditoria({
+          tipo: "Bitacora",
+          bitacora_id: bitacora.bitacora_id,
+          email: user.email,
+          rol: user.role,
+          seccion: "Transportes",
+          campo: "Transporte",
+          ValOriginal: JSON.stringify(selectedTransporte), // antes
+          ValNuevo: JSON.stringify(editedTransporte), // después
+        });
       } else {
         console.error("Failed to update transporte:", response.statusText);
       }
@@ -874,7 +885,17 @@ const BitacoraDetailPage = ({edited}) => {
 
       if (response.ok) {
         const responseData = await response.json();
-        setBitacora(responseData); // Ensure frontend reflects changes from backend
+        setBitacora(responseData);
+
+        // Generar auditorías por cambio individual
+        await generateAuditoriasFromChanges({
+          oldData: edited_bitacora,
+          newData: submitBitacora,
+          bitacoraId: bitacora.bitacora_id,
+          user,
+          seccion: "Bitácora",
+        });
+
         setIsEdited(true);
         setEditModalVisible(false);
       } else {
