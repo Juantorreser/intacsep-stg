@@ -303,7 +303,7 @@ const Sidebar = () => {
                       {roleData.auditoriaBitacora && (
                         <li
                           className="text-white-50 cursor-pointer"
-                          onClick={() => navigate("/usuarios")}
+                          onClick={() => navigate("/auditoria/bitacoras")}
                           style={{fontSize: "0.85rem"}}>
                           Bitacoras
                         </li>

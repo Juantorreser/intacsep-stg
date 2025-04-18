@@ -19,6 +19,7 @@ import ResetPassword from "./components/ResetPassword";
 import WialonTracker from "./components/wialon/WialonTracker";
 import WialonUnits from "./components/wialon/WialonUnits";
 import BitacoraRouter from "./components/Bitacoras/BitacoraRouter";
+import AuditoriasPage from "./components/Auditorias/AuditoriasPage";
 
 function App() {
   return (
@@ -42,6 +43,7 @@ function App() {
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/wialon" element={<WialonTracker />} />
         <Route path="/units" element={<WialonUnits />} />
+        <Route path="/auditoria/bitacoras" element={<AuditoriasPage />} />
       </Routes>
     </>
   );
