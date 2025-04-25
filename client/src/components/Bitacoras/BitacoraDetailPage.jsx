@@ -462,7 +462,7 @@ const BitacoraDetailPage = ({edited}) => {
     );
   }
 
-  const EventCard = ({event, eventos}) => {
+  const EventCard = ({event}) => {
     const {_id, nombre, descripcion, createdAt, registrado_por, frecuencia, transportes} = event;
     const [showModal, setShowModal] = useState(false);
     const [formData, setFormData] = useState({
@@ -478,33 +478,24 @@ const BitacoraDetailPage = ({edited}) => {
 
     useEffect(() => {
       const computeEventColor = () => {
-        if (!bitacora || !bitacora.eventos?.length) return "#333235";
-
-        const latestEvent = bitacora.eventos.reduce((latest, current) =>
-          new Date(latest.createdAt) > new Date(current.createdAt) ? latest : current
-        );
-
-        const frecuencia = latestEvent.frecuencia;
         if (!frecuencia) return "#333235";
 
-        const frecuenciaMs = frecuencia * 60000;
-        const eventTimeMs = new Date(latestEvent.createdAt).getTime();
-        const currentTimeMs = new Date().getTime();
-        const elapsedTimeMs = currentTimeMs - eventTimeMs;
+        const frecuenciaMs = frecuencia * 60000; // minutos a ms
+        const elapsed = Date.now() - new Date(createdAt).getTime();
 
-        if (elapsedTimeMs < frecuenciaMs * 0.75) return "#51FF4E";
-        if (elapsedTimeMs < frecuenciaMs) return "#ECEC27";
-        return "#F82929";
+        if (elapsed < frecuenciaMs * 0.75) return "#51FF4E"; // verde
+        if (elapsed < frecuenciaMs) return "#ECEC27"; // amarillo
+        return "#F82929"; // rojo
       };
 
+      // Asigna color inmediatamente y luego cada minuto
       setEventColor(computeEventColor());
-
       const interval = setInterval(() => {
         setEventColor(computeEventColor());
-      }, 60000); // Update every minute
+      }, 60000);
 
       return () => clearInterval(interval);
-    }, [bitacora]);
+    }, [createdAt, frecuencia]);
 
     const isLastEvent = event._id === events[events.length - 1]?._id;
 
@@ -623,15 +614,9 @@ const BitacoraDetailPage = ({edited}) => {
               <div className="d-flex align-items-start gap-2">
                 <strong>Frecuencia: </strong>
                 <p> {`${frecuencia}  min`} </p>
-                {isLastEvent && (
-                  <div className="semaforoEvent">
-                    <div
-                      className="circle"
-                      style={{
-                        backgroundColor: eventColor,
-                      }}></div>
-                  </div>
-                )}
+                <div className="semaforoEvent">
+                  <div className="circle" style={{backgroundColor: eventColor}}></div>
+                </div>
               </div>
             </div>
 

@@ -414,37 +414,29 @@ const BitacorasPage = () => {
   };
 
   const getEventColor = (bitacora) => {
-    if (bitacora.status != "iniciada" && bitacora.status != "validada") {
-      return ["#333235"]; // No events
+    // if we're not in a “running” state, just show grey
+    if (!["iniciada", "validada"].includes(bitacora.status)) {
+      return ["#333235"];
     }
 
-    const latestEvent = bitacora.eventos.reduce((latest, current) =>
-      new Date(latest.createdAt) > new Date(current.createdAt) ? latest : current
-    );
+    // take the últimos 5 eventos
+    const eventos = bitacora.eventos || [];
+    const lastFive = [...eventos]
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+      .slice(0, 5);
 
-    const frecuencia = latestEvent.frecuencia;
-    if (!frecuencia) return ["#333235"]; // No frecuencia
+    // map each one to its semáforo color
+    return lastFive.map((evt) => {
+      const freq = evt.frecuencia;
+      if (!freq) return "#333235";
 
-    const frecuenciaMs = frecuencia * 60000; // Convert minutes to milliseconds
-    const eventTimeMs = new Date(latestEvent.createdAt).getTime();
-    const currentTimeMs = new Date().getTime();
-    const elapsedTimeMs = currentTimeMs - eventTimeMs;
+      const freqMs = freq * 60000;
+      const elapsed = Date.now() - new Date(evt.createdAt).getTime();
 
-    const greenColor = "#51FF4E"; // Green
-    const yellowColor = "#ECEC27"; // Yellow
-    const redColor = "#F82929"; // Red
-
-    // Determine the color
-    if (elapsedTimeMs < frecuenciaMs) {
-      const threshold = frecuenciaMs * 0.75; // 75% of the frecuencia
-      if (elapsedTimeMs < threshold) {
-        return [greenColor]; // Green
-      } else {
-        return [yellowColor]; // Yellow
-      }
-    } else {
-      return [redColor]; // Red
-    }
+      if (elapsed < freqMs * 0.75) return "#51FF4E"; // verde
+      if (elapsed < freqMs) return "#ECEC27"; // amarillo
+      return "#F82929"; // rojo
+    });
   };
 
   const getRecorrido = (bitacora) => {
@@ -840,8 +832,7 @@ const BitacorasPage = () => {
                                   disabled={!allClosed}
                                 />
                                 <label htmlFor="all" className={allClosed ? "" : "text-muted"}>
-                                  Todos los transportes{" "}
-                                  {allClosed ? "" : ""}
+                                  Todos los transportes {allClosed ? "" : ""}
                                 </label>
                               </div>
 

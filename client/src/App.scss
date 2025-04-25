@@ -769,11 +769,37 @@ $gray: #223b53;
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-direction: row;
 
-  & .circle {
-    height: 20px;
-    width: 20px;
-    border-radius: 50%;
+  .circle {
+    width: 15px; /* diameter */
+    height: 15px;
+    border-radius: 50%; /* make it round */
+    position: relative; /* allow z-index stacking */
+    margin-left: -6px; /* pull left to overlap by half */
+    border: #e4e4e4 solid 1px;
+  }
+
+  /* First one shouldn’t overlap anything */
+  .circle:first-child {
+    margin-right: 5;
+  }
+
+  /* Give each subsequent dot a higher z-index so it sits on top */
+  .circle:nth-child(1) {
+    z-index: 4;
+  }
+  .circle:nth-child(2) {
+    z-index: 3;
+  }
+  .circle:nth-child(3) {
+    z-index: 2;
+  }
+  .circle:nth-child(4) {
+    z-index: 1;
+  }
+  .circle:nth-child(5) {
+    z-index: 0;
   }
 }
 
