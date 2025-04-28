@@ -41,7 +41,6 @@ const NewEventModal = ({edited, eventTypes, onEventAdded}) => {
     };
 
     if (token) init();
-    fetchUnitsFromWialon();
   }, [token]);
 
   const fetchBitacora = async () => {
@@ -77,42 +76,66 @@ const NewEventModal = ({edited, eventTypes, onEventAdded}) => {
     }
   };
 
-  const fetchUnitsFromWialon = (retryCount = 0) => {
-    const MAX_RETRIES = 5;
-    const RETRY_DELAY = 3000;
-
-    const sess = window.wialon.core.Session.getInstance();
-
-    if (!sess.getBaseUrl()) {
-      sess.initSession("https://hst-api.wialon.com");
+  const fetchAllUnits = async (retries = 3, delay = 1000, token) => {
+    if (!token) {
+      console.error("No Wialon token available. Please log in.");
+      return;
     }
 
-    sess.loginToken(token, "", (code) => {
-      if (code) {
-        console.warn(`Login failed (code ${code}). Retrying...`);
+    const sess = window.wialon.core.Session.getInstance();
+    sess.initSession("https://hst-api.wialon.com");
 
-        if (retryCount < MAX_RETRIES) {
-          setTimeout(() => fetchUnitsFromWialon(retryCount + 1), RETRY_DELAY * (retryCount + 1));
-        } else {
-          console.error("❌ Max retries reached for Wialon login.");
-        }
+    console.log(sess);
 
-        return;
-      }
-
-      const flags = window.wialon.item.Item.dataFlag.base;
-
-      sess.updateDataFlags([{type: "type", data: "avl_unit", flags, mode: 0}], (code) => {
+    try {
+      sess.loginToken(token,  (code) => {
         if (code) {
-          console.error("⚠️ Failed to update Wialon data flags:", code);
-          return;
+          console.log("Error HERE");
+        } else {
+          console.log("Logged in successfully");
         }
-
-        const units = sess.getItems("avl_unit") || [];
-        const parsed = units.map((u) => ({id: u.getId(), name: u.getName()}));
-        setUnits(parsed);
       });
-    });
+
+      console.log("Wialon login successful.");
+      setSession(sess);
+      localStorage.setItem("wialonToken", token); // Store token for persistence
+      fetchAllUnits(sess);
+    } catch (error) {
+      console.error("Error during Wialon login:", error);
+    }
+
+    try {
+      const flags =
+        window.wialon.item.Item.dataFlag.base | window.wialon.item.Unit.dataFlag.lastMessage;
+
+      sess.loadLibrary("itemIcon");
+
+      await new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => reject("Library load timeout"), 5000);
+        sess.updateDataFlags([{type: "type", data: "avl_unit", flags, mode: 0}], (code) => {
+          clearTimeout(timeout);
+          if (code) {
+            reject(window.wialon.core.Errors.getErrorText(code));
+          } else {
+            resolve();
+          }
+        });
+      });
+
+      const fetchedUnits = sess.getItems("avl_unit") || [];
+      const unitDetails = fetchedUnits.map((unit) => ({id: unit.getId(), name: unit.getName()}));
+      setUnits(unitDetails);
+      console.log("Unidades obtenidas:", unitDetails);
+    } catch (error) {
+      console.error("Error al obtener unidades, reintentando...", error);
+      if (retries > 0) {
+        console.log(`Retrying in ${delay}ms...`);
+        setTimeout(() => fetchAllUnits(sess, retries - 1, delay), delay);
+      } else {
+        console.log("Max retries reached, failing...");
+        setUnits([]);
+      }
+    }
   };
 
   // Función para formatear el tiempo transcurrido en "X time ago"
@@ -139,10 +162,14 @@ const NewEventModal = ({edited, eventTypes, onEventAdded}) => {
   };
 
   const getUnitInfo = async (transporteId) => {
+    await fetchAllUnits(3, 1500, token);
+
     if (!units || !units.length) {
       console.warn("⚠️ Units not loaded.");
       return null;
     }
+
+    console.log("Units" + units);
 
     const formattedId = transporteId.split("_")[0];
     const found = units.find((u) => u.id == formattedId);
