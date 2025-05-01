@@ -73,16 +73,26 @@ const BitacoraDetailPage = ({edited}) => {
       if (response.ok) {
         const updatedData = await response.json();
         setBitacora(updatedData);
-        setSelectedTransporte(updatedData.transportes.find((t) => t.id === editedTransporte.id)); // 🔥 Ensure latest data from API
-        await createAuditoria({
-          tipo: "Bitacora",
-          bitacora_id: bitacora.bitacora_id,
-          email: user.email,
-          rol: user.role,
+        setSelectedTransporte(updatedData.transportes.find((t) => t.id === editedTransporte.id));
+
+        // await createAuditoria({
+        //   tipo: "Bitacora",
+        //   bitacora_id: bitacora.bitacora_id,
+        //   email: user.email,
+        //   rol: user.role,
+        //   seccion: "Transportes",
+        //   campo: "Transporte",
+        //   ValOriginal: JSON.stringify(selectedTransporte), // antes
+        //   ValNuevo: JSON.stringify(editedTransporte), // después
+        // });
+
+        // per-field audits
+        await generateAuditoriasFromChanges({
+          oldData: selectedTransporte,
+          newData: editedTransporte,
+          bitacoraId: bitacora.bitacora_id,
+          user, // includes email & role
           seccion: "Transportes",
-          campo: "Transporte",
-          ValOriginal: JSON.stringify(selectedTransporte), // antes
-          ValNuevo: JSON.stringify(editedTransporte), // después
         });
       } else {
         console.error("Failed to update transporte:", response.statusText);
@@ -511,17 +521,26 @@ const BitacoraDetailPage = ({edited}) => {
 
     const handleFormSubmit = async (e) => {
       e.preventDefault();
-      // console.log(formData);
-      if (edited_bitacora) {
-        edited_bitacora.eventos.forEach((evento, i) => {
-          if (evento.nombre === formData.nombre) {
-            formData.createdAt = edited_bitacora.eventos[i].createdAt;
-            edited_bitacora.eventos[i] = formData;
-          }
-        });
-      }
 
-      handleEditSubmit(e);
+      // 1) build the new eventos array
+      const updatedEventos = bitacora.eventos.map((evt) =>
+        evt._id === event._id
+          ? {...evt, descripcion: formData.descripcion, frecuencia: formData.frecuencia}
+          : evt
+      );
+
+      // 2) assemble a full bitacora object
+      const updatedBitacora = {...bitacora, eventos: updatedEventos};
+
+      // 3) OPTIMISTIC UI: push the new data into parent state
+      setBitacora(updatedBitacora);
+      setEventos(updatedEventos);
+
+      // 4) then send it to the server
+      await handleEditSubmit(e, updatedBitacora);
+
+      // 5) close the modal
+      setShowModal(false);
     };
 
     const handleShowTransporteModal = (transporte) => {

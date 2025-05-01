@@ -1,36 +1,44 @@
-export const generateAuditoriasFromChanges = async ({
-    oldData,
-    newData,
-    bitacoraId,
-    user,
-    seccion = "Bitácora",
-}) => {
+// helper that flattens nested changes into {campo, ValOriginal, ValNuevo}
+const collectChanges = (oldObj, newObj, prefix = "") => {
     const changes = [];
-
-    for (const key in newData) {
-        const oldValue = oldData[key];
-        const newValue = newData[key];
+    for (const key in newObj) {
+        const fullKey = prefix ? `${prefix}.${key}` : key;
+        const oldVal = oldObj?.[key];
+        const newVal = newObj[key];
 
         if (
-            oldValue !== undefined &&
-            newValue !== undefined &&
-            String(oldValue).trim() !== String(newValue).trim()
+            newVal != null &&
+            typeof newVal !== "object" &&
+            String(oldVal).trim() !== String(newVal).trim()
         ) {
-            changes.push({
-                tipo: "Edición",
-                bitacora_id: bitacoraId,
-                email: user.email,
-                rol: user.role,
-                seccion,
-                campo: key,
-                ValOriginal: String(oldValue),
-                ValNuevo: String(newValue),
-            });
+            changes.push({ campo: fullKey, ValOriginal: oldVal, ValNuevo: newVal });
+        }
+        else if (
+            newVal != null &&
+            typeof newVal === "object" &&
+            !Array.isArray(newVal)
+        ) {
+            changes.push(...collectChanges(oldVal, newVal, fullKey));
         }
     }
+    return changes;
+};
 
-    for (const auditoria of changes) {
-        await createAuditoria(auditoria);
+export const generateAuditoriasFromChanges = async ({
+    oldData, newData, bitacoraId, user, seccion = "Bitácora"
+}) => {
+    const diffs = collectChanges(oldData, newData);
+    for (const { campo, ValOriginal, ValNuevo } of diffs) {
+        await createAuditoria({
+            tipo: "Edición",
+            bitacora_id: bitacoraId,
+            email: user.email,
+            rol: user.role,
+            seccion,
+            campo,
+            ValOriginal: String(ValOriginal),
+            ValNuevo: String(ValNuevo),
+        });
     }
 };
 
