@@ -1,6 +1,8 @@
 import React, {useEffect, useState} from "react";
 import Header from "../Header";
 import Sidebar from "../Sidebar";
+import * as XLSX from "xlsx";
+import {saveAs} from "file-saver";
 
 const AuditoriasPage = () => {
   const [auditorias, setAuditorias] = useState([]);
@@ -83,6 +85,32 @@ const AuditoriasPage = () => {
     return sortConfig.direction === "asc" ? "↑" : "↓";
   };
 
+  const exportToExcel = () => {
+    const exportData = filteredData.map((item) => ({
+      Tipo: item.tipo,
+      "Bitácora ID": item.bitacora_id,
+      Email: item.email,
+      Rol: item.rol,
+      Sección: item.seccion,
+      Campo: item.campo,
+      "Valor Original": item.ValOriginal,
+      "Valor Nuevo": item.ValNuevo,
+      Fecha: new Date(item.createdAt).toLocaleString(),
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(exportData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Auditorias");
+
+    const excelBuffer = XLSX.write(workbook, {
+      bookType: "xlsx",
+      type: "array",
+    });
+
+    const fileData = new Blob([excelBuffer], {type: "application/octet-stream"});
+    saveAs(fileData, "auditorias_export.xlsx");
+  };
+
   return (
     <section id="auditorias">
       <Header />
@@ -94,6 +122,12 @@ const AuditoriasPage = () => {
           <h1 className="text-center fs-3 fw-semibold text-black">Auditorías</h1>
 
           <div className="mx-3 my-4">
+            <div className="mb-3 d-flex justify-content-end">
+              <button className="btn btn-success" onClick={exportToExcel}>
+                Exportar a Excel
+              </button>
+            </div>
+
             <div className="table-responsive">
               <table className="table table-striped">
                 <thead>
