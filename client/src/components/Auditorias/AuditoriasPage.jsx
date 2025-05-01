@@ -119,141 +119,148 @@ const AuditoriasPage = () => {
           <Sidebar />
         </div>
         <div className="content-wrapper">
-          <h1 className="text-center fs-3 fw-semibold text-black">Auditorías</h1>
-
-          <div className="mx-3 my-4">
-            <div className="mb-3 d-flex justify-content-end">
-              <button className="btn btn-success" onClick={exportToExcel}>
+          <div className="d-flex justify-content-between align-items-center mx-3 mb-1">
+            <div className="flex-grow-1 text-center">
+              <h1 className="fs-3 fw-semibold text-black m-0">Auditorías</h1>
+            </div>
+            <div style={{width: "120px"}}></div> {/* Invisible spacer to balance button width */}
+            <div>
+              <button className="btn btn-export" onClick={exportToExcel}>
                 Exportar a Excel
               </button>
             </div>
-
-            <div className="table-responsive">
-              <table className="table table-striped">
-                <thead>
-                  <tr>
-                    <th onClick={() => handleSort("tipo")}>Tipo {getSortIcon("tipo")}</th>
-                    <th onClick={() => handleSort("bitacora_id")}>
-                      Bitácora ID {getSortIcon("bitacora_id")}
-                    </th>
-                    <th onClick={() => handleSort("email")}>Email {getSortIcon("email")}</th>
-                    <th onClick={() => handleSort("rol")}>Rol {getSortIcon("rol")}</th>
-                    <th onClick={() => handleSort("seccion")}>Sección {getSortIcon("seccion")}</th>
-                    <th onClick={() => handleSort("campo")}>Campo {getSortIcon("campo")}</th>
-                    <th onClick={() => handleSort("ValOriginal")}>
-                      Valor Original {getSortIcon("ValOriginal")}
-                    </th>
-                    <th onClick={() => handleSort("ValNuevo")}>
-                      Valor Nuevo {getSortIcon("ValNuevo")}
-                    </th>
-                    <th onClick={() => handleSort("createdAt")}>
-                      Fecha {getSortIcon("createdAt")}
-                    </th>
-                  </tr>
-                  <tr>
-                    <th>
-                      <input
-                        type="text"
-                        className="form-control form-control-sm"
-                        placeholder="Filtrar..."
-                        value={filters.tipo}
-                        onChange={(e) => handleFilterChange("tipo", e.target.value)}
-                      />
-                    </th>
-                    <th>
-                      <input
-                        type="text"
-                        className="form-control form-control-sm"
-                        placeholder="Filtrar..."
-                        value={filters.bitacora_id}
-                        onChange={(e) => handleFilterChange("bitacora_id", e.target.value)}
-                      />
-                    </th>
-                    <th>
-                      <input
-                        type="text"
-                        className="form-control form-control-sm"
-                        placeholder="Filtrar..."
-                        value={filters.email}
-                        onChange={(e) => handleFilterChange("email", e.target.value)}
-                      />
-                    </th>
-                    <th>
-                      <input
-                        type="text"
-                        className="form-control form-control-sm"
-                        placeholder="Filtrar..."
-                        value={filters.rol}
-                        onChange={(e) => handleFilterChange("rol", e.target.value)}
-                      />
-                    </th>
-                    <th>
-                      <input
-                        type="text"
-                        className="form-control form-control-sm"
-                        placeholder="Filtrar..."
-                        value={filters.seccion}
-                        onChange={(e) => handleFilterChange("seccion", e.target.value)}
-                      />
-                    </th>
-                    <th>
-                      <input
-                        type="text"
-                        className="form-control form-control-sm"
-                        placeholder="Filtrar..."
-                        value={filters.campo}
-                        onChange={(e) => handleFilterChange("campo", e.target.value)}
-                      />
-                    </th>
-                    <th>
-                      <input
-                        type="text"
-                        className="form-control form-control-sm"
-                        placeholder="Filtrar..."
-                        value={filters.ValOriginal}
-                        onChange={(e) => handleFilterChange("ValOriginal", e.target.value)}
-                      />
-                    </th>
-                    <th>
-                      <input
-                        type="text"
-                        className="form-control form-control-sm"
-                        placeholder="Filtrar..."
-                        value={filters.ValNuevo}
-                        onChange={(e) => handleFilterChange("ValNuevo", e.target.value)}
-                      />
-                    </th>
-                    <th>
-                      <input
-                        type="text"
-                        className="form-control form-control-sm"
-                        placeholder="Filtrar..."
-                        value={filters.createdAt}
-                        onChange={(e) => handleFilterChange("createdAt", e.target.value)}
-                      />
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {paginatedData.map((a) => (
-                    <tr key={a._id}>
-                      <td>{a.tipo}</td>
-                      <td>{a.bitacora_id}</td>
-                      <td>{a.email}</td>
-                      <td>{a.rol}</td>
-                      <td>{a.seccion}</td>
-                      <td>{a.campo}</td>
-                      <td>{a.ValOriginal}</td>
-                      <td>{a.ValNuevo}</td>
-                      <td>{new Date(a.createdAt).toLocaleString()}</td>
+          </div>
+          <div className="mx-3 my-0">
+            <div className="table-wrapper">
+              <div className="table-responsive">
+                <table className="table table-striped">
+                  <thead>
+                    <tr>
+                      <th onClick={() => handleSort("tipo")}>Tipo {getSortIcon("tipo")}</th>
+                      <th onClick={() => handleSort("bitacora_id")}>
+                        Bitácora ID {getSortIcon("bitacora_id")}
+                      </th>
+                      <th onClick={() => handleSort("email")}>Email {getSortIcon("email")}</th>
+                      <th onClick={() => handleSort("rol")}>Rol {getSortIcon("rol")}</th>
+                      <th onClick={() => handleSort("seccion")}>
+                        Sección {getSortIcon("seccion")}
+                      </th>
+                      <th onClick={() => handleSort("campo")}>Campo {getSortIcon("campo")}</th>
+                      <th onClick={() => handleSort("ValOriginal")}>
+                        Valor Original {getSortIcon("ValOriginal")}
+                      </th>
+                      <th onClick={() => handleSort("ValNuevo")}>
+                        Valor Nuevo {getSortIcon("ValNuevo")}
+                      </th>
+                      <th onClick={() => handleSort("createdAt")}>
+                        Fecha {getSortIcon("createdAt")}
+                      </th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                    <tr>
+                      <th>
+                        <input
+                          type="text"
+                          className="form-control form-control-sm"
+                          placeholder="Filtrar..."
+                          value={filters.tipo}
+                          onChange={(e) => handleFilterChange("tipo", e.target.value)}
+                        />
+                      </th>
+                      <th>
+                        <input
+                          type="text"
+                          className="form-control form-control-sm"
+                          placeholder="Filtrar..."
+                          value={filters.bitacora_id}
+                          onChange={(e) => handleFilterChange("bitacora_id", e.target.value)}
+                        />
+                      </th>
+                      <th>
+                        <input
+                          type="text"
+                          className="form-control form-control-sm"
+                          placeholder="Filtrar..."
+                          value={filters.email}
+                          onChange={(e) => handleFilterChange("email", e.target.value)}
+                        />
+                      </th>
+                      <th>
+                        <input
+                          type="text"
+                          className="form-control form-control-sm"
+                          placeholder="Filtrar..."
+                          value={filters.rol}
+                          onChange={(e) => handleFilterChange("rol", e.target.value)}
+                        />
+                      </th>
+                      <th>
+                        <input
+                          type="text"
+                          className="form-control form-control-sm"
+                          placeholder="Filtrar..."
+                          value={filters.seccion}
+                          onChange={(e) => handleFilterChange("seccion", e.target.value)}
+                        />
+                      </th>
+                      <th>
+                        <input
+                          type="text"
+                          className="form-control form-control-sm"
+                          placeholder="Filtrar..."
+                          value={filters.campo}
+                          onChange={(e) => handleFilterChange("campo", e.target.value)}
+                        />
+                      </th>
+                      <th>
+                        <input
+                          type="text"
+                          className="form-control form-control-sm"
+                          placeholder="Filtrar..."
+                          value={filters.ValOriginal}
+                          onChange={(e) => handleFilterChange("ValOriginal", e.target.value)}
+                        />
+                      </th>
+                      <th>
+                        <input
+                          type="text"
+                          className="form-control form-control-sm"
+                          placeholder="Filtrar..."
+                          value={filters.ValNuevo}
+                          onChange={(e) => handleFilterChange("ValNuevo", e.target.value)}
+                        />
+                      </th>
+                      <th>
+                        <input
+                          type="text"
+                          className="form-control form-control-sm"
+                          placeholder="Filtrar..."
+                          value={filters.createdAt}
+                          onChange={(e) => handleFilterChange("createdAt", e.target.value)}
+                        />
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {paginatedData.map((a) => (
+                      <tr key={a._id}>
+                        <td>{a.tipo}</td>
+                        <td>{a.bitacora_id}</td>
+                        <td>{a.email}</td>
+                        <td>{a.rol}</td>
+                        <td>{a.seccion}</td>
+                        <td>{a.campo}</td>
+                        <td>{a.ValOriginal}</td>
+                        <td>{a.ValNuevo}</td>
+                        <td>{new Date(a.createdAt).toLocaleString()}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
 
             {/* 📄 Pagination */}
-            <div className="d-flex justify-content-between align-items-center mt-3">
+            <div className="d-flex justify-content-between align-items-center mt-1 pagination-controls">
               <button
                 className="btn btn-outline-secondary"
                 onClick={() => setCurrentPage(currentPage - 1)}
