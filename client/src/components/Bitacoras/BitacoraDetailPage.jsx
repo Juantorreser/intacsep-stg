@@ -519,27 +519,69 @@ const BitacoraDetailPage = ({edited}) => {
       setFormData({...formData, [name]: value});
     };
 
+    //Working edit eventos
+    // const handleFormSubmit = async (e) => {
+    //   e.preventDefault();
+
+    //   // 1) build the new eventos array
+    //   const updatedEventos = bitacora.eventos.map((evt) =>
+    //     evt._id === event._id
+    //       ? {...evt, descripcion: formData.descripcion, frecuencia: formData.frecuencia}
+    //       : evt
+    //   );
+
+    //   // 2) assemble a full bitacora object
+    //   const updatedBitacora = {...bitacora, eventos: updatedEventos};
+
+    //   // 3) OPTIMISTIC UI: push the new data into parent state
+    //   setBitacora(updatedBitacora);
+    //   setEventos(updatedEventos);
+
+    //   // 4) then send it to the server
+    //   await handleEditSubmit(e, updatedBitacora);
+
+    //   // 5) close the modal
+    //   setShowModal(false);
+    // };
+
+    // ─── In EventCard, swap out your old handleFormSubmit ───
     const handleFormSubmit = async (e) => {
       e.preventDefault();
 
       // 1) build the new eventos array
       const updatedEventos = bitacora.eventos.map((evt) =>
         evt._id === event._id
-          ? {...evt, descripcion: formData.descripcion, frecuencia: formData.frecuencia}
+          ? {
+              ...evt,
+              descripcion: formData.descripcion,
+              frecuencia: formData.frecuencia,
+            }
           : evt
       );
 
-      // 2) assemble a full bitacora object
-      const updatedBitacora = {...bitacora, eventos: updatedEventos};
+      // 2) grab old vs new versions of this one event
+      const oldEvent = bitacora.eventos.find((evt) => evt._id === event._id);
+      const newEvent = updatedEventos.find((evt) => evt._id === event._id);
 
-      // 3) OPTIMISTIC UI: push the new data into parent state
+      // 3) optimistic UI update
+      const updatedBitacora = {...bitacora, eventos: updatedEventos};
       setBitacora(updatedBitacora);
       setEventos(updatedEventos);
 
-      // 4) then send it to the server
+      // 4) send to server
       await handleEditSubmit(e, updatedBitacora);
 
-      // 5) close the modal
+      // 5) only if PATCH succeeded, audit per‐field in “Eventos”
+
+      await generateAuditoriasFromChanges({
+        oldData: oldEvent,
+        newData: newEvent,
+        bitacoraId: bitacora.bitacora_id,
+        user,
+        seccion: "Eventos",
+      });
+
+      // 6) close modal
       setShowModal(false);
     };
 
