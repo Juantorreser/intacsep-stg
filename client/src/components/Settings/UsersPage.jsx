@@ -29,17 +29,21 @@ const UsersPage = () => {
       console.log(user.role);
 
       try {
-        const response = await fetch(`${baseUrl}/users`, {
-          method: "GET",
-          credentials: "include",
-        });
+        const response = await fetch(`${baseUrl}/users`, {method: "GET", credentials: "include"});
         if (response.ok) {
           const data = await response.json();
           const currentUserRole = user.role;
-          const filteredUsers =
-            currentUserRole != "Máster" ? data.filter((user) => user.role != "Máster") : data;
 
-          setUsers(filteredUsers);
+          const filteredUsers =
+            currentUserRole !== "Máster" ? data.filter((u) => u.role?.name !== "Máster") : data;
+
+          // Normalize role to string name if it's an object
+          const normalizedUsers = filteredUsers.map((u) => ({
+            ...u,
+            role: typeof u.role === "object" ? u.role.name : u.role,
+          }));
+
+          setUsers(normalizedUsers);
         } else {
           console.error("Failed to fetch users:", response.statusText);
         }
@@ -141,12 +145,20 @@ const UsersPage = () => {
 
       if (response.ok) {
         const updatedUser = await response.json();
+
+        // Normalize role back to string
+        const normalizedUser = {
+          ...updatedUser,
+          role: typeof updatedUser.role === "object" ? updatedUser.role.name : updatedUser.role,
+        };
+
         if (editingUserId) {
-          setUsers(users.map((user) => (user._id === updatedUser._id ? updatedUser : user)));
+          setUsers(users.map((u) => (u._id === normalizedUser._id ? normalizedUser : u)));
         } else {
-          setUsers([...users, updatedUser]);
+          setUsers([...users, normalizedUser]);
         }
-        // Reset state
+
+        // Reset form state
         setEditingUserId(null);
         setFormData({
           email: "",

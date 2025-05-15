@@ -278,7 +278,8 @@ const Login = () => {
           </div>
         ) : (
           <div className=" flex flex-col justify-content-center align-items-center w-full p-5 text-center loginCard">
-            <img src="./logo1.png" alt="logo" width={80} />
+            <img src="./logoSpoty.png" alt="logo" width={80} />
+            {/* <img src="./logo1.png" alt="logo" width={80} /> */}
             <p className="text-white mb-3">Inicio de sesión</p>
             <form
               onSubmit={loginUser}
@@ -321,7 +322,10 @@ const Login = () => {
                 }}>
                 Olvidaste tu contraseña?
               </a>
-              <button type="submit" className="btn btn-primary rounded-1 mt-2 mb-0" disabled={isLoading}>
+              <button
+                type="submit"
+                className="btn btn-primary rounded-1 mt-2 mb-0"
+                disabled={isLoading}>
                 {isLoading ? (
                   <span className="spinner-border spinner-border-sm"></span>
                 ) : (

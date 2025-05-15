@@ -27,49 +27,34 @@ const RoleCard = ({
       <div className="card-body">
         <div className="d-flex justify-content-between align-items-center">
           <div className="flex-grow-1">
-            <h5 className="card-title">{role.name}</h5>
+            {/* 🔥 Edit Mode for Role Name */}
+            {editRole && role._id === editRole._id ? (
+              <input
+                type="text"
+                name="name"
+                value={editRoleData.name}
+                onChange={handleInputChange}
+                className="form-control mb-3"
+              />
+            ) : (
+              <h5 className="card-title">{role.name}</h5>
+            )}
+
             <hr />
             <div className="d-flex flex-wrap">
               <div>
                 <h6 className="font-weight-bold">Monitoreo</h6>
                 {[
                   {name: "bitacoras", label: "Bitacoras"},
-                  {
-                    name: "edit_bitacora_abierta",
-                    label: "Editar Bitacoras Abiertas",
-                  },
-                  {
-                    name: "edit_bitacora_cerrada",
-                    label: "Editar Bitacoras Cerradas",
-                  },
-                  {
-                    name: "edit_eventos_a",
-                    label: "Editar Eventos (Bitacora Abierta)",
-                  },
-                  {
-                    name: "edit_eventos_c",
-                    label: "Editar Eventos (Bitacora Cerrada)",
-                  },
-                  {
-                    name: "edit_transportes_a",
-                    label: "Editar Transportes (Bitacora Abierta)",
-                  },
-                  {
-                    name: "edit_transportes_c",
-                    label: "Editar Transportes (Bitacora Cerrada)",
-                  },
-                  {
-                    name: "bitDetalles",
-                    label: "bitDetalles",
-                  },
-                  {
-                    name: "bitTransportes",
-                    label: "bitTransportes",
-                  },
-                  {
-                    name: "bitEventos",
-                    label: "bitEventos",
-                  },
+                  {name: "edit_bitacora_abierta", label: "Editar Bitacoras Abiertas"},
+                  {name: "edit_bitacora_cerrada", label: "Editar Bitacoras Cerradas"},
+                  {name: "edit_eventos_a", label: "Editar Eventos (Bitacora Abierta)"},
+                  {name: "edit_eventos_c", label: "Editar Eventos (Bitacora Cerrada)"},
+                  {name: "edit_transportes_a", label: "Editar Transportes (Bitacora Abierta)"},
+                  {name: "edit_transportes_c", label: "Editar Transportes (Bitacora Cerrada)"},
+                  {name: "bitDetalles", label: "bitDetalles"},
+                  {name: "bitTransportes", label: "bitTransportes"},
+                  {name: "bitEventos", label: "bitEventos"},
                 ].map(({name, label}) => (
                   <div key={name} className="form-check me-3">
                     <input
@@ -93,7 +78,6 @@ const RoleCard = ({
                   {name: "tipos_de_monitoreo", label: "Tipos de Monitoreo"},
                   {name: "eventos", label: "Eventos"},
                   {name: "clientes", label: "Clientes"},
-
                   {name: "origenes", label: "Origenes"},
                   {name: "destinos", label: "Destinos"},
                   {name: "operadores", label: "Operadores"},

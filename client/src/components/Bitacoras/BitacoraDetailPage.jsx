@@ -487,15 +487,32 @@ const BitacoraDetailPage = ({edited}) => {
     const [eventColor, setEventColor] = useState("#333235");
 
     useEffect(() => {
+      // const computeEventColor = () => {
+      //   if (!frecuencia) return "#333235";
+
+      //   const frecuenciaMs = frecuencia * 60000; // minutos a ms
+      //   const elapsed = Date.now() - new Date(createdAt).getTime();
+
+      //   if (elapsed < frecuenciaMs * 0.75) return "#51FF4E"; // verde
+      //   if (elapsed < frecuenciaMs) return "#ECEC27"; // amarillo
+      //   return "#F82929"; // rojo
+      // };
+
       const computeEventColor = () => {
         if (!frecuencia) return "#333235";
 
-        const frecuenciaMs = frecuencia * 60000; // minutos a ms
+        if (!isLastEvent) {
+          // use the persisted boolean
+          return event.isFrecuenciaMet ? "#51FF4E" : "#F82929";
+        }
+
+        // last event: dynamic countdown
+        const frecuenciaMs = frecuencia * 60000;
         const elapsed = Date.now() - new Date(createdAt).getTime();
 
-        if (elapsed < frecuenciaMs * 0.75) return "#51FF4E"; // verde
-        if (elapsed < frecuenciaMs) return "#ECEC27"; // amarillo
-        return "#F82929"; // rojo
+        if (elapsed < frecuenciaMs * 0.75) return "#51FF4E";
+        if (elapsed < frecuenciaMs) return "#ECEC27";
+        return "#F82929";
       };
 
       // Asigna color inmediatamente y luego cada minuto

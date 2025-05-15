@@ -541,15 +541,21 @@ app.patch("/bitacora/:id/event", async (req, res) => {
       return res.status(404).json({ message: "Bitacora not found" });
     }
 
+    // ── 1) Flag the *previous* event, if any ──
+    const lastIdx = bitacora.eventos.length - 1;
+    if (lastIdx >= 0) {
+      const prev = bitacora.eventos[lastIdx];
+      const elapsed = Date.now() - new Date(prev.createdAt).getTime();
+      const windowMs = (prev.frecuencia || 0) * 60000;
+      // was the timer met before we added a new event?
+      prev.isFrecuenciaMet = elapsed <= windowMs;
+      bitacora.markModified("eventos");
+    }
+
     // Create a new event
     const newEvent = {
       nombre,
       descripcion,
-      // ubicacion,
-      // duracion,
-      // ultimo_posicionamiento,
-      // velocidad,
-      // coordenadas,
       registrado_por,
       frecuencia,
       transportes,
@@ -815,15 +821,15 @@ app.delete("/users/:id", async (req, res) => {
 
 //UPDATE user
 app.put("/users/:id", async (req, res) => {
-  const { password, firstName, lastName, phone } = req.body;
+  const { password, firstName, lastName, phone, role } = req.body;
 
   try {
-    const updateData = { firstName, lastName, phone };
+    const updateData = { firstName, lastName, phone, role };
 
     // Hash the password if it is provided
     if (password) {
       const prevUser = await User.findById(req.params.id);
-      if (prevUser.password != password) {
+      if (prevUser.password !== password) {
         const salt = await bcrypt.genSalt(10);
         const hashedPassword = await bcrypt.hash(password, salt);
         updateData.password = hashedPassword;
@@ -837,12 +843,14 @@ app.put("/users/:id", async (req, res) => {
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
-    res.status(200).json({ message: "SAVED" });
+
+    res.status(200).json(user); // <-- Return updated user (not "SAVED")
   } catch (error) {
     console.error("Error updating user:", error);
     res.status(500).json({ message: "Server error" });
   }
 });
+
 
 //CLIENTS
 // Get all clients
