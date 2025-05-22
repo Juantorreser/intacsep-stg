@@ -414,28 +414,34 @@ const BitacorasPage = () => {
   };
 
   const getEventColor = (bitacora) => {
-    // if we're not in a “running” state, just show grey
     if (!["iniciada", "validada"].includes(bitacora.status)) {
       return ["#333235"];
     }
 
-    // take the últimos 5 eventos
     const eventos = bitacora.eventos || [];
+    // take last 5, sorted newest → oldest
     const lastFive = [...eventos]
       .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
       .slice(0, 5);
 
-    // map each one to its semáforo color
-    return lastFive.map((evt) => {
+    return lastFive.map((evt, idx) => {
+      // idx === 0 → most recent event: dynamic countdown
+      // idx > 0  → older events: use the stored boolean
+      if (idx > 0 && evt.isFrecuenciaMet != null) {
+        return evt.isFrecuenciaMet
+          ? "#51FF4E" // green if met
+          : "#F82929"; // red if missed
+      }
+
+      // fallback / live logic for the newest (or if flag missing)
       const freq = evt.frecuencia;
       if (!freq) return "#333235";
-
       const freqMs = freq * 60000;
       const elapsed = Date.now() - new Date(evt.createdAt).getTime();
 
-      if (elapsed < freqMs * 0.75) return "#51FF4E"; // verde
-      if (elapsed < freqMs) return "#ECEC27"; // amarillo
-      return "#F82929"; // rojo
+      if (elapsed < freqMs * 0.75) return "#51FF4E";
+      if (elapsed < freqMs) return "#ECEC27";
+      return "#F82929";
     });
   };
 
