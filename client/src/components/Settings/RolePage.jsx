@@ -9,37 +9,45 @@ const RolePage = () => {
   const [roles, setRoles] = useState([]);
   const [newRole, setNewRole] = useState({
     name: "",
-    bitacoras: false,
-    edit_bitacora_abierta: false,
-    edit_bitacora_cerrada: false,
-    edit_eventos_a: false,
-    edit_eventos_c: false,
-    tipos_de_monitoreo: false,
-    eventos: false,
-    clientes: false,
-    usuarios: false,
-    roles: false,
-    origenes: false,
-    destinos: false,
-    operadores: false,
+    bitacoras: {create: false, read: false, update: false, delete: false},
+    eventos: {create: false, read: false, update: false, delete: false},
+    clientes: {create: false, read: false, update: false, delete: false},
+    usuarios: {create: false, read: false, update: false, delete: false},
+    roles: {create: false, read: false, update: false, delete: false},
+    origenes: {create: false, read: false, update: false, delete: false},
+    destinos: {create: false, read: false, update: false, delete: false},
+    operadores: {create: false, read: false, update: false, delete: false},
+    tipos_de_monitoreo: {create: false, read: false, update: false, delete: false},
+    inactividad: {create: false, read: false, update: false, delete: false},
+    bitacora_abierta: {create: false, read: false, update: false, delete: false},
+    bitacora_cerrada: {create: false, read: false, update: false, delete: false},
+    bit_detalles: {create: false, read: false, update: false, delete: false},
+    bit_eventos: {create: false, read: false, update: false, delete: false},
+    bit_transportes: {create: false, read: false, update: false, delete: false},
+    auditoria_bitacora: {create: false, read: false, update: false, delete: false},
   });
+
   const [editRole, setEditRole] = useState(null);
   const [editRoleData, setEditRoleData] = useState({
     name: "",
-    bitacoras: false,
-    edit_bitacora_abierta: false,
-    edit_bitacora_cerrada: false,
-    edit_eventos_a: false,
-    edit_eventos_c: false,
-    tipos_de_monitoreo: false,
-    eventos: false,
-    clientes: false,
-    usuarios: false,
-    roles: false,
-    origenes: false,
-    destinos: false,
-    operadores: false,
+    bitacoras: {create: false, read: false, update: false, delete: false},
+    eventos: {create: false, read: false, update: false, delete: false},
+    clientes: {create: false, read: false, update: false, delete: false},
+    usuarios: {create: false, read: false, update: false, delete: false},
+    roles: {create: false, read: false, update: false, delete: false},
+    origenes: {create: false, read: false, update: false, delete: false},
+    destinos: {create: false, read: false, update: false, delete: false},
+    operadores: {create: false, read: false, update: false, delete: false},
+    tipos_de_monitoreo: {create: false, read: false, update: false, delete: false},
+    inactividad: {create: false, read: false, update: false, delete: false},
+    bitacora_abierta: {create: false, read: false, update: false, delete: false},
+    bitacora_cerrada: {create: false, read: false, update: false, delete: false},
+    bit_detalles: {create: false, read: false, update: false, delete: false},
+    bit_eventos: {create: false, read: false, update: false, delete: false},
+    bit_transportes: {create: false, read: false, update: false, delete: false},
+    auditoria_bitacora: {create: false, read: false, update: false, delete: false},
   });
+
   const [showModal, setShowModal] = useState(false);
   const baseUrl = import.meta.env.VITE_BASE_URL;
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -100,9 +108,7 @@ const RolePage = () => {
     try {
       const response = await fetch(`${baseUrl}/roles`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: {"Content-Type": "application/json"},
         body: JSON.stringify(newRole),
         credentials: "include",
       });
@@ -110,23 +116,17 @@ const RolePage = () => {
       if (response.ok) {
         const createdRole = await response.json();
         setRoles([...roles, createdRole]);
-        setNewRole({
-          name: "",
-          bitacoras: false,
-          edit_bitacora_abierta: false,
-          edit_bitacora_cerrada: false,
-          edit_eventos_a: false,
-          edit_eventos_c: false,
-          tipos_de_monitoreo: false,
-          eventos: false,
-          clientes: false,
-          usuarios: false,
-          roles: false,
-          origenes: false,
-          destinos: false,
-          operadores: false,
-        }); // Clear the form
-        setShowModal(false); // Close the modal
+
+        // Reset state using proper nested permission object
+        const resetPermissions = {};
+        Object.keys(newRole).forEach((key) => {
+          if (typeof newRole[key] === "object") {
+            resetPermissions[key] = {create: false, read: false, update: false, delete: false};
+          }
+        });
+
+        setNewRole({name: "", ...resetPermissions});
+        setShowModal(false);
       } else {
         console.error("Failed to create role:", response.statusText);
       }
@@ -146,9 +146,7 @@ const RolePage = () => {
     try {
       const response = await fetch(`${baseUrl}/roles/${id}`, {
         method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: {"Content-Type": "application/json"},
         body: JSON.stringify(editRoleData),
         credentials: "include",
       });
@@ -157,22 +155,15 @@ const RolePage = () => {
         const updatedRole = await response.json();
         setRoles(roles.map((role) => (role._id === id ? updatedRole : role)));
         setEditRole(null);
-        setEditRoleData({
-          name: "",
-          bitacoras: false,
-          edit_bitacora_abierta: false,
-          edit_bitacora_cerrada: false,
-          edit_eventos_a: false,
-          edit_eventos_c: false,
-          tipos_de_monitoreo: false,
-          eventos: false,
-          clientes: false,
-          usuarios: false,
-          roles: false,
-          origenes: false,
-          destinos: false,
-          operadores: false,
+
+        const resetPermissions = {};
+        Object.keys(editRoleData).forEach((key) => {
+          if (typeof editRoleData[key] === "object") {
+            resetPermissions[key] = {create: false, read: false, update: false, delete: false};
+          }
         });
+
+        setEditRoleData({name: "", ...resetPermissions});
       } else {
         console.error("Failed to update role:", response.statusText);
       }
@@ -183,26 +174,15 @@ const RolePage = () => {
 
   // Handle cancel edit
   const handleCancelEdit = () => {
-    setEditRole(null);
-    setEditRoleData({
-      name: "",
-      bitacoras: false,
-      edit_bitacora_abierta: false,
-      edit_bitacora_cerrada: false,
-      edit_eventos_a: false,
-      edit_eventos_c: false,
-      edit_transportes_a: false,
-      edit_transportes_c: false,
-      tipos_de_monitoreo: false,
-      eventos: false,
-      clientes: false,
-      usuarios: false,
-      roles: false,
-      origenes: false,
-      destinos: false,
-      operadores: false,
-      inactividad: false,
+    const resetPermissions = {};
+    Object.keys(editRoleData).forEach((key) => {
+      if (typeof editRoleData[key] === "object") {
+        resetPermissions[key] = {create: false, read: false, update: false, delete: false};
+      }
     });
+
+    setEditRole(null);
+    setEditRoleData({name: "", ...resetPermissions});
   };
 
   // Handle form input changes
@@ -233,19 +213,81 @@ const RolePage = () => {
 
           {/* Role Cards */}
           <div className="mx-3 my-4">
-            {roles.map((role) => (
-              <RoleCard
-                key={role._id}
-                role={role}
-                onEditClick={handleEditClick}
-                onDelete={handleDelete}
-                editRole={editRole}
-                editRoleData={editRoleData}
-                onEditSave={handleEditSave}
-                onCancelEdit={handleCancelEdit}
-                setEditRoleData={setEditRoleData}
-              />
-            ))}
+            <div className="mb-3">
+              <label htmlFor="roleSelect" className="form-label fw-bold">
+                Seleccionar Rol
+              </label>
+              <select
+                id="roleSelect"
+                className="form-select"
+                value={editRole?._id || ""}
+                onChange={(e) => {
+                  const selected = roles.find((r) => r._id === e.target.value);
+                  setEditRole(selected || null);
+                  setEditRoleData(JSON.parse(JSON.stringify(selected))); // deep clone to detach from state mutation
+                }}>
+                <option value="">-- Seleccione un rol --</option>
+                {roles.map((role) => (
+                  <option key={role._id} value={role._id}>
+                    {role.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {editRole && (
+              <div className="table-responsive">
+                <h5 className="text-center mt-4 mb-3">{editRole.name}</h5>
+                <table className="table table-bordered table-hover">
+                  <thead className="table-light">
+                    <tr>
+                      <th>Permiso</th>
+                      <th className="text-center">Create</th>
+                      <th className="text-center">Read</th>
+                      <th className="text-center">Update</th>
+                      <th className="text-center">Delete</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {Object.entries(editRoleData)
+                      .filter(
+                        ([key, val]) => typeof val === "object" && val !== null && "create" in val
+                      )
+                      .map(([permissionKey, perms]) => (
+                        <tr key={permissionKey}>
+                          <td className="text-capitalize">{permissionKey.replace(/_/g, " ")}</td>
+                          {["create", "read", "update", "delete"].map((action) => (
+                            <td className="text-center" key={action}>
+                              <input
+                                type="checkbox"
+                                checked={editRoleData[permissionKey][action]}
+                                onChange={(e) =>
+                                  setEditRoleData((prev) => ({
+                                    ...prev,
+                                    [permissionKey]: {
+                                      ...prev[permissionKey],
+                                      [action]: e.target.checked,
+                                    },
+                                  }))
+                                }
+                              />
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
+
+                <div className="d-flex justify-content-end gap-2">
+                  <button className="btn btn-secondary" onClick={handleCancelEdit}>
+                    Cancelar
+                  </button>
+                  <button className="btn btn-success" onClick={() => handleEditSave(editRole._id)}>
+                    Guardar Cambios
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -282,214 +324,50 @@ const RolePage = () => {
                   />
                 </div>
                 {/* Permissions */}
-                <div className="form-check">
-                  <input
-                    type="checkbox"
-                    id="bitacoras"
-                    name="bitacoras"
-                    className="form-check-input"
-                    checked={newRole.bitacoras}
-                    onChange={(e) => handleInputChange(e, setNewRole)}
-                  />
-                  <label htmlFor="bitacoras" className="form-check-label">
-                    Bitacoras
-                  </label>
-                </div>
-                <div className="form-check">
-                  <input
-                    type="checkbox"
-                    id="edit_bitacora_abierta"
-                    name="edit_bitacora_abierta"
-                    className="form-check-input"
-                    checked={newRole.edit_bitacora_abierta}
-                    onChange={(e) => handleInputChange(e, setNewRole)}
-                  />
-                  <label htmlFor="edit_bitacora" className="form-check-label">
-                    Editar Bitacoras Abiertas
-                  </label>
-                </div>
-                <div className="form-check">
-                  <input
-                    type="checkbox"
-                    id="edit_bitacora_cerrada"
-                    name="edit_bitacora_cerrada"
-                    className="form-check-input"
-                    checked={newRole.edit_bitacora_cerrada}
-                    onChange={(e) => handleInputChange(e, setNewRole)}
-                  />
-                  <label htmlFor="edit_bitacora" className="form-check-label">
-                    Editar Bitacoras Cerradas
-                  </label>
-                </div>
-                <div className="form-check">
-                  <input
-                    type="checkbox"
-                    id="edit_eventos_a"
-                    name="edit_eventos_a"
-                    className="form-check-input"
-                    checked={newRole.edit_eventos_a}
-                    onChange={(e) => handleInputChange(e, setNewRole)}
-                  />
-                  <label htmlFor="edit_bitacora" className="form-check-label">
-                    Editar Eventos (Bitacora Abierta)
-                  </label>
-                </div>
-                <div className="form-check">
-                  <input
-                    type="checkbox"
-                    id="edit_eventos_c"
-                    name="edit_eventos_c"
-                    className="form-check-input"
-                    checked={newRole.edit_eventos_c}
-                    onChange={(e) => handleInputChange(e, setNewRole)}
-                  />
-                  <label htmlFor="edit_bitacora" className="form-check-label">
-                    Editar Eventos (Bitacora Cerrada)
-                  </label>
-                </div>
-                <div className="form-check">
-                  <input
-                    type="checkbox"
-                    id="edit_transportes_a"
-                    name="edit_transportes_a"
-                    className="form-check-input"
-                    checked={newRole.edit_transportes_a}
-                    onChange={(e) => handleInputChange(e, setNewRole)}
-                  />
-                  <label htmlFor="edit_bitacora" className="form-check-label">
-                    Editar Transportes (Bitacora Abierta)
-                  </label>
-                </div>
-                <div className="form-check">
-                  <input
-                    type="checkbox"
-                    id="edit_transportes_c"
-                    name="edit_transportes_c"
-                    className="form-check-input"
-                    checked={newRole.edit_transportes_c}
-                    onChange={(e) => handleInputChange(e, setNewRole)}
-                  />
-                  <label htmlFor="edit_bitacora" className="form-check-label">
-                    Editar Trasnportes (Bitacora Cerrada)
-                  </label>
-                </div>
-                <div className="form-check">
-                  <input
-                    type="checkbox"
-                    id="tipos_de_monitoreo"
-                    name="tipos_de_monitoreo"
-                    className="form-check-input"
-                    checked={newRole.tipos_de_monitoreo}
-                    onChange={(e) => handleInputChange(e, setNewRole)}
-                  />
-                  <label htmlFor="tipos_de_monitoreo" className="form-check-label">
-                    Tipos de Monitoreo
-                  </label>
-                </div>
-                <div className="form-check">
-                  <input
-                    type="checkbox"
-                    id="eventos"
-                    name="eventos"
-                    className="form-check-input"
-                    checked={newRole.eventos}
-                    onChange={(e) => handleInputChange(e, setNewRole)}
-                  />
-                  <label htmlFor="eventos" className="form-check-label">
-                    Eventos
-                  </label>
-                </div>
-                <div className="form-check">
-                  <input
-                    type="checkbox"
-                    id="clientes"
-                    name="clientes"
-                    className="form-check-input"
-                    checked={newRole.clientes}
-                    onChange={(e) => handleInputChange(e, setNewRole)}
-                  />
-                  <label htmlFor="clientes" className="form-check-label">
-                    Clientes
-                  </label>
-                </div>
-
-                <div className="form-check">
-                  <input
-                    type="checkbox"
-                    id="origenes"
-                    name="origenes"
-                    className="form-check-input"
-                    checked={newRole.origenes}
-                    onChange={(e) => handleInputChange(e, setNewRole)}
-                  />
-                  <label htmlFor="origenes" className="form-check-label">
-                    Origenes
-                  </label>
-                </div>
-                <div className="form-check">
-                  <input
-                    type="checkbox"
-                    id="destinos"
-                    name="destinos"
-                    className="form-check-input"
-                    checked={newRole.destinos}
-                    onChange={(e) => handleInputChange(e, setNewRole)}
-                  />
-                  <label htmlFor="destinos" className="form-check-label">
-                    Destinos
-                  </label>
-                </div>
-                <div className="form-check">
-                  <input
-                    type="checkbox"
-                    id="operadores"
-                    name="operadores"
-                    className="form-check-input"
-                    checked={newRole.operadores}
-                    onChange={(e) => handleInputChange(e, setNewRole)}
-                  />
-                  <label htmlFor="operadores" className="form-check-label">
-                    Operadores
-                  </label>
-                </div>
-                <div className="form-check">
-                  <input
-                    type="checkbox"
-                    id="usuarios"
-                    name="usuarios"
-                    className="form-check-input"
-                    checked={newRole.usuarios}
-                    onChange={(e) => handleInputChange(e, setNewRole)}
-                  />
-                  <label htmlFor="usuarios" className="form-check-label">
-                    Usuarios
-                  </label>
-                </div>
-                <div className="form-check">
-                  <input
-                    type="checkbox"
-                    id="roles"
-                    name="roles"
-                    className="form-check-input"
-                    checked={newRole.roles}
-                    onChange={(e) => handleInputChange(e, setNewRole)}
-                  />
-                  <label htmlFor="roles" className="form-check-label">
-                    Roles
-                  </label>
-                </div>
-                <div className="form-check">
-                  <input
-                    type="checkbox"
-                    id="inactividad"
-                    name="inactividad"
-                    className="form-check-input"
-                    checked={newRole.inactividad}
-                    onChange={(e) => handleInputChange(e, setNewRole)}
-                  />
-                  <label htmlFor="roles" className="form-check-label">
-                    Roles
-                  </label>
+                <div className="mb-3">
+                  <label className="form-label fw-bold">Permisos</label>
+                  <div className="table-responsive">
+                    <table className="table table-bordered">
+                      <thead className="table-light">
+                        <tr>
+                          <th>Módulo</th>
+                          <th className="text-center">Create</th>
+                          <th className="text-center">Read</th>
+                          <th className="text-center">Update</th>
+                          <th className="text-center">Delete</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {Object.entries(newRole)
+                          .filter(
+                            ([key, val]) =>
+                              typeof val === "object" && val !== null && "create" in val
+                          )
+                          .map(([key, perms]) => (
+                            <tr key={key}>
+                              <td className="text-capitalize">{key.replace(/_/g, " ")}</td>
+                              {["create", "read", "update", "delete"].map((action) => (
+                                <td className="text-center" key={action}>
+                                  <input
+                                    type="checkbox"
+                                    checked={newRole[key][action]}
+                                    onChange={(e) =>
+                                      setNewRole((prev) => ({
+                                        ...prev,
+                                        [key]: {
+                                          ...prev[key],
+                                          [action]: e.target.checked,
+                                        },
+                                      }))
+                                    }
+                                  />
+                                </td>
+                              ))}
+                            </tr>
+                          ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               </div>
               <div className="modal-footer">

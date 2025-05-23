@@ -672,8 +672,8 @@ const BitacoraDetailPage = ({edited}) => {
             className="btn"
             disabled={
               !(
-                (roleData && roleData.edit_eventos_a && bitacora.status !== "cerrada") ||
-                (roleData && roleData.edit_eventos_c && bitacora.status === "cerrada")
+                (roleData && roleData.bit_eventos.update && bitacora.status !== "cerrada") ||
+                (roleData && roleData.bit_eventos.update && bitacora.status === "cerrada")
               )
             }>
             <i className="fa fa-edit"></i>
@@ -1069,7 +1069,7 @@ const BitacoraDetailPage = ({edited}) => {
             </div>
             {/* Tab Navigation */}
             <ul className="nav nav-tabs ms-2" id="bitacoraTabs" role="tablist">
-              {roleData?.bitDetalles && (
+              {roleData?.bit_detalles.read && (
                 <li className="nav-item" role="presentation">
                   <button
                     className="nav-link active"
@@ -1089,7 +1089,7 @@ const BitacoraDetailPage = ({edited}) => {
                 </li>
               )}
 
-              {roleData?.bitTransportes && (
+              {roleData?.bit_transportes.read && (
                 <li className="nav-item" role="presentation">
                   <button
                     className="nav-link"
@@ -1109,7 +1109,7 @@ const BitacoraDetailPage = ({edited}) => {
                 </li>
               )}
 
-              {roleData?.bitEventos && (
+              {roleData?.bit_eventos.read && (
                 <li className="nav-item" role="presentation">
                   <button
                     className="nav-link block"
@@ -1151,8 +1151,8 @@ const BitacoraDetailPage = ({edited}) => {
             {/* DETALLES BTN */}
             {activeTab === "detalles" &&
               roleData &&
-              ((roleData.edit_bitacora_abierta && bitacora.status !== "cerrada") ||
-                (bitacora.status === "cerrada" && roleData.edit_bitacora_cerrada)) && (
+              ((roleData.bitacora_abierta.update && bitacora.status !== "cerrada") ||
+                (bitacora.status === "cerrada" && roleData.bitacora_cerrada.update)) && (
                 <button
                   className="btn btn-primary position-absolute end-0 me-4"
                   onClick={() => {
@@ -1186,7 +1186,7 @@ const BitacoraDetailPage = ({edited}) => {
           <div className="scrollable-content flex-grow-1 overflow-auto px-3">
             <div className="tab-content" id="bitacoraTabsContent">
               {/* Detalles Tab Content */}
-              {roleData?.bitDetalles && (
+              {roleData?.bit_detalles && (
                 <div
                   className="tab-pane fade show active mt-4 mx-4"
                   id="detalles"
@@ -1353,8 +1353,8 @@ const BitacoraDetailPage = ({edited}) => {
                     {selectedTransporte ? (
                       <>
                         <div className="d-flex justify-content-end mt-3 me-4 position-absolute end-0 ">
-                          {((roleData.edit_transportes_a && bitacora.status !== "cerrada") ||
-                            (roleData.edit_transportes_c && bitacora.status === "cerrada")) && (
+                          {((roleData.bit_transportes.update && bitacora.status !== "cerrada") ||
+                            (roleData.bit_transportes.update && bitacora.status === "cerrada")) && (
                             <button className="btn btn-primary" onClick={handleEditTransporte}>
                               <i className="fa fa-edit"></i>
                             </button>

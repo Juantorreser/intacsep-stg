@@ -50,6 +50,7 @@ const Sidebar = () => {
         });
         const data = await response.json();
         setRoleData(data);
+        console.log(data);
       } catch (e) {
         console.log("Error fetching role permissions:", e);
       }
@@ -125,7 +126,7 @@ const Sidebar = () => {
             </li>
 
             {/* Monitoreo Menu */}
-            {roleData && roleData.bitacoras && (
+            {roleData && roleData.bitacoras.read && (
               <li className="nav-item ms-3">
                 <p className="">
                   <a
@@ -186,7 +187,7 @@ const Sidebar = () => {
                   </p>
                   <div className={`collapse ${collapsedItems.catalogosCollapse ? "show" : ""}`}>
                     <ul className="nav flex-column w-75 ms-3 gap-2">
-                      {roleData.tipos_de_monitoreo && (
+                      {roleData.tipos_de_monitoreo.read && (
                         <li
                           className="text-white-50 cursor-pointer itemLine2"
                           onClick={() => navigate("/tipos_monitoreo")}
@@ -194,7 +195,7 @@ const Sidebar = () => {
                           Tipos Monitoreo
                         </li>
                       )}
-                      {roleData.eventos && (
+                      {roleData.eventos.read && (
                         <li
                           className="text-white-50 cursor-pointer itemLine2"
                           onClick={() => navigate("/eventos")}
@@ -202,7 +203,7 @@ const Sidebar = () => {
                           Eventos
                         </li>
                       )}
-                      {roleData.clientes && (
+                      {roleData.clientes.read && (
                         <li
                           className="text-white-50 cursor-pointer itemLine2"
                           onClick={() => navigate("/clientes")}
@@ -211,7 +212,7 @@ const Sidebar = () => {
                         </li>
                       )}
 
-                      {roleData.origenes && (
+                      {roleData.origenes.read && (
                         <li
                           className="text-white-50 cursor-pointer itemLine2"
                           onClick={() => navigate("/origenes")}
@@ -219,7 +220,7 @@ const Sidebar = () => {
                           Origenes
                         </li>
                       )}
-                      {roleData.destinos && (
+                      {roleData.destinos.read && (
                         <li
                           className="text-white-50 cursor-pointer itemLine2"
                           onClick={() => navigate("/destinos")}
@@ -255,7 +256,7 @@ const Sidebar = () => {
 
                   <div className={`collapse mb-3 ${collapsedItems.sistemaCollapse ? "show" : ""}`}>
                     <ul className="nav flex-column w-75 ms-4 gap-2 itemLine2">
-                      {roleData.usuarios && (
+                      {roleData.usuarios.read && (
                         <li
                           className="text-white-50 cursor-pointer"
                           onClick={() => navigate("/usuarios")}
@@ -263,7 +264,7 @@ const Sidebar = () => {
                           Usuarios
                         </li>
                       )}
-                      {roleData.roles && (
+                      {roleData.roles.read && (
                         <li
                           className="text-white-50 cursor-pointer itemLine2"
                           onClick={() => navigate("/roles")}
@@ -271,7 +272,7 @@ const Sidebar = () => {
                           Roles
                         </li>
                       )}
-                      {roleData.inactividad && (
+                      {roleData.inactividad.read && (
                         <li
                           className="text-white-50 cursor-pointer itemLine2"
                           onClick={openInacModal}
@@ -300,7 +301,7 @@ const Sidebar = () => {
                   <div
                     className={`collapse mb-2 ${collapsedItems.auditoriaCollapse ? "show" : ""}`}>
                     <ul className="nav flex-column w-75 ms-4 gap-2 itemLine2">
-                      {roleData.auditoriaBitacora && (
+                      {roleData.auditoria_bitacora.read && (
                         <li
                           className="text-white-50 cursor-pointer"
                           onClick={() => navigate("/auditoria/bitacoras")}

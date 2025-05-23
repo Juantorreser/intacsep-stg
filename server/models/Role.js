@@ -1,112 +1,31 @@
-// models/Role.js
-import mongoose, {mongo} from "mongoose";
+import mongoose, { mongo } from "mongoose";
 
-const RoleSchema = new mongoose.Schema(
-  {
-    bitacoras: {
-      type: Boolean,
-      required: true,
-      default: false,
-    },
-    edit_bitacora_abierta: {
-      type: Boolean,
-      required: true,
-      default: false,
-    },
-    edit_bitacora_cerrada: {
-      type: Boolean,
-      required: true,
-      default: false,
-    },
-    edit_eventos_a: {
-      type: Boolean,
-      required: true,
-      default: false,
-    },
-    edit_eventos_c: {
-      type: Boolean,
-      required: true,
-      default: false,
-    },
-    edit_transportes_a: {
-      type: Boolean,
-      required: true,
-      default: false,
-    },
-    edit_transportes_c: {
-      type: Boolean,
-      required: true,
-      default: false,
-    },
-    tipos_de_monitoreo: {
-      type: Boolean,
-      required: true,
-      default: false,
-    },
-    eventos: {
-      type: Boolean,
-      required: true,
-      default: false,
-    },
-    clientes: {
-      type: Boolean,
-      required: true,
-      default: false,
-    },
-    usuarios: {
-      type: Boolean,
-      required: true,
-      default: false,
-    },
-    roles: {
-      type: Boolean,
-      required: true,
-      default: false,
-    },
-    inactividad: {
-      type: Boolean,
-      required: true,
-      default: false,
-    },
-    origenes: {
-      type: Boolean,
-      required: true,
-      default: false,
-    },
-    destinos: {
-      type: Boolean,
-      required: true,
-      default: false,
-    },
-    operadores: {
-      type: Boolean,
-      required: true,
-      default: false,
-    },
-    name: {
-      type: String,
-      required: true,
-    },
-    bitDetalles: {
-      type: Boolean,
-      required: true,
-      default: false,
-    },
-    bitTransportes: {
-      type: Boolean,
-      required: true,
-      default: false,
-    },
-    bitEventos: {
-      type: Boolean,
-      required: true,
-      default: false,
-    },
-  },
-  {
-    timestamps: true,
-  }
-);
+const permissionSchema = new mongoose.Schema({
+  create: { type: Boolean, default: false },
+  read: { type: Boolean, default: false },
+  update: { type: Boolean, default: false },
+  delete: { type: Boolean, default: false },
+}, { _id: false });
 
-const Role = mongoose.model("Role", RoleSchema);
-export default Role;
+const RoleSchema = new mongoose.Schema({
+  name: { type: String, required: true },
+  bitacoras: permissionSchema,
+  eventos: permissionSchema,
+  clientes: permissionSchema,
+  usuarios: permissionSchema,
+  roles: permissionSchema,
+  origenes: permissionSchema,
+  destinos: permissionSchema,
+  operadores: permissionSchema,
+  tipos_de_monitoreo: permissionSchema,
+  inactividad: permissionSchema,
+  bitacora_abierta: permissionSchema,
+  bitacora_cerrada: permissionSchema,
+  bit_detalles: permissionSchema,
+  bit_transportes: permissionSchema,
+  bit_eventos: permissionSchema,
+  auditoria_bitacora: permissionSchema,
+
+}, { timestamps: true });
+
+export default mongoose.model("Role", RoleSchema);

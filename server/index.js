@@ -979,52 +979,47 @@ app.delete("/event_types/:id", async (req, res) => {
 //ROLES
 app.get("/roles", async (req, res) => {
   try {
-    // Fetch all roles from the database
     const roles = await Role.find();
-    // Send the roles as JSON response
     res.json(roles);
   } catch (error) {
-    // Handle errors and send appropriate response
     console.error("Error fetching roles:", error);
     res.status(500).json({ message: "Internal Server Error" });
   }
 });
 
+
 // POST a new role
 app.post("/roles", async (req, res) => {
-  const role = new Role({
-    name: req.body.name,
-    bitacoras: req.body.bitacoras,
-    edit_bitacora_abierta: req.body.edit_bitacora_abierta,
-    edit_bitacora_cerrada: req.body.edit_bitacora_cerrada,
-    edit_eventos_a: req.body.edit_eventos,
-    edit_eventos_c: req.body.edit_eventos,
-    tipos_de_monitoreo: req.body.tipos_de_monitoreo,
-    eventos: req.body.eventos,
-    clientes: req.body.clientes,
-    usuarios: req.body.usuarios,
-    roles: req.body.roles,
-  });
-
   try {
+    const role = new Role(req.body);
     const newRole = await role.save();
     res.status(201).json(newRole);
   } catch (error) {
+    console.error("Error creating role:", error);
     res.status(400).json({ message: error.message });
   }
 });
+
 
 // PUT update a role
 app.put("/roles/:id", async (req, res) => {
   try {
     const updatedRole = await Role.findByIdAndUpdate(req.params.id, req.body, {
       new: true,
+      runValidators: true,
     });
+
+    if (!updatedRole) {
+      return res.status(404).json({ message: "Role not found" });
+    }
+
     res.json(updatedRole);
   } catch (error) {
+    console.error("Error updating role:", error);
     res.status(400).json({ message: error.message });
   }
 });
+
 
 app.get("/roles/:roleName", async (req, res) => {
   try {
