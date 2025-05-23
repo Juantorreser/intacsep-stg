@@ -22,7 +22,7 @@ const Header = () => {
             aria-controls="offcanvasWithBothOptions">
             <a className="navbar-brand text-white" href="#">
               <img
-                src="/logo1.png"
+                src="/logoSpoty.png"
                 alt="Logo"
                 width="30"
                 className="d-inline-block align-text-top"
@@ -31,8 +31,8 @@ const Header = () => {
             </a>
           </button>
           <a className="navbar-brand text-white d-none d-lg-flex" href="#">
-            <img src="/logo1.png" alt="Logo" width="30" className="d-inline-block align-text-top" />
-            <span className="ms-2">Intacsep</span>
+            <img src="/logoSpoty.png" alt="Logo" width="30" className="d-inline-block align-text-top" />
+            <span className="ms-2">Spotynet</span>
           </a>
           <div className="d-flex flex-row" id="navbarNav">
             <ul className="navbar-nav ms-auto gap-4 d-flex flex-row">
