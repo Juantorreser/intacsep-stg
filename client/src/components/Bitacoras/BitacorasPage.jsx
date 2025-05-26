@@ -8,6 +8,7 @@ import "jspdf-autotable"; // For table support in jsPDF
 import {sortBitacoras} from "../../utils/utils"; // Assume these functions exist
 import BitacoraDetail from "./BitacoraDetail";
 import OldBitacoraDetail from "./OldBitacoraPDF";
+import EventsPopup from "./Eventos/EventsPopup";
 import {
   fetchBitacoras,
   fetchClients,
@@ -52,6 +53,8 @@ const BitacorasPage = () => {
   const endItem = Math.min(currentPage * itemsPerPage, totalItems);
   const [loadingBitacoras, setLoadingBitacoras] = useState(false);
   const [selectedTransporte, setSelectedTransporte] = useState(null);
+  const [showFrecuenciaModal, setShowFrecuenciaModal] = useState(false);
+  const [selectedFrecuenciaBitacora, setSelectedFrecuenciaBitacora] = useState(null);
   const [formData, setFormData] = useState({
     bitacora_id: "",
     folio_servicio: "",
@@ -465,6 +468,16 @@ const BitacorasPage = () => {
     return recorrido;
   };
 
+  const openFrecuenciaModal = (bitacora) => {
+    setSelectedFrecuenciaBitacora(bitacora);
+    setShowFrecuenciaModal(true);
+  };
+
+  const closeFrecuenciaModal = () => {
+    setShowFrecuenciaModal(false);
+    setSelectedFrecuenciaBitacora(null);
+  };
+
   return (
     <section id="activeBits">
       <Header />
@@ -645,7 +658,10 @@ const BitacorasPage = () => {
                       sortedFilteredBitacoras.map((bitacora) => (
                         <tr key={bitacora._id}>
                           <td className="half text-capitalize">
-                            <div className="semaforo">
+                            <div
+                              className="semaforo"
+                              onClick={() => openFrecuenciaModal(bitacora)}
+                              style={{cursor: "pointer"}}>
                               {getEventColor(bitacora).map((color, index) => (
                                 <div
                                   key={index}
@@ -1118,6 +1134,9 @@ const BitacorasPage = () => {
           </div>
           <div className="modal-backdrop fade show"></div>
         </>
+      )}
+      {showFrecuenciaModal && selectedFrecuenciaBitacora && (
+        <EventsPopup bitacora={selectedFrecuenciaBitacora} onClose={closeFrecuenciaModal} />
       )}
     </section>
   );
