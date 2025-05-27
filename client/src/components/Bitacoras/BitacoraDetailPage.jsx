@@ -1053,7 +1053,6 @@ const BitacoraDetailPage = ({edited}) => {
 
   return (
     <section id="bitacoraDetail">
-      <Header />
       <div className="w-100 d-flex">
         <div className="sidebar-wrapper">
           <Sidebar />

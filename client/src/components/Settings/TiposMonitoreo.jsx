@@ -120,7 +120,7 @@ const TiposMonitoreo = () => {
 
   return (
     <section id="pastBits">
-      <Header />
+      //
       <div className="w-100 d-flex">
         <div className="sidebar-wrapper">
           <Sidebar />

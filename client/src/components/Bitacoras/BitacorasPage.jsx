@@ -480,8 +480,7 @@ const BitacorasPage = () => {
 
   return (
     <section id="activeBits">
-      <Header />
-      <div className="w-100 d-flex">
+      <div className="w-100 d-flex h-100 mt-0">
         <div className="sidebar-wrapper">
           <Sidebar />
         </div>

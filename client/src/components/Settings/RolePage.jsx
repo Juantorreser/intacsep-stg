@@ -196,7 +196,7 @@ const RolePage = () => {
 
   return (
     <section id="rolePage">
-      <Header />
+      //
       <div className="w-100 d-flex">
         <div className="sidebar-wrapper">
           <Sidebar />

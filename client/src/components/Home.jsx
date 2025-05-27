@@ -14,7 +14,6 @@ const Home = () => {
   }, []);
   return (
     <section id="homeScreen" className="vh-100">
-      <Header />
       <div className="d-none d-lg-flex w-[15%] h-100">
         <Sidebar />
       </div>

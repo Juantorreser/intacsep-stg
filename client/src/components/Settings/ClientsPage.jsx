@@ -174,8 +174,7 @@ const ClientsPage = () => {
 
   return (
     <section id="clientsPage">
-      <Header />
-      <div className="w-100 d-flex">
+      <div className="w-100 d-flex mt-0">
         <div className="sidebar-wrapper">
           <Sidebar />
         </div>

@@ -134,7 +134,7 @@ const EventsPage = () => {
 
   return (
     <section id="eventsPage">
-      <Header />
+      //
       <div className="w-100 d-flex">
         <div className="sidebar-wrapper">
           <Sidebar />
@@ -201,7 +201,6 @@ const EventsPage = () => {
           </div>
         </div>
       </div>
-
       {/* Delete Modal */}
       <Modal show={showDeleteModal} onHide={handleCloseDeleteModal} backdrop="static">
         <Modal.Header closeButton>
@@ -217,7 +216,6 @@ const EventsPage = () => {
           </Button>
         </Modal.Footer>
       </Modal>
-
       {/* Edit Modal */}
       <Modal show={showEditModal} onHide={handleCloseEditModal} backdrop="static">
         <Modal.Header closeButton>
