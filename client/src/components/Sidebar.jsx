@@ -139,9 +139,10 @@ const Sidebar = () => {
                     Configuración
                     <i className={`fa fa-${collapsedItems.settingsCollapse ? "minus" : "plus"}`} />
                   </div>
+
                   {collapsedItems.settingsCollapse && (
                     <ul className="submenu">
-                      {/* Nested collapses inside, same concept */}
+                      {/* Catálogos */}
                       <li onClick={() => toggleCollapse("catalogosCollapse")}>
                         Catálogos
                         <i
@@ -168,6 +169,7 @@ const Sidebar = () => {
                         </ul>
                       )}
 
+                      {/* Sistema */}
                       <li onClick={() => toggleCollapse("sistemaCollapse")}>
                         Sistema
                         <i
@@ -184,6 +186,7 @@ const Sidebar = () => {
                         </ul>
                       )}
 
+                      {/* Auditoría */}
                       <li onClick={() => toggleCollapse("auditoriaCollapse")}>
                         Auditoría
                         <i
@@ -193,24 +196,9 @@ const Sidebar = () => {
                       {collapsedItems.auditoriaCollapse && (
                         <ul className="submenu">
                           {roleData.auditoriaBitacora && (
-                            <li onClick={() => navigate("/usuarios")}>Bitácoras</li>
+                            <li onClick={() => navigate("/auditoria/bitacoras")}>Bitácoras</li>
                           )}
                         </ul>
-                      {roleData.roles.read && (
-                        <li
-                          className="text-white-50 cursor-pointer itemLine2"
-                          onClick={() => navigate("/roles")}
-                          style={{fontSize: "0.85rem"}}>
-                          Roles
-                        </li>
-                      )}
-                      {roleData.inactividad.read && (
-                        <li
-                          className="text-white-50 cursor-pointer itemLine2"
-                          onClick={openInacModal}
-                          style={{fontSize: "0.85rem"}}>
-                          Inactividad
-                        </li>
                       )}
                     </ul>
                   )}
@@ -224,42 +212,37 @@ const Sidebar = () => {
               <i className="fas fa-power-off"></i>
             </div>
           </div>
-                  </div>
+        </div>
 
-                  {/* Auditoria Collapsible */}
-                  <p className="">
-                    <a
-                      className="text-white-50 text-decoration-none d-flex justify-content-between align-items-center me-2 itemLine p-0 mb-0"
-                      role="button"
-                      onClick={() => toggleCollapse("auditoriaCollapse")}
-                      style={{fontSize: "0.92rem"}}>
-                      Auditoria
-                      <i
-                        className={`fa ${
-                          collapsedItems.auditoriaCollapse ? "fa-minus" : "fa-plus"
-                        } text-white-50 my-auto icon-toggle`}></i>
-                    </a>
-                  </p>
+        {/* Auditoria Collapsible */}
+        <p className="">
+          <a
+            className="text-white-50 text-decoration-none d-flex justify-content-between align-items-center me-2 itemLine p-0 mb-0"
+            role="button"
+            onClick={() => toggleCollapse("auditoriaCollapse")}
+            style={{fontSize: "0.92rem"}}>
+            Auditoria
+            <i
+              className={`fa ${
+                collapsedItems.auditoriaCollapse ? "fa-minus" : "fa-plus"
+              } text-white-50 my-auto icon-toggle`}></i>
+          </a>
+        </p>
 
-                  <div
-                    className={`collapse mb-2 ${collapsedItems.auditoriaCollapse ? "show" : ""}`}>
-                    <ul className="nav flex-column w-75 ms-4 gap-2 itemLine2">
-                      {roleData.auditoria_bitacora.read && (
-                        <li
-                          className="text-white-50 cursor-pointer"
-                          onClick={() => navigate("/auditoria/bitacoras")}
-                          style={{fontSize: "0.85rem"}}>
-                          Bitacoras
-                        </li>
-                      )}
-                    </ul>
-                  </div>
-                </div>
+        <div className={`collapse mb-2 ${collapsedItems.auditoriaCollapse ? "show" : ""}`}>
+          <ul className="nav flex-column w-75 ms-4 gap-2 itemLine2">
+            {roleData?.auditoria_bitacora?.read && (
+              <li
+                className="text-white-50 cursor-pointer"
+                onClick={() => navigate("/auditoria/bitacoras")}
+                style={{fontSize: "0.85rem"}}>
+                Bitacoras
               </li>
             )}
           </ul>
-          <Footer />
         </div>
+
+        <Footer />
       </aside>
 
       <InactivityModal show={showInacModal} handleClose={closeInacModal} />

@@ -485,9 +485,9 @@ const BitacorasPage = () => {
           <Sidebar />
         </div>
         <div className="content-wrapper">
-          <div className="d-flex justify-content-between align-items-center mx-3">
-            <h1 className="text-center flex-grow-1 fs-3 fw-semibold text-black">Bitácoras</h1>
-            <button className="btn btn-primary rounded-5" onClick={() => setShowModal(!showModal)}>
+          <div className="page-header">
+            <h1>Monitoreo - Bitácoras</h1>
+            <button className="new-btn" onClick={() => setShowModal(!showModal)}>
               <i className="fa fa-plus"></i>
             </button>
           </div>

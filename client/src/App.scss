@@ -7,8 +7,8 @@ $secondary: #105fa5;
 $alternative: #b8ddff;
 $white: #e5e6e7;
 $bg: #181d20;
-//$gray: #223b53;
-$gray: #308061;
+$gray: #223b53;
+//$gray: #308061;
 
 #root {
   font-family: $fontFamily;
@@ -471,6 +471,7 @@ $gray: #308061;
         color: #aeb5c0;
         background-color: #252b38 !important;
         border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+        text-align: center;
       }
 
       .logout-title {
@@ -1469,4 +1470,32 @@ $gray: #308061;
   height: 12px;
   border-radius: 50%;
   display: inline-block;
+}
+
+.page-header{
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  color: $bg;
+  margin: 15px 20px;
+
+  h1{
+    color: $gray;
+    font-size: 1.7rem;
+    font-weight: bolder;
+    font-family: poppins;
+  }
+}
+
+.new-btn{
+  background-color: $gray;
+  border-radius: 5px;
+  box-shadow: $bg 20px 20px 20px;
+  color: white;
+  text-align: center;
+  padding: 10px;
+  width: 45px;
+  height: 45px;
+  box-shadow: none;
+  border: none;
 }
