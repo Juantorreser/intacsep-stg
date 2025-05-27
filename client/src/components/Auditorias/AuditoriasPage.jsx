@@ -113,15 +113,14 @@ const AuditoriasPage = () => {
 
   return (
     <section id="auditorias">
-      <Header />
       <div className="w-100 d-flex">
         <div className="sidebar-wrapper">
           <Sidebar />
         </div>
         <div className="content-wrapper">
-          <div className="d-flex justify-content-between align-items-center mx-3 mb-1">
-            <div className="flex-grow-1 text-center">
-              <h1 className="fs-3 fw-semibold text-black m-0">Auditorías</h1>
+          <div className="page-header">
+            <div className="">
+              <h1 className="fs-3 fw-semibold text-black m-0">Auditoría - Bitácoras</h1>
             </div>
             <div style={{width: "120px"}}></div> {/* Invisible spacer to balance button width */}
             <div>

@@ -195,7 +195,7 @@ const Sidebar = () => {
                       </li>
                       {collapsedItems.auditoriaCollapse && (
                         <ul className="submenu">
-                          {roleData.auditoriaBitacora && (
+                          {roleData.auditoria_bitacora && (
                             <li onClick={() => navigate("/auditoria/bitacoras")}>Bitácoras</li>
                           )}
                         </ul>
