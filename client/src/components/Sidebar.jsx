@@ -50,7 +50,6 @@ const Sidebar = () => {
         });
         const data = await response.json();
         setRoleData(data);
-        console.log(data);
       } catch (e) {
         console.log("Error fetching role permissions:", e);
       }

@@ -24,6 +24,7 @@ const BitacorasPage = () => {
   const {user} = useAuth();
   const navigate = useNavigate();
   const [showModal, setShowModal] = useState(false);
+  const [roleData, setRoleData] = useState(null);
   const [showPrintModal, setShowPrintModal] = useState(false);
   const [selectedOption, setSelectedOption] = useState("all");
   const [PDFOption, setPDFOption] = useState({
@@ -167,6 +168,25 @@ const BitacorasPage = () => {
 
     setSelectedOption(allTransportesClosed ? "all" : "one");
   };
+
+  useEffect(() => {
+    const fetchRolePermissions = async () => {
+      if (!user) return; // Ensure user is available before fetching role data
+
+      try {
+        const response = await fetch(`${baseUrl}/roles/${user.role}`, {
+          method: "GET",
+          credentials: "include",
+        });
+        const data = await response.json();
+        setRoleData(data);
+      } catch (e) {
+        console.log("Error fetching role permissions:", e);
+      }
+    };
+
+    fetchRolePermissions();
+  }, [user, baseUrl]);
 
   const handleChange = (e) => {
     const {id, value} = e.target;
@@ -488,9 +508,11 @@ const BitacorasPage = () => {
         <div className="content-wrapper">
           <div className="page-header">
             <h1>Monitoreo - Bitácoras</h1>
-            <button className="new-btn" onClick={() => setShowModal(!showModal)}>
-              <i className="fa fa-plus"></i>
-            </button>
+            {roleData?.bitacoras?.create && (
+              <button className="new-btn" onClick={() => setShowModal(!showModal)}>
+                <i className="fa fa-plus"></i>
+              </button>
+            )}
           </div>
 
           {/* Table */}
