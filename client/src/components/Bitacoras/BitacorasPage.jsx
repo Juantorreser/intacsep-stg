@@ -417,26 +417,27 @@ const BitacorasPage = () => {
   };
 
   const getEventColor = (bitacora) => {
-    if (!["iniciada", "validada"].includes(bitacora.status)) {
-      return ["#333235"];
-    }
+    // if (!["iniciada", "validada"].includes(bitacora.status)) {
+    //   return ["#333235"];
+    // }
 
     const eventos = bitacora.eventos || [];
-    // take last 5, sorted newest → oldest
+
+    // Últimos 5 eventos más recientes
     const lastFive = [...eventos]
       .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
       .slice(0, 5);
 
     return lastFive.map((evt, idx) => {
-      // idx === 0 → most recent event: dynamic countdown
-      // idx > 0  → older events: use the stored boolean
+      // Si es "Cierre de servicio", devolver negro
+      if (evt.nombre === "Cierre de servicio") return "black";
+
+      // Si tiene la bandera de frecuencia cumplida
       if (idx > 0 && evt.isFrecuenciaMet != null) {
-        return evt.isFrecuenciaMet
-          ? "#51FF4E" // green if met
-          : "#F82929"; // red if missed
+        return evt.isFrecuenciaMet ? "#51FF4E" : "#F82929";
       }
 
-      // fallback / live logic for the newest (or if flag missing)
+      // Si no tiene bandera, calcular según tiempo
       const freq = evt.frecuencia;
       if (!freq) return "#333235";
       const freqMs = freq * 60000;

@@ -6,6 +6,7 @@ const EventsPopup = ({bitacora, onClose}) => {
   );
 
   const getSemaforoColor = (evento) => {
+    if (evento.nombre === "Cierre de servicio") return "black";
     if (evento.isFrecuenciaMet === true) return "#51FF4E";
     if (evento.isFrecuenciaMet === false) return "#F82929";
 
