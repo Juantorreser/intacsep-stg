@@ -1150,8 +1150,12 @@ const BitacoraDetailPage = ({edited}) => {
             {/* DETALLES BTN */}
             {activeTab === "detalles" &&
               roleData &&
-              ((roleData.bitacora_abierta.update && bitacora.status !== "cerrada") ||
-                (bitacora.status === "cerrada" && roleData.bitacora_cerrada.update)) && (
+              ((roleData.bitacora_abierta.update &&
+                bitacora.status !== "cerrada" &&
+                roleData.bitacoras.update) ||
+                (bitacora.status === "cerrada" &&
+                  roleData.bitacora_cerrada.update &&
+                  roleData.bitacoras.update)) && (
                 <button
                   className="btn btn-primary position-absolute end-0 me-4"
                   onClick={() => {
@@ -1185,7 +1189,7 @@ const BitacoraDetailPage = ({edited}) => {
           <div className="scrollable-content flex-grow-1 overflow-auto px-3">
             <div className="tab-content" id="bitacoraTabsContent">
               {/* Detalles Tab Content */}
-              {roleData?.bit_detalles && (
+              {roleData?.bit_detalles.read && (
                 <div
                   className="tab-pane fade show active mt-4 mx-4"
                   id="detalles"
