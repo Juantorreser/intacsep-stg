@@ -115,7 +115,7 @@ const Sidebar = () => {
           <div className="menu-title">Menú</div>
           <div className="scrollable-content">
             <ul className="nav">
-              {roleData?.bitacoras && (
+              {roleData?.bitacoras?.read && (
                 <li className="nav-item">
                   <div
                     className="nav-link-title"
@@ -151,19 +151,19 @@ const Sidebar = () => {
                       </li>
                       {collapsedItems.catalogosCollapse && (
                         <ul className="submenu">
-                          {roleData.tipos_de_monitoreo && (
+                          {roleData.tipos_de_monitoreo.read && (
                             <li onClick={() => navigate("/tipos_monitoreo")}>Tipos Monitoreo</li>
                           )}
-                          {roleData.eventos && (
+                          {roleData.eventos.read && (
                             <li onClick={() => navigate("/eventos")}>Eventos</li>
                           )}
-                          {roleData.clientes && (
+                          {roleData.clientes.read && (
                             <li onClick={() => navigate("/clientes")}>Clientes</li>
                           )}
-                          {roleData.origenes && (
+                          {roleData.origenes.read && (
                             <li onClick={() => navigate("/origenes")}>Origenes</li>
                           )}
-                          {roleData.destinos && (
+                          {roleData.destinos.read && (
                             <li onClick={() => navigate("/destinos")}>Destinos</li>
                           )}
                         </ul>
@@ -178,11 +178,11 @@ const Sidebar = () => {
                       </li>
                       {collapsedItems.sistemaCollapse && (
                         <ul className="submenu">
-                          {roleData.usuarios && (
+                          {roleData.usuarios.read && (
                             <li onClick={() => navigate("/usuarios")}>Usuarios</li>
                           )}
-                          {roleData.roles && <li onClick={() => navigate("/roles")}>Roles</li>}
-                          {roleData.inactividad && <li onClick={openInacModal}>Inactividad</li>}
+                          {roleData.roles.read && <li onClick={() => navigate("/roles")}>Roles</li>}
+                          {roleData.inactividad.read && <li onClick={openInacModal}>Inactividad</li>}
                         </ul>
                       )}
 
@@ -195,7 +195,7 @@ const Sidebar = () => {
                       </li>
                       {collapsedItems.auditoriaCollapse && (
                         <ul className="submenu">
-                          {roleData.auditoria_bitacora && (
+                          {roleData.auditoria_bitacora.read && (
                             <li onClick={() => navigate("/auditoria/bitacoras")}>Bitácoras</li>
                           )}
                         </ul>
