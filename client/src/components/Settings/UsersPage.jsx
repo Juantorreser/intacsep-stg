@@ -206,10 +206,10 @@ const UsersPage = () => {
         </div>
 
         <div className="content-wrapper">
-          <div className="position-relative mb-4">
-            <h1 className="fs-3 fw-semibold text-black text-center m-0">Usuarios</h1>
+          <div className="page-header">
+            <h1 className="fs-3 fw-semibold text-black text-center m-0">Sistema - Usuarios</h1>
             <button
-              className="btn btn-primary rounded-5 position-absolute end-0 top-50 translate-middle-y me-3"
+              className="new-btn"
               onClick={handleCreateNew}>
               <i className="fas fa-plus"></i>
             </button>

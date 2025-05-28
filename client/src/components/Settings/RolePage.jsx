@@ -196,17 +196,14 @@ const RolePage = () => {
 
   return (
     <section id="rolePage">
-      //
       <div className="w-100 d-flex">
         <div className="sidebar-wrapper">
           <Sidebar />
         </div>
         <div className="content-wrapper">
-          <div className="d-flex align-items-center mb-4">
-            <h1 className="fs-3 fw-semibold text-black m-0 flex-grow-1 text-center">Roles</h1>
-            <button
-              className="btn btn-primary rounded-circle me-3"
-              onClick={() => setShowModal(true)}>
+          <div className="page-header">
+            <h1>Sistema - Roles</h1>
+            <button className="new-btn" onClick={() => setShowModal(true)}>
               <i className="fas fa-plus"></i>
             </button>
           </div>
@@ -237,15 +234,14 @@ const RolePage = () => {
 
             {editRole && (
               <div className="table-responsive">
-                <h5 className="text-center mt-4 mb-3">{editRole.name}</h5>
                 <table className="table table-bordered table-hover">
                   <thead className="table-light">
                     <tr>
                       <th>Permiso</th>
-                      <th className="text-center">Create</th>
-                      <th className="text-center">Read</th>
-                      <th className="text-center">Update</th>
-                      <th className="text-center">Delete</th>
+                      <th className="text-center">Crear</th>
+                      <th className="text-center">Ver</th>
+                      <th className="text-center">Editar</th>
+                      <th className="text-center">Eliminar</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -291,7 +287,6 @@ const RolePage = () => {
           </div>
         </div>
       </div>
-
       {/* Modal for Creating New Role */}
       <div
         className={`modal fade ${showModal ? "show d-block" : ""}`}
