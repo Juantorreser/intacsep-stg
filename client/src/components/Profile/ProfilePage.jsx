@@ -122,7 +122,7 @@ const ProfileModal = ({showModal, handleClose}) => {
       )}
 
       {showModal && (
-        <section id="profileModal">
+        <section class="customModal">
           <div className="pm-backdrop" onClick={handleClose}></div>
           <div className="pm-container">
             <div className="pm-header">

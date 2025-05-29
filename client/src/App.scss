@@ -971,7 +971,7 @@ $gray: #223b53;
   z-index: 1000;
 }
 
-#profileModal {
+.customModal {
   position: fixed;
   inset: 0;
   z-index: 9999;
@@ -1472,14 +1472,14 @@ $gray: #223b53;
   display: inline-block;
 }
 
-.page-header{
+.page-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
   color: $bg;
   margin: 15px 20px;
 
-  h1{
+  h1 {
     color: $gray;
     font-size: 1.7rem;
     font-weight: bolder;
@@ -1487,7 +1487,7 @@ $gray: #223b53;
   }
 }
 
-.new-btn{
+.new-btn {
   background-color: $gray;
   border-radius: 5px;
   box-shadow: $bg 20px 20px 20px;

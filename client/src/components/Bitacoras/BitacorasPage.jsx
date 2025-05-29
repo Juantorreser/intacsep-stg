@@ -8,6 +8,7 @@ import "jspdf-autotable"; // For table support in jsPDF
 import {sortBitacoras} from "../../utils/utils"; // Assume these functions exist
 import BitacoraDetail from "./BitacoraDetail";
 import OldBitacoraDetail from "./OldBitacoraPDF";
+import ModalTemplate from "../ModalTemplate";
 import EventsPopup from "./Eventos/EventsPopup";
 import {
   fetchBitacoras,
@@ -943,220 +944,105 @@ const BitacorasPage = () => {
 
       {/* Modal with Backdrop */}
       {showModal && (
-        <>
-          <div
-            className="modal fade show d-block"
-            id="exampleModal"
-            tabIndex="-1"
-            aria-labelledby="exampleModalLabel"
-            aria-hidden="true">
-            <div className="modal-dialog">
-              <div className="modal-content">
-                <div className="modal-body w-100">
-                  <button
-                    type="button"
-                    className="btn-close"
-                    aria-label="Close"
-                    onClick={handleModalToggle}
-                    style={{
-                      position: "absolute",
-                      top: "15px",
-                      right: "15px",
-                    }}></button>
-                  <div className="w-100 col justify-content-center align-items-center">
-                    <img src="/logo2.png" alt="" width={50} />
-                    <p className="p-0 m-0"> Nueva Bitácora</p>
-                  </div>
-                  <hr />
-                  <form onSubmit={handleSubmit}>
-                    {/* Tipo de Monitoreo */}
-                    <div className="mb-3">
-                      <label htmlFor="monitoreo" className="form-label">
-                        Tipo de Monitoreo
-                      </label>
-                      <select
-                        className="form-select"
-                        id="monitoreo"
-                        aria-label="Tipo de Monitoreo"
-                        value={formData.monitoreo}
-                        onChange={handleChange}
-                        required>
-                        <option value="">Selecciona una opción</option>
-                        {monitoreos.map((monitoreo) => (
-                          <option key={monitoreo._id} value={monitoreo.tipoMonitoreo}>
-                            {monitoreo.tipoMonitoreo}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    {/* Cliente */}
-                    <div className="mb-3">
-                      <label htmlFor="cliente" className="form-label">
-                        Cliente
-                      </label>
-                      <select
-                        className="form-select"
-                        id="cliente"
-                        aria-label="Cliente"
-                        value={formData.cliente}
-                        onChange={handleChange}
-                        required>
-                        <option value="">Selecciona una opción</option>
-                        {clients.map((client) => (
-                          <option key={client._id} value={client.razon_social}>
-                            {client.razon_social}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div className="form-group mb-3">
-                      <label htmlFor="folio_servicio">Folio de Servicio</label>
-                      <input
-                        id="folio_servicio"
-                        type="text"
-                        value={formData.folio_servicio}
-                        onChange={handleChange}
-                        className="form-control"
-                        required
-                      />
-                    </div>
-                    {/* <div className="form-group mb-3">
-                      <label htmlFor="linea_transporte">Línea de Transporte</label>
-                      <input
-                        id="linea_transporte"
-                        type="text"
-                        value={formData.linea_transporte}
-                        onChange={handleChange}
-                        className="form-control"
-                        required
-                      />
-                    </div> */}
-
-                    <div className="mb-3">
-                      <label htmlFor="origen" className="form-label">
-                        Origen
-                      </label>
-                      <select
-                        id="origen"
-                        className="form-select"
-                        value={formData.origen}
-                        onChange={handleChange}
-                        required>
-                        <option value="">Seleccionar</option>
-                        {origenes.map((origen) => (
-                          <option key={origen._id} value={origen.name}>
-                            {origen.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div className="mb-3">
-                      <label htmlFor="destino" className="form-label">
-                        Destino
-                      </label>
-                      <select
-                        id="destino"
-                        className="form-select"
-                        value={formData.destino}
-                        onChange={handleChange}
-                        required>
-                        <option value="">Seleccionar</option>
-                        {destinos.map((destino) => (
-                          <option key={destino._id} value={destino.name}>
-                            {destino.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    {/* <div className="mb-3">
-                      <label htmlFor="operador" className="form-label">
-                        Operador
-                      </label>
-                      <select
-                        id="operador"
-                        className="form-select"
-                        value={formData.operador}
-                        onChange={handleChange}
-                        required>
-                        <option value="">Seleccionar</option>
-                        {operadores.map((operador) => (
-                          <option key={operador._id} value={operador.name}>
-                            {operador.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div className="form-group mb-3">
-                      <label htmlFor="telefono">Telefono</label>
-                      <input
-                        id="telefono"
-                        type="tel"
-                        value={formData.telefono}
-                        onChange={handleChange}
-                        className="form-control"
-                        required
-                      />
-                    </div> */}
-
-                    {/* <div className="form-group mb-3">
-                      <label htmlFor="enlace">Enlace</label>
-                      <input
-                        id="enlace"
-                        type="text"
-                        value={formData.enlace}
-                        onChange={handleChange}
-                        className="form-control"
-                        required
-                      />
-                    </div>
-                    <div className="form-group mb-3">
-                      <label htmlFor="id_acceso">ID de Acceso</label>
-                      <input
-                        id="id_acceso"
-                        type="text"
-                        value={formData.id_acceso}
-                        onChange={handleChange}
-                        className="form-control"
-                        required
-                      />
-                    </div>
-                    <div className="form-group mb-3">
-                      <label htmlFor="contra_acceso">Contraseña de Acceso</label>
-                      <input
-                        id="contra_acceso"
-                        type="text"
-                        value={formData.contra_acceso}
-                        onChange={handleChange}
-                        className="form-control"
-                        required
-                      />
-                    </div> */}
-                    <hr />
-
-                    <div className="d-flex justify-content-end">
-                      <button
-                        type="button"
-                        className="btn btn-danger me-3 px-2"
-                        onClick={handleModalToggle}>
-                        Cancelar
-                      </button>
-                      <button type="submit" className="btn btn-success px-4">
-                        Crear
-                      </button>
-                    </div>
-                  </form>
-                </div>
-              </div>
-            </div>
+        <ModalTemplate
+          show={showModal}
+          title="Nueva Bitácora"
+          onClose={handleModalToggle}
+          onSubmit={handleSubmit}>
+          {/* Tipo de Monitoreo */}
+          <div className="mb-3">
+            <label htmlFor="monitoreo" className="form-label">
+              Tipo de Monitoreo
+            </label>
+            <select
+              className="form-select"
+              id="monitoreo"
+              value={formData.monitoreo}
+              onChange={handleChange}
+              required>
+              <option value="">Selecciona una opción</option>
+              {monitoreos.map((monitoreo) => (
+                <option key={monitoreo._id} value={monitoreo.tipoMonitoreo}>
+                  {monitoreo.tipoMonitoreo}
+                </option>
+              ))}
+            </select>
           </div>
-          <div className="modal-backdrop fade show"></div>
-        </>
+
+          {/* Cliente */}
+          <div className="mb-3">
+            <label htmlFor="cliente" className="form-label">
+              Cliente
+            </label>
+            <select
+              className="form-select"
+              id="cliente"
+              value={formData.cliente}
+              onChange={handleChange}
+              required>
+              <option value="">Selecciona una opción</option>
+              {clients.map((client) => (
+                <option key={client._id} value={client.razon_social}>
+                  {client.razon_social}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="form-group mb-3">
+            <label htmlFor="folio_servicio">Folio de Servicio</label>
+            <input
+              id="folio_servicio"
+              type="text"
+              value={formData.folio_servicio}
+              onChange={handleChange}
+              className="form-control"
+              required
+            />
+          </div>
+
+          {/* Origen */}
+          <div className="mb-3">
+            <label htmlFor="origen" className="form-label">
+              Origen
+            </label>
+            <select
+              id="origen"
+              className="form-select"
+              value={formData.origen}
+              onChange={handleChange}
+              required>
+              <option value="">Seleccionar</option>
+              {origenes.map((origen) => (
+                <option key={origen._id} value={origen.name}>
+                  {origen.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Destino */}
+          <div className="mb-3">
+            <label htmlFor="destino" className="form-label">
+              Destino
+            </label>
+            <select
+              id="destino"
+              className="form-select"
+              value={formData.destino}
+              onChange={handleChange}
+              required>
+              <option value="">Seleccionar</option>
+              {destinos.map((destino) => (
+                <option key={destino._id} value={destino.name}>
+                  {destino.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        </ModalTemplate>
       )}
+
       {showFrecuenciaModal && selectedFrecuenciaBitacora && (
         <EventsPopup bitacora={selectedFrecuenciaBitacora} onClose={closeFrecuenciaModal} />
       )}
