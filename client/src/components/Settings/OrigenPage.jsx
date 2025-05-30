@@ -1,9 +1,6 @@
 import React, {useState, useEffect} from "react";
-import Header from "../Header";
 import Sidebar from "../Sidebar";
-import Modal from "react-bootstrap/Modal";
-import Button from "react-bootstrap/Button";
-import Form from "react-bootstrap/Form";
+import ModalTemplate from "../ModalTemplate";
 
 const OrigenPage = () => {
   const [origenes, setOrigenes] = useState([]);
@@ -14,6 +11,7 @@ const OrigenPage = () => {
   const baseUrl = import.meta.env.VITE_BASE_URL;
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [idToDelete, setIdToDelete] = useState("");
+  const [modalType, setModalType] = useState(""); // 'create', 'edit', ''
 
   useEffect(() => {
     const fetchOrigenes = async () => {
@@ -124,30 +122,35 @@ const OrigenPage = () => {
           <Sidebar />
         </div>
         <div className="content-wrapper">
-          <h1 className="text-center fs-3 fw-semibold text-black">Origenes</h1>
+          <div className="page-header">
+            <h1 className="text-center fs-3 fw-semibold text-black">Catálogos - Origenes</h1>
+            <button type="button" className="new-btn" onClick={() => setModalType("create")}>
+              <i className="fas fa-plus"></i>
+            </button>
+          </div>
 
           {/* Create New Origen Form */}
-          <div className="mx-3 my-4">
-            <form onSubmit={handleCreate} className="mb-4">
-              <div className="form-group">
-                <div className="input-group">
-                  <input
-                    type="text"
-                    id="newOrigen"
-                    className="form-control rounded-2"
-                    value={newOrigen}
-                    onChange={(e) => setNewOrigen(e.target.value)}
-                    placeholder="Ingrese nuevo origen"
-                  />
-                  <div className="input-group-append ms-2">
-                    <button type="submit" className="btn btn-primary rounded-circle">
-                      <i className="fas fa-plus"></i>
-                    </button>
-                  </div>
-                </div>
+          {modalType === "create" && (
+            <ModalTemplate
+              show
+              title="Crear Origen"
+              onClose={() => setModalType("")}
+              onSubmit={handleCreate}>
+              <div className="mb-3">
+                <label htmlFor="newOrigen" className="form-label">
+                  Nombre del Origen
+                </label>
+                <input
+                  id="newOrigen"
+                  type="text"
+                  className="form-control"
+                  value={newOrigen}
+                  onChange={(e) => setNewOrigen(e.target.value)}
+                  required
+                />
               </div>
-            </form>
-          </div>
+            </ModalTemplate>
+          )}
 
           {/* Responsive Table */}
           <div className="mx-3 my-4">
@@ -165,16 +168,16 @@ const OrigenPage = () => {
                       <td>{origen.name}</td>
                       <td className="text-end">
                         <button
-                          className="btn btn-primary rounded-circle me-2"
+                          className="btn btn-primary rounded me-2"
                           onClick={() => {
                             setCurrentOrigen(origen);
                             setEditingName(origen.name);
-                            setShowModal(true);
+                            setModalType("edit");
                           }}>
                           <i className="fas fa-edit"></i>
                         </button>
                         <button
-                          className="btn btn-danger rounded-circle"
+                          className="btn btn-danger rounded"
                           onClick={() => handleDelete(origen._id)}>
                           <i className="fas fa-trash"></i>
                         </button>
@@ -188,46 +191,46 @@ const OrigenPage = () => {
         </div>
       </div>
       {/* Edit Modal */}
-      <Modal show={showModal} onHide={() => setShowModal(false)}>
-        <Modal.Header closeButton>
-          <Modal.Title>Editar Origen</Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
-          <Form>
-            <Form.Group className="mb-3">
-              <Form.Label>Nombre del Origen</Form.Label>
-              <Form.Control
-                type="text"
-                value={editingName}
-                onChange={(e) => setEditingName(e.target.value)}
-              />
-            </Form.Group>
-          </Form>
-        </Modal.Body>
-        <Modal.Footer>
-          <Button variant="danger" onClick={() => setShowModal(false)}>
-            Cancelar
-          </Button>
-          <Button variant="success" onClick={handleSaveEdit}>
-            Guardar
-          </Button>
-        </Modal.Footer>
-      </Modal>
+      {modalType === "edit" && currentOrigen && (
+        <ModalTemplate
+          show
+          title="Editar Origen"
+          onClose={() => {
+            setModalType("");
+            setCurrentOrigen(null);
+          }}
+          onSubmit={(e) => {
+            e.preventDefault();
+            handleSaveEdit();
+          }}>
+          <div className="mb-3">
+            <label htmlFor="editOrigen" className="form-label">
+              Nombre del Origen
+            </label>
+            <input
+              id="editOrigen"
+              type="text"
+              className="form-control"
+              value={editingName}
+              onChange={(e) => setEditingName(e.target.value)}
+              required
+            />
+          </div>
+        </ModalTemplate>
+      )}
       {/* Delete Modal */}
-      <Modal show={showDeleteModal} onHide={handleCloseDeleteModal} backdrop="static">
-        <Modal.Header closeButton>
-          <Modal.Title>Confirmar Eliminación</Modal.Title>
-        </Modal.Header>
-        <Modal.Body>¿Está seguro de que desea eliminar este origen?</Modal.Body>
-        <Modal.Footer>
-          <Button variant="secondary" onClick={handleCloseDeleteModal}>
-            Cancelar
-          </Button>
-          <Button variant="danger" onClick={() => handleConfirmDelete(idToDelete)}>
-            Eliminar
-          </Button>
-        </Modal.Footer>
-      </Modal>
+      {showDeleteModal && (
+        <ModalTemplate
+          show
+          title="Confirmar Eliminación"
+          onClose={handleCloseDeleteModal}
+          onSubmit={(e) => {
+            e.preventDefault();
+            handleConfirmDelete(idToDelete);
+          }}>
+          <p>¿Está seguro de que desea eliminar este origen?</p>
+        </ModalTemplate>
+      )}
     </section>
   );
 };

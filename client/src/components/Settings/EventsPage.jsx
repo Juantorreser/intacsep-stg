@@ -1,9 +1,6 @@
 import React, {useState, useEffect} from "react";
-import Header from "../Header";
 import Sidebar from "../Sidebar";
-import Modal from "react-bootstrap/Modal";
-import Button from "react-bootstrap/Button";
-import Form from "react-bootstrap/Form";
+import ModalTemplate from "../ModalTemplate";
 
 const EventsPage = () => {
   const [events, setEvents] = useState([]);
@@ -15,6 +12,7 @@ const EventsPage = () => {
   const [idToDelete, setIdToDelete] = useState("");
   const [showEditModal, setShowEditModal] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [modalType, setModalType] = useState(""); // 'create', 'edit', or ''
 
   useEffect(() => {
     const fetchEvents = async () => {
@@ -134,38 +132,40 @@ const EventsPage = () => {
 
   return (
     <section id="eventsPage">
-      //
       <div className="w-100 d-flex">
         <div className="sidebar-wrapper">
           <Sidebar />
         </div>
         <div className="content-wrapper">
-          <div className="d-flex justify-content-center align-items-center mb-4">
-            <h1 className="fs-3 fw-semibold text-black m-0">Eventos</h1>
+          <div className="page-header">
+            <h1 className="fs-3 fw-semibold text-black m-0">Catálogos - Eventos</h1>
+            <button type="button" className="new-btn" onClick={() => setModalType("create")}>
+              <i className="fas fa-plus"></i>
+            </button>
           </div>
 
           {/* Create New Event Form */}
-          <div className="mx-3 my-4">
-            <form onSubmit={handleCreate} className="mb-4">
-              <div className="form-group">
-                <div className="input-group">
-                  <input
-                    type="text"
-                    id="newEvent"
-                    className="form-control rounded-2"
-                    value={newEvent}
-                    onChange={(e) => setNewEvent(e.target.value)}
-                    placeholder="Ingrese nuevo evento"
-                  />
-                  <div className="input-group-append ms-2">
-                    <button type="submit" className="btn btn-primary rounded-circle">
-                      <i className="fas fa-plus"></i>
-                    </button>
-                  </div>
-                </div>
+          {modalType === "create" && (
+            <ModalTemplate
+              show
+              title="Crear Evento"
+              onClose={() => setModalType("")}
+              onSubmit={handleCreate}>
+              <div className="mb-3">
+                <label htmlFor="newEvent" className="form-label">
+                  Nombre del Evento
+                </label>
+                <input
+                  id="newEvent"
+                  className="form-control"
+                  value={newEvent}
+                  onChange={(e) => setNewEvent(e.target.value)}
+                  placeholder="Ingrese nuevo evento"
+                  required
+                />
               </div>
-            </form>
-          </div>
+            </ModalTemplate>
+          )}
 
           {/* Responsive Table */}
           <div className="mx-3 my-4">
@@ -183,12 +183,16 @@ const EventsPage = () => {
                       <td>{event.eventType}</td>
                       <td className="text-end">
                         <button
-                          className="btn btn-primary rounded-circle"
-                          onClick={() => handleEditClick(event)}>
+                          className="btn btn-primary rounded"
+                          onClick={() => {
+                            setEditEvent(event);
+                            setEditEventName(event.eventType);
+                            setModalType("edit");
+                          }}>
                           <i className="fa fa-edit"></i>
                         </button>
                         <button
-                          className="btn btn-danger rounded-circle ms-2"
+                          className="btn btn-danger rounded ms-2"
                           onClick={() => handleDelete(event._id)}>
                           <i className="fas fa-trash"></i>
                         </button>
@@ -202,46 +206,43 @@ const EventsPage = () => {
         </div>
       </div>
       {/* Delete Modal */}
-      <Modal show={showDeleteModal} onHide={handleCloseDeleteModal} backdrop="static">
-        <Modal.Header closeButton>
-          <Modal.Title>Confirmar Eliminación</Modal.Title>
-        </Modal.Header>
-        <Modal.Body>¿Está seguro de que desea eliminar este evento?</Modal.Body>
-        <Modal.Footer>
-          <Button variant="secondary" onClick={handleCloseDeleteModal}>
-            Cancelar
-          </Button>
-          <Button variant="danger" onClick={() => handleConfirmDelete(idToDelete)}>
-            Eliminar
-          </Button>
-        </Modal.Footer>
-      </Modal>
+      {showDeleteModal && (
+        <ModalTemplate
+          show
+          title="Confirmar Eliminación"
+          onClose={handleCloseDeleteModal}
+          onSubmit={(e) => {
+            e.preventDefault();
+            handleConfirmDelete(idToDelete);
+          }}>
+          <p>¿Está seguro de que desea eliminar este evento?</p>
+        </ModalTemplate>
+      )}
+
       {/* Edit Modal */}
-      <Modal show={showEditModal} onHide={handleCloseEditModal} backdrop="static">
-        <Modal.Header closeButton>
-          <Modal.Title>Editar Evento</Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
-          <Form>
-            <Form.Group className="mb-3">
-              <Form.Label>Nombre del Evento</Form.Label>
-              <Form.Control
-                type="text"
-                value={editEventName}
-                onChange={(e) => setEditEventName(e.target.value)}
-              />
-            </Form.Group>
-          </Form>
-        </Modal.Body>
-        <Modal.Footer>
-          <Button variant="secondary" onClick={handleCloseEditModal}>
-            Cancelar
-          </Button>
-          <Button variant="success" onClick={handleEditSave}>
-            Confirmar
-          </Button>
-        </Modal.Footer>
-      </Modal>
+      {modalType === "edit" && editEvent && (
+        <ModalTemplate
+          show
+          title="Editar Evento"
+          onClose={handleCloseEditModal}
+          onSubmit={(e) => {
+            e.preventDefault();
+            handleEditSave();
+          }}>
+          <div className="mb-3">
+            <label htmlFor="editEventName" className="form-label">
+              Nombre del Evento
+            </label>
+            <input
+              id="editEventName"
+              className="form-control"
+              value={editEventName}
+              onChange={(e) => setEditEventName(e.target.value)}
+              required
+            />
+          </div>
+        </ModalTemplate>
+      )}
     </section>
   );
 };

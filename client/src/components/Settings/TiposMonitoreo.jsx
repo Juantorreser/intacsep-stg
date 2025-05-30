@@ -1,9 +1,6 @@
 import React, {useState, useEffect} from "react";
-import Header from "../Header";
 import Sidebar from "../Sidebar";
-import Modal from "react-bootstrap/Modal";
-import Button from "react-bootstrap/Button";
-import Form from "react-bootstrap/Form";
+import ModalTemplate from "../ModalTemplate";
 
 const TiposMonitoreo = () => {
   const [monitoreos, setMonitoreos] = useState([]);
@@ -120,36 +117,43 @@ const TiposMonitoreo = () => {
 
   return (
     <section id="pastBits">
-      //
       <div className="w-100 d-flex">
         <div className="sidebar-wrapper">
           <Sidebar />
         </div>
         <div className="content-wrapper">
-          <h1 className="text-center fs-3 fw-semibold text-black">Tipos de Monitoreo</h1>
+          <div className="page-header">
+            <h1 className="text-center fs-3 fw-semibold text-black">
+              Catálogos - Tipos de Monitoreo
+            </h1>
+            <button type="button" className="new-btn" onClick={() => setShowModal("create")}>
+              <i className="fas fa-plus"></i>
+            </button>
+          </div>
 
           {/* Create New Monitoreo Form */}
-          <div className="mx-3 my-4">
-            <form onSubmit={handleCreate} className="mb-4">
-              <div className="form-group">
-                <div className="input-group">
-                  <input
-                    type="text"
-                    id="newMonitoreo"
-                    className="form-control rounded-2"
-                    value={newMonitoreo}
-                    onChange={(e) => setNewMonitoreo(e.target.value)}
-                    placeholder="Ingrese nuevo tipo de monitoreo"
-                  />
-                  <div className="input-group-append ms-2">
-                    <button type="submit" className="btn btn-primary rounded-circle">
-                      <i className="fas fa-plus"></i>
-                    </button>
-                  </div>
-                </div>
+          {showModal === "create" && (
+            <ModalTemplate
+              show
+              title="Crear Tipo de Monitoreo"
+              onClose={() => setShowModal(false)}
+              onSubmit={handleCreate}>
+              <div className="mb-3">
+                <label htmlFor="newMonitoreo" className="form-label">
+                  Tipo de Monitoreo
+                </label>
+                <input
+                  id="newMonitoreo"
+                  type="text"
+                  className="form-control"
+                  value={newMonitoreo}
+                  onChange={(e) => setNewMonitoreo(e.target.value)}
+                  placeholder="Ingrese nuevo tipo de monitoreo"
+                  required
+                />
               </div>
-            </form>
-          </div>
+            </ModalTemplate>
+          )}
 
           {/* Responsive Table */}
           <div className="mx-3 my-4">
@@ -167,16 +171,16 @@ const TiposMonitoreo = () => {
                       <td>{monitoreo.tipoMonitoreo}</td>
                       <td className="text-end">
                         <button
-                          className="btn btn-primary rounded-circle me-2"
+                          className="btn btn-primary rounded me-2"
                           onClick={() => {
                             setCurrentMonitoreo(monitoreo);
                             setEditingName(monitoreo.tipoMonitoreo);
-                            setShowModal(true);
+                            setShowModal("edit");
                           }}>
                           <i className="fas fa-edit"></i>
                         </button>
                         <button
-                          className="btn btn-danger rounded-circle"
+                          className="btn btn-danger rounded"
                           onClick={() => handleDelete(monitoreo._id)}>
                           <i className="fas fa-trash"></i>
                         </button>
@@ -190,46 +194,46 @@ const TiposMonitoreo = () => {
         </div>
       </div>
       {/* Edit Modal */}
-      <Modal show={showModal} onHide={() => setShowModal(false)}>
-        <Modal.Header closeButton>
-          <Modal.Title>Editar Monitoreo</Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
-          <Form>
-            <Form.Group className="mb-3">
-              <Form.Label>Tipo de monitoreo</Form.Label>
-              <Form.Control
-                type="text"
-                value={editingName}
-                onChange={(e) => setEditingName(e.target.value)}
-              />
-            </Form.Group>
-          </Form>
-        </Modal.Body>
-        <Modal.Footer>
-          <Button variant="danger" onClick={() => setShowModal(false)}>
-            Cancelar
-          </Button>
-          <Button variant="success" onClick={handleSaveEdit}>
-            Guardar
-          </Button>
-        </Modal.Footer>
-      </Modal>
+      {showModal === "edit" && currentMonitoreo && (
+        <ModalTemplate
+          show
+          title="Editar Monitoreo"
+          onClose={() => {
+            setShowModal(false);
+            setCurrentMonitoreo(null);
+          }}
+          onSubmit={(e) => {
+            e.preventDefault();
+            handleSaveEdit();
+          }}>
+          <div className="mb-3">
+            <label htmlFor="editMonitoreo" className="form-label">
+              Tipo de Monitoreo
+            </label>
+            <input
+              id="editMonitoreo"
+              type="text"
+              className="form-control"
+              value={editingName}
+              onChange={(e) => setEditingName(e.target.value)}
+              required
+            />
+          </div>
+        </ModalTemplate>
+      )}
       {/* Delete Modal */}
-      <Modal show={showDeleteModal} onHide={handleCloseDeleteModal} backdrop="static">
-        <Modal.Header closeButton>
-          <Modal.Title>Confirmar Eliminación</Modal.Title>
-        </Modal.Header>
-        <Modal.Body>¿Está seguro de que desea eliminar este tipo de monitoreo?</Modal.Body>
-        <Modal.Footer>
-          <Button variant="secondary" onClick={handleCloseDeleteModal}>
-            Cancelar
-          </Button>
-          <Button variant="danger" onClick={() => handleConfirmDelete(idToDelete)}>
-            Eliminar
-          </Button>
-        </Modal.Footer>
-      </Modal>
+      {showDeleteModal && (
+        <ModalTemplate
+          show
+          title="Confirmar Eliminación"
+          onClose={handleCloseDeleteModal}
+          onSubmit={(e) => {
+            e.preventDefault();
+            handleConfirmDelete(idToDelete);
+          }}>
+          <p>¿Está seguro de que desea eliminar este tipo de monitoreo?</p>
+        </ModalTemplate>
+      )}
     </section>
   );
 };

@@ -1,6 +1,5 @@
 import React, {useState, useEffect} from "react";
-import "bootstrap/dist/css/bootstrap.min.css"; // Make sure to import Bootstrap CSS
-import {Modal, Button} from "react-bootstrap";
+import ModalTemplate from "../ModalTemplate";
 
 const ClientCard = ({client, onDelete, fetchClients}) => {
   const [formData, setFormData] = useState({
@@ -182,249 +181,85 @@ const ClientCard = ({client, onDelete, fetchClients}) => {
       </div>
 
       {/* Modal for Editing */}
-      <Modal show={showModal} onHide={handleClose} backdrop="static">
-        <Modal.Header closeButton>
-          <Modal.Title>Editar</Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
-          <form>
-            {/* Client Info */}
-            <div className="row">
-              <div className="col-md-6">
-                <p>Cliente</p>
-                <hr />
-                <div className="mb-3">
-                  <label htmlFor="razon_social" className="form-label">
-                    Razón Social
-                  </label>
-                  <input
-                    type="text"
-                    className="form-control"
-                    id="razon_social"
-                    value={formData.razon_social || ""}
-                    onChange={handleChange}
-                    required
-                  />
+      {showModal && (
+        <ModalTemplate
+          show
+          title="Editar Cliente"
+          onClose={handleClose}
+          onSubmit={(e) => {
+            e.preventDefault();
+            handleConfirm();
+          }}>
+          <div style={{maxHeight: "65vh", overflowY: "auto", paddingRight: "6px"}}>
+            <form>
+              <div className="row">
+                <div className="col-md-6">
+                  <p>Cliente</p>
+                  <hr />
+                  {[
+                    "razon_social",
+                    "RFC",
+                    "calle",
+                    "num_ext",
+                    "num_int",
+                    "colonia",
+                    "alcaldia",
+                    "ciudad",
+                    "codigo_postal",
+                    "clave_pais",
+                  ].map((field) => (
+                    <div className="mb-3" key={field}>
+                      <label htmlFor={field} className="form-label">
+                        {field.replace("_", " ").replace(/\b\w/g, (l) => l.toUpperCase())}
+                      </label>
+                      <input
+                        type="text"
+                        className="form-control"
+                        id={field}
+                        value={formData[field] || ""}
+                        onChange={handleChange}
+                        required
+                      />
+                    </div>
+                  ))}
                 </div>
-                <div className="mb-3">
-                  <label htmlFor="RFC" className="form-label">
-                    RFC
-                  </label>
-                  <input
-                    type="text"
-                    className="form-control"
-                    id="RFC"
-                    value={formData.RFC || ""}
-                    onChange={handleChange}
-                    required
-                  />
-                </div>
-
-                <div className="mb-3">
-                  <label htmlFor="calle" className="form-label">
-                    Calle
-                  </label>
-                  <input
-                    type="text"
-                    className="form-control"
-                    id="calle"
-                    value={formData.calle || ""}
-                    onChange={handleChange}
-                    required
-                  />
-                </div>
-
-                <div className="mb-3">
-                  <label htmlFor="num_ext" className="form-label">
-                    Número Ext
-                  </label>
-                  <input
-                    type="text"
-                    className="form-control"
-                    id="num_ext"
-                    value={formData.num_ext || ""}
-                    onChange={handleChange}
-                    required
-                  />
-                </div>
-                <div className="mb-3">
-                  <label htmlFor="num_int" className="form-label">
-                    Número Int
-                  </label>
-                  <input
-                    type="text"
-                    className="form-control"
-                    id="num_int"
-                    value={formData.num_int || ""}
-                    onChange={handleChange}
-                    required
-                  />
-                </div>
-
-                <div className="mb-3">
-                  <label htmlFor="colonia" className="form-label">
-                    Colonia
-                  </label>
-                  <input
-                    type="text"
-                    className="form-control"
-                    id="colonia"
-                    value={formData.colonia || ""}
-                    onChange={handleChange}
-                    required
-                  />
-                </div>
-
-                <div className="mb-3">
-                  <label htmlFor="alcaldia" className="form-label">
-                    Alcaldía
-                  </label>
-                  <input
-                    type="text"
-                    className="form-control"
-                    id="alcaldia"
-                    value={formData.alcaldia || ""}
-                    onChange={handleChange}
-                    required
-                  />
-                </div>
-
-                <div className="mb-3">
-                  <label htmlFor="ciudad" className="form-label">
-                    Ciudad
-                  </label>
-                  <input
-                    type="text"
-                    className="form-control"
-                    id="ciudad"
-                    value={formData.ciudad || ""}
-                    onChange={handleChange}
-                    required
-                  />
-                </div>
-                <div className="mb-3">
-                  <label htmlFor="codigo_postal" className="form-label">
-                    Código Postal
-                  </label>
-                  <input
-                    type="text"
-                    className="form-control"
-                    id="codigo_postal"
-                    value={formData.codigo_postal || ""}
-                    onChange={handleChange}
-                    required
-                  />
-                </div>
-                <div className="mb-3">
-                  <label htmlFor="clave_pais" className="form-label">
-                    Clave País
-                  </label>
-                  <input
-                    type="text"
-                    className="form-control"
-                    id="clave_pais"
-                    value={formData.clave_pais || ""}
-                    onChange={handleChange}
-                    required
-                  />
+                <div className="col-md-6">
+                  <p>Contacto</p>
+                  <hr />
+                  {["nombres", "apellidos", "email", "telefono", "pais"].map((field) => (
+                    <div className="mb-3" key={field}>
+                      <label htmlFor={field} className="form-label">
+                        {field.charAt(0).toUpperCase() + field.slice(1)}
+                      </label>
+                      <input
+                        type={field === "email" ? "email" : "text"}
+                        className="form-control"
+                        id={field}
+                        value={formData.contacto[field] || ""}
+                        onChange={handleChangeContacto}
+                        required
+                      />
+                    </div>
+                  ))}
                 </div>
               </div>
-              {/* Contact Info */}
-              <div className="col-md-6">
-                <p>Contacto</p>
-                <hr />
-                <div className="mb-3">
-                  <label htmlFor="nombres" className="form-label">
-                    Nombre
-                  </label>
-                  <input
-                    type="text"
-                    className="form-control"
-                    id="nombres"
-                    value={formData.contacto.nombres || ""}
-                    onChange={handleChangeContacto}
-                    required
-                  />
-                </div>
-                <div className="mb-3">
-                  <label htmlFor="apellidos" className="form-label">
-                    Apellidos
-                  </label>
-                  <input
-                    type="text"
-                    className="form-control"
-                    id="apellidos"
-                    value={formData.contacto.apellidos || ""}
-                    onChange={handleChangeContacto}
-                    required
-                  />
-                </div>
-                <div className="mb-3">
-                  <label htmlFor="email" className="form-label">
-                    Email
-                  </label>
-                  <input
-                    type="email"
-                    className="form-control"
-                    id="email"
-                    value={formData.contacto.email || ""}
-                    onChange={handleChangeContacto}
-                    required
-                  />
-                </div>
-                <div className="mb-3">
-                  <label htmlFor="telefono" className="form-label">
-                    Teléfono
-                  </label>
-                  <input
-                    type="text"
-                    className="form-control"
-                    id="telefono"
-                    value={formData.contacto.telefono || ""}
-                    onChange={handleChangeContacto}
-                    required
-                  />
-                </div>
-                <div className="mb-3">
-                  <label htmlFor="pais" className="form-label">
-                    País
-                  </label>
-                  <input
-                    type="text"
-                    className="form-control"
-                    id="pais"
-                    value={formData.contacto.pais || ""}
-                    onChange={handleChangeContacto}
-                    required
-                  />
-                </div>
-              </div>
-            </div>
-          </form>
-        </Modal.Body>
-        <Modal.Footer>
-          <Button variant="danger" onClick={handleClose}>
-            Cancelar
-          </Button>
-          <Button variant="success" onClick={handleConfirm}>
-            Confirmar
-          </Button>
-        </Modal.Footer>
-      </Modal>
-      <Modal show={showDeleteModal} onHide={handleCloseDeleteModal} backdrop="static">
-        <Modal.Header closeButton>
-          <Modal.Title>Confirmar Eliminación</Modal.Title>
-        </Modal.Header>
-        <Modal.Body>¿Está seguro de que desea eliminar este cliente?</Modal.Body>
-        <Modal.Footer>
-          <Button variant="secondary" onClick={handleCloseDeleteModal}>
-            Cancelar
-          </Button>
-          <Button variant="danger" onClick={handleConfirmDelete}>
-            Eliminar
-          </Button>
-        </Modal.Footer>
-      </Modal>
+            </form>
+          </div>
+        </ModalTemplate>
+      )}
+
+      {showDeleteModal && (
+        <ModalTemplate
+          show
+          title="Confirmar Eliminación"
+          onClose={handleCloseDeleteModal}
+          onSubmit={(e) => {
+            e.preventDefault();
+            handleConfirmDelete();
+          }}>
+          <p>¿Está seguro de que desea eliminar este cliente?</p>
+        </ModalTemplate>
+      )}
     </div>
   );
 };
