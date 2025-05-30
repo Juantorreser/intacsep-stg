@@ -1,7 +1,6 @@
 import React, {useState, useEffect} from "react";
 import Sidebar from "../Sidebar";
-import Modal from "react-bootstrap/Modal";
-import Button from "react-bootstrap/Button";
+import ModalTemplate from "../ModalTemplate";
 
 const RolePage = () => {
   const [roles, setRoles] = useState([]);
@@ -286,113 +285,86 @@ const RolePage = () => {
         </div>
       </div>
       {/* Modal for Creating New Role */}
-      <div
-        className={`modal fade ${showModal ? "show d-block" : ""}`}
-        tabIndex="-1"
-        style={{display: showModal ? "block" : "none"}}>
-        <div className="modal-dialog modal-dialog-centered">
-          <div className="modal-content">
-            <div className="modal-header">
-              <h5 className="modal-title">Crear Rol</h5>
-              <button
-                type="button"
-                className="btn-close"
-                onClick={() => setShowModal(false)}></button>
-            </div>
-            <form onSubmit={handleCreate}>
-              <div className="modal-body">
-                <div className="mb-3">
-                  <label htmlFor="roleName" className="form-label">
-                    Nombre
-                  </label>
-                  <input
-                    type="text"
-                    id="roleName"
-                    name="name"
-                    className="form-control"
-                    value={newRole.name}
-                    onChange={(e) => handleInputChange(e, setNewRole)}
-                    placeholder="Nombre del rol"
-                    required
-                  />
-                </div>
-                {/* Permissions */}
-                <div className="mb-3">
-                  <label className="form-label fw-bold">Permisos</label>
-                  <div className="table-responsive">
-                    <table className="table table-bordered">
-                      <thead className="table-light">
-                        <tr>
-                          <th>Módulo</th>
-                          <th className="text-center">Create</th>
-                          <th className="text-center">Read</th>
-                          <th className="text-center">Update</th>
-                          <th className="text-center">Delete</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {Object.entries(newRole)
-                          .filter(
-                            ([key, val]) =>
-                              typeof val === "object" && val !== null && "create" in val
-                          )
-                          .map(([key, perms]) => (
-                            <tr key={key}>
-                              <td className="text-capitalize">{key.replace(/_/g, " ")}</td>
-                              {["create", "read", "update", "delete"].map((action) => (
-                                <td className="text-center" key={action}>
-                                  <input
-                                    type="checkbox"
-                                    checked={newRole[key][action]}
-                                    onChange={(e) =>
-                                      setNewRole((prev) => ({
-                                        ...prev,
-                                        [key]: {
-                                          ...prev[key],
-                                          [action]: e.target.checked,
-                                        },
-                                      }))
-                                    }
-                                  />
-                                </td>
-                              ))}
-                            </tr>
-                          ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              </div>
-              <div className="modal-footer">
-                <button
-                  type="button"
-                  className="btn btn-danger px-2"
-                  onClick={() => setShowModal(false)}>
-                  Cancelar
-                </button>
-                <button type="submit" className="btn btn-success px-4">
-                  Crear
-                </button>
-              </div>
-            </form>
+      {showModal && (
+        <ModalTemplate
+          show={showModal}
+          title="Crear Rol"
+          onClose={() => setShowModal(false)}
+          onSubmit={handleCreate}>
+          <div className="mb-3">
+            <label htmlFor="roleName" className="form-label">
+              Nombre
+            </label>
+            <input
+              type="text"
+              id="roleName"
+              name="name"
+              className="form-control"
+              value={newRole.name}
+              onChange={(e) => handleInputChange(e, setNewRole)}
+              placeholder="Nombre del rol"
+              required
+            />
           </div>
-        </div>
-      </div>
+
+          <div className="mb-3">
+            <label className="form-label fw-bold">Permisos</label>
+            <div className="table-responsive" style={{maxHeight: "300px", overflowY: "auto"}}>
+              <table className="table table-bordered table-sm">
+                <thead className="table-light sticky-top bg-light">
+                  <tr>
+                    <th>Módulo</th>
+                    <th className="text-center">Crear</th>
+                    <th className="text-center">Ver</th>
+                    <th className="text-center">Editar</th>
+                    <th className="text-center">Eliminar</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {Object.entries(newRole)
+                    .filter(([key, val]) => typeof val === "object" && "create" in val)
+                    .map(([key, perms]) => (
+                      <tr key={key}>
+                        <td className="text-capitalize">{key.replace(/_/g, " ")}</td>
+                        {["create", "read", "update", "delete"].map((action) => (
+                          <td className="text-center" key={action}>
+                            <input
+                              type="checkbox"
+                              checked={newRole[key][action]}
+                              onChange={(e) =>
+                                setNewRole((prev) => ({
+                                  ...prev,
+                                  [key]: {
+                                    ...prev[key],
+                                    [action]: e.target.checked,
+                                  },
+                                }))
+                              }
+                            />
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </ModalTemplate>
+      )}
+
       {/* Delete Modal */}
-      <Modal show={showDeleteModal} onHide={handleCloseDeleteModal} backdrop="static">
-        <Modal.Header closeButton>
-          <Modal.Title>Confirmar Eliminación</Modal.Title>
-        </Modal.Header>
-        <Modal.Body>¿Está seguro de que desea eliminar este rol?</Modal.Body>
-        <Modal.Footer>
-          <Button variant="secondary" onClick={handleCloseDeleteModal}>
-            Cancelar
-          </Button>
-          <Button variant="danger" onClick={() => handleConfirmDelete(idToDelete)}>
-            Eliminar
-          </Button>
-        </Modal.Footer>
-      </Modal>
+      {showDeleteModal && (
+        <ModalTemplate
+          show={showDeleteModal}
+          title="Confirmar Eliminación"
+          onClose={handleCloseDeleteModal}
+          onSubmit={(e) => {
+            e.preventDefault();
+            handleConfirmDelete(idToDelete);
+          }}>
+          <p>¿Está seguro de que desea eliminar este rol?</p>
+        </ModalTemplate>
+      )}
     </section>
   );
 };
