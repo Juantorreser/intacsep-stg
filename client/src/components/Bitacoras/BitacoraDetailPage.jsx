@@ -1196,7 +1196,7 @@ const BitacoraDetailPage = ({edited}) => {
                   role="tabpanel"
                   aria-labelledby="detalles-tab">
                   <div className="card-body">
-                    <div className="row ms-1">
+                    <div className="row">
                       {/* Column 1 */}
                       <div className="col-md-6">
                         <h6 className="card-subtitle mb-2">
@@ -1211,18 +1211,6 @@ const BitacoraDetailPage = ({edited}) => {
                         <h6 className="card-subtitle mb-2">
                           <strong>Estatus:</strong> {capitalizeFirstLetter(bitacora.status)}
                         </h6>
-                        {/* <h6 className="card-subtitle mb-2">
-                                    <strong>ID Cliente:</strong> {cliente.ID_Cliente}
-                                </h6> */}
-                        {/* <h6 className="card-subtitle mb-2">
-                        <strong>Operador:</strong> {bitacora.operador}
-                      </h6>
-                      <h6 className="card-subtitle mb-2">
-                        <strong>Teléfono:</strong> {bitacora.telefono}
-                      </h6>
-                      <h6 className="card-subtitle mb-2">
-                        <strong>Linea Transporte:</strong> {bitacora.linea_transporte}
-                      </h6> */}
                       </div>
 
                       {/* Column 4 */}
@@ -1236,17 +1224,49 @@ const BitacoraDetailPage = ({edited}) => {
                         <h6 className="card-subtitle mb-2">
                           <strong>Destino:</strong> {bitacora.destino}
                         </h6>
-                        {/* <h6 className="card-subtitle mb-2">
-                        <strong>Enlace:</strong> {bitacora.enlace}
-                      </h6>
-                      <h6 className="card-subtitle mb-2">
-                        <strong>ID Acceso:</strong> {bitacora.id_acceso}
-                      </h6>
-                      <h6 className="card-subtitle mb-2">
-                        <strong>Contraseña Acceso:</strong> {bitacora.contra_acceso}
-                      </h6> */}
                       </div>
                     </div>
+                    <hr />
+                    {bitacora.custodia && (
+                      <div className="mt-4 border-top pt-3">
+
+                        <div className="row">
+                          <div className="col-md-6">
+                            <p>
+                              <strong>Custodio 1:</strong>{" "}
+                              {bitacora.custodia.custodio1_nombre || "--"}
+                            </p>
+                            <p>
+                              <strong>Teléfono Custodio 1:</strong>{" "}
+                              {bitacora.custodia.custodio1_telefono || "--"}
+                            </p>
+                            <p>
+                              <strong>Custodio 2:</strong>{" "}
+                              {bitacora.custodia.custodio2_nombre || "--"}
+                            </p>
+                            <p>
+                              <strong>Teléfono Custodio 2:</strong>{" "}
+                              {bitacora.custodia.custodio2_telefono || "--"}
+                            </p>
+                          </div>
+
+                          <div className="col-md-6">
+                            <p>
+                              <strong>Placa:</strong> {bitacora.custodia.placa || "--"}
+                            </p>
+                            <p>
+                              <strong>Modelo:</strong> {bitacora.custodia.modelo || "--"}
+                            </p>
+                            <p>
+                              <strong>Color:</strong> {bitacora.custodia.color || "--"}
+                            </p>
+                            <p>
+                              <strong>Marca:</strong> {bitacora.custodia.marca || "--"}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                     <hr />
                     {/* New Row for Inicio Monitoreo, Final Monitoreo, and Iniciar button */}
                     {/* <div className="row mt-3 mx-1">
