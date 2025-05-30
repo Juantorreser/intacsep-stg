@@ -464,16 +464,14 @@ app.post("/bitacora", async (req, res) => {
   const data = req.body;
 
   try {
-    // Fetch and update the sequence number
     const sequence = await BitSequence.findOneAndUpdate(
       { name: "bitacora_id" },
       { $inc: { sequence_value: 1 } },
-      { new: true, upsert: true } // Create if not exists
+      { new: true, upsert: true }
     );
 
     const sequenceNumber = sequence.sequence_value.toString().padStart(6, "0");
 
-    // Create new Bitacora instance with updated data structure
     const newItem = new Bitacora({
       bitacora_id: sequenceNumber,
       folio_servicio: data.folio_servicio,
@@ -506,6 +504,20 @@ app.post("/bitacora", async (req, res) => {
       finalMonitoreo: data.finalMonitoreo ? new Date(data.finalMonitoreo) : null,
       status: data.status || "creada",
       eventos: data.eventos || [],
+
+      // 🆕 Inject only if it's custodia física
+      ...(data.monitoreo === "Custodia fisica" && {
+        custodia: {
+          custodio1_nombre: data.custodia?.custodio1_nombre,
+          custodio1_telefono: data.custodia?.custodio1_telefono,
+          custodio2_nombre: data.custodia?.custodio2_nombre,
+          custodio2_telefono: data.custodia?.custodio2_telefono,
+          placa: data.custodia?.placa,
+          modelo: data.custodia?.modelo,
+          color: data.custodia?.color,
+          marca: data.custodia?.marca,
+        },
+      }),
     });
 
     await newItem.save();
@@ -515,6 +527,7 @@ app.post("/bitacora", async (req, res) => {
     res.status(500).send("Error creating bitacora");
   }
 });
+
 
 app.get("/bitacora/:id", async (req, res) => {
   try {

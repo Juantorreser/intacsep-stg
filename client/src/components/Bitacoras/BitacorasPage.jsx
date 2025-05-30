@@ -20,6 +20,50 @@ import {
   fetchOperadores,
 } from "../../utils/api";
 
+const defaultFormData = {
+  bitacora_id: "",
+  folio_servicio: "",
+  linea_transporte: ".",
+  destino: "",
+  origen: "",
+  monitoreo: "",
+  cliente: "",
+  enlace: ".",
+  id_acceso: ".",
+  contra_acceso: ".",
+  remolque: {
+    eco: "",
+    placa: "",
+    color: "",
+    capacidad: "",
+    sello: "",
+  },
+  tracto: {
+    eco: "",
+    placa: "",
+    marca: "",
+    modelo: "",
+    color: "",
+    tipo: "",
+  },
+  operador: ".",
+  telefono: ".",
+  inicioMonitoreo: "",
+  finalMonitoreo: "",
+  status: "nueva",
+  eventos: [],
+  custodia: {
+    custodio1_nombre: "",
+    custodio1_telefono: "",
+    custodio2_nombre: "",
+    custodio2_telefono: "",
+    placa: "",
+    modelo: "",
+    color: "",
+    marca: "",
+  },
+};
+
 const BitacorasPage = () => {
   const baseUrl = import.meta.env.VITE_BASE_URL;
   const {user} = useAuth();
@@ -57,39 +101,7 @@ const BitacorasPage = () => {
   const [selectedTransporte, setSelectedTransporte] = useState(null);
   const [showFrecuenciaModal, setShowFrecuenciaModal] = useState(false);
   const [selectedFrecuenciaBitacora, setSelectedFrecuenciaBitacora] = useState(null);
-  const [formData, setFormData] = useState({
-    bitacora_id: "",
-    folio_servicio: "",
-    linea_transporte: ".",
-    destino: "",
-    origen: "",
-    monitoreo: "",
-    cliente: "",
-    enlace: ".",
-    id_acceso: ".",
-    contra_acceso: ".",
-    remolque: {
-      eco: "",
-      placa: "",
-      color: "",
-      capacidad: "",
-      sello: "",
-    },
-    tracto: {
-      eco: "",
-      placa: "",
-      marca: "",
-      modelo: "",
-      color: "",
-      tipo: "",
-    },
-    operador: ".",
-    telefono: ".",
-    inicioMonitoreo: "",
-    finalMonitoreo: "",
-    status: "nueva",
-    eventos: [],
-  });
+  const [formData, setFormData] = useState(defaultFormData);
 
   useEffect(() => {
     const initialize = async () => {
@@ -191,6 +203,7 @@ const BitacorasPage = () => {
 
   const handleChange = (e) => {
     const {id, value} = e.target;
+
     if (id.startsWith("remolque") || id.startsWith("tracto")) {
       const [field, key] = id.split("_");
       setFormData((prevData) => ({
@@ -198,6 +211,15 @@ const BitacorasPage = () => {
         [field]: {
           ...prevData[field],
           [key]: value,
+        },
+      }));
+    } else if (id.startsWith("custodia")) {
+      const field = id.replace("custodia_", "");
+      setFormData((prevData) => ({
+        ...prevData,
+        custodia: {
+          ...prevData.custodia,
+          [field]: value,
         },
       }));
     } else {
@@ -219,6 +241,8 @@ const BitacorasPage = () => {
       });
       if (response.ok) {
         // After successful creation, you might want to refetch bitacoras
+        setFormData(defaultFormData); // 💥 Reset all fields
+
         try {
           setLoadingBitacoras(true);
           const [
@@ -266,6 +290,7 @@ const BitacorasPage = () => {
         } finally {
           setLoadingBitacoras(false);
         }
+
         handleModalToggle();
       } else {
         console.error("Failed to create bitácora:", response.statusText);
@@ -910,96 +935,191 @@ const BitacorasPage = () => {
           title="Nueva Bitácora"
           onClose={handleModalToggle}
           onSubmit={handleSubmit}>
-          {/* Tipo de Monitoreo */}
-          <div className="mb-3">
-            <label htmlFor="monitoreo" className="form-label">
-              Tipo de Monitoreo
-            </label>
-            <select
-              className="form-select"
-              id="monitoreo"
-              value={formData.monitoreo}
-              onChange={handleChange}
-              required>
-              <option value="">Selecciona una opción</option>
-              {monitoreos.map((monitoreo) => (
-                <option key={monitoreo._id} value={monitoreo.tipoMonitoreo}>
-                  {monitoreo.tipoMonitoreo}
-                </option>
-              ))}
-            </select>
-          </div>
+          <div style={{maxHeight: "60vh", overflowY: "auto", paddingRight: "6px"}}>
+            {/* Tipo de Monitoreo */}
+            <div className="mb-3">
+              <label htmlFor="monitoreo" className="form-label">
+                Tipo de Monitoreo
+              </label>
+              <select
+                className="form-select"
+                id="monitoreo"
+                value={formData.monitoreo}
+                onChange={handleChange}
+                required>
+                <option value="">Selecciona una opción</option>
+                {monitoreos.map((monitoreo) => (
+                  <option key={monitoreo._id} value={monitoreo.tipoMonitoreo}>
+                    {monitoreo.tipoMonitoreo}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-          {/* Cliente */}
-          <div className="mb-3">
-            <label htmlFor="cliente" className="form-label">
-              Cliente
-            </label>
-            <select
-              className="form-select"
-              id="cliente"
-              value={formData.cliente}
-              onChange={handleChange}
-              required>
-              <option value="">Selecciona una opción</option>
-              {clients.map((client) => (
-                <option key={client._id} value={client.razon_social}>
-                  {client.razon_social}
-                </option>
-              ))}
-            </select>
-          </div>
+            {/* Cliente */}
+            <div className="mb-3">
+              <label htmlFor="cliente" className="form-label">
+                Cliente
+              </label>
+              <select
+                className="form-select"
+                id="cliente"
+                value={formData.cliente}
+                onChange={handleChange}
+                required>
+                <option value="">Selecciona una opción</option>
+                {clients.map((client) => (
+                  <option key={client._id} value={client.razon_social}>
+                    {client.razon_social}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-          <div className="form-group mb-3">
-            <label htmlFor="folio_servicio">Folio de Servicio</label>
-            <input
-              id="folio_servicio"
-              type="text"
-              value={formData.folio_servicio}
-              onChange={handleChange}
-              className="form-control"
-              required
-            />
-          </div>
+            <div className="form-group mb-3">
+              <label htmlFor="folio_servicio">Folio de Servicio</label>
+              <input
+                id="folio_servicio"
+                type="text"
+                value={formData.folio_servicio}
+                onChange={handleChange}
+                className="form-control"
+                required
+              />
+            </div>
 
-          {/* Origen */}
-          <div className="mb-3">
-            <label htmlFor="origen" className="form-label">
-              Origen
-            </label>
-            <select
-              id="origen"
-              className="form-select"
-              value={formData.origen}
-              onChange={handleChange}
-              required>
-              <option value="">Seleccionar</option>
-              {origenes.map((origen) => (
-                <option key={origen._id} value={origen.name}>
-                  {origen.name}
-                </option>
-              ))}
-            </select>
-          </div>
+            {/* Origen */}
+            <div className="mb-3">
+              <label htmlFor="origen" className="form-label">
+                Origen
+              </label>
+              <select
+                id="origen"
+                className="form-select"
+                value={formData.origen}
+                onChange={handleChange}
+                required>
+                <option value="">Seleccionar</option>
+                {origenes.map((origen) => (
+                  <option key={origen._id} value={origen.name}>
+                    {origen.name}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-          {/* Destino */}
-          <div className="mb-3">
-            <label htmlFor="destino" className="form-label">
-              Destino
-            </label>
-            <select
-              id="destino"
-              className="form-select"
-              value={formData.destino}
-              onChange={handleChange}
-              required>
-              <option value="">Seleccionar</option>
-              {destinos.map((destino) => (
-                <option key={destino._id} value={destino.name}>
-                  {destino.name}
-                </option>
-              ))}
-            </select>
+            {/* Destino */}
+            <div className="mb-3">
+              <label htmlFor="destino" className="form-label">
+                Destino
+              </label>
+              <select
+                id="destino"
+                className="form-select"
+                value={formData.destino}
+                onChange={handleChange}
+                required>
+                <option value="">Seleccionar</option>
+                {destinos.map((destino) => (
+                  <option key={destino._id} value={destino.name}>
+                    {destino.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            {formData.monitoreo === "Custodia fisica" && (
+              <>
+                <div className="mb-3">
+                  <label className="form-label">Nombre de Primer Custodio</label>
+                  <input
+                    type="text"
+                    id="custodia_custodio1_nombre"
+                    className="form-control"
+                    value={formData.custodia.custodio1_nombre}
+                    onChange={handleChange}
+                    required
+                  />
+                </div>
+
+                <div className="mb-3">
+                  <label className="form-label">Teléfono Primer Custodio</label>
+                  <input
+                    type="text"
+                    id="custodia_custodio1_telefono"
+                    className="form-control"
+                    value={formData.custodia.custodio1_telefono}
+                    onChange={handleChange}
+                    required
+                  />
+                </div>
+
+                <div className="mb-3">
+                  <label className="form-label">Nombre de Segundo Custodio</label>
+                  <input
+                    type="text"
+                    id="custodia_custodio2_nombre"
+                    className="form-control"
+                    value={formData.custodia.custodio2_nombre}
+                    onChange={handleChange}
+                  />
+                </div>
+
+                <div className="mb-3">
+                  <label className="form-label">Teléfono Segundo Custodio</label>
+                  <input
+                    type="text"
+                    id="custodia_custodio2_telefono"
+                    className="form-control"
+                    value={formData.custodia.custodio2_telefono}
+                    onChange={handleChange}
+                  />
+                </div>
+
+                <div className="mb-3">
+                  <label className="form-label">Placa</label>
+                  <input
+                    type="text"
+                    id="custodia_placa"
+                    className="form-control"
+                    value={formData.custodia.placa}
+                    onChange={handleChange}
+                  />
+                </div>
+
+                <div className="mb-3">
+                  <label className="form-label">Modelo</label>
+                  <input
+                    type="text"
+                    id="custodia_modelo"
+                    className="form-control"
+                    value={formData.custodia.modelo}
+                    onChange={handleChange}
+                  />
+                </div>
+
+                <div className="mb-3">
+                  <label className="form-label">Color</label>
+                  <input
+                    type="text"
+                    id="custodia_color"
+                    className="form-control"
+                    value={formData.custodia.color}
+                    onChange={handleChange}
+                  />
+                </div>
+
+                <div className="mb-3">
+                  <label className="form-label">Marca</label>
+                  <input
+                    type="text"
+                    id="custodia_marca"
+                    className="form-control"
+                    value={formData.custodia.marca}
+                    onChange={handleChange}
+                  />
+                </div>
+              </>
+            )}
           </div>
         </ModalTemplate>
       )}
