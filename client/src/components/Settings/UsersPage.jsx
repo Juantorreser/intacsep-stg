@@ -1,8 +1,5 @@
-import React, {useState, useEffect} from "react";
-import Header from "../Header";
+import {useState, useEffect} from "react";
 import Sidebar from "../Sidebar";
-import Modal from "react-bootstrap/Modal";
-import Button from "react-bootstrap/Button";
 import {useAuth} from "../../context/AuthContext";
 import ModalTemplate from "../ModalTemplate";
 
@@ -209,9 +206,7 @@ const UsersPage = () => {
         <div className="content-wrapper">
           <div className="page-header">
             <h1 className="fs-3 fw-semibold text-black text-center m-0">Sistema - Usuarios</h1>
-            <button
-              className="new-btn"
-              onClick={handleCreateNew}>
+            <button className="new-btn" onClick={handleCreateNew}>
               <i className="fas fa-plus"></i>
             </button>
           </div>
@@ -237,8 +232,8 @@ const UsersPage = () => {
                       <td>{user.lastName}</td>
                       <td>{user.phone}</td>
                       <td>{user.role}</td>
-                      <td className="text-end d-flex">
-                        <button className="btn btn-primary me-2" onClick={() => handleEdit(user)}>
+                      <td className="d-flex items-center w-100 gap-2 justify-content-end">
+                        <button className="btn btn-primary" onClick={() => handleEdit(user)}>
                           <i className="fas fa-edit"></i>
                         </button>
                         <button className="btn btn-danger" onClick={() => handleDelete(user._id)}>
@@ -254,172 +249,124 @@ const UsersPage = () => {
 
           {/* Modal with Backdrop */}
           {isModalVisible && (
-            <>
-              <div
-                className="modal fade show d-block"
-                id="userModal"
-                tabIndex="-1"
-                aria-labelledby="userModalLabel"
-                aria-hidden="true">
-                <div className="modal-dialog">
-                  <div className="modal-content">
-                    <div className="modal-header">
-                      <h5 className="modal-title" id="userModalLabel">
-                        {editingUserId ? "Editar Usuario" : "Crear Nuevo Usuario"}
-                      </h5>
-                      <button
-                        type="button"
-                        className="btn-close"
-                        onClick={closeModal}
-                        aria-label="Close"></button>
-                    </div>
-                    <div className="modal-body">
-                      <form onSubmit={handleSubmit}>
-                        {/* Email */}
-                        <div className="mb-3">
-                          <label htmlFor="email" className="form-label">
-                            Email
-                          </label>
-                          <input
-                            type="email"
-                            className="form-control"
-                            id="email"
-                            value={formData.email}
-                            onChange={handleChange}
-                            required
-                          />
-                        </div>
-
-                        {/* Password */}
-                        <div className="mb-3">
-                          <label htmlFor="password" className="form-label">
-                            Contraseña
-                          </label>
-                          <input
-                            type="password"
-                            className="form-control"
-                            id="password"
-                            value={formData.password}
-                            onChange={handleChange}
-                            required={!editingUserId}
-                          />
-                        </div>
-
-                        {/* First Name */}
-                        <div className="mb-3">
-                          <label htmlFor="firstName" className="form-label">
-                            Nombre
-                          </label>
-                          <input
-                            type="text"
-                            className="form-control"
-                            id="firstName"
-                            value={formData.firstName}
-                            onChange={handleChange}
-                            required
-                          />
-                        </div>
-
-                        {/* Last Name */}
-                        <div className="mb-3">
-                          <label htmlFor="lastName" className="form-label">
-                            Apellido
-                          </label>
-                          <input
-                            type="text"
-                            className="form-control"
-                            id="lastName"
-                            value={formData.lastName}
-                            onChange={handleChange}
-                            required
-                          />
-                        </div>
-
-                        {/* Phone */}
-                        <div className="mb-3">
-                          <label htmlFor="phone" className="form-label">
-                            Telefono
-                          </label>
-                          <input
-                            type="text"
-                            className="form-control"
-                            id="phone"
-                            value={formData.phone}
-                            onChange={handleChange}
-                            required
-                          />
-                        </div>
-
-                        {/* Country Key
-                                                <div className="mb-3">
-                                                    <label
-                                                        htmlFor="countryKey"
-                                                        className="form-label">
-                                                        Clave del País
-                                                    </label>
-                                                    <input
-                                                        type="text"
-                                                        className="form-control"
-                                                        id="countryKey"
-                                                        value={formData.countryKey}
-                                                        onChange={handleChange}
-                                                        required
-                                                    />
-                                                </div> */}
-
-                        {/* Role */}
-                        <div className="mb-3">
-                          <label htmlFor="role" className="form-label">
-                            Rol
-                          </label>
-                          <select
-                            id="role"
-                            className="form-select"
-                            value={formData.role}
-                            onChange={handleChange}
-                            required>
-                            <option value="">Seleccione un rol</option>
-                            {roles.map((role) => (
-                              <option key={role._id} value={role.name}>
-                                {role.name}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-
-                        <div className="modal-footer">
-                          <button type="button" className="btn btn-danger px-" onClick={closeModal}>
-                            Cancelar
-                          </button>
-                          <button type="submit" className="btn btn-success px-4">
-                            {editingUserId ? "Guardar" : "Crear"}
-                          </button>
-                        </div>
-                      </form>
-                    </div>
-                  </div>
-                </div>
+            <ModalTemplate
+              show={isModalVisible}
+              title={editingUserId ? "Editar Usuario" : "Crear Nuevo Usuario"}
+              onClose={closeModal}
+              onSubmit={handleSubmit}>
+              {/* Email */}
+              <div className="mb-3">
+                <label htmlFor="email" className="form-label">
+                  Email
+                </label>
+                <input
+                  type="email"
+                  className="form-control"
+                  id="email"
+                  value={formData.email}
+                  onChange={handleChange}
+                  required
+                />
               </div>
-              <div className="modal-backdrop fade show"></div>
-            </>
+
+              {/* Password */}
+              <div className="mb-3">
+                <label htmlFor="password" className="form-label">
+                  Contraseña
+                </label>
+                <input
+                  type="password"
+                  className="form-control"
+                  id="password"
+                  value={formData.password}
+                  onChange={handleChange}
+                  required={!editingUserId}
+                />
+              </div>
+
+              {/* First Name */}
+              <div className="mb-3">
+                <label htmlFor="firstName" className="form-label">
+                  Nombre
+                </label>
+                <input
+                  type="text"
+                  className="form-control"
+                  id="firstName"
+                  value={formData.firstName}
+                  onChange={handleChange}
+                  required
+                />
+              </div>
+
+              {/* Last Name */}
+              <div className="mb-3">
+                <label htmlFor="lastName" className="form-label">
+                  Apellido
+                </label>
+                <input
+                  type="text"
+                  className="form-control"
+                  id="lastName"
+                  value={formData.lastName}
+                  onChange={handleChange}
+                  required
+                />
+              </div>
+
+              {/* Phone */}
+              <div className="mb-3">
+                <label htmlFor="phone" className="form-label">
+                  Teléfono
+                </label>
+                <input
+                  type="text"
+                  className="form-control"
+                  id="phone"
+                  value={formData.phone}
+                  onChange={handleChange}
+                  required
+                />
+              </div>
+
+              {/* Role */}
+              <div className="mb-3">
+                <label htmlFor="role" className="form-label">
+                  Rol
+                </label>
+                <select
+                  id="role"
+                  className="form-select"
+                  value={formData.role}
+                  onChange={handleChange}
+                  required>
+                  <option value="">Seleccione un rol</option>
+                  {roles.map((role) => (
+                    <option key={role._id} value={role.name}>
+                      {role.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+            </ModalTemplate>
           )}
         </div>
       </div>
       {/* Delete Modal */}
-      <Modal show={showDeleteModal} onHide={handleCloseDeleteModal} backdrop="static">
-        <Modal.Header closeButton>
-          <Modal.Title>Confirmar Eliminación</Modal.Title>
-        </Modal.Header>
-        <Modal.Body>¿Está seguro de que desea eliminar este usuario?</Modal.Body>
-        <Modal.Footer>
-          <Button variant="secondary" onClick={handleCloseDeleteModal}>
-            Cancelar
-          </Button>
-          <Button variant="danger" onClick={() => handleConfirmDelete(idToDelete)}>
-            Eliminar
-          </Button>
-        </Modal.Footer>
-      </Modal>
+      {showDeleteModal && (
+        <ModalTemplate
+          show={showDeleteModal}
+          title="Confirmar Eliminación"
+          onClose={handleCloseDeleteModal}
+          onSubmit={(e) => {
+            e.preventDefault();
+            handleConfirmDelete(idToDelete);
+          }}>
+          <p>¿Está seguro de que desea eliminar este usuario?</p>
+
+        </ModalTemplate>
+      )}
     </section>
   );
 };
