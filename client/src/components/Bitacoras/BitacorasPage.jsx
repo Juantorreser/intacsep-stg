@@ -829,116 +829,77 @@ const BitacorasPage = () => {
 
       {/* Print PDF Select Modal */}
       <>
-        {showPrintModal && (
-          <>
-            <div
-              className="modal fade show d-block"
-              tabIndex="-1"
-              aria-labelledby="exampleModalLabel"
-              aria-hidden="true">
-              <div className="modal-dialog">
-                <div className="modal-content">
-                  <div className="modal-body w-100">
-                    <button
-                      type="button"
-                      className="btn-close"
-                      aria-label="Close"
-                      onClick={handlePDFToggle}
-                      style={{
-                        position: "absolute",
-                        top: "15px",
-                        right: "15px",
-                      }}></button>
-                    <div className="w-100 col justify-content-center align-items-center">
-                      <img src="/logo2.png" alt="" width={50} />
-                      <p className="p-0 m-0"> Método de Impresión</p>
+        {showPrintModal && selectedBitacora && (
+          <ModalTemplate
+            show={showPrintModal}
+            title="Método de Impresión"
+            onClose={handlePDFToggle}
+            onSubmit={handlePDFSubmit}>
+            {/* PDF Option Form */}
+            <form onSubmit={handlePDFSubmit}>
+              {/* Radio Buttons */}
+              <div className="mb-3">
+                {(() => {
+                  const closedIds = getClosedTransportesFromEventos(selectedBitacora);
+                  const allClosed =
+                    selectedBitacora?.transportes?.every((t) => closedIds.includes(t.id)) ?? false;
+
+                  return (
+                    <div className="d-flex">
+                      <div className="d-flex w-100 gap-2">
+                        <input
+                          type="radio"
+                          id="all"
+                          name="radioOption"
+                          value="all"
+                          checked={selectedOption === "all"}
+                          onChange={handleRadioChange}
+                          disabled={!allClosed}
+                        />
+                        <label htmlFor="all" className={allClosed ? "" : "text-muted"}>
+                          Todos los transportes
+                        </label>
+                      </div>
+
+                      <div className="d-flex w-100 gap-2">
+                        <input
+                          type="radio"
+                          id="one"
+                          name="radioOption"
+                          value="one"
+                          checked={selectedOption === "one"}
+                          onChange={handleRadioChange}
+                        />
+                        <label htmlFor="one">Seleccionar transporte</label>
+                      </div>
                     </div>
-                    <hr />
-                    <form onSubmit={handlePDFSubmit}>
-                      {/* Radio Buttons */}
-                      <div className="mb-3">
-                        {/* Check if ALL transportes are closed via eventos */}
-                        {(() => {
-                          const closedIds = getClosedTransportesFromEventos(selectedBitacora);
-                          const allClosed =
-                            selectedBitacora?.transportes?.every((t) => closedIds.includes(t.id)) ??
-                            false;
-
-                          return (
-                            <>
-                              <div>
-                                <input
-                                  type="radio"
-                                  id="all"
-                                  name="radioOption"
-                                  value="all"
-                                  checked={selectedOption === "all"}
-                                  onChange={handleRadioChange}
-                                  disabled={!allClosed}
-                                />
-                                <label htmlFor="all" className={allClosed ? "" : "text-muted"}>
-                                  Todos los transportes {allClosed ? "" : ""}
-                                </label>
-                              </div>
-
-                              <div>
-                                <input
-                                  type="radio"
-                                  id="one"
-                                  name="radioOption"
-                                  value="one"
-                                  checked={selectedOption === "one"}
-                                  onChange={handleRadioChange}
-                                />
-                                <label htmlFor="one">Seleccionar transporte</label>
-                              </div>
-                            </>
-                          );
-                        })()}
-                      </div>
-
-                      {/* Conditionally Render Select Dropdown */}
-                      {selectedOption === "one" && selectedBitacora?.transportes?.length > 0 && (
-                        <div className="mb-3">
-                          <label htmlFor="selectValue" className="form-label">
-                            ID del transporte
-                          </label>
-                          <select
-                            id="selectValue"
-                            className="form-select"
-                            value={formData.selectValue}
-                            onChange={handleSelectChange}>
-                            <option value="">Seleccionar ID</option>
-                            {getClosedTransportesFromEventos(selectedBitacora).map(
-                              (transporteId) => (
-                                <option value={transporteId} key={transporteId}>
-                                  {transporteId.split("_")[1]} - {transporteId.split("_")[2]}
-                                </option>
-                              )
-                            )}
-                          </select>
-                        </div>
-                      )}
-
-                      {/* Submit Button */}
-                      <div className="d-flex justify-content-end">
-                        <button
-                          type="button"
-                          className="btn btn-danger me-3 px-2"
-                          onClick={handlePDFToggle}>
-                          Cancelar
-                        </button>
-                        <button type="submit" className="btn btn-success px-4">
-                          Imprimir
-                        </button>
-                      </div>
-                    </form>
-                  </div>
-                </div>
+                  );
+                })()}
               </div>
-            </div>
-            <div className="modal-backdrop fade show"></div>
-          </>
+
+              {/* Transporte Select if "one" option selected */}
+              {selectedOption === "one" && selectedBitacora?.transportes?.length > 0 && (
+                <div className="mb-3">
+                  <label htmlFor="selectValue" className="form-label">
+                    ID del transporte
+                  </label>
+                  <select
+                    id="selectValue"
+                    className="form-select"
+                    value={formData.selectValue}
+                    onChange={handleSelectChange}
+                    required>
+                    <option value="">Seleccionar ID</option>
+                    {getClosedTransportesFromEventos(selectedBitacora).map((transporteId) => (
+                      <option value={transporteId} key={transporteId}>
+                        {transporteId.split("_")[1]} - {transporteId.split("_")[2]}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+            </form>
+          </ModalTemplate>
         )}
       </>
 

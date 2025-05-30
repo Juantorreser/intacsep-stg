@@ -4,6 +4,7 @@ import Sidebar from "../Sidebar";
 import Modal from "react-bootstrap/Modal";
 import Button from "react-bootstrap/Button";
 import {useAuth} from "../../context/AuthContext";
+import ModalTemplate from "../ModalTemplate";
 
 const UsersPage = () => {
   const [users, setUsers] = useState([]);
