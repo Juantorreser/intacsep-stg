@@ -401,10 +401,17 @@ const BitacorasPage = () => {
     if (parseInt(bitacora.bitacora_id) <= oldBitacorasCount) {
       root.render(<OldBitacoraDetail bitacora={bitacora} />);
     } else {
-      if (transporteId == "") {
-        root.render(<BitacoraDetail bitacora={bitacora} />);
+      if (transporteId === "") {
+        root.render(<BitacoraDetail bitacora={bitacora} origenes={origenes} destinos={destinos} />);
       } else {
-        root.render(<BitacoraDetail bitacora={bitacora} transporteId={selectedTransporte} />);
+        root.render(
+          <BitacoraDetail
+            bitacora={bitacora}
+            transporteId={selectedTransporte}
+            origenes={origenes}
+            destinos={destinos}
+          />
+        );
       }
     }
 

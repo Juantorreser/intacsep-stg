@@ -10,6 +10,7 @@ import "bootstrap/dist/js/bootstrap.bundle.min.js";
 import CreateTransporteModal from "./Transportes/CreateTransporteModal";
 import NewEventModal from "./Eventos/NewEventModal";
 import {createAuditoria, generateAuditoriasFromChanges} from "../../utils/auditoria";
+import {getLocationText} from "../../utils/api";
 
 const BitacoraDetailPage = ({edited}) => {
   const {id} = useParams();
@@ -1024,21 +1025,6 @@ const BitacoraDetailPage = ({edited}) => {
         );
       }
     }
-  };
-
-  const getLocationText = (field, optionsList) => {
-    if (!field) return "No especificado";
-
-    // Caso 1: ya es texto plano (bitácoras antiguas)
-    if (typeof field === "string" && !field.match(/^[0-9a-f]{24}$/i)) {
-      return field;
-    }
-
-    // Caso 2: es un Mongo ID, buscarlo en lista (bitácoras nuevas)
-    const match = optionsList.find((item) => item._id === field);
-    return match
-      ? `${match.nombre}, ${match.municipio}, ${match.estado}`
-      : "Ubicación no encontrada";
   };
 
   return (

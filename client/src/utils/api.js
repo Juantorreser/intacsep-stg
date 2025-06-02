@@ -69,7 +69,7 @@ export const fetchBitacoras = async (page, limit) => {
     return await response.json();
   } catch (e) {
     console.error("Error fetching bitacoras:", e);
-    return {bitacoras: [], totalItems: 0, totalPages: 1};
+    return { bitacoras: [], totalItems: 0, totalPages: 1 };
   }
 };
 
@@ -101,4 +101,15 @@ export const fetchMonitoreos = async () => {
   }
 };
 
+export const getLocationText = (field, list) => {
+  if (!field) return "No especificado";
 
+  if (typeof field === "string" && !field.match(/^[0-9a-f]{24}$/i)) {
+    return field; // plain text (legacy)
+  }
+
+  const found = list.find((l) => l._id === field);
+  return found
+    ? `${found.nombre}, ${found.municipio}, ${found.estado}`
+    : "Ubicación no encontrada";
+};
