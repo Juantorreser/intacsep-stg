@@ -201,7 +201,7 @@ const CreateTransporteModal = ({show, handleClose, addTransporte, transportes, b
               />
               <Form.Check
                 type="radio"
-                label="Automatico"
+                label="Automático"
                 name="automatic"
                 value="automatic"
                 checked={idMethod === "automatic"}
@@ -369,7 +369,7 @@ const CreateTransporteModal = ({show, handleClose, addTransporte, transportes, b
           </Form.Group>
           <h5>Datos</h5>
           <Form.Group className="mb-3">
-            <Form.Label>Linea de Transporte</Form.Label>
+            <Form.Label>Línea de Transporte</Form.Label>
             <Form.Control
               type="text"
               name="lineaTransporte"
@@ -390,7 +390,7 @@ const CreateTransporteModal = ({show, handleClose, addTransporte, transportes, b
           </Form.Group>
 
           <Form.Group className="mb-3">
-            <Form.Label>Telefono</Form.Label>
+            <Form.Label>Teléfono</Form.Label>
             <Form.Control
               type="text"
               name="telefono"
