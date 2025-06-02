@@ -942,42 +942,46 @@ app.get("/event_types", async (req, res) => {
 
 //Create a new evenType
 app.put("/event_types/:id", async (req, res) => {
+  const { evento, categoria, calificacion } = req.body;
+
   try {
     const updatedEvent = await EventType.findByIdAndUpdate(
       req.params.id,
-      { eventType: req.body.name },
-      { new: true } // Return the updated document
+      { evento, categoria, calificacion },
+      { new: true }
     );
+
     if (!updatedEvent) return res.status(404).json({ message: "Event not found" });
+
     res.json(updatedEvent);
   } catch (err) {
     res.status(400).json({ message: err.message });
   }
 });
 
-app.post("/event_types", async (req, res) => {
-  const eventType = req.body.eventType;
 
-  // Check if eventType already exists in a case-insensitive manner
+app.post("/event_types", async (req, res) => {
+  const { evento, categoria, calificacion } = req.body;
+
   try {
     const existingEventType = await EventType.findOne({
-      eventType: new RegExp(`^${eventType}$`, "i"),
+      evento: new RegExp(`^${evento}$`, "i"),
+      categoria: new RegExp(`^${categoria}$`, "i"),
+      calificacion: new RegExp(`^${calificacion}$`, "i"),
     });
+
     if (existingEventType) {
       return res.status(409).json({ message: "Event type already exists" });
     }
 
-    // Create a new event type if it does not exist
-    const event = new EventType({
-      eventType: eventType,
-    });
-
-    const newEvent = await event.save();
-    res.status(201).json(newEvent);
+    const newEvent = new EventType({ evento, categoria, calificacion });
+    const saved = await newEvent.save();
+    res.status(201).json(saved);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 });
+
 
 app.delete("/event_types/:id", async (req, res) => {
   try {
@@ -1073,8 +1077,8 @@ app.get("/origenes", async (req, res) => {
 // Create a new origen
 app.post("/origenes", async (req, res) => {
   try {
-    const { name } = req.body;
-    const newOrigen = new Origen({ name });
+    const { estado, municipio, nombre } = req.body;
+    const newOrigen = new Origen({ estado, municipio, nombre });
     const savedOrigen = await newOrigen.save();
     res.status(201).json(savedOrigen);
   } catch (e) {
@@ -1082,17 +1086,22 @@ app.post("/origenes", async (req, res) => {
   }
 });
 
+
 // Edit an existing origen
 app.put("/origenes/:id", async (req, res) => {
   try {
-    const { id } = req.params;
-    const { name } = req.body;
-    const updatedOrigen = await Origen.findByIdAndUpdate(id, { name }, { new: true });
+    const { estado, municipio, nombre } = req.body;
+    const updatedOrigen = await Origen.findByIdAndUpdate(
+      req.params.id,
+      { estado, municipio, nombre },
+      { new: true }
+    );
     res.json(updatedOrigen);
   } catch (e) {
     res.status(500).json({ message: "Failed to edit origen", error: e.message });
   }
 });
+
 
 // Delete an origen
 app.delete("/origenes/:id", async (req, res) => {
@@ -1118,7 +1127,8 @@ app.get("/destinos", async (req, res) => {
 // Create a new destino
 app.post("/destinos", async (req, res) => {
   try {
-    const newDestino = new Destino({ name: req.body.name });
+    const { estado, municipio, nombre } = req.body;
+    const newDestino = new Destino({ estado, municipio, nombre });
     const savedDestino = await newDestino.save();
     res.status(201).json(savedDestino);
   } catch (e) {
@@ -1126,12 +1136,14 @@ app.post("/destinos", async (req, res) => {
   }
 });
 
+
 // Edit a destino
 app.put("/destinos/:id", async (req, res) => {
   try {
+    const { estado, municipio, nombre } = req.body;
     const updatedDestino = await Destino.findByIdAndUpdate(
       req.params.id,
-      { name: req.body.name },
+      { estado, municipio, nombre },
       { new: true }
     );
     res.status(200).json(updatedDestino);
@@ -1139,6 +1151,7 @@ app.put("/destinos/:id", async (req, res) => {
     res.status(500).json({ message: "Error updating destino", error: e.message });
   }
 });
+
 
 // Delete a destino
 app.delete("/destinos/:id", async (req, res) => {

@@ -4,13 +4,12 @@ import ModalTemplate from "../ModalTemplate";
 
 const DestinoPage = () => {
   const [destinos, setDestinos] = useState([]);
-  const [newDestino, setNewDestino] = useState("");
+  const [formData, setFormData] = useState({estado: "", municipio: "", nombre: ""});
   const [idToDelete, setIdToDelete] = useState("");
-  const [showModal, setShowModal] = useState(false);
   const [currentDestino, setCurrentDestino] = useState(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [modalType, setModalType] = useState(""); // 'create' | 'edit'
   const baseUrl = import.meta.env.VITE_BASE_URL;
-  const [modalType, setModalType] = useState(""); // 'create' | 'edit' | ''
 
   useEffect(() => {
     const fetchDestinos = async () => {
@@ -33,6 +32,15 @@ const DestinoPage = () => {
     fetchDestinos();
   }, [baseUrl]);
 
+  const handleDelete = (id) => {
+    setIdToDelete(id);
+    setShowDeleteModal(true);
+  };
+
+  const handleCloseDeleteModal = () => {
+    setShowDeleteModal(false);
+  };
+
   const handleConfirmDelete = async (id) => {
     try {
       const response = await fetch(`${baseUrl}/destinos/${id}`, {
@@ -50,33 +58,21 @@ const DestinoPage = () => {
     }
   };
 
-  const handleDelete = (id) => {
-    setIdToDelete(id);
-    setShowDeleteModal(true);
-  };
-  const handleCloseDeleteModal = () => {
-    setShowDeleteModal(false);
-  };
-
   const handleCreate = async (e) => {
     e.preventDefault();
-
-    if (!newDestino) return;
-
     try {
       const response = await fetch(`${baseUrl}/destinos`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({name: newDestino}),
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify(formData),
         credentials: "include",
       });
 
       if (response.ok) {
-        const createdDestino = await response.json();
-        setDestinos([...destinos, createdDestino]);
-        setNewDestino(""); // Clear the input field
+        const created = await response.json();
+        setDestinos([...destinos, created]);
+        setFormData({estado: "", municipio: "", nombre: ""});
+        setModalType("");
       } else {
         console.error("Failed to create destino:", response.statusText);
       }
@@ -91,19 +87,17 @@ const DestinoPage = () => {
     try {
       const response = await fetch(`${baseUrl}/destinos/${currentDestino._id}`, {
         method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({name: currentDestino.name}),
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify(formData),
         credentials: "include",
       });
 
       if (response.ok) {
-        setDestinos(
-          destinos.map((destino) => (destino._id === currentDestino._id ? currentDestino : destino))
-        );
-        setShowModal(false);
+        const updated = await response.json();
+        setDestinos(destinos.map((d) => (d._id === updated._id ? updated : d)));
+        setFormData({estado: "", municipio: "", nombre: ""});
         setCurrentDestino(null);
+        setModalType("");
       } else {
         console.error("Failed to update destino:", response.statusText);
       }
@@ -112,8 +106,19 @@ const DestinoPage = () => {
     }
   };
 
+  const handleEdit = (destino) => {
+    setCurrentDestino(destino);
+    setFormData({
+      estado: destino.estado,
+      municipio: destino.municipio,
+      nombre: destino.nombre,
+    });
+    setModalType("edit");
+  };
+
   const handleChange = (e) => {
-    setCurrentDestino({...currentDestino, name: e.target.value});
+    const {id, value} = e.target;
+    setFormData((prev) => ({...prev, [id]: value}));
   };
 
   return (
@@ -130,51 +135,30 @@ const DestinoPage = () => {
             </button>
           </div>
 
-          {/* Create New Destino Form */}
-          {modalType === "create" && (
-            <ModalTemplate
-              show
-              title="Crear Destino"
-              onClose={() => setModalType("")}
-              onSubmit={handleCreate}>
-              <div className="mb-3">
-                <label htmlFor="newDestino" className="form-label">
-                  Nombre del Destino
-                </label>
-                <input
-                  id="newDestino"
-                  type="text"
-                  className="form-control"
-                  value={newDestino}
-                  onChange={(e) => setNewDestino(e.target.value)}
-                  placeholder="Ingrese nuevo destino"
-                  required
-                />
-              </div>
-            </ModalTemplate>
-          )}
-
-          {/* Responsive Table */}
+          {/* Tabla */}
           <div className="mx-3 my-4">
             <div className="table-responsive">
               <table className="table table-striped">
                 <thead>
                   <tr>
-                    <th>Nombre del Destino</th>
+                    <th>Nombre</th>
+                    <th>Estado</th>
+                    <th>Municipio</th>
+
                     <th className="text-end">Acciones</th>
                   </tr>
                 </thead>
                 <tbody>
                   {destinos.map((destino) => (
                     <tr key={destino._id}>
-                      <td>{destino.name}</td>
+                      <td>{destino.nombre}</td>
+                      <td>{destino.estado}</td>
+                      <td>{destino.municipio}</td>
+
                       <td className="text-end">
                         <button
                           className="btn btn-primary rounded me-2"
-                          onClick={() => {
-                            setCurrentDestino(destino);
-                            setModalType("edit");
-                          }}>
+                          onClick={() => handleEdit(destino)}>
                           <i className="fas fa-edit"></i>
                         </button>
                         <button
@@ -189,50 +173,114 @@ const DestinoPage = () => {
               </table>
             </div>
           </div>
+
+          {/* Modal: Crear */}
+          {modalType === "create" && (
+            <ModalTemplate
+              show
+              title="Crear Destino"
+              onClose={() => setModalType("")}
+              onSubmit={handleCreate}>
+              <div className="mb-3">
+                <div className="mb-3">
+                  <label htmlFor="nombre" className="form-label">
+                    Nombre
+                  </label>
+                  <input
+                    id="nombre"
+                    className="form-control"
+                    value={formData.nombre}
+                    onChange={handleChange}
+                  />
+                </div>
+                <label htmlFor="estado" className="form-label">
+                  Estado
+                </label>
+                <input
+                  id="estado"
+                  className="form-control"
+                  value={formData.estado}
+                  onChange={handleChange}
+                />
+              </div>
+              <div className="mb-3">
+                <label htmlFor="municipio" className="form-label">
+                  Municipio
+                </label>
+                <input
+                  id="municipio"
+                  className="form-control"
+                  value={formData.municipio}
+                  onChange={handleChange}
+                />
+              </div>
+            </ModalTemplate>
+          )}
+
+          {/* Modal: Editar */}
+          {modalType === "edit" && currentDestino && (
+            <ModalTemplate
+              show
+              title="Editar Destino"
+              onClose={() => {
+                setModalType("");
+                setCurrentDestino(null);
+              }}
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleSaveEdit();
+              }}>
+              <div className="mb-3">
+                <label htmlFor="nombre" className="form-label">
+                  Nombre
+                </label>
+                <input
+                  id="nombre"
+                  className="form-control"
+                  value={formData.nombre}
+                  onChange={handleChange}
+                />
+              </div>
+              <div className="mb-3">
+                <label htmlFor="estado" className="form-label">
+                  Estado
+                </label>
+                <input
+                  id="estado"
+                  className="form-control"
+                  value={formData.estado}
+                  onChange={handleChange}
+                />
+              </div>
+              <div className="mb-3">
+                <label htmlFor="municipio" className="form-label">
+                  Municipio
+                </label>
+                <input
+                  id="municipio"
+                  className="form-control"
+                  value={formData.municipio}
+                  onChange={handleChange}
+                />
+              </div>
+            </ModalTemplate>
+          )}
+
+          {/* Modal: Eliminar */}
+          {showDeleteModal && (
+            <ModalTemplate
+              show
+              title="Confirmar Eliminación"
+              onClose={handleCloseDeleteModal}
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleConfirmDelete(idToDelete);
+              }}>
+              <p>¿Está seguro de que desea eliminar este destino?</p>
+            </ModalTemplate>
+          )}
         </div>
       </div>
-      {/* Edit Modal */}
-      {modalType === "edit" && currentDestino && (
-        <ModalTemplate
-          show
-          title="Editar Destino"
-          onClose={() => {
-            setModalType("");
-            setCurrentDestino(null);
-          }}
-          onSubmit={(e) => {
-            e.preventDefault();
-            handleSaveEdit();
-          }}>
-          <div className="mb-3">
-            <label htmlFor="editDestino" className="form-label">
-              Nombre del Destino
-            </label>
-            <input
-              id="editDestino"
-              type="text"
-              className="form-control"
-              value={currentDestino.name}
-              onChange={handleChange}
-              required
-            />
-          </div>
-        </ModalTemplate>
-      )}
-
-      {/* Delete Modal */}
-      {showDeleteModal && (
-        <ModalTemplate
-          show
-          title="Confirmar Eliminación"
-          onClose={handleCloseDeleteModal}
-          onSubmit={(e) => {
-            e.preventDefault();
-            handleConfirmDelete(idToDelete);
-          }}>
-          <p>¿Está seguro de que desea eliminar este destino?</p>
-        </ModalTemplate>
-      )}
     </section>
   );
 };

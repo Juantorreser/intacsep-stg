@@ -4,14 +4,13 @@ import ModalTemplate from "../ModalTemplate";
 
 const OrigenPage = () => {
   const [origenes, setOrigenes] = useState([]);
-  const [newOrigen, setNewOrigen] = useState("");
+  const [formData, setFormData] = useState({estado: "", municipio: "", nombre: ""});
   const [showModal, setShowModal] = useState(false);
   const [currentOrigen, setCurrentOrigen] = useState(null);
-  const [editingName, setEditingName] = useState("");
   const baseUrl = import.meta.env.VITE_BASE_URL;
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [idToDelete, setIdToDelete] = useState("");
-  const [modalType, setModalType] = useState(""); // 'create', 'edit', ''
+  const [modalType, setModalType] = useState(""); // 'create', 'edit'
 
   useEffect(() => {
     const fetchOrigenes = async () => {
@@ -34,6 +33,15 @@ const OrigenPage = () => {
     fetchOrigenes();
   }, [baseUrl]);
 
+  const handleDelete = (id) => {
+    setIdToDelete(id);
+    setShowDeleteModal(true);
+  };
+
+  const handleCloseDeleteModal = () => {
+    setShowDeleteModal(false);
+  };
+
   const handleConfirmDelete = async (id) => {
     try {
       const response = await fetch(`${baseUrl}/origenes/${id}`, {
@@ -51,32 +59,21 @@ const OrigenPage = () => {
     }
   };
 
-  const handleDelete = (id) => {
-    setIdToDelete(id);
-    setShowDeleteModal(true);
-  };
-  const handleCloseDeleteModal = () => {
-    setShowDeleteModal(false);
-  };
-
   const handleCreate = async (e) => {
     e.preventDefault();
-    if (!newOrigen) return;
-
     try {
       const response = await fetch(`${baseUrl}/origenes`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({name: newOrigen}),
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify(formData),
         credentials: "include",
       });
 
       if (response.ok) {
-        const createdOrigen = await response.json();
-        setOrigenes([...origenes, createdOrigen]);
-        setNewOrigen("");
+        const created = await response.json();
+        setOrigenes([...origenes, created]);
+        setFormData({estado: "", municipio: "", nombre: ""});
+        setModalType("");
       } else {
         console.error("Failed to create origen:", response.statusText);
       }
@@ -91,21 +88,17 @@ const OrigenPage = () => {
     try {
       const response = await fetch(`${baseUrl}/origenes/${currentOrigen._id}`, {
         method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({name: editingName}),
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify(formData),
         credentials: "include",
       });
 
       if (response.ok) {
-        const updatedOrigen = await response.json();
-        setOrigenes(
-          origenes.map((origen) => (origen._id === updatedOrigen._id ? updatedOrigen : origen))
-        );
-        setShowModal(false);
+        const updated = await response.json();
+        setOrigenes(origenes.map((o) => (o._id === updated._id ? updated : o)));
+        setFormData({estado: "", municipio: "", nombre: ""});
         setCurrentOrigen(null);
-        setEditingName("");
+        setModalType("");
       } else {
         console.error("Failed to edit origen:", response.statusText);
       }
@@ -114,71 +107,60 @@ const OrigenPage = () => {
     }
   };
 
+  const handleEdit = (origen) => {
+    setCurrentOrigen(origen);
+    setFormData({
+      estado: origen.estado,
+      municipio: origen.municipio,
+      nombre: origen.nombre,
+    });
+    setModalType("edit");
+  };
+
+  const handleChange = (e) => {
+    const {id, value} = e.target;
+    setFormData((prev) => ({...prev, [id]: value}));
+  };
+
   return (
     <section id="origenPage">
-      //
       <div className="w-100 d-flex">
         <div className="sidebar-wrapper">
           <Sidebar />
         </div>
         <div className="content-wrapper">
           <div className="page-header">
-            <h1 className="text-center fs-3 fw-semibold text-black">Catálogos - Origenes</h1>
+            <h1 className="text-center fs-3 fw-semibold text-black">Catálogos - Orígenes</h1>
             <button type="button" className="new-btn" onClick={() => setModalType("create")}>
               <i className="fas fa-plus"></i>
             </button>
           </div>
 
-          {/* Create New Origen Form */}
-          {modalType === "create" && (
-            <ModalTemplate
-              show
-              title="Crear Origen"
-              onClose={() => setModalType("")}
-              onSubmit={handleCreate}>
-              <div className="mb-3">
-                <label htmlFor="newOrigen" className="form-label">
-                  Nombre del Origen
-                </label>
-                <input
-                  id="newOrigen"
-                  type="text"
-                  className="form-control"
-                  value={newOrigen}
-                  onChange={(e) => setNewOrigen(e.target.value)}
-                  required
-                />
-              </div>
-            </ModalTemplate>
-          )}
-
-          {/* Responsive Table */}
+          {/* Tabla */}
           <div className="mx-3 my-4">
             <div className="table-responsive">
               <table className="table table-striped">
                 <thead>
                   <tr>
-                    <th>Origen</th>
+                    <th>Nombre</th>
+                    <th>Estado</th>
+                    <th>Municipio</th>
+
                     <th className="text-end">Acciones</th>
                   </tr>
                 </thead>
                 <tbody>
                   {origenes.map((origen) => (
                     <tr key={origen._id}>
-                      <td>{origen.name}</td>
+                      <td>{origen.nombre}</td>
+                      <td>{origen.estado}</td>
+                      <td>{origen.municipio}</td>
+
                       <td className="text-end">
-                        <button
-                          className="btn btn-primary rounded me-2"
-                          onClick={() => {
-                            setCurrentOrigen(origen);
-                            setEditingName(origen.name);
-                            setModalType("edit");
-                          }}>
+                        <button className="btn btn-primary me-2" onClick={() => handleEdit(origen)}>
                           <i className="fas fa-edit"></i>
                         </button>
-                        <button
-                          className="btn btn-danger rounded"
-                          onClick={() => handleDelete(origen._id)}>
+                        <button className="btn btn-danger" onClick={() => handleDelete(origen._id)}>
                           <i className="fas fa-trash"></i>
                         </button>
                       </td>
@@ -188,37 +170,102 @@ const OrigenPage = () => {
               </table>
             </div>
           </div>
+
+          {/* Modal: Crear */}
+          {modalType === "create" && (
+            <ModalTemplate
+              show
+              title="Crear Origen"
+              onClose={() => setModalType("")}
+              onSubmit={handleCreate}>
+              <div className="mb-3">
+                <label htmlFor="nombre" className="form-label">
+                  Nombre
+                </label>
+                <input
+                  id="nombre"
+                  className="form-control"
+                  value={formData.nombre}
+                  onChange={handleChange}
+                />
+              </div>
+              <div className="mb-3">
+                <label htmlFor="estado" className="form-label">
+                  Estado
+                </label>
+                <input
+                  id="estado"
+                  className="form-control"
+                  value={formData.estado}
+                  onChange={handleChange}
+                />
+              </div>
+              <div className="mb-3">
+                <label htmlFor="municipio" className="form-label">
+                  Municipio
+                </label>
+                <input
+                  id="municipio"
+                  className="form-control"
+                  value={formData.municipio}
+                  onChange={handleChange}
+                />
+              </div>
+            </ModalTemplate>
+          )}
+
+          {/* Modal: Editar */}
+          {modalType === "edit" && currentOrigen && (
+            <ModalTemplate
+              show
+              title="Editar Origen"
+              onClose={() => {
+                setModalType("");
+                setCurrentOrigen(null);
+              }}
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleSaveEdit();
+              }}>
+              <div className="mb-3">
+                <label htmlFor="nombre" className="form-label">
+                  Nombre
+                </label>
+                <input
+                  id="nombre"
+                  className="form-control"
+                  value={formData.nombre}
+                  onChange={handleChange}
+                />
+              </div>
+              <div className="mb-3">
+                <label htmlFor="estado" className="form-label">
+                  Estado
+                </label>
+                <input
+                  id="estado"
+                  className="form-control"
+                  value={formData.estado}
+                  onChange={handleChange}
+                />
+              </div>
+              <div className="mb-3">
+                <label htmlFor="municipio" className="form-label">
+                  Municipio
+                </label>
+                <input
+                  id="municipio"
+                  className="form-control"
+                  value={formData.municipio}
+                  onChange={handleChange}
+                />
+              </div>
+            </ModalTemplate>
+          )}
         </div>
       </div>
-      {/* Edit Modal */}
-      {modalType === "edit" && currentOrigen && (
-        <ModalTemplate
-          show
-          title="Editar Origen"
-          onClose={() => {
-            setModalType("");
-            setCurrentOrigen(null);
-          }}
-          onSubmit={(e) => {
-            e.preventDefault();
-            handleSaveEdit();
-          }}>
-          <div className="mb-3">
-            <label htmlFor="editOrigen" className="form-label">
-              Nombre del Origen
-            </label>
-            <input
-              id="editOrigen"
-              type="text"
-              className="form-control"
-              value={editingName}
-              onChange={(e) => setEditingName(e.target.value)}
-              required
-            />
-          </div>
-        </ModalTemplate>
-      )}
-      {/* Delete Modal */}
+
+      {/* Modal: Eliminar */}
       {showDeleteModal && (
         <ModalTemplate
           show

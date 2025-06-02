@@ -569,7 +569,7 @@ const BitacorasPage = () => {
           </div>
 
           {/* Table */}
-          <div className="mx-3 my-2 table-wrapper">
+          <div className="table-wrapper">
             <div className="table-container">
               <div className="table-responsive">
                 <table className="table table-striped">
