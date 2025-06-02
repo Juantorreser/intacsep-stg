@@ -5,12 +5,13 @@ import Sidebar from "../Sidebar";
 import {FontAwesomeIcon} from "@fortawesome/react-fontawesome";
 import {faPlus} from "@fortawesome/free-solid-svg-icons";
 import {useAuth} from "../../context/AuthContext";
-import {Modal, Button, Form, Row} from "react-bootstrap";
+import {Modal, Form, Button, Tabs, Tab, Row} from "react-bootstrap";
 import "bootstrap/dist/js/bootstrap.bundle.min.js";
 import CreateTransporteModal from "./Transportes/CreateTransporteModal";
 import NewEventModal from "./Eventos/NewEventModal";
 import {createAuditoria, generateAuditoriasFromChanges} from "../../utils/auditoria";
 import {getLocationText} from "../../utils/api";
+import {useMemo} from "react";
 
 const BitacoraDetailPage = ({edited}) => {
   const {id} = useParams();
@@ -37,9 +38,20 @@ const BitacoraDetailPage = ({edited}) => {
   const [editedTransporte, setEditedTransporte] = useState(null);
   const [selectedTransportes, setSelectedTransportes] = useState([]);
   const [eventos, setEventos] = useState([]);
+  const [idMethod, setIdMethod] = useState("automatic");
+  const [selectedUnitId, setSelectedUnitId] = useState("");
+  const [selectedUnitName, setSelectedUnitName] = useState("");
+  const [units, setUnits] = useState([]);
+  const isEditable = useMemo(
+    () => editedTransporte?.originalId?.startsWith("blank_"),
+    [editedTransporte?.originalId]
+  );
 
   const handleEditTransporte = () => {
-    setEditedTransporte(selectedTransporte);
+    setEditedTransporte({
+      ...selectedTransporte,
+      originalId: selectedTransporte.id, // <-- esto previene que se pierda el tab de GPS ID
+    });
     setEditTransporteModalVisible(true);
   };
 
@@ -53,53 +65,34 @@ const BitacoraDetailPage = ({edited}) => {
   const handleTransportEdit = async (e) => {
     e.preventDefault();
 
+    if (!editedTransporte) return;
+
     const updatedTransportes = bitacora.transportes.map((transporte) =>
-      transporte.id === editedTransporte.id ? editedTransporte : transporte
+      transporte.id === editedTransporte.originalId ? editedTransporte : transporte
     );
 
-    const updatedBitacora = {...bitacora, transportes: updatedTransportes};
-
-    setBitacora(updatedBitacora);
-    setSelectedTransporte(editedTransporte); // 🔥 Ensure UI updates instantly
-    setEditTransporteModalVisible(false);
-
     try {
-      const response = await fetch(`${baseUrl}/bitacora/${id}`, {
+      const response = await fetch(`${baseUrl}/bitacora/${bitacora._id}`, {
         method: "PATCH",
-        headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({transportes: updatedTransportes}),
+        headers: {
+          "Content-Type": "application/json",
+        },
         credentials: "include",
+        body: JSON.stringify({transportes: updatedTransportes}),
       });
 
-      if (response.ok) {
-        const updatedData = await response.json();
-        setBitacora(updatedData);
-        setSelectedTransporte(updatedData.transportes.find((t) => t.id === editedTransporte.id));
-
-        // await createAuditoria({
-        //   tipo: "Bitacora",
-        //   bitacora_id: bitacora.bitacora_id,
-        //   email: user.email,
-        //   rol: user.role,
-        //   seccion: "Transportes",
-        //   campo: "Transporte",
-        //   ValOriginal: JSON.stringify(selectedTransporte), // antes
-        //   ValNuevo: JSON.stringify(editedTransporte), // después
-        // });
-
-        // per-field audits
-        await generateAuditoriasFromChanges({
-          oldData: selectedTransporte,
-          newData: editedTransporte,
-          bitacoraId: bitacora.bitacora_id,
-          user, // includes email & role
-          seccion: "Transportes",
-        });
-      } else {
-        console.error("Failed to update transporte:", response.statusText);
+      if (!response.ok) {
+        throw new Error(`Error al actualizar transporte: ${response.statusText}`);
       }
+
+      const data = await response.json();
+      setBitacora(data);
+      setEditTransporteModalVisible(false);
+      setSelectedTransporte(null);
+      setEditedTransporte(null);
     } catch (error) {
-      console.error("Error updating transporte:", error);
+      console.error("Error al guardar transporte editado:", error);
+      alert("No se pudo guardar el transporte. Intenta nuevamente.");
     }
   };
 
@@ -440,6 +433,45 @@ const BitacoraDetailPage = ({edited}) => {
 
       fetchBitacora(); // Keep this to refresh the state
     }
+  };
+
+  useEffect(() => {
+    fetchWialonUnits();
+  }, []);
+
+  const token = import.meta.env.VITE_WIALON_TOKEN;
+
+  const fetchWialonUnits = (retryCount = 0) => {
+    const sess = window.wialon.core.Session.getInstance();
+    const MAX_RETRIES = 5;
+    const RETRY_DELAY = 3000;
+
+    if (!token) return;
+
+    if (!sess.getBaseUrl()) {
+      sess.initSession("https://hst-api.wialon.com");
+    }
+
+    sess.loginToken(token, "", (code) => {
+      if (code) {
+        if (retryCount < MAX_RETRIES) {
+          setTimeout(() => fetchWialonUnits(retryCount + 1), RETRY_DELAY);
+        }
+        return;
+      }
+
+      const flags = window.wialon.item.Item.dataFlag.base;
+      sess.updateDataFlags([{type: "type", data: "avl_unit", flags, mode: 0}], (code) => {
+        if (code) return;
+        const fetchedUnits = sess.getItems("avl_unit") || [];
+        const unitList = fetchedUnits.map((unit) => ({
+          id: unit.getId(),
+          name: unit.getName(),
+        }));
+        setUnits(unitList);
+        console.log(unitList);
+      });
+    });
   };
 
   const handleChange = (e) => {
@@ -1714,294 +1746,189 @@ const BitacoraDetailPage = ({edited}) => {
       )}
 
       {/* EDIT TRANSPORTES */}
-      {isEditTransporteModalVisible && (
-        <>
-          {" "}
-          <div className="modal-backdrop fade show"></div>
-          <div className="modal show d-block">
-            <div className="modal-dialog">
-              <div className="modal-content">
-                <div className="modal-header">
-                  <h5 className="modal-title">Editar Transporte</h5>
+      {isEditTransporteModalVisible && editedTransporte && (
+        <Modal
+          show={isEditTransporteModalVisible}
+          onHide={() => setEditTransporteModalVisible(false)}
+          backdrop="static">
+          <Modal.Header closeButton>
+            <Modal.Title>Editar Transporte</Modal.Title>
+          </Modal.Header>
+          <Modal.Body>
+            <Form onSubmit={handleTransportEdit}>
+              <Tabs defaultActiveKey="tracto" className="mb-3">
+                {/* Mostrar tab GPS ID solo si el ID es editable */}
+                {editedTransporte?.originalId?.startsWith("blank_") && (
+                  <Tab eventKey="gps" title="GPS ID">
+                    <Form.Group className="mb-3">
+                      <Form.Label>Método de ID</Form.Label>
+                      <div>
+                        <Form.Check
+                          type="radio"
+                          label="Automático"
+                          name="idMethod"
+                          value="automatic"
+                          checked={idMethod === "automatic"}
+                          onChange={() => {
+                            setIdMethod("automatic");
+                            setEditedTransporte((prev) => ({
+                              ...prev,
+                              id: `0_${(transportes.length + 1).toString().padStart(2, "0")}_${
+                                prev.tracto.eco
+                              }`,
+                            }));
+                          }}
+                        />
+                        <Form.Check
+                          type="radio"
+                          label="Wialon"
+                          name="idMethod"
+                          value="wialon"
+                          checked={idMethod === "wialon"}
+                          onChange={() => setIdMethod("wialon")}
+                        />
+                      </div>
+                    </Form.Group>
 
-                  <button
-                    type="button"
-                    className="btn-close"
-                    onClick={() => setEditTransporteModalVisible(false)}
-                  />
-                </div>
-                <div className="modal-body">
-                  {/* Form inputs for editing transporte */}
-                  <form onSubmit={handleTransportEdit}>
-                    {/* Example inputs for tracto */}
-                    <h5>Tracto</h5>
-                    <hr />
-                    <div className="mb-3">
-                      <label className="form-label">Eco</label>
-                      <input
-                        type="text"
-                        className="form-control"
-                        value={editedTransporte.tracto.eco}
-                        onChange={(e) =>
-                          setEditedTransporte({
-                            ...editedTransporte,
-                            tracto: {
-                              ...editedTransporte.tracto,
-                              eco: e.target.value,
-                            },
-                          })
-                        }
-                      />
-                    </div>
-                    <div className="mb-3">
-                      <label className="form-label">Placa</label>
-                      <input
-                        type="text"
-                        className="form-control"
-                        value={editedTransporte.tracto.placa}
-                        onChange={(e) =>
-                          setEditedTransporte({
-                            ...editedTransporte,
-                            tracto: {
-                              ...editedTransporte.tracto,
-                              placa: e.target.value,
-                            },
-                          })
-                        }
-                      />
-                    </div>
-                    <div className="mb-3">
-                      <label className="form-label">Marca</label>
-                      <input
-                        type="text"
-                        className="form-control"
-                        value={editedTransporte.tracto.marca}
-                        onChange={(e) =>
-                          setEditedTransporte({
-                            ...editedTransporte,
-                            tracto: {
-                              ...editedTransporte.tracto,
-                              marca: e.target.value,
-                            },
-                          })
-                        }
-                      />
-                    </div>
-                    <div className="mb-3">
-                      <label className="form-label">Modelo</label>
-                      <input
-                        type="text"
-                        className="form-control"
-                        value={editedTransporte.tracto.modelo}
-                        onChange={(e) =>
-                          setEditedTransporte({
-                            ...editedTransporte,
-                            tracto: {
-                              ...editedTransporte.tracto,
-                              modelo: e.target.value,
-                            },
-                          })
-                        }
-                      />
-                    </div>
-                    <div className="mb-3">
-                      <label className="form-label">Color</label>
-                      <input
-                        type="text"
-                        className="form-control"
-                        value={editedTransporte.tracto.color}
-                        onChange={(e) =>
-                          setEditedTransporte({
-                            ...editedTransporte,
-                            tracto: {
-                              ...editedTransporte.tracto,
-                              color: e.target.value,
-                            },
-                          })
-                        }
-                      />
-                    </div>
-                    <div className="mb-3">
-                      <label className="form-label">Tipo</label>
-                      <input
-                        type="text"
-                        className="form-control"
-                        value={editedTransporte.tracto.tipo}
-                        onChange={(e) =>
-                          setEditedTransporte({
-                            ...editedTransporte,
-                            tracto: {
-                              ...editedTransporte.tracto,
-                              tipo: e.target.value,
-                            },
-                          })
-                        }
-                      />
-                    </div>
-                    <hr />
+                    {idMethod === "wialon" && (
+                      <Form.Group className="mb-3">
+                        <Form.Label>Seleccionar unidad Wialon</Form.Label>
+                        <Form.Select
+                          value={selectedUnitId}
+                          onChange={(e) => {
+                            const unitId = e.target.value;
+                            const selected = units.find((u) => u.id.toString() === unitId);
+                            if (selected) {
+                              setSelectedUnitId(selected.id);
+                              setSelectedUnitName(selected.name);
+                              setEditedTransporte((prev) => ({
+                                ...prev,
+                                id: `${selected.id}_${selected.name}_${prev.tracto.eco}`,
+                              }));
+                            }
+                          }}>
+                          <option value="">Seleccione una unidad</option>
+                          {units.map((unit) => (
+                            <option key={unit.id} value={unit.id}>
+                              {unit.name}
+                            </option>
+                          ))}
+                        </Form.Select>
+                      </Form.Group>
+                    )}
 
-                    <h5>Remolque</h5>
-                    <hr />
-                    <div className="mb-3">
-                      <label className="form-label">Eco</label>
-                      <input
+                    {idMethod === "automatic" && (
+                      <Form.Group className="mb-3">
+                        <Form.Label>ID generado automáticamente</Form.Label>
+                        <Form.Control type="text" value={editedTransporte.id} disabled />
+                      </Form.Group>
+                    )}
+                  </Tab>
+                )}
+
+                {/* Tracto Tab */}
+                <Tab eventKey="tracto" title="TRACTO">
+                  {["eco", "placa", "marca", "modelo", "color", "tipo"].map((field) => (
+                    <Form.Group className="mb-3" key={field}>
+                      <Form.Label>{field.toUpperCase()}</Form.Label>
+                      <Form.Control
                         type="text"
-                        className="form-control"
-                        value={editedTransporte.remolque.eco}
+                        value={editedTransporte.tracto[field] || ""}
                         onChange={(e) =>
-                          setEditedTransporte({
-                            ...editedTransporte,
-                            remolque: {
-                              ...editedTransporte.remolque,
-                              eco: e.target.value,
+                          setEditedTransporte((prev) => ({
+                            ...prev,
+                            tracto: {
+                              ...prev.tracto,
+                              [field]: e.target.value,
                             },
-                          })
+                          }))
                         }
                       />
-                    </div>
-                    <div className="mb-3">
-                      <label className="form-label">Placa</label>
-                      <input
+                    </Form.Group>
+                  ))}
+                </Tab>
+
+                {/* Remolque Tab */}
+                <Tab eventKey="remolque" title="REMOLQUE">
+                  {["eco", "placa", "color", "capacidad", "sello"].map((field) => (
+                    <Form.Group className="mb-3" key={field}>
+                      <Form.Label>{field.toUpperCase()}</Form.Label>
+                      <Form.Control
                         type="text"
-                        className="form-control"
-                        value={editedTransporte.remolque.placa}
+                        value={editedTransporte.remolque[field] || ""}
                         onChange={(e) =>
-                          setEditedTransporte({
-                            ...editedTransporte,
+                          setEditedTransporte((prev) => ({
+                            ...prev,
                             remolque: {
-                              ...editedTransporte.remolque,
-                              placa: e.target.value,
+                              ...prev.remolque,
+                              [field]: e.target.value,
                             },
-                          })
+                          }))
                         }
                       />
-                    </div>
-                    <div className="mb-3">
-                      <label className="form-label">Color</label>
-                      <input
-                        type="text"
-                        className="form-control"
-                        value={editedTransporte.remolque.color}
-                        onChange={(e) =>
-                          setEditedTransporte({
-                            ...editedTransporte,
-                            remolque: {
-                              ...editedTransporte.remolque,
-                              color: e.target.value,
-                            },
-                          })
-                        }
-                      />
-                    </div>
-                    <div className="mb-3">
-                      <label className="form-label">Capacidad</label>
-                      <input
-                        type="text"
-                        className="form-control"
-                        value={editedTransporte.remolque.capacidad}
-                        onChange={(e) =>
-                          setEditedTransporte({
-                            ...editedTransporte,
-                            remolque: {
-                              ...editedTransporte.remolque,
-                              capacidad: e.target.value,
-                            },
-                          })
-                        }
-                      />
-                    </div>
-                    <div className="mb-3">
-                      <label className="form-label">Sello</label>
-                      <input
-                        type="text"
-                        className="form-control"
-                        value={editedTransporte.remolque.sello}
-                        onChange={(e) =>
-                          setEditedTransporte({
-                            ...editedTransporte,
-                            remolque: {
-                              ...editedTransporte.remolque,
-                              sello: e.target.value,
-                            },
-                          })
-                        }
-                      />
-                    </div>
-                    <hr />
-                    <div className="mb-3">
-                      <label className="form-label">Linea Transporte</label>
-                      <input
-                        type="text"
-                        className="form-control"
-                        value={editedTransporte.lineaTransporte}
-                        onChange={(e) =>
-                          setEditedTransporte({
-                            ...editedTransporte,
-                            lineaTransporte: e.target.value,
-                          })
-                        }
-                      />
-                    </div>
-                    {/* <Form.Select
-                      name="operador"
-                      id="operador"
-                      value={transporteData.operador}
-                      onChange={handleChange}
-                      required>
-                      <option value="">Seleccione un operador</option>
-                      {operadores.map((operador) => (
-                        <option key={operador.id} value={operador.name}>
-                          {operador.name}
-                        </option>
-                      ))}
-                    </Form.Select> */}
-                    <div className="mb-3">
-                      <label className="form-label">Operador</label>
-                      <input
-                        type="text"
-                        className="form-control"
-                        name="operador"
-                        id="operador"
-                        value={editedTransporte.operador}
-                        onChange={(e) =>
-                          setEditedTransporte({
-                            ...editedTransporte,
-                            operador: e.target.value,
-                          })
-                        }
-                      />
-                    </div>
-                    <div className="mb-3">
-                      <label className="form-label">Telefono</label>
-                      <input
-                        type="text"
-                        className="form-control"
-                        value={editedTransporte.telefono}
-                        onChange={(e) =>
-                          setEditedTransporte({
-                            ...editedTransporte,
-                            telefono: e.target.value,
-                          })
-                        }
-                      />
-                    </div>
-                    <div className="d-flex justify-content-end">
-                      <button
-                        type="cancel"
-                        className="btn btn-danger me-3"
-                        onClick={() => setEditTransporteModalVisible(false)}>
-                        Cancelar
-                      </button>
-                      <button type="submit" className="btn btn-success">
-                        Guardar
-                      </button>
-                    </div>
-                  </form>
-                </div>
+                    </Form.Group>
+                  ))}
+                </Tab>
+
+                {/* Operador Tab */}
+                <Tab eventKey="operador" title="OPERADOR">
+                  <Form.Group className="mb-3">
+                    <Form.Label>Línea de Transporte</Form.Label>
+                    <Form.Control
+                      type="text"
+                      value={editedTransporte.lineaTransporte || ""}
+                      onChange={(e) =>
+                        setEditedTransporte((prev) => ({
+                          ...prev,
+                          lineaTransporte: e.target.value,
+                        }))
+                      }
+                    />
+                  </Form.Group>
+                  <Form.Group className="mb-3">
+                    <Form.Label>Operador</Form.Label>
+                    <Form.Control
+                      type="text"
+                      value={editedTransporte.operador || ""}
+                      onChange={(e) =>
+                        setEditedTransporte((prev) => ({
+                          ...prev,
+                          operador: e.target.value,
+                        }))
+                      }
+                    />
+                  </Form.Group>
+                  <Form.Group className="mb-3">
+                    <Form.Label>Teléfono</Form.Label>
+                    <Form.Control
+                      type="text"
+                      value={editedTransporte.telefono || ""}
+                      onChange={(e) =>
+                        setEditedTransporte((prev) => ({
+                          ...prev,
+                          telefono: e.target.value,
+                        }))
+                      }
+                    />
+                  </Form.Group>
+                </Tab>
+              </Tabs>
+
+              {/* BOTONES */}
+              <div className="d-flex justify-content-end">
+                <Button
+                  variant="danger"
+                  className="me-2"
+                  onClick={() => setEditTransporteModalVisible(false)}>
+                  Cancelar
+                </Button>
+                <Button variant="success" type="submit">
+                  Guardar
+                </Button>
               </div>
-            </div>
-          </div>
-        </>
+            </Form>
+          </Modal.Body>
+        </Modal>
       )}
 
       {/* CREATE TRASNPORTES */}
