@@ -18,6 +18,7 @@ const Sidebar = () => {
   const handleOpenModal = () => setShowModal(true);
   const handleCloseModal = () => setShowModal(false);
   const [showInacModal, setShowInacModal] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
   const openInacModal = () => setShowInacModal(true);
   const closeInacModal = () => setShowInacModal(false);
@@ -87,8 +88,16 @@ const Sidebar = () => {
 
   return (
     <>
-      <aside id="leftsidebar">
+      <aside id="leftsidebar" className={isSidebarCollapsed ? "collapsed" : ""}>
         <div className="sidebar-wrapper">
+          {/* <div className="sidebar-toggle text-end p-2">
+            <button
+              className="btn btn-sm text-white"
+              onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}>
+              <i className={`fa fa-chevron-${isSidebarCollapsed ? "right" : "left"}`} />
+            </button>
+          </div> */}
+
           <div className="user-box" onClick={handleOpenModal}>
             <a className="navbar-brand" href="#">
               <img
@@ -111,7 +120,7 @@ const Sidebar = () => {
             )}
           </div>
 
-          <div className="menu-title">Menú</div>
+          {/* <div className="menu-title">Menú</div> */}
           <div className="scrollable-content">
             <ul className="nav">
               {roleData?.bitacoras?.read && (
@@ -119,9 +128,13 @@ const Sidebar = () => {
                   <div
                     className="nav-link-title"
                     onClick={() => toggleCollapse("bitacorasCollapse")}>
-                    Monitoreo
+                    <div className="d-flex align-items-center">
+                      {/* <i className="fa fa-book " /> */}
+                      {!isSidebarCollapsed && <span>Monitoreo</span>}
+                    </div>
                     <i className={`fa fa-${collapsedItems.bitacorasCollapse ? "minus" : "plus"}`} />
                   </div>
+
                   {collapsedItems.bitacorasCollapse && (
                     <ul className="submenu">
                       <li onClick={() => navigate("/bitacoras")}>Bitácoras</li>
@@ -181,7 +194,9 @@ const Sidebar = () => {
                             <li onClick={() => navigate("/usuarios")}>Usuarios</li>
                           )}
                           {roleData.roles.read && <li onClick={() => navigate("/roles")}>Roles</li>}
-                          {roleData.inactividad.read && <li onClick={openInacModal}>Inactividad</li>}
+                          {roleData.inactividad.read && (
+                            <li onClick={openInacModal}>Inactividad</li>
+                          )}
                         </ul>
                       )}
 
@@ -208,7 +223,7 @@ const Sidebar = () => {
           <div className="footer-wrapper">
             <div className="logout-title" onClick={logout}>
               <p className="p-0 m-0">Cerrar Sesión</p>
-              <i className="fas fa-power-off"></i>
+              {/* <i className="fas fa-power-off"></i> */}
             </div>
           </div>
         </div>

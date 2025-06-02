@@ -442,7 +442,7 @@ $gray: #223b53;
 
       .user-box {
         padding: 1.5rem 1rem;
-        background: linear-gradient(140deg, #2b313f, #1a1f2b);
+        // background: linear-gradient(140deg, #2b313f, #1a1f2b);
         border-bottom: 1px solid rgba(255, 255, 255, 0.05);
         cursor: pointer;
         text-align: center;
@@ -570,6 +570,49 @@ $gray: #223b53;
         padding: 0.5rem;
         background-color: #1a1f2b;
         border-top: 1px solid rgba(255, 255, 255, 0.05);
+      }
+    }
+  }
+
+  #leftsidebar.collapsed {
+    width: 70px !important;
+
+    .sidebar-wrapper {
+      width: 70px !important;
+      overflow: hidden;
+
+      .user-box span,
+      .user-box h5,
+      .user-box a span,
+      .submenu,
+      .logout-title p,
+      .footer-wrapper,
+      .nav-link-title span {
+        display: none !important;
+      }
+
+      .nav-item {
+        display: flex;
+        justify-content: center;
+
+        .nav-link-title {
+          justify-content: space-between;
+          align-items: center;
+          padding: 0.9rem 0.5rem;
+
+          i {
+            font-size: 1.1rem;
+          }
+        }
+      }
+
+      .sidebar-toggle {
+        text-align: center;
+
+        button {
+          padding: 0.3rem 0.5rem;
+          font-size: 0.8rem;
+        }
       }
     }
   }
