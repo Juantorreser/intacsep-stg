@@ -525,6 +525,33 @@ const BitacorasPage = () => {
     setSelectedFrecuenciaBitacora(null);
   };
 
+  const getLatestFrecuenciaColor = (bitacora) => {
+    const eventos = bitacora.eventos || [];
+
+    if (["cerrada", "finalizada", "nueva"].includes(bitacora.status)) {
+      return "#FFFFFF"; // Blanco
+    }
+
+    const sortedEventos = [...eventos].sort(
+      (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
+    );
+    const evt = sortedEventos[0];
+
+    if (!evt) return "#333235";
+
+    if (evt.nombre === "Cierre de servicio") return "#000000";
+    if (evt.isFrecuenciaMet != null) return evt.isFrecuenciaMet ? "#51FF4E" : "#F82929";
+
+    const freq = evt.frecuencia;
+    if (!freq) return "#333235";
+    const freqMs = freq * 60000;
+    const elapsed = Date.now() - new Date(evt.createdAt).getTime();
+
+    if (elapsed < freqMs * 0.75) return "#51FF4E"; // Verde
+    if (elapsed < freqMs) return "#ECEC27"; // Amarillo
+    return "#F82929"; // Rojo
+  };
+
   return (
     <section id="activeBits">
       <div className="w-100 d-flex h-100 mt-0">
@@ -720,11 +747,18 @@ const BitacorasPage = () => {
                               ))}
                             </div>
                           </td>
-                          <td className="one">
-                            <a href={`/bitacora/${bitacora._id}`} className="text-decoration-none">
+                          <td
+                            className="one"
+                            style={{
+                              backgroundColor: getLatestFrecuenciaColor(bitacora),
+                            }}>
+                            <a
+                              href={`/bitacora/${bitacora._id}`}
+                              className="text-decoration-none d-block text-center text-dark">
                               {bitacora.bitacora_id}
                             </a>
                           </td>
+
                           <td className="two">{bitacora.cliente}</td>
                           <td className="two">{bitacora.monitoreo}</td>
                           <td className="two ">{bitacora.operador}</td>
