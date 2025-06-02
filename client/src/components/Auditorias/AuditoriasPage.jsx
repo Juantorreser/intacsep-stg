@@ -258,23 +258,79 @@ const AuditoriasPage = () => {
               </div>
             </div>
 
-            {/* 📄 Pagination */}
-            <div className="d-flex justify-content-between align-items-center mt-1 pagination-controls">
-              <button
-                className="btn btn-outline-secondary"
-                onClick={() => setCurrentPage(currentPage - 1)}
-                disabled={currentPage === 1}>
-                ◀
-              </button>
-              <span>
-                Página {currentPage} de {totalPages}
-              </span>
-              <button
-                className="btn btn-outline-secondary"
-                onClick={() => setCurrentPage(currentPage + 1)}
-                disabled={currentPage === totalPages}>
-                ▶
-              </button>
+            {/* Pagination Controls - estilo Bitácoras */}
+            <div className="d-flex justify-content-between align-items-center mx-3 my-3 gap-4">
+              <div className="d-flex align-items-center justify-content-start">
+                <label htmlFor="itemsPerPage" className="form-label p-0 m-0 s-font fw-bold">
+                  Items Por Página:
+                </label>
+                <select
+                  id="itemsPerPage"
+                  className="form-select itemsSelector s-font ms-2"
+                  value={rowsPerPage}
+                  onChange={(e) => {
+                    const newLimit = Number(e.target.value);
+                    // Deberás crear este state y lógica si quieres hacerlo dinámico
+                    // setRowsPerPage(newLimit); // Si decides hacerlo editable
+                    setCurrentPage(1);
+                  }}
+                  disabled>
+                  <option value={25}>25</option>
+                </select>
+              </div>
+
+              <div>
+                <span className="m-font">
+                  {`${(currentPage - 1) * rowsPerPage + 1}-${Math.min(
+                    currentPage * rowsPerPage,
+                    filteredData.length
+                  )} de ${filteredData.length}`}
+                </span>
+              </div>
+
+              <div className="d-flex align-items-center">
+                <button
+                  className="btn border-0"
+                  disabled={currentPage === 1}
+                  onClick={() => setCurrentPage(currentPage - 1)}>
+                  <i className="fa fa-chevron-left s-font"></i>
+                </button>
+
+                <div className="mx-0 s-font">
+                  {Array.from({length: Math.min(3, totalPages)}).map((_, index) => {
+                    const pageNum = index + 1;
+                    return (
+                      <button
+                        key={pageNum}
+                        className={`btn pageLink s-font ${
+                          pageNum === currentPage ? "fw-bold fs-6" : "opacity-75"
+                        }`}
+                        onClick={() => setCurrentPage(pageNum)}>
+                        {pageNum}
+                      </button>
+                    );
+                  })}
+                  {totalPages > 3 && (
+                    <>
+                      <span className="mx-1">...</span>
+                      <button
+                        className={`btn pageLink s-font ${
+                          totalPages === currentPage ? "fw-bold" : ""
+                        }`}
+                        onClick={() => setCurrentPage(totalPages)}>
+                        {totalPages}
+                      </button>
+                    </>
+                  )}
+                </div>
+
+                <button
+                  className="btn border-0"
+                  disabled={currentPage === totalPages}
+                  onClick={() => setCurrentPage(currentPage + 1)}>
+                  <i className="fa fa-chevron-right s-font"></i>
+                </button>
+              </div>
             </div>
           </div>
         </div>

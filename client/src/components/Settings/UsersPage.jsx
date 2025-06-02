@@ -211,39 +211,42 @@ const UsersPage = () => {
             </button>
           </div>
 
-          <div className="mx-3 my-4">
-            <div className="table-responsive">
-              <table className="table table-striped">
-                <thead>
-                  <tr>
-                    <th>Email</th>
-                    <th>Nombre</th>
-                    <th>Apellido</th>
-                    <th>Telefono</th>
-                    <th>Rol</th>
-                    <th className="text-end">Acciones</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {users.map((user) => (
-                    <tr key={user._id}>
-                      <td>{user.email}</td>
-                      <td>{user.firstName}</td>
-                      <td>{user.lastName}</td>
-                      <td>{user.phone}</td>
-                      <td>{user.role}</td>
-                      <td className="d-flex items-center w-100 gap-2 justify-content-end">
-                        <button className="btn btn-primary" onClick={() => handleEdit(user)}>
-                          <i className="fas fa-edit"></i>
-                        </button>
-                        <button className="btn btn-danger" onClick={() => handleDelete(user._id)}>
-                          <i className="fas fa-trash"></i>
-                        </button>
-                      </td>
+          <div className="mx-3 my-0">
+            <div className="table-wrapper">
+              <div className="table-responsive">
+                <table className="table table-striped">
+                  <thead>
+                    <tr>
+                      <th>Email</th>
+                      <th>Nombre</th>
+                      <th>Apellido</th>
+                      <th>Teléfono</th>
+                      <th>Rol</th>
+                      <th className="text-end">Acciones</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                    
+                  </thead>
+                  <tbody>
+                    {users.map((user) => (
+                      <tr key={user._id}>
+                        <td>{user.email}</td>
+                        <td>{user.firstName}</td>
+                        <td>{user.lastName}</td>
+                        <td>{user.phone}</td>
+                        <td>{user.role}</td>
+                        <td className="d-flex items-center w-100 gap-2 justify-content-end">
+                          <button className="btn btn-primary" onClick={() => handleEdit(user)}>
+                            <i className="fas fa-edit"></i>
+                          </button>
+                          <button className="btn btn-danger" onClick={() => handleDelete(user._id)}>
+                            <i className="fas fa-trash"></i>
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
 
@@ -348,7 +351,6 @@ const UsersPage = () => {
                   ))}
                 </select>
               </div>
-
             </ModalTemplate>
           )}
         </div>
@@ -364,7 +366,6 @@ const UsersPage = () => {
             handleConfirmDelete(idToDelete);
           }}>
           <p>¿Está seguro de que desea eliminar este usuario?</p>
-
         </ModalTemplate>
       )}
     </section>
