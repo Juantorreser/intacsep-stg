@@ -1204,7 +1204,7 @@ const BitacoraDetailPage = ({edited}) => {
                   role="tabpanel"
                   aria-labelledby="detalles-tab">
                   <div className="card-body">
-                    <h5 className="fw-bold mb-3">Información General</h5>
+                    <h5 className="fw-bold mb-4 text-center">Información General</h5>
                     <div className="row">
                       {/* Column 1 */}
                       <div className="col-md-6">
@@ -1242,7 +1242,7 @@ const BitacoraDetailPage = ({edited}) => {
 
                     {bitacora.custodia && (
                       <div className="mt-4 border-top pt-3">
-                        <h5 className="fw-bold mb-3">Información Custodia Física</h5>
+                        <h5 className="fw-bold mb-4 text-center">Información Custodia Física</h5>
                         <div className="row">
                           <div className="col-md-6">
                             <p>

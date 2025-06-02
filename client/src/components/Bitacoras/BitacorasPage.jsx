@@ -554,9 +554,9 @@ const BitacorasPage = () => {
     const freqMs = freq * 60000;
     const elapsed = Date.now() - new Date(evt.createdAt).getTime();
 
-    if (elapsed < freqMs * 0.75) return "#51FF4E"; // Verde
-    if (elapsed < freqMs) return "#ECEC27"; // Amarillo
-    return "#F82929"; // Rojo
+    if (elapsed < freqMs * 0.75) return "#80ff7e"; // Verde
+    if (elapsed < freqMs) return "#ffff8d"; // Amarillo
+    return "#ffa0a0"; // Rojo
   };
 
   return (
