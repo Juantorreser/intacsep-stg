@@ -24,8 +24,8 @@ const defaultFormData = {
   bitacora_id: "",
   folio_servicio: "",
   linea_transporte: ".",
-  destino: "",
-  origen: "",
+  destino: {nombre: "", estado: "", municipio: ""},
+  origen: {nombre: "", estado: "", municipio: ""},
   monitoreo: "",
   cliente: "",
   enlace: ".",
@@ -1035,8 +1035,8 @@ const BitacorasPage = () => {
                 required>
                 <option value="">Seleccionar</option>
                 {origenes.map((origen) => (
-                  <option key={origen._id} value={origen.name}>
-                    {origen.name}
+                  <option key={origen._id} value={origen._id}>
+                    {`${origen.nombre}, ${origen.municipio}, ${origen.estado}`}
                   </option>
                 ))}
               </select>
@@ -1055,8 +1055,8 @@ const BitacorasPage = () => {
                 required>
                 <option value="">Seleccionar</option>
                 {destinos.map((destino) => (
-                  <option key={destino._id} value={destino.name}>
-                    {destino.name}
+                  <option key={destino._id} value={destino._id}>
+                    {`${destino.nombre}, ${destino.municipio}, ${destino.estado}`}
                   </option>
                 ))}
               </select>
