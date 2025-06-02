@@ -536,31 +536,6 @@ const BitacoraDetailPage = ({edited}) => {
       setFormData({...formData, [name]: value});
     };
 
-    //Working edit eventos
-    // const handleFormSubmit = async (e) => {
-    //   e.preventDefault();
-
-    //   // 1) build the new eventos array
-    //   const updatedEventos = bitacora.eventos.map((evt) =>
-    //     evt._id === event._id
-    //       ? {...evt, descripcion: formData.descripcion, frecuencia: formData.frecuencia}
-    //       : evt
-    //   );
-
-    //   // 2) assemble a full bitacora object
-    //   const updatedBitacora = {...bitacora, eventos: updatedEventos};
-
-    //   // 3) OPTIMISTIC UI: push the new data into parent state
-    //   setBitacora(updatedBitacora);
-    //   setEventos(updatedEventos);
-
-    //   // 4) then send it to the server
-    //   await handleEditSubmit(e, updatedBitacora);
-
-    //   // 5) close the modal
-    //   setShowModal(false);
-    // };
-
     // ─── In EventCard, swap out your old handleFormSubmit ───
     const handleFormSubmit = async (e) => {
       e.preventDefault();
@@ -1051,6 +1026,21 @@ const BitacoraDetailPage = ({edited}) => {
     }
   };
 
+  const getLocationText = (field, optionsList) => {
+    if (!field) return "No especificado";
+
+    // Caso 1: ya es texto plano (bitácoras antiguas)
+    if (typeof field === "string" && !field.match(/^[0-9a-f]{24}$/i)) {
+      return field;
+    }
+
+    // Caso 2: es un Mongo ID, buscarlo en lista (bitácoras nuevas)
+    const match = optionsList.find((item) => item._id === field);
+    return match
+      ? `${match.nombre}, ${match.municipio}, ${match.estado}`
+      : "Ubicación no encontrada";
+  };
+
   return (
     <section id="bitacoraDetail">
       <div className="w-100 d-flex">
@@ -1220,10 +1210,14 @@ const BitacoraDetailPage = ({edited}) => {
                           <strong>Tipo Monitoreo:</strong> {bitacora.monitoreo}
                         </h6>
                         <h6 className="card-subtitle mb-2">
-                          <strong>Origen:</strong> {bitacora.origen}
+                          <p>
+                            <strong>Origen:</strong> {getLocationText(bitacora.origen, origenes)}
+                          </p>
                         </h6>
                         <h6 className="card-subtitle mb-2">
-                          <strong>Destino:</strong> {bitacora.destino}
+                          <p>
+                            <strong>Destino:</strong> {getLocationText(bitacora.destino, destinos)}
+                          </p>
                         </h6>
                       </div>
                     </div>
