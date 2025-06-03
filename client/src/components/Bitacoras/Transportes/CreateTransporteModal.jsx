@@ -214,7 +214,7 @@ const CreateTransporteModal = ({show, handleClose, addTransporte, transportes, b
                   />
                   <Form.Check
                     type="radio"
-                    label="Wialon"
+                    label="GPS ID"
                     name="idMethod"
                     value="wialon"
                     checked={idMethod === "wialon"}

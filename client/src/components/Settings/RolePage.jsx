@@ -191,6 +191,29 @@ const RolePage = () => {
     }));
   };
 
+  const renderPermissionRow = (key, roleData, setRoleData) => (
+    <tr key={key}>
+      <td className="text-capitalize">{key.replace(/_/g, " ")}</td>
+      {["create", "read", "update", "delete"].map((action) => (
+        <td className="text-center" key={action}>
+          <input
+            type="checkbox"
+            checked={roleData[key][action]}
+            onChange={(e) =>
+              setRoleData((prev) => ({
+                ...prev,
+                [key]: {
+                  ...prev[key],
+                  [action]: e.target.checked,
+                },
+              }))
+            }
+          />
+        </td>
+      ))}
+    </tr>
+  );
+
   return (
     <section id="rolePage">
       <div className="w-100 d-flex">
@@ -234,7 +257,7 @@ const RolePage = () => {
                 <table className="table table-bordered table-hover">
                   <thead className="table-light">
                     <tr>
-                      <th>Permiso</th>
+                      <th>Módulo</th>
                       <th className="text-center">Crear</th>
                       <th className="text-center">Ver</th>
                       <th className="text-center">Editar</th>
@@ -242,32 +265,37 @@ const RolePage = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {Object.entries(editRoleData)
-                      .filter(
-                        ([key, val]) => typeof val === "object" && val !== null && "create" in val
-                      )
-                      .map(([permissionKey, perms]) => (
-                        <tr key={permissionKey}>
-                          <td className="text-capitalize">{permissionKey.replace(/_/g, " ")}</td>
-                          {["create", "read", "update", "delete"].map((action) => (
-                            <td className="text-center" key={action}>
-                              <input
-                                type="checkbox"
-                                checked={editRoleData[permissionKey][action]}
-                                onChange={(e) =>
-                                  setEditRoleData((prev) => ({
-                                    ...prev,
-                                    [permissionKey]: {
-                                      ...prev[permissionKey],
-                                      [action]: e.target.checked,
-                                    },
-                                  }))
-                                }
-                              />
-                            </td>
-                          ))}
-                        </tr>
-                      ))}
+                    {/* PANEL 1: Monitoreo */}
+                    <tr className="table-group-divider fw-bold bg-secondary text-white">
+                      <td colSpan="5">Monitoreo</td>
+                    </tr>
+                    {["bitacoras", "bit_transportes", "bit_eventos", "bit_detalles"].map((key) =>
+                      renderPermissionRow(key, editRoleData, setEditRoleData)
+                    )}
+
+                    {/* PANEL 2: Configuración > Catálogos */}
+                    <tr className="table-group-divider fw-bold bg-secondary text-white">
+                      <td colSpan="5">Configuración &gt; Catálogos</td>
+                    </tr>
+                    {["tipos_de_monitoreo", "destinos", "origenes", "eventos", "clientes"].map(
+                      (key) => renderPermissionRow(key, editRoleData, setEditRoleData)
+                    )}
+
+                    {/* PANEL 2: Configuración > Sistema */}
+                    <tr className="fw-bold bg-secondary text-white">
+                      <td colSpan="5">Configuración &gt; Sistema</td>
+                    </tr>
+                    {["usuarios", "roles"].map((key) =>
+                      renderPermissionRow(key, editRoleData, setEditRoleData)
+                    )}
+
+                    {/* PANEL 3: Auditoría */}
+                    <tr className="table-group-divider fw-bold bg-secondary text-white">
+                      <td colSpan="5">Auditoría</td>
+                    </tr>
+                    {["auditoria_bitacora"].map((key) =>
+                      renderPermissionRow(key, editRoleData, setEditRoleData)
+                    )}
                   </tbody>
                 </table>
 
