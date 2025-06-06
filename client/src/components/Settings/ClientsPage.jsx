@@ -2,6 +2,7 @@ import React, {useState, useEffect} from "react";
 import Sidebar from "../Sidebar";
 import ClientCard from "./ClientCard";
 import ModalTemplate from "../ModalTemplate";
+import {useAuth} from "../../context/AuthContext";
 
 const ClientsPage = () => {
   const [clients, setClients] = useState([]);
@@ -29,6 +30,39 @@ const ClientsPage = () => {
   });
 
   const baseUrl = import.meta.env.VITE_BASE_URL;
+
+  const {user, verifyToken, setUser} = useAuth();
+  const [roleData, setRoleData] = useState(null);
+
+  useEffect(() => {
+    const init = async () => {
+      try {
+        const data = await verifyToken(); // Ensure user is verified
+        setUser(data);
+      } catch (e) {
+        console.log("Error verifying token or fetching user:", e);
+        navigate("/login");
+      }
+    };
+    init();
+  }, []);
+
+  useEffect(() => {
+    const fetchRolePermissions = async () => {
+      try {
+        const response = await fetch(`${baseUrl}/roles/${user.role}`, {
+          method: "GET",
+          credentials: "include",
+        });
+        const data = await response.json();
+        setRoleData(data);
+      } catch (e) {
+        console.log("Error fetching role permissions:", e);
+      }
+    };
+
+    fetchRolePermissions();
+  }, [user]);
 
   // Fetch clients from the server
   const fetchClients = async () => {
@@ -182,24 +216,29 @@ const ClientsPage = () => {
           <div className="page-header">
             <h1 className="fs-3 fw-semibold text-black">Catálogos - Clientes</h1>
 
-            <button className="new-btn" onClick={() => setShowModal(true)}>
-              <i className="fa fa-plus"></i>
-            </button>
+            {roleData?.clientes?.create && (
+              <button className="new-btn" onClick={() => setShowModal(true)}>
+                <i className="fa fa-plus"></i>
+              </button>
+            )}
           </div>
 
-          <div className="mx-3 my-4">
-            <div className="col">
-              {clients.map((client) => (
-                <div className="col mb-4" key={client._id}>
-                  <ClientCard
-                    client={client}
-                    onDelete={() => handleDelete(client._id)}
-                    onEdit={() => handleEdit(client)}
-                  />
-                </div>
-              ))}
+          {roleData?.clientes?.read && (
+            <div className="mx-3 my-4">
+              <div className="col">
+                {clients.map((client) => (
+                  <div className="col mb-4" key={client._id}>
+                    <ClientCard
+                      client={client}
+                      onDelete={() => handleDelete(client._id)}
+                      onEdit={() => handleEdit(client)}
+                    />
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
+
           {showModal && (
             <ModalTemplate
               show

@@ -1,6 +1,7 @@
 import React, {useState, useEffect} from "react";
 import Sidebar from "../Sidebar";
 import ModalTemplate from "../ModalTemplate";
+import {useAuth} from "../../context/AuthContext";
 
 const DestinoPage = () => {
   const [destinos, setDestinos] = useState([]);
@@ -10,6 +11,39 @@ const DestinoPage = () => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [modalType, setModalType] = useState(""); // 'create' | 'edit'
   const baseUrl = import.meta.env.VITE_BASE_URL;
+
+  const {user, verifyToken, setUser} = useAuth();
+  const [roleData, setRoleData] = useState(null);
+
+  useEffect(() => {
+    const init = async () => {
+      try {
+        const data = await verifyToken(); // Ensure user is verified
+        setUser(data);
+      } catch (e) {
+        console.log("Error verifying token or fetching user:", e);
+        navigate("/login");
+      }
+    };
+    init();
+  }, []);
+
+  useEffect(() => {
+    const fetchRolePermissions = async () => {
+      try {
+        const response = await fetch(`${baseUrl}/roles/${user.role}`, {
+          method: "GET",
+          credentials: "include",
+        });
+        const data = await response.json();
+        setRoleData(data);
+      } catch (e) {
+        console.log("Error fetching role permissions:", e);
+      }
+    };
+
+    fetchRolePermissions();
+  }, [user]);
 
   useEffect(() => {
     const fetchDestinos = async () => {
@@ -130,49 +164,59 @@ const DestinoPage = () => {
         <div className="content-wrapper">
           <div className="page-header">
             <h1>Catálogos - Destinos</h1>
-            <button type="button" className="new-btn" onClick={() => setModalType("create")}>
-              <i className="fas fa-plus"></i>
-            </button>
+
+            {roleData?.destinos?.create && (
+              <button type="button" className="new-btn" onClick={() => setModalType("create")}>
+                <i className="fas fa-plus"></i>
+              </button>
+            )}
           </div>
 
           {/* Tabla */}
-          <div className="mx-3 my-4">
-            <div className="table-responsive">
-              <table className="table table-striped">
-                <thead>
-                  <tr>
-                    <th>Nombre</th>
-                    <th>Estado</th>
-                    <th>Municipio</th>
+          {roleData?.destinos?.read && (
+            <div className="mx-3 my-4">
+              <div className="table-responsive">
+                <table className="table table-striped">
+                  <thead>
+                    <tr>
+                      <th>Nombre</th>
+                      <th>Estado</th>
+                      <th>Municipio</th>
 
-                    <th className="text-end">Acciones</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {destinos.map((destino) => (
-                    <tr key={destino._id}>
-                      <td>{destino.nombre}</td>
-                      <td>{destino.estado}</td>
-                      <td>{destino.municipio}</td>
-
-                      <td className="text-end">
-                        <button
-                          className="btn btn-primary rounded me-2"
-                          onClick={() => handleEdit(destino)}>
-                          <i className="fas fa-edit"></i>
-                        </button>
-                        <button
-                          className="btn btn-danger rounded"
-                          onClick={() => handleDelete(destino._id)}>
-                          <i className="fas fa-trash"></i>
-                        </button>
-                      </td>
+                      <th className="text-end">Acciones</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {destinos.map((destino) => (
+                      <tr key={destino._id}>
+                        <td>{destino.nombre}</td>
+                        <td>{destino.estado}</td>
+                        <td>{destino.municipio}</td>
+
+                        <td className="text-end">
+                          {roleData?.destinos?.update && (
+                            <button
+                              className="btn btn-primary rounded me-2"
+                              onClick={() => handleEdit(destino)}>
+                              <i className="fas fa-edit"></i>
+                            </button>
+                          )}
+
+                          {roleData?.destinos?.delete && (
+                            <button
+                              className="btn btn-danger rounded"
+                              onClick={() => handleDelete(destino._id)}>
+                              <i className="fas fa-trash"></i>
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Modal: Crear */}
           {modalType === "create" && (

@@ -1,5 +1,6 @@
 import React, {useState, useEffect} from "react";
 import ModalTemplate from "../ModalTemplate";
+import {useAuth} from "../../context/AuthContext";
 
 const ClientCard = ({client, onDelete, fetchClients}) => {
   const [formData, setFormData] = useState({
@@ -16,6 +17,40 @@ const ClientCard = ({client, onDelete, fetchClients}) => {
 
   const [showModal, setShowModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+
+  const baseUrl = import.meta.env.VITE_BASE_URL;
+  const {user, verifyToken, setUser} = useAuth();
+  const [roleData, setRoleData] = useState(null);
+
+  useEffect(() => {
+    const init = async () => {
+      try {
+        const data = await verifyToken(); // Ensure user is verified
+        setUser(data);
+      } catch (e) {
+        console.log("Error verifying token or fetching user:", e);
+        navigate("/login");
+      }
+    };
+    init();
+  }, []);
+
+  useEffect(() => {
+    const fetchRolePermissions = async () => {
+      try {
+        const response = await fetch(`${baseUrl}/roles/${user.role}`, {
+          method: "GET",
+          credentials: "include",
+        });
+        const data = await response.json();
+        setRoleData(data);
+      } catch (e) {
+        console.log("Error fetching role permissions:", e);
+      }
+    };
+
+    fetchRolePermissions();
+  }, [user]);
 
   useEffect(() => {
     setFormData({
@@ -170,12 +205,17 @@ const ClientCard = ({client, onDelete, fetchClients}) => {
             </p>
           </div>
           <div className="ms-auto">
-            <button className="btn btn-primary me-2" onClick={handleEdit}>
-              <i className="fa fa-pencil-alt"></i>
-            </button>
-            <button className="btn btn-danger" onClick={handleDelete}>
-              <i className="fa fa-trash-alt"></i>
-            </button>
+            {roleData?.clientes?.update && (
+              <button className="btn btn-primary me-2" onClick={handleEdit}>
+                <i className="fa fa-edit"></i>
+              </button>
+            )}
+
+            {roleData?.clientes?.delete && (
+              <button className="btn btn-danger" onClick={handleDelete}>
+                <i className="fa fa-trash"></i>
+              </button>
+            )}
           </div>
         </div>
       </div>

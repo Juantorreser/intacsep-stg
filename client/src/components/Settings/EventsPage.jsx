@@ -1,6 +1,7 @@
 import React, {useState, useEffect} from "react";
 import Sidebar from "../Sidebar";
 import ModalTemplate from "../ModalTemplate";
+import {useAuth} from "../../context/AuthContext";
 
 const EventsPage = () => {
   const [events, setEvents] = useState([]);
@@ -10,6 +11,38 @@ const EventsPage = () => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [idToDelete, setIdToDelete] = useState("");
   const [modalType, setModalType] = useState(""); // 'create', 'edit', ''
+  const {user, verifyToken, setUser} = useAuth();
+  const [roleData, setRoleData] = useState(null);
+
+  useEffect(() => {
+    const init = async () => {
+      try {
+        const data = await verifyToken(); // Ensure user is verified
+        setUser(data);
+      } catch (e) {
+        console.log("Error verifying token or fetching user:", e);
+        navigate("/login");
+      }
+    };
+    init();
+  }, []);
+
+  useEffect(() => {
+    const fetchRolePermissions = async () => {
+      try {
+        const response = await fetch(`${baseUrl}/roles/${user.role}`, {
+          method: "GET",
+          credentials: "include",
+        });
+        const data = await response.json();
+        setRoleData(data);
+      } catch (e) {
+        console.log("Error fetching role permissions:", e);
+      }
+    };
+
+    fetchRolePermissions();
+  }, [user]);
 
   useEffect(() => {
     const fetchEvents = async () => {
@@ -127,45 +160,56 @@ const EventsPage = () => {
         <div className="content-wrapper">
           <div className="page-header">
             <h1 className="fs-3 fw-semibold text-black m-0">Catálogos - Eventos</h1>
-            <button className="new-btn" onClick={() => setModalType("create")}>
-              <i className="fas fa-plus"></i>
-            </button>
+            {roleData?.eventos?.create && (
+              <button className="new-btn" onClick={() => setModalType("create")}>
+                <i className="fas fa-plus"></i>
+              </button>
+            )}
           </div>
 
           {/* Tabla */}
-          <div className="mx-3 my-4">
-            <div className="table-responsive">
-              <table className="table table-striped">
-                <thead>
-                  <tr>
-                    <th>Evento</th>
-                    <th>Categoría</th>
-                    <th>Calificación</th>
-                    <th className="text-end">Acciones</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {events.map((event) => (
-                    <tr key={event._id}>
-                      <td>{event.evento}</td>
-                      <td>{event.categoria}</td>
-                      <td>{event.calificacion}</td>
-                      <td className="text-end">
-                        <button className="btn btn-primary" onClick={() => handleEditClick(event)}>
-                          <i className="fa fa-edit"></i>
-                        </button>
-                        <button
-                          className="btn btn-danger ms-2"
-                          onClick={() => handleDelete(event._id)}>
-                          <i className="fas fa-trash"></i>
-                        </button>
-                      </td>
+          {roleData?.eventos?.read && (
+            <div className="mx-3 my-4">
+              <div className="table-responsive">
+                <table className="table table-striped">
+                  <thead>
+                    <tr>
+                      <th>Evento</th>
+                      <th>Categoría</th>
+                      <th>Calificación</th>
+                      <th className="text-end">Acciones</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {events.map((event) => (
+                      <tr key={event._id}>
+                        <td>{event.evento}</td>
+                        <td>{event.categoria}</td>
+                        <td>{event.calificacion}</td>
+                        <td className="text-end">
+                          {roleData?.eventos?.update && (
+                            <button
+                              className="btn btn-primary"
+                              onClick={() => handleEditClick(event)}>
+                              <i className="fa fa-edit"></i>
+                            </button>
+                          )}
+
+                          {roleData?.eventos?.delete && (
+                            <button
+                              className="btn btn-danger ms-2"
+                              onClick={() => handleDelete(event._id)}>
+                              <i className="fas fa-trash"></i>
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Modal: Crear */}
           {modalType === "create" && (

@@ -1,6 +1,42 @@
 import React, {useState, useEffect} from "react";
 import Sidebar from "../Sidebar";
 import ModalTemplate from "../ModalTemplate";
+import {useAuth} from "../../context/AuthContext";
+
+// import {useAuth} from "../../context/AuthContext";
+
+//   const {user, verifyToken, setUser} = useAuth();
+//   const [roleData, setRoleData] = useState(null);
+
+// useEffect(() => {
+//   const init = async () => {
+//     try {
+//       const data = await verifyToken(); // Ensure user is verified
+//       setUser(data);
+//     } catch (e) {
+//       console.log("Error verifying token or fetching user:", e);
+//       navigate("/login");
+//     }
+//   };
+//   init();
+// }, []);
+
+// useEffect(() => {
+//   const fetchRolePermissions = async () => {
+//     try {
+//       const response = await fetch(`${baseUrl}/roles/${user.role}`, {
+//         method: "GET",
+//         credentials: "include",
+//       });
+//       const data = await response.json();
+//       setRoleData(data);
+//     } catch (e) {
+//       console.log("Error fetching role permissions:", e);
+//     }
+//   };
+
+//   fetchRolePermissions();
+// }, [user]);
 
 const TiposMonitoreo = () => {
   const [monitoreos, setMonitoreos] = useState([]);
@@ -11,6 +47,38 @@ const TiposMonitoreo = () => {
   const baseUrl = import.meta.env.VITE_BASE_URL;
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [idToDelete, setIdToDelete] = useState("");
+  const {user, verifyToken, setUser} = useAuth();
+  const [roleData, setRoleData] = useState(null);
+
+  useEffect(() => {
+    const init = async () => {
+      try {
+        const data = await verifyToken(); // Ensure user is verified
+        setUser(data);
+      } catch (e) {
+        console.log("Error verifying token or fetching user:", e);
+        navigate("/login");
+      }
+    };
+    init();
+  }, []);
+
+  useEffect(() => {
+    const fetchRolePermissions = async () => {
+      try {
+        const response = await fetch(`${baseUrl}/roles/${user.role}`, {
+          method: "GET",
+          credentials: "include",
+        });
+        const data = await response.json();
+        setRoleData(data);
+      } catch (e) {
+        console.log("Error fetching role permissions:", e);
+      }
+    };
+
+    fetchRolePermissions();
+  }, [user]);
 
   useEffect(() => {
     const fetchMonitoreos = async () => {
@@ -126,9 +194,12 @@ const TiposMonitoreo = () => {
             <h1 className="text-center fs-3 fw-semibold text-black">
               Catálogos - Tipos de Monitoreo
             </h1>
-            <button type="button" className="new-btn" onClick={() => setShowModal("create")}>
-              <i className="fas fa-plus"></i>
-            </button>
+
+            {roleData?.tipos_de_monitoreo?.create && (
+              <button type="button" className="new-btn" onClick={() => setShowModal("create")}>
+                <i className="fas fa-plus"></i>
+              </button>
+            )}
           </div>
 
           {/* Create New Monitoreo Form */}
@@ -156,41 +227,48 @@ const TiposMonitoreo = () => {
           )}
 
           {/* Responsive Table */}
-          <div className="mx-3 my-4">
-            <div className="table-responsive">
-              <table className="table table-striped">
-                <thead>
-                  <tr>
-                    <th>Tipo de Monitoreo</th>
-                    <th className="text-end">Acciones</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {monitoreos.map((monitoreo) => (
-                    <tr key={monitoreo._id}>
-                      <td>{monitoreo.tipoMonitoreo}</td>
-                      <td className="text-end">
-                        <button
-                          className="btn btn-primary rounded me-2"
-                          onClick={() => {
-                            setCurrentMonitoreo(monitoreo);
-                            setEditingName(monitoreo.tipoMonitoreo);
-                            setShowModal("edit");
-                          }}>
-                          <i className="fas fa-edit"></i>
-                        </button>
-                        <button
-                          className="btn btn-danger rounded"
-                          onClick={() => handleDelete(monitoreo._id)}>
-                          <i className="fas fa-trash"></i>
-                        </button>
-                      </td>
+          {roleData?.tipos_de_monitoreo?.read && (
+            <div className="mx-3 my-4">
+              <div className="table-responsive">
+                <table className="table table-striped">
+                  <thead>
+                    <tr>
+                      <th>Tipo de Monitoreo</th>
+                      <th className="text-end">Acciones</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {monitoreos.map((monitoreo) => (
+                      <tr key={monitoreo._id}>
+                        <td>{monitoreo.tipoMonitoreo}</td>
+                        <td className="text-end">
+                          {roleData?.tipos_de_monitoreo?.update && (
+                            <button
+                              className="btn btn-primary rounded me-2"
+                              onClick={() => {
+                                setCurrentMonitoreo(monitoreo);
+                                setEditingName(monitoreo.tipoMonitoreo);
+                                setShowModal("edit");
+                              }}>
+                              <i className="fas fa-edit"></i>
+                            </button>
+                          )}
+
+                          {roleData?.tipos_de_monitoreo?.delete && (
+                            <button
+                              className="btn btn-danger rounded"
+                              onClick={() => handleDelete(monitoreo._id)}>
+                              <i className="fas fa-trash"></i>
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
       {/* Edit Modal */}

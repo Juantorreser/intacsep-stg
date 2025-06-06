@@ -1,6 +1,7 @@
 import React, {useState, useEffect} from "react";
 import Sidebar from "../Sidebar";
 import ModalTemplate from "../ModalTemplate";
+import {useAuth} from "../../context/AuthContext";
 
 const OrigenPage = () => {
   const [origenes, setOrigenes] = useState([]);
@@ -11,6 +12,39 @@ const OrigenPage = () => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [idToDelete, setIdToDelete] = useState("");
   const [modalType, setModalType] = useState(""); // 'create', 'edit'
+
+  const {user, verifyToken, setUser} = useAuth();
+  const [roleData, setRoleData] = useState(null);
+
+  useEffect(() => {
+    const init = async () => {
+      try {
+        const data = await verifyToken(); // Ensure user is verified
+        setUser(data);
+      } catch (e) {
+        console.log("Error verifying token or fetching user:", e);
+        navigate("/login");
+      }
+    };
+    init();
+  }, []);
+
+  useEffect(() => {
+    const fetchRolePermissions = async () => {
+      try {
+        const response = await fetch(`${baseUrl}/roles/${user.role}`, {
+          method: "GET",
+          credentials: "include",
+        });
+        const data = await response.json();
+        setRoleData(data);
+      } catch (e) {
+        console.log("Error fetching role permissions:", e);
+      }
+    };
+
+    fetchRolePermissions();
+  }, [user]);
 
   useEffect(() => {
     const fetchOrigenes = async () => {
@@ -131,45 +165,59 @@ const OrigenPage = () => {
         <div className="content-wrapper">
           <div className="page-header">
             <h1 className="text-center fs-3 fw-semibold text-black">Catálogos - Orígenes</h1>
-            <button type="button" className="new-btn" onClick={() => setModalType("create")}>
-              <i className="fas fa-plus"></i>
-            </button>
+
+            {roleData?.origenes?.create && (
+              <button type="button" className="new-btn" onClick={() => setModalType("create")}>
+                <i className="fas fa-plus"></i>
+              </button>
+            )}
           </div>
 
           {/* Tabla */}
-          <div className="mx-3 my-4">
-            <div className="table-responsive">
-              <table className="table table-striped">
-                <thead>
-                  <tr>
-                    <th>Nombre</th>
-                    <th>Estado</th>
-                    <th>Municipio</th>
+          {roleData?.origenes?.read && (
+            <div className="mx-3 my-4">
+              <div className="table-responsive">
+                <table className="table table-striped">
+                  <thead>
+                    <tr>
+                      <th>Nombre</th>
+                      <th>Estado</th>
+                      <th>Municipio</th>
 
-                    <th className="text-end">Acciones</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {origenes.map((origen) => (
-                    <tr key={origen._id}>
-                      <td>{origen.nombre}</td>
-                      <td>{origen.estado}</td>
-                      <td>{origen.municipio}</td>
-
-                      <td className="text-end">
-                        <button className="btn btn-primary me-2" onClick={() => handleEdit(origen)}>
-                          <i className="fas fa-edit"></i>
-                        </button>
-                        <button className="btn btn-danger" onClick={() => handleDelete(origen._id)}>
-                          <i className="fas fa-trash"></i>
-                        </button>
-                      </td>
+                      <th className="text-end">Acciones</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {origenes.map((origen) => (
+                      <tr key={origen._id}>
+                        <td>{origen.nombre}</td>
+                        <td>{origen.estado}</td>
+                        <td>{origen.municipio}</td>
+
+                        <td className="text-end">
+                          {roleData?.origenes?.update && (
+                            <button
+                              className="btn btn-primary me-2"
+                              onClick={() => handleEdit(origen)}>
+                              <i className="fas fa-edit"></i>
+                            </button>
+                          )}
+
+                          {roleData?.origenes?.delete && (
+                            <button
+                              className="btn btn-danger"
+                              onClick={() => handleDelete(origen._id)}>
+                              <i className="fas fa-trash"></i>
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Modal: Crear */}
           {modalType === "create" && (

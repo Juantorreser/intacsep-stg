@@ -319,7 +319,7 @@ const RolePage = () => {
 
                     <tr className="table-group-divider fw-bold bg-secondary text-white">
                       <td colSpan="5">
-                        Monitoreo &gt; Bitácoras &gt; Datos Bitácora &gt; Crear Transporte
+                        Monitoreo &gt; Bitácoras &gt; Datos Bitácora &gt; Datos Transportes
                       </td>
                     </tr>
                     {["gps_id", "remolque", "tracto", "operador"].map((key) =>
@@ -330,7 +330,7 @@ const RolePage = () => {
                     <tr className="table-group-divider fw-bold bg-secondary text-white">
                       <td colSpan="5">Configuración &gt; Catálogos</td>
                     </tr>
-                    {["tipos_de_monitoreo", "destinos", "origenes", "eventos", "clientes"].map(
+                    {["tipos_de_monitoreo", "eventos", "clientes", "origenes", "destinos"].map(
                       (key) => renderPermissionRow(key, editRoleData, setEditRoleData)
                     )}
 
