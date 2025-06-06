@@ -59,19 +59,18 @@ export const fetchUsers = async () => {
   }
 };
 
-export const fetchBitacoras = async (page, limit) => {
-  try {
-    const response = await fetch(`${baseUrl}/bitacoras?page=${page}&limit=${limit}`, {
-      method: "GET",
-      credentials: "include",
-    });
-    if (!response.ok) throw new Error("Failed to fetch bitacoras");
-    return await response.json();
-  } catch (e) {
-    console.error("Error fetching bitacoras:", e);
-    return { bitacoras: [], totalItems: 0, totalPages: 1 };
-  }
+export const fetchBitacoras = async (page = 1, limit = 25, operador = "") => {
+  const params = new URLSearchParams({ page, limit });
+  if (operador) params.append("operador", operador);
+
+  const response = await fetch(`${baseUrl}/bitacoras?${params.toString()}`, {
+    credentials: "include",
+  });
+
+  const data = await response.json();
+  return data;
 };
+
 
 export const fetchClients = async () => {
   try {

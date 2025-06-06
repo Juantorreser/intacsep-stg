@@ -435,19 +435,16 @@ app.delete("/user/:id", async (req, res) => {
 
 app.get("/bitacoras", async (req, res) => {
   try {
-    const page = parseInt(req.query.page);
-    const limit = parseInt(req.query.limit);
-    const extraLimit = limit;
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 25;
     const skip = (page - 1) * limit;
+    const operador = req.query.operador;
 
-    console.log(page);
-    console.log(limit);
+    const query = {};
+    if (operador) query.operador = operador;
 
-    // Get total count of bitacoras
-    const totalItems = await Bitacora.countDocuments();
-
-    // Fetch paginated bitacoras
-    const bitacoras = await Bitacora.find().sort({ createdAt: -1 }).skip(skip).limit(limit);
+    const totalItems = await Bitacora.countDocuments(query);
+    const bitacoras = await Bitacora.find(query).sort({ createdAt: -1 }).skip(skip).limit(limit);
 
     res.status(200).json({
       bitacoras,
@@ -459,6 +456,8 @@ app.get("/bitacoras", async (req, res) => {
     res.status(500).json({ error: "An error occurred while fetching bitacoras." });
   }
 });
+
+
 
 app.post("/bitacora", async (req, res) => {
   const data = req.body;

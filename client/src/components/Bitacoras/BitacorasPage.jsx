@@ -107,6 +107,10 @@ const BitacorasPage = () => {
     const initialize = async () => {
       try {
         setLoadingBitacoras(true);
+
+        const operadorFullName = `${user.firstName} ${user.lastName}`;
+        const shouldReadAll = roleData?.bitacoras?.read_all;
+
         const [
           bitacorasData,
           clientsData,
@@ -116,7 +120,7 @@ const BitacorasPage = () => {
           destinosData,
           operadoresData,
         ] = await Promise.all([
-          fetchBitacoras(currentPage, itemsPerPage),
+          fetchBitacoras(currentPage, itemsPerPage, shouldReadAll ? "" : operadorFullName),
           fetchClients(),
           fetchMonitoreos(),
           fetchUsers(),
@@ -136,26 +140,17 @@ const BitacorasPage = () => {
         setOperadores(operadoresData);
 
         updateFormDataFromUser();
-        setBitacoras(bitacorasData.bitacoras);
-        setTotalItems(bitacorasData.totalItems);
-        setTotalPages(bitacorasData.totalPages);
-        setClients(clientsData);
-        setMonitoreos(monitoreosData);
-        setUsers(usersData);
-        setOrigenes(origenesData);
-        setDestinos(destinosData);
-        setOperadores(operadoresData);
-
-        updateFormDataFromUser();
       } catch (e) {
-        console.error("Verification failed:", e);
+        console.error("Error loading data:", e);
       } finally {
         setLoadingBitacoras(false);
       }
     };
 
-    initialize();
-  }, [currentPage, itemsPerPage]);
+    if (user && roleData) {
+      initialize();
+    }
+  }, [user, roleData, currentPage, itemsPerPage]);
 
   const updateFormDataFromUser = () => {
     if (user) {
@@ -242,6 +237,8 @@ const BitacorasPage = () => {
       if (response.ok) {
         // After successful creation, you might want to refetch bitacoras
         setFormData(defaultFormData); // 💥 Reset all fields
+        const operadorFullName = `${user.firstName} ${user.lastName}`;
+        const shouldReadAll = roleData?.bitacoras?.read_all;
 
         try {
           setLoadingBitacoras(true);
@@ -254,7 +251,7 @@ const BitacorasPage = () => {
             destinosData,
             operadoresData,
           ] = await Promise.all([
-            fetchBitacoras(currentPage, itemsPerPage),
+            fetchBitacoras(currentPage, itemsPerPage, shouldReadAll ? "" : operadorFullName),
             fetchClients(),
             fetchMonitoreos(),
             fetchUsers(),
@@ -374,13 +371,19 @@ const BitacorasPage = () => {
 
   const handlePageChange = (newPage) => {
     setCurrentPage(newPage);
-    fetchBitacoras(newPage, itemsPerPage);
+    const operadorFullName = `${user.firstName} ${user.lastName}`;
+    const shouldReadAll = roleData?.bitacoras?.read_all;
+
+    fetchBitacoras(newPage, itemsPerPage, shouldReadAll ? "" : operadorFullName);
   };
 
   const handleItemsPerPageChange = (event) => {
     const newLimit = Number(event.target.value);
+    const operadorFullName = `${user.firstName} ${user.lastName}`;
+    const shouldReadAll = roleData?.bitacoras?.read_all;
+
     setItemsPerPage(newLimit);
-    fetchBitacoras(currentPage, newLimit); // Refetch with new limit
+    fetchBitacoras(currentPage, newLimit, shouldReadAll ? "" : operadorFullName); // Refetch with new limit
   };
 
   const generatePDF = async (bitacora, transporteId = "") => {
