@@ -7,7 +7,7 @@ const RolePage = () => {
   const [roles, setRoles] = useState([]);
   const [newRole, setNewRole] = useState({
     name: "",
-    bitacoras: {create: false, read: false, update: false, delete: false},
+    bitacoras: {create: false, read: false, read_all: false, update: false, delete: false},
     eventos: {create: false, read: false, update: false, delete: false},
     clientes: {create: false, read: false, update: false, delete: false},
     usuarios: {create: false, read: false, update: false, delete: false},
@@ -32,7 +32,7 @@ const RolePage = () => {
   const [editRole, setEditRole] = useState(null);
   const [editRoleData, setEditRoleData] = useState({
     name: "",
-    bitacoras: {create: false, read: false, update: false, delete: false},
+    bitacoras: {create: false, read: false, read_all: false, update: false, delete: false},
     eventos: {create: false, read: false, update: false, delete: false},
     clientes: {create: false, read: false, update: false, delete: false},
     usuarios: {create: false, read: false, update: false, delete: false},
@@ -274,37 +274,52 @@ const RolePage = () => {
     },
   };
 
-  const renderPermissionRow = (key, roleData, setRoleData) => (
-    <tr key={key}>
-      <td className="text-capitalize">{key.replace(/_/g, " ")}</td>
-      {["create", "read", "update", "delete"].map((action) => {
-        const isDisabled = disabledPermissions[key]?.[action];
+  const renderPermissionRow = (key, roleData, setRoleData) => {
+    const actions =
+      key === "bitacoras"
+        ? ["create", "read", "update", "delete", "read_all"]
+        : ["create", "read", "update", "delete"];
 
-        return (
-          <td className="text-center" key={action}>
-            {isDisabled ? (
-              <span className="text-muted">N/A</span>
-            ) : (
-              <input
-                type="checkbox"
-                checked={roleData[key][action]}
-                disabled={!isEditing || isDisabled}
-                onChange={(e) =>
-                  setRoleData((prev) => ({
-                    ...prev,
-                    [key]: {
-                      ...prev[key],
-                      [action]: e.target.checked,
-                    },
-                  }))
-                }
-              />
-            )}
-          </td>
-        );
-      })}
-    </tr>
-  );
+    const headersMap = {
+      create: "Crear",
+      read: "Ver",
+      update: "Editar",
+      delete: "Eliminar",
+      read_all: "Ver Todos",
+    };
+
+    return (
+      <tr key={key}>
+        <td className="text-capitalize">{key.replace(/_/g, " ")}</td>
+        {actions.map((action) => {
+          const isDisabled = disabledPermissions[key]?.[action];
+
+          return (
+            <td className="text-center" key={action}>
+              {isDisabled ? (
+                <span className="text-muted">N/A</span>
+              ) : (
+                <input
+                  type="checkbox"
+                  checked={roleData[key]?.[action] || false}
+                  disabled={!isEditing}
+                  onChange={(e) =>
+                    setRoleData((prev) => ({
+                      ...prev,
+                      [key]: {
+                        ...prev[key],
+                        [action]: e.target.checked,
+                      },
+                    }))
+                  }
+                />
+              )}
+            </td>
+          );
+        })}
+      </tr>
+    );
+  };
 
   return (
     <section id="rolePage">
@@ -393,13 +408,14 @@ const RolePage = () => {
                   <table className="table table-bordered table-hover">
                     <thead
                       className="table-light"
-                      style={{position: "sticky", top: -1, zIndex: 1, backgroundColor: "#7a7a7a"}}>
+                      style={{position: "sticky", top: 0, zIndex: 1, backgroundColor: "#f8f9fa"}}>
                       <tr>
                         <th>Módulo</th>
                         <th className="text-center">Crear</th>
                         <th className="text-center">Ver</th>
                         <th className="text-center">Editar</th>
                         <th className="text-center">Eliminar</th>
+                        <th className="text-center">Ver Todo</th>
                       </tr>
                     </thead>
 
