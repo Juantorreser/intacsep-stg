@@ -1,5 +1,6 @@
 import React, {useState, useEffect} from "react";
 import {Modal, Form, Tabs, Tab} from "react-bootstrap";
+import {useAuth} from "../../../context/AuthContext";
 
 const CreateTransporteModal = ({show, handleClose, addTransporte, transportes, bitacora}) => {
   const [transporteData, setTransporteData] = useState({
@@ -33,6 +34,38 @@ const CreateTransporteModal = ({show, handleClose, addTransporte, transportes, b
   const token = import.meta.env.VITE_WIALON_TOKEN;
   const baseUrl = import.meta.env.VITE_BASE_URL;
   const [units, setUnits] = useState();
+  const [roleData, setRoleData] = useState(null);
+  const {user, verifyToken, setUser} = useAuth();
+
+  useEffect(() => {
+    const init = async () => {
+      try {
+        const data = await verifyToken(); // Ensure user is verified
+        setUser(data);
+      } catch (e) {
+        console.log("Error verifying token or fetching user:", e);
+        navigate("/login");
+      }
+    };
+    init();
+  }, []);
+
+  useEffect(() => {
+    const fetchRolePermissions = async () => {
+      try {
+        const response = await fetch(`${baseUrl}/roles/${user.role}`, {
+          method: "GET",
+          credentials: "include",
+        });
+        const data = await response.json();
+        setRoleData(data);
+      } catch (e) {
+        console.log("Error fetching role permissions:", e);
+      }
+    };
+
+    fetchRolePermissions();
+  }, [user]);
 
   useEffect(() => {
     fetchOperadores();
@@ -192,146 +225,149 @@ const CreateTransporteModal = ({show, handleClose, addTransporte, transportes, b
         <Form onSubmit={handleSubmitTransporte}>
           <Tabs defaultActiveKey="gps" className="mb-3">
             {/* TAB 1 - GPS ID */}
-            <Tab eventKey="gps" title="GPS ID">
-              <Form.Group className="mb-3">
-                <Form.Label>Método de ID</Form.Label>
-                <div>
-                  <Form.Check
-                    type="radio"
-                    label="Manual (ID vacío)"
-                    name="idMethod"
-                    value="manual"
-                    checked={idMethod === "manual"}
-                    onChange={() => setIdMethod("manual")}
-                  />
-                  <Form.Check
-                    type="radio"
-                    label="Automático"
-                    name="idMethod"
-                    value="automatic"
-                    checked={idMethod === "automatic"}
-                    onChange={() => setIdMethod("automatic")}
-                  />
-                  <Form.Check
-                    type="radio"
-                    label="GPS ID"
-                    name="idMethod"
-                    value="wialon"
-                    checked={idMethod === "wialon"}
-                    onChange={() => setIdMethod("wialon")}
-                  />
-                </div>
-              </Form.Group>
-
-              {idMethod === "wialon" && (
+            {roleData?.gps_id?.read && (
+              <Tab eventKey="gps" title="GPS ID">
                 <Form.Group className="mb-3">
-                  <Form.Label>Seleccionar unidad Wialon</Form.Label>
-                  <Form.Select
-                    value={selectedUnitId}
-                    onChange={(e) => {
-                      const unitId = e.target.value;
-                      const selected = units?.find((u) => u.id.toString() === unitId);
-                      if (selected) {
-                        setSelectedUnitId(selected.id);
-                        setSelectedUnitName(selected.name);
+                  <Form.Label>Método de ID</Form.Label>
+                  <div>
+                    <Form.Check
+                      type="radio"
+                      label="Manual (ID vacío)"
+                      name="idMethod"
+                      value="manual"
+                      checked={idMethod === "manual"}
+                      onChange={() => setIdMethod("manual")}
+                    />
+                    <Form.Check
+                      type="radio"
+                      label="Automático"
+                      name="idMethod"
+                      value="automatic"
+                      checked={idMethod === "automatic"}
+                      onChange={() => setIdMethod("automatic")}
+                    />
+                    <Form.Check
+                      type="radio"
+                      label="GPS ID"
+                      name="idMethod"
+                      value="wialon"
+                      checked={idMethod === "wialon"}
+                      onChange={() => setIdMethod("wialon")}
+                    />
+                  </div>
+                </Form.Group>
+
+                {idMethod === "wialon" && (
+                  <Form.Group className="mb-3">
+                    <Form.Label>Seleccionar unidad Wialon</Form.Label>
+                    <Form.Select
+                      value={selectedUnitId}
+                      onChange={(e) => {
+                        const unitId = e.target.value;
+                        const selected = units?.find((u) => u.id.toString() === unitId);
+                        if (selected) {
+                          setSelectedUnitId(selected.id);
+                          setSelectedUnitName(selected.name);
+                        }
+                      }}>
+                      <option value="">Seleccione una unidad</option>
+                      {units?.map((unit) => (
+                        <option key={unit.id} value={unit.id}>
+                          {unit.name}
+                        </option>
+                      ))}
+                    </Form.Select>
+                  </Form.Group>
+                )}
+
+                {(idMethod === "automatic" || idMethod === "manual") && (
+                  <Form.Group className="mb-3">
+                    <Form.Label>ID generado</Form.Label>
+                    <Form.Control
+                      type="text"
+                      value={
+                        idMethod === "automatic"
+                          ? `0_${(transportes.length + 1).toString().padStart(2, "0")}_${
+                              transporteData.tracto.eco
+                            }`
+                          : "(ID en blanco)"
                       }
-                    }}>
-                    <option value="">Seleccione una unidad</option>
-                    {units?.map((unit) => (
-                      <option key={unit.id} value={unit.id}>
-                        {unit.name}
-                      </option>
-                    ))}
-                  </Form.Select>
-                </Form.Group>
-              )}
-
-              {(idMethod === "automatic" || idMethod === "manual") && (
-                <Form.Group className="mb-3">
-                  <Form.Label>ID generado</Form.Label>
-                  <Form.Control
-                    type="text"
-                    value={
-                      idMethod === "automatic"
-                        ? `0_${(transportes.length + 1).toString().padStart(2, "0")}_${
-                            transporteData.tracto.eco
-                          }`
-                        : "(ID en blanco)"
-                    }
-                    disabled
-                  />
-                </Form.Group>
-              )}
-            </Tab>
+                      disabled
+                    />
+                  </Form.Group>
+                )}
+              </Tab>
+            )}
 
             {/* TAB 2 - ECO (REMOLQUE) */}
-            <Tab eventKey="remolque" title="REMOLQUE">
-              <h5>Datos del Remolque</h5>
-              {["eco", "placa", "color", "capacidad", "sello"].map((field) => (
-                <Form.Group className="mb-3" key={field}>
-                  <Form.Label>{field.toUpperCase()}</Form.Label>
-                  <Form.Control
-                    type="text"
-                    name={`remolque.${field}`}
-                    value={transporteData.remolque[field]}
-                    onChange={handleChange}
-                    required
-                  />
-                </Form.Group>
-              ))}
-            </Tab>
+            {roleData?.remolque?.read && (
+              <Tab eventKey="remolque" title="REMOLQUE">
+                <h5>Datos del Remolque</h5>
+                {["eco", "placa", "color", "capacidad", "sello"].map((field) => (
+                  <Form.Group className="mb-3" key={field}>
+                    <Form.Label>{field.toUpperCase()}</Form.Label>
+                    <Form.Control
+                      type="text"
+                      name={`remolque.${field}`}
+                      value={transporteData.remolque[field]}
+                      onChange={handleChange}
+                    />
+                  </Form.Group>
+                ))}
+              </Tab>
+            )}
 
             {/* TAB 3 - TRACTO */}
-            <Tab eventKey="tracto" title="TRACTO">
-              <h5>Datos del Tracto</h5>
-              {["eco", "placa", "marca", "modelo", "color", "tipo"].map((field) => (
-                <Form.Group className="mb-3" key={field}>
-                  <Form.Label>{field.toUpperCase()}</Form.Label>
-                  <Form.Control
-                    type="text"
-                    name={`tracto.${field}`}
-                    value={transporteData.tracto[field]}
-                    onChange={handleChange}
-                    required
-                  />
-                </Form.Group>
-              ))}
-            </Tab>
+            {roleData?.tracto?.read && (
+              <Tab eventKey="tracto" title="TRACTO">
+                <h5>Datos del Tracto</h5>
+                {["eco", "placa", "marca", "modelo", "color", "tipo"].map((field) => (
+                  <Form.Group className="mb-3" key={field}>
+                    <Form.Label>{field.toUpperCase()}</Form.Label>
+                    <Form.Control
+                      type="text"
+                      name={`tracto.${field}`}
+                      value={transporteData.tracto[field]}
+                      onChange={handleChange}
+                    />
+                  </Form.Group>
+                ))}
+              </Tab>
+            )}
 
             {/* TAB 4 - OPERADOR */}
-            <Tab eventKey="operador" title="OPERADOR">
-              <h5>Datos del Operador</h5>
-              <Form.Group className="mb-3">
-                <Form.Label>Línea de Transporte</Form.Label>
-                <Form.Control
-                  type="text"
-                  name="lineaTransporte"
-                  value={transporteData.lineaTransporte}
-                  onChange={handleChange}
-                  required
-                />
-              </Form.Group>
-              <Form.Group className="mb-3">
-                <Form.Label>Operador</Form.Label>
-                <Form.Control
-                  type="text"
-                  name="operador"
-                  value={transporteData.operador}
-                  onChange={handleChange}
-                  required
-                />
-              </Form.Group>
-              <Form.Group className="mb-3">
-                <Form.Label>Teléfono</Form.Label>
-                <Form.Control
-                  type="text"
-                  name="telefono"
-                  value={transporteData.telefono}
-                  onChange={handleChange}
-                  required
-                />
-              </Form.Group>
-            </Tab>
+            {roleData?.operador?.read && (
+              <Tab eventKey="operador" title="OPERADOR">
+                <h5>Datos del Operador</h5>
+                <Form.Group className="mb-3">
+                  <Form.Label>Línea de Transporte</Form.Label>
+                  <Form.Control
+                    type="text"
+                    name="lineaTransporte"
+                    value={transporteData.lineaTransporte}
+                    onChange={handleChange}
+                  />
+                </Form.Group>
+                <Form.Group className="mb-3">
+                  <Form.Label>Operador</Form.Label>
+                  <Form.Control
+                    type="text"
+                    name="operador"
+                    value={transporteData.operador}
+                    onChange={handleChange}
+                  />
+                </Form.Group>
+                <Form.Group className="mb-3">
+                  <Form.Label>Teléfono</Form.Label>
+                  <Form.Control
+                    type="text"
+                    name="telefono"
+                    value={transporteData.telefono}
+                    onChange={handleChange}
+                  />
+                </Form.Group>
+              </Tab>
+            )}
           </Tabs>
 
           {/* BOTONES */}
