@@ -269,7 +269,22 @@ const RolePage = () => {
                     <tr className="table-group-divider fw-bold bg-secondary text-white">
                       <td colSpan="5">Monitoreo</td>
                     </tr>
-                    {["bitacoras", "bit_transportes", "bit_eventos", "bit_detalles"].map((key) =>
+                    {["bitacoras"].map((key) =>
+                      renderPermissionRow(key, editRoleData, setEditRoleData)
+                    )}
+                    <tr className="table-group-divider fw-bold bg-secondary text-white">
+                      <td colSpan="5">Monitoreo &gt; Bitácoras &gt; Datos Bitácora</td>
+                    </tr>
+                    {["bit_detalles", "bit_transportes", "bit_eventos"].map((key) =>
+                      renderPermissionRow(key, editRoleData, setEditRoleData)
+                    )}
+
+                    <tr className="table-group-divider fw-bold bg-secondary text-white">
+                      <td colSpan="5">
+                        Monitoreo &gt; Bitácoras &gt; Datos Bitácora &gt; Crear Transporte
+                      </td>
+                    </tr>
+                    {["gps_id", "remolque", "tracto", "operador"].map((key) =>
                       renderPermissionRow(key, editRoleData, setEditRoleData)
                     )}
 

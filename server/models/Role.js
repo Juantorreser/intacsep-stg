@@ -24,6 +24,10 @@ const RoleSchema = new mongoose.Schema({
   bit_detalles: permissionSchema,
   bit_transportes: permissionSchema,
   bit_eventos: permissionSchema,
+  gps_id: permissionSchema,
+  remolque: permissionSchema,
+  tracto: permissionSchema,
+  operador: permissionSchema,
   auditoria_bitacora: permissionSchema,
 
 }, { timestamps: true });
