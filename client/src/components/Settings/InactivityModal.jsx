@@ -1,9 +1,42 @@
 import React, {useState, useEffect} from "react";
 import ModalTemplate from "../ModalTemplate";
+import {useAuth} from "../../context/AuthContext";
 
 const InactivityModal = ({show, handleClose}) => {
   const baseUrl = import.meta.env.VITE_BASE_URL;
   const [newTimeout, setNewTimeout] = useState(0);
+  const {user, verifyToken, setUser} = useAuth();
+  const [roleData, setRoleData] = useState(null);
+
+  useEffect(() => {
+    const init = async () => {
+      try {
+        const data = await verifyToken(); // Ensure user is verified
+        setUser(data);
+      } catch (e) {
+        console.log("Error verifying token or fetching user:", e);
+        navigate("/login");
+      }
+    };
+    init();
+  }, []);
+
+  useEffect(() => {
+    const fetchRolePermissions = async () => {
+      try {
+        const response = await fetch(`${baseUrl}/roles/${user.role}`, {
+          method: "GET",
+          credentials: "include",
+        });
+        const data = await response.json();
+        setRoleData(data);
+      } catch (e) {
+        console.log("Error fetching role permissions:", e);
+      }
+    };
+
+    fetchRolePermissions();
+  }, [user]);
 
   const getTimeoutTime = async () => {
     try {
@@ -52,6 +85,7 @@ const InactivityModal = ({show, handleClose}) => {
           value={newTimeout}
           onChange={(e) => setNewTimeout(Number(e.target.value))}
           required
+          disabled={!roleData?.inactividad?.update}
         />
       </label>
     </ModalTemplate>

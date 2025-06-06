@@ -1,6 +1,7 @@
 import React, {useState, useEffect} from "react";
 import Sidebar from "../Sidebar";
 import ModalTemplate from "../ModalTemplate";
+import {useAuth} from "../../context/AuthContext";
 
 const RolePage = () => {
   const [roles, setRoles] = useState([]);
@@ -22,6 +23,10 @@ const RolePage = () => {
     bit_eventos: {create: false, read: false, update: false, delete: false},
     bit_transportes: {create: false, read: false, update: false, delete: false},
     auditoria_bitacora: {create: false, read: false, update: false, delete: false},
+    gps_id: {create: false, read: false, update: false, delete: false},
+    tracto: {create: false, read: false, update: false, delete: false},
+    remolque: {create: false, read: false, update: false, delete: false},
+    operador: {create: false, read: false, update: false, delete: false},
   });
 
   const [editRole, setEditRole] = useState(null);
@@ -43,12 +48,50 @@ const RolePage = () => {
     bit_eventos: {create: false, read: false, update: false, delete: false},
     bit_transportes: {create: false, read: false, update: false, delete: false},
     auditoria_bitacora: {create: false, read: false, update: false, delete: false},
+    gps_id: {create: false, read: false, update: false, delete: false},
+    tracto: {create: false, read: false, update: false, delete: false},
+    remolque: {create: false, read: false, update: false, delete: false},
+    operador: {create: false, read: false, update: false, delete: false},
   });
 
   const [showModal, setShowModal] = useState(false);
   const baseUrl = import.meta.env.VITE_BASE_URL;
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [idToDelete, setIdToDelete] = useState("");
+  const [isEditing, setIsEditing] = useState(false);
+
+  const {user, verifyToken, setUser} = useAuth();
+  const [roleData, setRoleData] = useState(null);
+
+  useEffect(() => {
+    const init = async () => {
+      try {
+        const data = await verifyToken(); // Ensure user is verified
+        setUser(data);
+      } catch (e) {
+        console.log("Error verifying token or fetching user:", e);
+        navigate("/login");
+      }
+    };
+    init();
+  }, []);
+
+  useEffect(() => {
+    const fetchRolePermissions = async () => {
+      try {
+        const response = await fetch(`${baseUrl}/roles/${user.role}`, {
+          method: "GET",
+          credentials: "include",
+        });
+        const data = await response.json();
+        setRoleData(data);
+      } catch (e) {
+        console.log("Error fetching role permissions:", e);
+      }
+    };
+
+    fetchRolePermissions();
+  }, [user]);
 
   // Fetch roles from API
   useEffect(() => {
@@ -136,6 +179,7 @@ const RolePage = () => {
   const handleEditClick = (role) => {
     setEditRole(role);
     setEditRoleData({...role});
+    setIsEditing(true); // << ENABLE EDIT MODE
   };
 
   // Handle role update
@@ -161,6 +205,7 @@ const RolePage = () => {
         });
 
         setEditRoleData({name: "", ...resetPermissions});
+        setIsEditing(false);
       } else {
         console.error("Failed to update role:", response.statusText);
       }
@@ -180,6 +225,7 @@ const RolePage = () => {
 
     setEditRole(null);
     setEditRoleData({name: "", ...resetPermissions});
+    setIsEditing(false);
   };
 
   // Handle form input changes
@@ -217,8 +263,11 @@ const RolePage = () => {
     operador: {
       delete: true,
     },
-    // You can add more like:
-    // eventos: { update: true },
+    inactividad: {
+      create: true,
+      delete: true,
+    },
+
   };
 
   const renderPermissionRow = (key, roleData, setRoleData) => (
@@ -235,6 +284,7 @@ const RolePage = () => {
               <input
                 type="checkbox"
                 checked={roleData[key][action]}
+                disabled={!isEditing || isDisabled}
                 onChange={(e) =>
                   setRoleData((prev) => ({
                     ...prev,
@@ -261,108 +311,147 @@ const RolePage = () => {
         <div className="content-wrapper">
           <div className="page-header">
             <h1>Sistema - Roles</h1>
-            <button className="new-btn" onClick={() => setShowModal(true)}>
-              <i className="fas fa-plus"></i>
-            </button>
+            {roleData?.roles?.create && (
+              <button className="new-btn" onClick={() => setShowModal(true)}>
+                <i className="fas fa-plus"></i>
+              </button>
+            )}
           </div>
 
           {/* Role Cards */}
-          <div className="mx-3 my-4">
-            <div className="mb-3">
-              <label htmlFor="roleSelect" className="form-label fw-bold">
-                Seleccionar Rol
-              </label>
-              <select
-                id="roleSelect"
-                className="form-select"
-                value={editRole?._id || ""}
-                onChange={(e) => {
-                  const selected = roles.find((r) => r._id === e.target.value);
-                  setEditRole(selected || null);
-                  setEditRoleData(JSON.parse(JSON.stringify(selected))); // deep clone to detach from state mutation
-                }}>
-                <option value="">-- Seleccione un rol --</option>
-                {roles.map((role) => (
-                  <option key={role._id} value={role._id}>
-                    {role.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {editRole && (
-              <div className="table-responsive">
-                <table className="table table-bordered table-hover">
-                  <thead className="table-light">
-                    <tr>
-                      <th>Módulo</th>
-                      <th className="text-center">Crear</th>
-                      <th className="text-center">Ver</th>
-                      <th className="text-center">Editar</th>
-                      <th className="text-center">Eliminar</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {/* PANEL 1: Monitoreo */}
-                    <tr className="table-group-divider fw-bold bg-secondary text-white">
-                      <td colSpan="5">Monitoreo</td>
-                    </tr>
-                    {["bitacoras"].map((key) =>
-                      renderPermissionRow(key, editRoleData, setEditRoleData)
-                    )}
-                    <tr className="table-group-divider fw-bold bg-secondary text-white">
-                      <td colSpan="5">Monitoreo &gt; Bitácoras &gt; Datos Bitácora</td>
-                    </tr>
-                    {["bit_detalles", "bit_transportes", "bit_eventos"].map((key) =>
-                      renderPermissionRow(key, editRoleData, setEditRoleData)
-                    )}
-
-                    <tr className="table-group-divider fw-bold bg-secondary text-white">
-                      <td colSpan="5">
-                        Monitoreo &gt; Bitácoras &gt; Datos Bitácora &gt; Datos Transportes
-                      </td>
-                    </tr>
-                    {["gps_id", "remolque", "tracto", "operador"].map((key) =>
-                      renderPermissionRow(key, editRoleData, setEditRoleData)
-                    )}
-
-                    {/* PANEL 2: Configuración > Catálogos */}
-                    <tr className="table-group-divider fw-bold bg-secondary text-white">
-                      <td colSpan="5">Configuración &gt; Catálogos</td>
-                    </tr>
-                    {["tipos_de_monitoreo", "eventos", "clientes", "origenes", "destinos"].map(
-                      (key) => renderPermissionRow(key, editRoleData, setEditRoleData)
-                    )}
-
-                    {/* PANEL 2: Configuración > Sistema */}
-                    <tr className="fw-bold bg-secondary text-white">
-                      <td colSpan="5">Configuración &gt; Sistema</td>
-                    </tr>
-                    {["usuarios", "roles"].map((key) =>
-                      renderPermissionRow(key, editRoleData, setEditRoleData)
-                    )}
-
-                    {/* PANEL 3: Auditoría */}
-                    <tr className="table-group-divider fw-bold bg-secondary text-white">
-                      <td colSpan="5">Auditoría</td>
-                    </tr>
-                    {["auditoria_bitacora"].map((key) =>
-                      renderPermissionRow(key, editRoleData, setEditRoleData)
-                    )}
-                  </tbody>
-                </table>
-
-                <div className="d-flex justify-content-end gap-2">
-                  <button className="btn btn-secondary" onClick={handleCancelEdit}>
-                    Cancelar
-                  </button>
-                  <button className="btn btn-success" onClick={() => handleEditSave(editRole._id)}>
-                    Guardar Cambios
-                  </button>
+          {roleData?.roles?.read && (
+            <div className="mx-3 my-4">
+              <div className="mb-3 d-flex align-items-end gap-2">
+                <div className="flex-grow-1">
+                  <label htmlFor="roleSelect" className="form-label fw-bold">
+                    Seleccionar Rol
+                  </label>
+                  <select
+                    id="roleSelect"
+                    className="form-select"
+                    value={editRole?._id || ""}
+                    onChange={(e) => {
+                      const selected = roles.find((r) => r._id === e.target.value);
+                      setEditRole(selected || null);
+                      setEditRoleData(JSON.parse(JSON.stringify(selected)));
+                    }}>
+                    <option value="">-- Seleccione un rol --</option>
+                    {roles.map((role) => (
+                      <option key={role._id} value={role._id}>
+                        {role.name}
+                      </option>
+                    ))}
+                  </select>
                 </div>
+
+                <>
+                  {roleData?.roles?.update &&
+                    (isEditing ? (
+                      <button
+                        className="btn btn-secondary"
+                        title="Cancelar"
+                        onClick={handleCancelEdit}>
+                        <i className="fa fa-times"></i>
+                      </button>
+                    ) : (
+                      <button
+                        className="btn btn-primary"
+                        title="Editar"
+                        onClick={() => handleEditClick(editRole)}>
+                        <i className="fa fa-edit"></i>
+                      </button>
+                    ))}
+
+                  {isEditing ? (
+                    <button
+                      className="btn btn-success"
+                      title="Guardar"
+                      onClick={() => handleEditSave(editRole._id)}>
+                      <i className="fa fa-save"></i>
+                    </button>
+                  ) : (
+                    roleData?.roles?.delete && (
+                      <button
+                        className="btn btn-danger"
+                        title="Eliminar"
+                        onClick={() => handleDelete(editRole._id)}>
+                        <i className="fa fa-trash"></i>
+                      </button>
+                    )
+                  )}
+                </>
               </div>
-            )}
-          </div>
+
+              {editRole && (
+                <div
+                  className="table-responsive border-black shadow-lg"
+                  style={{maxHeight: "650px", overflowY: "auto"}}>
+                  <table className="table table-bordered table-hover">
+                    <thead
+                      className="table-light"
+                      style={{position: "sticky", top: -1, zIndex: 1, backgroundColor: "#7a7a7a"}}>
+                      <tr>
+                        <th>Módulo</th>
+                        <th className="text-center">Crear</th>
+                        <th className="text-center">Ver</th>
+                        <th className="text-center">Editar</th>
+                        <th className="text-center">Eliminar</th>
+                      </tr>
+                    </thead>
+
+                    <tbody>
+                      {/* PANEL 1: Monitoreo */}
+                      <tr className="table-group-divider fw-bold bg-secondary text-white">
+                        <td colSpan="5">Monitoreo</td>
+                      </tr>
+                      {["bitacoras"].map((key) =>
+                        renderPermissionRow(key, editRoleData, setEditRoleData)
+                      )}
+                      <tr className="table-group-divider fw-bold bg-secondary text-white">
+                        <td colSpan="5">Monitoreo &gt; Bitácoras &gt; Datos Bitácora</td>
+                      </tr>
+                      {["bit_detalles", "bit_transportes", "bit_eventos"].map((key) =>
+                        renderPermissionRow(key, editRoleData, setEditRoleData)
+                      )}
+
+                      <tr className="table-group-divider fw-bold bg-secondary text-white">
+                        <td colSpan="5">
+                          Monitoreo &gt; Bitácoras &gt; Datos Bitácora &gt; Datos Transportes
+                        </td>
+                      </tr>
+                      {["gps_id", "remolque", "tracto", "operador"].map((key) =>
+                        renderPermissionRow(key, editRoleData, setEditRoleData)
+                      )}
+
+                      {/* PANEL 2: Configuración > Catálogos */}
+                      <tr className="table-group-divider fw-bold bg-secondary text-white">
+                        <td colSpan="5">Configuración &gt; Catálogos</td>
+                      </tr>
+                      {["tipos_de_monitoreo", "eventos", "clientes", "origenes", "destinos"].map(
+                        (key) => renderPermissionRow(key, editRoleData, setEditRoleData)
+                      )}
+
+                      {/* PANEL 2: Configuración > Sistema */}
+                      <tr className="fw-bold bg-secondary text-white">
+                        <td colSpan="5">Configuración &gt; Sistema</td>
+                      </tr>
+                      {["usuarios", "roles", "inactividad"].map((key) =>
+                        renderPermissionRow(key, editRoleData, setEditRoleData)
+                      )}
+
+                      {/* PANEL 3: Auditoría */}
+                      <tr className="table-group-divider fw-bold bg-secondary text-white">
+                        <td colSpan="5">Auditoría</td>
+                      </tr>
+                      {["auditoria_bitacora"].map((key) =>
+                        renderPermissionRow(key, editRoleData, setEditRoleData)
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
       {/* Modal for Creating New Role */}

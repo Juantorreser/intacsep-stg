@@ -19,8 +19,39 @@ const UsersPage = () => {
   const [isModalVisible, setModalVisible] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [idToDelete, setIdToDelete] = useState("");
+  const {user, verifyToken, setUser} = useAuth();
+  const [roleData, setRoleData] = useState(null);
   const baseUrl = import.meta.env.VITE_BASE_URL;
-  const {user} = useAuth();
+
+  useEffect(() => {
+    const init = async () => {
+      try {
+        const data = await verifyToken(); // Ensure user is verified
+        setUser(data);
+      } catch (e) {
+        console.log("Error verifying token or fetching user:", e);
+        navigate("/login");
+      }
+    };
+    init();
+  }, []);
+
+  useEffect(() => {
+    const fetchRolePermissions = async () => {
+      try {
+        const response = await fetch(`${baseUrl}/roles/${user.role}`, {
+          method: "GET",
+          credentials: "include",
+        });
+        const data = await response.json();
+        setRoleData(data);
+      } catch (e) {
+        console.log("Error fetching role permissions:", e);
+      }
+    };
+
+    fetchRolePermissions();
+  }, [user]);
 
   useEffect(() => {
     const fetchUsers = async () => {
@@ -77,7 +108,7 @@ const UsersPage = () => {
 
     fetchUsers();
     fetchRoles();
-  }, [baseUrl]);
+  }, []);
 
   const handleConfirmDelete = async (id) => {
     try {
@@ -206,49 +237,59 @@ const UsersPage = () => {
         <div className="content-wrapper">
           <div className="page-header">
             <h1 className="fs-3 fw-semibold text-black text-center m-0">Sistema - Usuarios</h1>
-            <button className="new-btn" onClick={handleCreateNew}>
-              <i className="fas fa-plus"></i>
-            </button>
+            {roleData?.usuarios?.create && (
+              <button className="new-btn" onClick={handleCreateNew}>
+                <i className="fas fa-plus"></i>
+              </button>
+            )}
           </div>
 
-          <div className="mx-3 my-0">
-            <div className="table-wrapper">
-              <div className="table-responsive">
-                <table className="table table-striped">
-                  <thead>
-                    <tr>
-                      <th>Email</th>
-                      <th>Nombre</th>
-                      <th>Apellido</th>
-                      <th>Teléfono</th>
-                      <th>Rol</th>
-                      <th className="text-end">Acciones</th>
-                    </tr>
-                    
-                  </thead>
-                  <tbody>
-                    {users.map((user) => (
-                      <tr key={user._id}>
-                        <td>{user.email}</td>
-                        <td>{user.firstName}</td>
-                        <td>{user.lastName}</td>
-                        <td>{user.phone}</td>
-                        <td>{user.role}</td>
-                        <td className="d-flex items-center w-100 gap-2 justify-content-end">
-                          <button className="btn btn-primary" onClick={() => handleEdit(user)}>
-                            <i className="fas fa-edit"></i>
-                          </button>
-                          <button className="btn btn-danger" onClick={() => handleDelete(user._id)}>
-                            <i className="fas fa-trash"></i>
-                          </button>
-                        </td>
+          {roleData?.usuarios?.read && (
+            <div className="mx-3 my-0">
+              <div className="table-wrapper">
+                <div className="table-responsive">
+                  <table className="table table-striped">
+                    <thead>
+                      <tr>
+                        <th>Email</th>
+                        <th>Nombre</th>
+                        <th>Apellido</th>
+                        <th>Teléfono</th>
+                        <th>Rol</th>
+                        <th className="text-end">Acciones</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {users.map((user) => (
+                        <tr key={user._id}>
+                          <td>{user.email}</td>
+                          <td>{user.firstName}</td>
+                          <td>{user.lastName}</td>
+                          <td>{user.phone}</td>
+                          <td>{user.role}</td>
+                          <td className="d-flex items-center w-100 gap-2 justify-content-end">
+                            {roleData?.usuarios?.update && (
+                              <button className="btn btn-primary" onClick={() => handleEdit(user)}>
+                                <i className="fas fa-edit"></i>
+                              </button>
+                            )}
+
+                            {roleData?.usuarios?.delete && (
+                              <button
+                                className="btn btn-danger"
+                                onClick={() => handleDelete(user._id)}>
+                                <i className="fas fa-trash"></i>
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
-          </div>
+          )}
 
           {/* Modal with Backdrop */}
           {isModalVisible && (
