@@ -197,6 +197,13 @@ const RolePage = () => {
     },
     bit_detalles: {
       create: true,
+      delete: true,
+    },
+    bit_transportes: {
+      delete: true,
+    },
+    bit_eventos: {
+      delete: true,
     },
     // You can add more like:
     // eventos: { update: true },

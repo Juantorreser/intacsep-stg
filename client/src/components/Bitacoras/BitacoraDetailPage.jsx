@@ -674,18 +674,20 @@ const BitacoraDetailPage = ({edited}) => {
           </span>
           <h5 className="card-title fw-semibold mb-0">{nombre}</h5>
 
-          <Button
-            variant="primary"
-            onClick={handleEditClick}
-            className="btn"
-            disabled={
-              !(
-                (roleData && roleData.bit_eventos.update && bitacora.status !== "cerrada") ||
-                (roleData && roleData.bit_eventos.update && bitacora.status === "cerrada")
-              )
-            }>
-            <i className="fa fa-edit"></i>
-          </Button>
+          {roleData?.bit_eventos?.update && (
+            <button
+              onClick={handleEditClick}
+              className="new-btn"
+              disabled={
+                !(
+                  (roleData && roleData.bit_eventos.update && bitacora.status !== "cerrada") ||
+                  (roleData && roleData.bit_eventos.update && bitacora.status === "cerrada")
+                )
+              }>
+              <i className="fa fa-edit"></i>
+            </button>
+          )}
+          {!roleData?.bit_eventos?.update && <div></div>}
         </div>
 
         <div className="card-body">
@@ -1135,29 +1137,12 @@ const BitacoraDetailPage = ({edited}) => {
                   </button>
                 </li>
               )}
-              {/* <li className="nav-item" role="presentation">
-                <button
-                  className="nav-link"
-                  id="changes-tab"
-                  data-bs-toggle="tab"
-                  data-bs-target="#changes"
-                  type="button"
-                  role="tab"
-                  aria-controls="changes"
-                  aria-selected="false"
-                  onClick={() => handleTabClick("changes")}>
-                  <h6 className="p-0 m-0  fw-semibold">Logs</h6>
-                  <p className="text-center p-0 m-0" style={{fontSize: "0.8rem"}}>
-                    Total: {bitacora.logs?.length || 0}
-                  </p>
-                </button>
-              </li> */}
             </ul>
 
             {/* Conditional Buttons */}
             {/* DETALLES BTN */}
             {activeTab === "detalles" &&
-              roleData &&
+              roleData?.bit_detalles?.update &&
               ((roleData.bitacora_abierta.update &&
                 bitacora.status !== "cerrada" &&
                 roleData.bitacoras.update) ||
@@ -1165,7 +1150,7 @@ const BitacoraDetailPage = ({edited}) => {
                   roleData.bitacora_cerrada.update &&
                   roleData.bitacoras.update)) && (
                 <button
-                  className="btn btn-primary position-absolute end-0 me-4"
+                  className="new-btn position-absolute end-0 me-4"
                   onClick={() => {
                     setEditModalVisible(true);
                   }}>
@@ -1173,20 +1158,20 @@ const BitacoraDetailPage = ({edited}) => {
                 </button>
               )}
             {/* TRANSPORTES BTN */}
-            {activeTab === "transportes" && (
+            {activeTab === "transportes" && roleData?.bit_transportes?.create && (
               <div className="d-flex justify-content-between align-items-center">
                 <button
                   variant="primary"
                   onClick={handleShow}
-                  className="btn btn-primary rounded-5 position-absolute end-0 me-4">
+                  className="new-btn position-absolute end-0 me-4">
                   <i className="fa fa-plus"></i>
                 </button>
               </div>
             )}
             {/* EVENTOS BTN */}
-            {activeTab === "eventos" && (
+            {activeTab === "eventos" && roleData?.bit_eventos?.create && (
               <button
-                className="btn btn-primary rounded-5 position-absolute end-0 me-4"
+                className="new-btn position-absolute end-0 me-4"
                 data-bs-toggle="modal"
                 data-bs-target="#eventModal"
                 disabled={areAllTransportesClosed()}>
@@ -1194,6 +1179,7 @@ const BitacoraDetailPage = ({edited}) => {
               </button>
             )}
           </div>
+
           <div className="scrollable-content flex-grow-1 overflow-auto px-3">
             <div className="tab-content" id="bitacoraTabsContent">
               {/* Detalles Tab Content */}
@@ -1281,30 +1267,6 @@ const BitacoraDetailPage = ({edited}) => {
                       </div>
                     )}
                     <hr />
-                    {/* New Row for Inicio Monitoreo, Final Monitoreo, and Iniciar button */}
-                    {/* <div className="row mt-3 mx-1">
-                    <div className="col-md-5">
-                      <p className="card-text mb-2">
-                        <strong>Inicio Monitoreo:</strong>{" "}
-                        {bitacora.inicioMonitoreo ? formatDate(bitacora.inicioMonitoreo) : "--"}
-                      </p>
-                    </div>
-                    <div className="col-md-5">
-                      <p className="card-text mb-2">
-                        <strong>Final Monitoreo:</strong>{" "}
-                        {bitacora.finalMonitoreo ? formatDate(bitacora.finalMonitoreo) : "--"}
-                      </p>
-                    </div>
-                    <div className="col-md-2 d-flex justify-content-end align-items-center">
-                      <button
-                        id="iniciarBtn"
-                        className={getButtonClass(bitacora.status)}
-                        onClick={bitacora.status === "iniciada" ? handleFinish : handleStart}
-                        disabled={!hasEventWithName()}>
-                        {getButtonText(bitacora.status)}
-                      </button>
-                    </div>
-                  </div> */}
                     {bitacora.transportes.map((t) => {
                       // Find the "Validacion" event and extract inicioMonitoreo
                       const validacionEvento = bitacora.eventos.find(
@@ -1389,9 +1351,8 @@ const BitacoraDetailPage = ({edited}) => {
                     {selectedTransporte ? (
                       <>
                         <div className="d-flex justify-content-end mt-3 me-4 position-absolute end-0 ">
-                          {((roleData.bit_transportes.update && bitacora.status !== "cerrada") ||
-                            (roleData.bit_transportes.update && bitacora.status === "cerrada")) && (
-                            <button className="btn btn-primary" onClick={handleEditTransporte}>
+                          {roleData.bit_transportes.update && (
+                            <button className="new-btn" onClick={handleEditTransporte}>
                               <i className="fa fa-edit"></i>
                             </button>
                           )}
@@ -1476,52 +1437,6 @@ const BitacoraDetailPage = ({edited}) => {
                   </div>
                 </div>
               </div>
-
-              {/* Logs Tab Content */}
-              {/* <div
-                className="tab-pane fade"
-                id="changes"
-                role="tabpanel"
-                aria-labelledby="changes-tab">
-                <div className="container mt-4">
-                  {bitacora.logs && bitacora.logs.length > 0 ? (
-                    <div className="table-responsive">
-                      <table className="table table-striped table-hover">
-                        <thead className="table-dark">
-                          <tr>
-                            <th>Sección</th>
-                            <th>Campo</th>
-                            <th>Valor Antiguo</th>
-                            <th>Valor Nuevo</th>
-                            <th>Fecha</th>
-                            <th>Hora</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {bitacora.logs?.map((log, index) => {
-                            const fechaObj = new Date(log.fecha);
-                            const fecha = fechaObj.toLocaleDateString(); // Formato: DD/MM/AAAA (según región)
-                            const hora = fechaObj.toLocaleTimeString(); // Formato: HH:MM:SS AM/PM
-
-                            return (
-                              <tr key={index}>
-                                <td>{log.seccion}</td>
-                                <td>{log.campo}</td>
-                                <td>{log.valorAntiguo}</td>
-                                <td>{log.valorNuevo}</td>
-                                <td>{fecha}</td>
-                                <td>{hora}</td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
-                  ) : (
-                    <p className="text-center text-muted fs-5">No hay logs que mostrar</p>
-                  )}
-                </div>
-              </div> */}
             </div>
           </div>
         </div>
