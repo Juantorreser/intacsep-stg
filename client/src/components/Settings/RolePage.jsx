@@ -267,7 +267,11 @@ const RolePage = () => {
       create: true,
       delete: true,
     },
-
+    auditoria_bitacora: {
+      create: true,
+      update: true,
+      delete: true,
+    },
   };
 
   const renderPermissionRow = (key, roleData, setRoleData) => (

@@ -3,41 +3,6 @@ import Sidebar from "../Sidebar";
 import ModalTemplate from "../ModalTemplate";
 import {useAuth} from "../../context/AuthContext";
 
-// import {useAuth} from "../../context/AuthContext";
-
-//   const {user, verifyToken, setUser} = useAuth();
-//   const [roleData, setRoleData] = useState(null);
-
-// useEffect(() => {
-//   const init = async () => {
-//     try {
-//       const data = await verifyToken(); // Ensure user is verified
-//       setUser(data);
-//     } catch (e) {
-//       console.log("Error verifying token or fetching user:", e);
-//       navigate("/login");
-//     }
-//   };
-//   init();
-// }, []);
-
-// useEffect(() => {
-//   const fetchRolePermissions = async () => {
-//     try {
-//       const response = await fetch(`${baseUrl}/roles/${user.role}`, {
-//         method: "GET",
-//         credentials: "include",
-//       });
-//       const data = await response.json();
-//       setRoleData(data);
-//     } catch (e) {
-//       console.log("Error fetching role permissions:", e);
-//     }
-//   };
-
-//   fetchRolePermissions();
-// }, [user]);
-
 const TiposMonitoreo = () => {
   const [monitoreos, setMonitoreos] = useState([]);
   const [newMonitoreo, setNewMonitoreo] = useState("");
