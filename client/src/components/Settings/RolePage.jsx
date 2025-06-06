@@ -205,6 +205,18 @@ const RolePage = () => {
     bit_eventos: {
       delete: true,
     },
+    gps_id: {
+      delete: true,
+    },
+    tracto: {
+      delete: true,
+    },
+    remolque: {
+      delete: true,
+    },
+    operador: {
+      delete: true,
+    },
     // You can add more like:
     // eventos: { update: true },
   };

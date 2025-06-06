@@ -1325,25 +1325,27 @@ const BitacoraDetailPage = ({edited}) => {
                   {/* Left Side: List of Transporte IDs */}
                   <div className="col-md-4 border-end pe-3">
                     <h5 className="fw-semibold">Lista de Transportes</h5>
-                    <ul className="list-group">
-                      {bitacora.transportes.map((transporte) => {
-                        const transporteId = transporte.id.includes("_")
-                          ? `${transporte.id.split("_")[1]} - ${transporte.id.split("_")[2]}` // Obtiene la parte después del '_'
-                          : transporte.id; // Mantiene el ID original
+                    {roleData?.gps_id?.read && (
+                      <ul className="list-group">
+                        {bitacora.transportes.map((transporte) => {
+                          const transporteId = transporte.id.includes("_")
+                            ? `${transporte.id.split("_")[1]} - ${transporte.id.split("_")[2]}` // Obtiene la parte después del '_'
+                            : transporte.id; // Mantiene el ID original
 
-                        return (
-                          <li
-                            key={transporte.id}
-                            className={`list-group-item mt-2 ${
-                              selectedTransporte?.id === transporte.id ? "active" : ""
-                            }`}
-                            onClick={() => handleSelectTransporte(transporte)}
-                            style={{cursor: "pointer"}}>
-                            GPS ID: {`${transporteId}`}
-                          </li>
-                        );
-                      })}
-                    </ul>
+                          return (
+                            <li
+                              key={transporte.id}
+                              className={`list-group-item mt-2 ${
+                                selectedTransporte?.id === transporte.id ? "active" : ""
+                              }`}
+                              onClick={() => handleSelectTransporte(transporte)}
+                              style={{cursor: "pointer"}}>
+                              GPS ID: {`${transporteId}`}
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    )}
                   </div>
 
                   {/* Right Side: Selected Transporte Details */}
@@ -1358,57 +1360,65 @@ const BitacoraDetailPage = ({edited}) => {
                           )}
                         </div>
                         <div className="row mt-3">
-                          <div className="col-md-3">
-                            <h5 className="card-subtitle mb-2 fw-semibold">Tracto:</h5>
-                            <h6 className="card-subtitle mb-2">
-                              <strong>Eco:</strong> {selectedTransporte.tracto.eco}
-                            </h6>
-                            <h6 className="card-subtitle mb-2">
-                              <strong>Placa:</strong> {selectedTransporte.tracto.placa}
-                            </h6>
-                            <h6 className="card-subtitle mb-2">
-                              <strong>Marca:</strong> {selectedTransporte.tracto.marca}
-                            </h6>
-                            <h6 className="card-subtitle mb-2">
-                              <strong>Modelo:</strong> {selectedTransporte.tracto.modelo}
-                            </h6>
-                            <h6 className="card-subtitle mb-2">
-                              <strong>Color:</strong> {selectedTransporte.tracto.color}
-                            </h6>
-                            <h6 className="card-subtitle mb-2">
-                              <strong>Tipo:</strong> {selectedTransporte.tracto.tipo}
-                            </h6>
-                          </div>
-                          <div className="col-md-3">
-                            <h5 className="card-subtitle mb-2 fw-semibold">Remolque:</h5>
-                            <h6 className="card-subtitle mb-2">
-                              <strong>Eco:</strong> {selectedTransporte.remolque.eco}
-                            </h6>
-                            <h6 className="card-subtitle mb-2">
-                              <strong>Placa:</strong> {selectedTransporte.remolque.placa}
-                            </h6>
-                            <h6 className="card-subtitle mb-2">
-                              <strong>Color:</strong> {selectedTransporte.remolque.color}
-                            </h6>
-                            <h6 className="card-subtitle mb-2">
-                              <strong>Capacidad:</strong> {selectedTransporte.remolque.capacidad}
-                            </h6>
-                            <h6 className="card-subtitle mb-2">
-                              <strong>Sello:</strong> {selectedTransporte.remolque.sello}
-                            </h6>
-                          </div>
-                          <div className="col-md-4">
-                            <h6 className="card-subtitle mb-2">
-                              <strong>Linea Transporte:</strong>{" "}
-                              {selectedTransporte.lineaTransporte}
-                            </h6>
-                            <h6 className="card-subtitle mb-2">
-                              <strong>Operador:</strong> {selectedTransporte.operador}
-                            </h6>
-                            <h6 className="card-subtitle mb-2">
-                              <strong>Telefono:</strong> {selectedTransporte.telefono}
-                            </h6>
-                          </div>
+                          {roleData?.tracto?.read && (
+                            <div className="col-md-3">
+                              <h5 className="card-subtitle mb-2 fw-semibold">Tracto:</h5>
+                              <h6 className="card-subtitle mb-2">
+                                <strong>Eco:</strong> {selectedTransporte.tracto.eco}
+                              </h6>
+                              <h6 className="card-subtitle mb-2">
+                                <strong>Placa:</strong> {selectedTransporte.tracto.placa}
+                              </h6>
+                              <h6 className="card-subtitle mb-2">
+                                <strong>Marca:</strong> {selectedTransporte.tracto.marca}
+                              </h6>
+                              <h6 className="card-subtitle mb-2">
+                                <strong>Modelo:</strong> {selectedTransporte.tracto.modelo}
+                              </h6>
+                              <h6 className="card-subtitle mb-2">
+                                <strong>Color:</strong> {selectedTransporte.tracto.color}
+                              </h6>
+                              <h6 className="card-subtitle mb-2">
+                                <strong>Tipo:</strong> {selectedTransporte.tracto.tipo}
+                              </h6>
+                            </div>
+                          )}
+
+                          {roleData?.remolque?.read && (
+                            <div className="col-md-3">
+                              <h5 className="card-subtitle mb-2 fw-semibold">Remolque:</h5>
+                              <h6 className="card-subtitle mb-2">
+                                <strong>Eco:</strong> {selectedTransporte.remolque.eco}
+                              </h6>
+                              <h6 className="card-subtitle mb-2">
+                                <strong>Placa:</strong> {selectedTransporte.remolque.placa}
+                              </h6>
+                              <h6 className="card-subtitle mb-2">
+                                <strong>Color:</strong> {selectedTransporte.remolque.color}
+                              </h6>
+                              <h6 className="card-subtitle mb-2">
+                                <strong>Capacidad:</strong> {selectedTransporte.remolque.capacidad}
+                              </h6>
+                              <h6 className="card-subtitle mb-2">
+                                <strong>Sello:</strong> {selectedTransporte.remolque.sello}
+                              </h6>
+                            </div>
+                          )}
+
+                          {roleData?.operador?.read && (
+                            <div className="col-md-4">
+                              <h6 className="card-subtitle mb-2">
+                                <strong>Linea Transporte:</strong>{" "}
+                                {selectedTransporte.lineaTransporte}
+                              </h6>
+                              <h6 className="card-subtitle mb-2">
+                                <strong>Operador:</strong> {selectedTransporte.operador}
+                              </h6>
+                              <h6 className="card-subtitle mb-2">
+                                <strong>Telefono:</strong> {selectedTransporte.telefono}
+                              </h6>
+                            </div>
+                          )}
                         </div>
                       </>
                     ) : (
