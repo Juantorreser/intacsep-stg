@@ -191,26 +191,45 @@ const RolePage = () => {
     }));
   };
 
+  const disabledPermissions = {
+    bitacoras: {
+      delete: true, // Disable delete for bitacoras
+    },
+    bit_detalles: {
+      create: true,
+    },
+    // You can add more like:
+    // eventos: { update: true },
+  };
+
   const renderPermissionRow = (key, roleData, setRoleData) => (
     <tr key={key}>
       <td className="text-capitalize">{key.replace(/_/g, " ")}</td>
-      {["create", "read", "update", "delete"].map((action) => (
-        <td className="text-center" key={action}>
-          <input
-            type="checkbox"
-            checked={roleData[key][action]}
-            onChange={(e) =>
-              setRoleData((prev) => ({
-                ...prev,
-                [key]: {
-                  ...prev[key],
-                  [action]: e.target.checked,
-                },
-              }))
-            }
-          />
-        </td>
-      ))}
+      {["create", "read", "update", "delete"].map((action) => {
+        const isDisabled = disabledPermissions[key]?.[action];
+
+        return (
+          <td className="text-center" key={action}>
+            {isDisabled ? (
+              <span className="text-muted">N/A</span>
+            ) : (
+              <input
+                type="checkbox"
+                checked={roleData[key][action]}
+                onChange={(e) =>
+                  setRoleData((prev) => ({
+                    ...prev,
+                    [key]: {
+                      ...prev[key],
+                      [action]: e.target.checked,
+                    },
+                  }))
+                }
+              />
+            )}
+          </td>
+        );
+      })}
     </tr>
   );
 
