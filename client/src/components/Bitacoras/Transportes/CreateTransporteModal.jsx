@@ -225,7 +225,7 @@ const CreateTransporteModal = ({show, handleClose, addTransporte, transportes, b
         <Form onSubmit={handleSubmitTransporte}>
           <Tabs defaultActiveKey="gps" className="mb-3">
             {/* TAB 1 - GPS ID */}
-            {roleData?.gps_id?.read && (
+            {roleData?.gps_id?.create && (
               <Tab eventKey="gps" title="GPS ID">
                 <Form.Group className="mb-3">
                   <Form.Label>Método de ID</Form.Label>
@@ -298,27 +298,8 @@ const CreateTransporteModal = ({show, handleClose, addTransporte, transportes, b
                 )}
               </Tab>
             )}
-
-            {/* TAB 2 - ECO (REMOLQUE) */}
-            {roleData?.remolque?.read && (
-              <Tab eventKey="remolque" title="REMOLQUE">
-                <h5>Datos del Remolque</h5>
-                {["eco", "placa", "color", "capacidad", "sello"].map((field) => (
-                  <Form.Group className="mb-3" key={field}>
-                    <Form.Label>{field.toUpperCase()}</Form.Label>
-                    <Form.Control
-                      type="text"
-                      name={`remolque.${field}`}
-                      value={transporteData.remolque[field]}
-                      onChange={handleChange}
-                    />
-                  </Form.Group>
-                ))}
-              </Tab>
-            )}
-
             {/* TAB 3 - TRACTO */}
-            {roleData?.tracto?.read && (
+            {roleData?.tracto?.create && (
               <Tab eventKey="tracto" title="TRACTO">
                 <h5>Datos del Tracto</h5>
                 {["eco", "placa", "marca", "modelo", "color", "tipo"].map((field) => (
@@ -335,8 +316,26 @@ const CreateTransporteModal = ({show, handleClose, addTransporte, transportes, b
               </Tab>
             )}
 
+            {/* TAB 2 - (REMOLQUE) */}
+            {roleData?.remolque?.create && (
+              <Tab eventKey="remolque" title="REMOLQUE">
+                <h5>Datos del Remolque</h5>
+                {["eco", "placa", "color", "capacidad", "sello"].map((field) => (
+                  <Form.Group className="mb-3" key={field}>
+                    <Form.Label>{field.toUpperCase()}</Form.Label>
+                    <Form.Control
+                      type="text"
+                      name={`remolque.${field}`}
+                      value={transporteData.remolque[field]}
+                      onChange={handleChange}
+                    />
+                  </Form.Group>
+                ))}
+              </Tab>
+            )}
+
             {/* TAB 4 - OPERADOR */}
-            {roleData?.operador?.read && (
+            {roleData?.operador?.create && (
               <Tab eventKey="operador" title="OPERADOR">
                 <h5>Datos del Operador</h5>
                 <Form.Group className="mb-3">

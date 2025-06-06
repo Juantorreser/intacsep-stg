@@ -1758,7 +1758,7 @@ const BitacoraDetailPage = ({edited}) => {
             <Form onSubmit={handleTransportEdit}>
               <Tabs defaultActiveKey="tracto" className="mb-3">
                 {/* Mostrar tab GPS ID solo si el ID es editable */}
-                {editedTransporte?.originalId?.startsWith("blank_") && (
+                {roleData?.gps_id?.update && editedTransporte?.originalId?.startsWith("blank_") && (
                   <Tab eventKey="gps" title="GPS ID">
                     <Form.Group className="mb-3">
                       <Form.Label>Método de ID</Form.Label>
@@ -1827,91 +1827,97 @@ const BitacoraDetailPage = ({edited}) => {
                 )}
 
                 {/* Tracto Tab */}
-                <Tab eventKey="tracto" title="TRACTO">
-                  {["eco", "placa", "marca", "modelo", "color", "tipo"].map((field) => (
-                    <Form.Group className="mb-3" key={field}>
-                      <Form.Label>{field.toUpperCase()}</Form.Label>
-                      <Form.Control
-                        type="text"
-                        value={editedTransporte.tracto[field] || ""}
-                        onChange={(e) =>
-                          setEditedTransporte((prev) => ({
-                            ...prev,
-                            tracto: {
-                              ...prev.tracto,
-                              [field]: e.target.value,
-                            },
-                          }))
-                        }
-                      />
-                    </Form.Group>
-                  ))}
-                </Tab>
+                {roleData?.tracto?.update && (
+                  <Tab eventKey="tracto" title="TRACTO">
+                    {["eco", "placa", "marca", "modelo", "color", "tipo"].map((field) => (
+                      <Form.Group className="mb-3" key={field}>
+                        <Form.Label>{field.toUpperCase()}</Form.Label>
+                        <Form.Control
+                          type="text"
+                          value={editedTransporte.tracto[field] || ""}
+                          onChange={(e) =>
+                            setEditedTransporte((prev) => ({
+                              ...prev,
+                              tracto: {
+                                ...prev.tracto,
+                                [field]: e.target.value,
+                              },
+                            }))
+                          }
+                        />
+                      </Form.Group>
+                    ))}
+                  </Tab>
+                )}
 
                 {/* Remolque Tab */}
-                <Tab eventKey="remolque" title="REMOLQUE">
-                  {["eco", "placa", "color", "capacidad", "sello"].map((field) => (
-                    <Form.Group className="mb-3" key={field}>
-                      <Form.Label>{field.toUpperCase()}</Form.Label>
+                {roleData?.remolque?.update && (
+                  <Tab eventKey="remolque" title="REMOLQUE">
+                    {["eco", "placa", "color", "capacidad", "sello"].map((field) => (
+                      <Form.Group className="mb-3" key={field}>
+                        <Form.Label>{field.toUpperCase()}</Form.Label>
+                        <Form.Control
+                          type="text"
+                          value={editedTransporte.remolque[field] || ""}
+                          onChange={(e) =>
+                            setEditedTransporte((prev) => ({
+                              ...prev,
+                              remolque: {
+                                ...prev.remolque,
+                                [field]: e.target.value,
+                              },
+                            }))
+                          }
+                        />
+                      </Form.Group>
+                    ))}
+                  </Tab>
+                )}
+
+                {/* Operador Tab */}
+                {roleData?.operador?.update && (
+                  <Tab eventKey="operador" title="OPERADOR">
+                    <Form.Group className="mb-3">
+                      <Form.Label>Línea de Transporte</Form.Label>
                       <Form.Control
                         type="text"
-                        value={editedTransporte.remolque[field] || ""}
+                        value={editedTransporte.lineaTransporte || ""}
                         onChange={(e) =>
                           setEditedTransporte((prev) => ({
                             ...prev,
-                            remolque: {
-                              ...prev.remolque,
-                              [field]: e.target.value,
-                            },
+                            lineaTransporte: e.target.value,
                           }))
                         }
                       />
                     </Form.Group>
-                  ))}
-                </Tab>
-
-                {/* Operador Tab */}
-                <Tab eventKey="operador" title="OPERADOR">
-                  <Form.Group className="mb-3">
-                    <Form.Label>Línea de Transporte</Form.Label>
-                    <Form.Control
-                      type="text"
-                      value={editedTransporte.lineaTransporte || ""}
-                      onChange={(e) =>
-                        setEditedTransporte((prev) => ({
-                          ...prev,
-                          lineaTransporte: e.target.value,
-                        }))
-                      }
-                    />
-                  </Form.Group>
-                  <Form.Group className="mb-3">
-                    <Form.Label>Operador</Form.Label>
-                    <Form.Control
-                      type="text"
-                      value={editedTransporte.operador || ""}
-                      onChange={(e) =>
-                        setEditedTransporte((prev) => ({
-                          ...prev,
-                          operador: e.target.value,
-                        }))
-                      }
-                    />
-                  </Form.Group>
-                  <Form.Group className="mb-3">
-                    <Form.Label>Teléfono</Form.Label>
-                    <Form.Control
-                      type="text"
-                      value={editedTransporte.telefono || ""}
-                      onChange={(e) =>
-                        setEditedTransporte((prev) => ({
-                          ...prev,
-                          telefono: e.target.value,
-                        }))
-                      }
-                    />
-                  </Form.Group>
-                </Tab>
+                    <Form.Group className="mb-3">
+                      <Form.Label>Operador</Form.Label>
+                      <Form.Control
+                        type="text"
+                        value={editedTransporte.operador || ""}
+                        onChange={(e) =>
+                          setEditedTransporte((prev) => ({
+                            ...prev,
+                            operador: e.target.value,
+                          }))
+                        }
+                      />
+                    </Form.Group>
+                    <Form.Group className="mb-3">
+                      <Form.Label>Teléfono</Form.Label>
+                      <Form.Control
+                        type="text"
+                        value={editedTransporte.telefono || ""}
+                        onChange={(e) =>
+                          setEditedTransporte((prev) => ({
+                            ...prev,
+                            telefono: e.target.value,
+                          }))
+                        }
+                      />
+                    </Form.Group>
+                  </Tab>
+                )}
               </Tabs>
 
               {/* BOTONES */}
