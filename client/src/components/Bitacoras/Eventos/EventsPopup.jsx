@@ -86,7 +86,7 @@ const EventsPopup = ({bitacora, onClose}) => {
       ["Tipo Monitoreo:", bitacora.monitoreo],
       ["Origen:", bitacora.origen],
       ["Destino:", bitacora.destino],
-      ["Calificación Promedio:", promedioCalificacion],
+      ["Calificación Promedio: ", promedioCalificacion],
     ];
 
     const startY = 30;
