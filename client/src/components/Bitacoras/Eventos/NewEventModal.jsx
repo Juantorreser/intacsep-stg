@@ -1,8 +1,9 @@
 import React, {useEffect, useState} from "react";
 import {useAuth} from "../../../context/AuthContext";
 import {useParams} from "react-router-dom";
+import ModalTemplate from "../../ModalTemplate";
 
-const NewEventModal = ({edited, eventTypes, onEventAdded}) => {
+const NewEventModal = ({show, onClose, edited, eventTypes, onEventAdded}) => {
   const [bitacora, setBitacora] = useState(null);
   const {id} = useParams();
   const {verifyToken, user, setUser} = useAuth();
@@ -88,7 +89,7 @@ const NewEventModal = ({edited, eventTypes, onEventAdded}) => {
     console.log(sess);
 
     try {
-      sess.loginToken(token,  (code) => {
+      sess.loginToken(token, (code) => {
         if (code) {
           console.log("Error HERE");
         } else {
@@ -493,284 +494,243 @@ const NewEventModal = ({edited, eventTypes, onEventAdded}) => {
   let allSelectedTransportesInArriboDestino = false;
 
   return (
-    <div
-      className="modal fade"
-      id="eventModal"
-      tabIndex="-1"
-      aria-labelledby="eventModalLabel"
-      aria-hidden="true">
-      <div className="modal-dialog">
-        <div className="modal-content">
-          <div className="modal-header">
-            <h5 className="modal-title" id="eventModalLabel">
-              Añadir Evento
-            </h5>
-            <button
-              type="button"
-              className="btn-close"
-              data-bs-dismiss="modal"
-              aria-label="Close"></button>
-          </div>
-          <div className="modal-body">
-            <form onSubmit={handleSubmit}>
-              <div className="mb-3">
-                <label htmlFor="transportes" className="form-label">
-                  Transportes
-                </label>
+    <ModalTemplate show={show} onClose={onClose} title="Crear Nuevo Evento">
 
-                {bitacora?.transportes
-                  ?.filter((transporte) => {
-                    const cierreEventos =
-                      bitacora?.eventos?.filter(
-                        (evento) => evento.nombre.toLowerCase() === "cierre de servicio"
-                      ) || [];
+      <div className="modal-body">
+        <form onSubmit={handleSubmit}>
+          <div className="mb-3">
+            <label htmlFor="transportes" className="form-label">
+              Transportes
+            </label>
 
-                    const transportesEnCierre = new Set(
-                      cierreEventos.flatMap((evento) => evento.transportes.map((t) => t.id))
-                    );
+            {bitacora?.transportes
+              ?.filter((transporte) => {
+                const cierreEventos =
+                  bitacora?.eventos?.filter(
+                    (evento) => evento.nombre.toLowerCase() === "cierre de servicio"
+                  ) || [];
 
-                    return !transportesEnCierre.has(transporte.id);
-                  })
-                  .map((transporte) => {
-                    const transporteId = transporte.id.includes("_")
-                      ? `${transporte.id.split("_")[1]}`
-                      : transporte.id;
+                const transportesEnCierre = new Set(
+                  cierreEventos.flatMap((evento) => evento.transportes.map((t) => t.id))
+                );
 
-                    return (
-                      <div
-                        className={`transportes-checkbox ${
-                          newEvent.transportes.some((t) => t.id === transporte.id) ? "checked" : ""
-                        }`}
-                        key={transporte.id}>
-                        <input
-                          type="checkbox"
-                          className={`form-check-input ${
-                            newEvent.transportes.some((t) => t.id === transporte.id)
-                              ? "border-success"
-                              : ""
-                          }`}
-                          id={`transporte-${transporte.id}`}
-                          name="transportes"
-                          value={transporte.id}
-                          onChange={handleCheckboxChange}
-                          checked={newEvent.transportes.some((t) => t.id === transporte.id)}
-                        />
-                        <label className="form-check-label" htmlFor={`transporte-${transporte.id}`}>
-                          {`${transporteId} - ${transporte.tracto.eco}`}
-                        </label>
-                      </div>
-                    );
-                  })}
-              </div>
-              <div className="mb-3">
-                <label htmlFor="nombre" className="form-label">
-                  Tipo de Evento
-                </label>
-                <select
-                  id="nombre"
-                  name="nombre"
-                  className="form-select"
-                  value={newEvent.nombre}
-                  onChange={handleChange}
-                  required>
-                  <option value="">Seleccionar tipo de evento</option>
+                return !transportesEnCierre.has(transporte.id);
+              })
+              .map((transporte) => {
+                const transporteId = transporte.id.includes("_")
+                  ? `${transporte.id.split("_")[1]}`
+                  : transporte.id;
 
-                  {newEvent.transportes.length == 0 ? (
-                    <option value="">Seleccionar tipo de evento</option>
-                  ) : (
-                    (() => {
-                      // Filtrar eventos con nombre "Validación"
-                      const eventosValidacion =
-                        bitacora?.eventos.filter((evento) => evento.nombre === "Validación") || [];
-
-                      // Filtrar eventos con nombre "Inicio de recorrido"
-                      const eventosInicioRecorrido =
-                        bitacora?.eventos.filter(
-                          (evento) => evento.nombre === "Inicio de recorrido"
-                        ) || [];
-
-                      // Filtrar eventos con nombre "Arribo a destino"
-                      const eventosArriboDestino =
-                        bitacora?.eventos.filter(
-                          (evento) => evento.nombre === "Arribo a destino"
-                        ) || [];
-
-                      // Extraer IDs de transportes en eventos "Validación"
-                      const transportesConValidacion = new Set(
-                        eventosValidacion.flatMap((evento) => evento.transportes.map((t) => t.id))
-                      );
-
-                      // Extraer IDs de transportes en eventos "Inicio de recorrido"
-                      const transportesConInicioRecorrido = new Set(
-                        eventosInicioRecorrido.flatMap((evento) =>
-                          evento.transportes.map((t) => t.id)
-                        )
-                      );
-
-                      // Extraer IDs de transportes en eventos "Arribo a destino"
-                      const transportesConArriboDestino = new Set(
-                        eventosArriboDestino.flatMap((evento) =>
-                          evento.transportes.map((t) => t.id)
-                        )
-                      );
-
-                      // Verificar si TODOS los selectedTransportes están en eventos de "Validación"
-                      const allSelectedTransportesInValidacion = newEvent.transportes.every((t) =>
-                        transportesConValidacion.has(t.id)
-                      );
-
-                      // Verificar si TODOS los selectedTransportes están en eventos de "Inicio de recorrido"
-                      const allSelectedTransportesInInicioRecorrido = newEvent.transportes.every(
-                        (t) => transportesConInicioRecorrido.has(t.id)
-                      );
-
-                      // Verificar si TODOS los selectedTransportes están en eventos de "Arribo a destino"
-                      allSelectedTransportesInArriboDestino = newEvent.transportes.every((t) =>
-                        transportesConArriboDestino.has(t.id)
-                      );
-
-                      if (allSelectedTransportesInValidacion) {
-                        if (allSelectedTransportesInInicioRecorrido) {
-                          // Si todos los transportes están en "Validación" y "Inicio de recorrido"
-                          return eventTypes
-                            .filter(
-                              (eventType) =>
-                                allSelectedTransportesInArriboDestino ||
-                                eventType.eventType.toLowerCase() !== "cierre de servicio"
-                            )
-                            .map((eventType) => (
-                              <option key={eventType._id} value={eventType.eventType}>
-                                {eventType.eventType}
-                              </option>
-                            ));
-                        } else {
-                          // Si todos los transportes están en "Validación" pero no en "Inicio de recorrido", mostrar solo "Inicio de recorrido"
-                          return <option value="Inicio de recorrido">Inicio de recorrido</option>;
-                        }
-                      }
-
-                      // Si algún transporte no está en "Validación", solo permitir "Validación"
-                      return <option value="Validación">Validación</option>;
-                    })()
-                  )}
-                </select>
-              </div>
-
-              <div className="mb-3">
-                <label htmlFor="descripcion" className="form-label">
-                  Descripcion
-                </label>
-                <textarea
-                  id="descripcion"
-                  name="descripcion"
-                  className="form-control"
-                  value={newEvent.descripcion}
-                  onChange={handleChange}
-                  required
-                />
-              </div>
-              <div className="mb-3">
-                <label htmlFor="frecuencia" className="form-label">
-                  Frecuencia
-                </label>
-                <input
-                  type="number"
-                  className="form-control"
-                  min="0"
-                  max="99"
-                  id="frecuencia"
-                  name="frecuencia"
-                  value={newEvent.frecuencia}
-                  onChange={handleChange}
-                  disabled={newEvent.nombre.toLowerCase() === "cierre de servicio"}
-                  required
-                />
-              </div>
-              <div className="mb-3">
-                <label className="form-label">Fecha de registro</label>
-                <input
-                  type="text"
-                  className="form-control"
-                  value={new Date().toLocaleString("es-MX", {hour12: false})}
-                  disabled
-                />
-              </div>
-
-              <hr />
-
-              <div>
-                {newEvent.transportes?.map((t) => (
-                  <div key={t.id} className="border mb-2 rounded shadow-sm">
-                    <div
-                      className="d-flex justify-content-between align-items-center p-2 bg-light border-bottom"
-                      style={{cursor: "pointer"}}
-                      onClick={() => toggleCollapse(t.id)}>
-                      <div className="fw-bold">
-                        {t.id.includes("_")
-                          ? `${t.id.split("_")[1]} - ${t.id.split("_")[2]}`
-                          : t.id}
-                      </div>
-
-                      <div className="d-flex align-items-center gap-2">
-                        <span
-                          className={`badge ${
-                            t.id.startsWith("0_") ? "bg-secondary" : "bg-success"
-                          }`}>
-                          {t.id.startsWith("0_") ? "Manual" : "GPS"}
-                        </span>
-                        <span className="ms-2 fs-5">{openTransportId === t.id ? "−" : "+"}</span>
-                      </div>
-                    </div>
-
-                    {openTransportId === t.id && (
-                      <div className="p-3">
-                        {[
-                          "duracion",
-                          "ubicacion",
-                          "velocidad",
-                          "ultimo_posicionamiento",
-                          "coordenadas",
-                        ].map((field) => (
-                          <div className="mb-3" key={field}>
-                            <label className="form-label fw-bold text-capitalize">
-                              {field.replace("_", " ")}{" "}
-                              {t.id.startsWith("0_") && (
-                                <span className="text-danger fw-normal ms-1">(Requerido)</span>
-                              )}
-                            </label>
-                            <input
-                              type="text"
-                              className={`form-control ${
-                                t.id.startsWith("0_") ? "border-danger" : ""
-                              }`}
-                              value={t.registro?.[field] || ""}
-                              onChange={(e) =>
-                                handleManualRegistroChange(t.id, field, e.target.value)
-                              }
-                              required={t.id.startsWith("0_")}
-                              placeholder={t.id.startsWith("0_") ? "Ingresa valor manualmente" : ""}
-                            />
-                          </div>
-                        ))}
-                      </div>
-                    )}
+                return (
+                  <div
+                    className={`transportes-checkbox ${
+                      newEvent.transportes.some((t) => t.id === transporte.id) ? "checked" : ""
+                    }`}
+                    key={transporte.id}>
+                    <input
+                      type="checkbox"
+                      className={`form-check-input ${
+                        newEvent.transportes.some((t) => t.id === transporte.id)
+                          ? "border-success"
+                          : ""
+                      }`}
+                      id={`transporte-${transporte.id}`}
+                      name="transportes"
+                      value={transporte.id}
+                      onChange={handleCheckboxChange}
+                      checked={newEvent.transportes.some((t) => t.id === transporte.id)}
+                    />
+                    <label className="form-check-label" htmlFor={`transporte-${transporte.id}`}>
+                      {`${transporteId} - ${transporte.tracto.eco}`}
+                    </label>
                   </div>
-                ))}
-              </div>
-
-              <div className="text-end">
-                <button type="button" className="btn btn-danger m-2" data-bs-dismiss="modal">
-                  Cancelar
-                </button>
-                <button type="submit" className="btn btn-success" data-bs-dismiss="modal">
-                  Registrar
-                </button>
-              </div>
-            </form>
+                );
+              })}
           </div>
-        </div>
+          <div className="mb-3">
+            <label htmlFor="nombre" className="form-label">
+              Tipo de Evento
+            </label>
+            <select
+              id="nombre"
+              name="nombre"
+              className="form-select"
+              value={newEvent.nombre}
+              onChange={handleChange}
+              required>
+              <option value="">Seleccionar tipo de evento</option>
+
+              {newEvent.transportes.length == 0 ? (
+                <option value="">Seleccionar tipo de evento</option>
+              ) : (
+                (() => {
+                  // Filtrar eventos con nombre "Validación"
+                  const eventosValidacion =
+                    bitacora?.eventos.filter((evento) => evento.nombre === "Validación") || [];
+
+                  // Filtrar eventos con nombre "Inicio de recorrido"
+                  const eventosInicioRecorrido =
+                    bitacora?.eventos.filter((evento) => evento.nombre === "Inicio de recorrido") ||
+                    [];
+
+                  // Filtrar eventos con nombre "Arribo a destino"
+                  const eventosArriboDestino =
+                    bitacora?.eventos.filter((evento) => evento.nombre === "Arribo a destino") ||
+                    [];
+
+                  // Extraer IDs de transportes en eventos "Validación"
+                  const transportesConValidacion = new Set(
+                    eventosValidacion.flatMap((evento) => evento.transportes.map((t) => t.id))
+                  );
+
+                  // Extraer IDs de transportes en eventos "Inicio de recorrido"
+                  const transportesConInicioRecorrido = new Set(
+                    eventosInicioRecorrido.flatMap((evento) => evento.transportes.map((t) => t.id))
+                  );
+
+                  // Extraer IDs de transportes en eventos "Arribo a destino"
+                  const transportesConArriboDestino = new Set(
+                    eventosArriboDestino.flatMap((evento) => evento.transportes.map((t) => t.id))
+                  );
+
+                  // Verificar si TODOS los selectedTransportes están en eventos de "Validación"
+                  const allSelectedTransportesInValidacion = newEvent.transportes.every((t) =>
+                    transportesConValidacion.has(t.id)
+                  );
+
+                  // Verificar si TODOS los selectedTransportes están en eventos de "Inicio de recorrido"
+                  const allSelectedTransportesInInicioRecorrido = newEvent.transportes.every((t) =>
+                    transportesConInicioRecorrido.has(t.id)
+                  );
+
+                  // Verificar si TODOS los selectedTransportes están en eventos de "Arribo a destino"
+                  allSelectedTransportesInArriboDestino = newEvent.transportes.every((t) =>
+                    transportesConArriboDestino.has(t.id)
+                  );
+
+                  if (allSelectedTransportesInValidacion) {
+                    if (allSelectedTransportesInInicioRecorrido) {
+                      // Si todos los transportes están en "Validación" y "Inicio de recorrido"
+                      return eventTypes
+                        .filter(
+                          (eventType) =>
+                            allSelectedTransportesInArriboDestino ||
+                            eventType.eventType.toLowerCase() !== "cierre de servicio"
+                        )
+                        .map((eventType) => (
+                          <option key={eventType._id} value={eventType.eventType}>
+                            {eventType.eventType}
+                          </option>
+                        ));
+                    } else {
+                      // Si todos los transportes están en "Validación" pero no en "Inicio de recorrido", mostrar solo "Inicio de recorrido"
+                      return <option value="Inicio de recorrido">Inicio de recorrido</option>;
+                    }
+                  }
+
+                  // Si algún transporte no está en "Validación", solo permitir "Validación"
+                  return <option value="Validación">Validación</option>;
+                })()
+              )}
+            </select>
+          </div>
+
+          <div className="mb-3">
+            <label htmlFor="descripcion" className="form-label">
+              Descripcion
+            </label>
+            <textarea
+              id="descripcion"
+              name="descripcion"
+              className="form-control"
+              value={newEvent.descripcion}
+              onChange={handleChange}
+              required
+            />
+          </div>
+          <div className="mb-3">
+            <label htmlFor="frecuencia" className="form-label">
+              Frecuencia
+            </label>
+            <input
+              type="number"
+              className="form-control"
+              min="0"
+              max="99"
+              id="frecuencia"
+              name="frecuencia"
+              value={newEvent.frecuencia}
+              onChange={handleChange}
+              disabled={newEvent.nombre.toLowerCase() === "cierre de servicio"}
+              required
+            />
+          </div>
+          <div className="mb-3">
+            <label className="form-label">Fecha de registro</label>
+            <input
+              type="text"
+              className="form-control"
+              value={new Date().toLocaleString("es-MX", {hour12: false})}
+              disabled
+            />
+          </div>
+
+          <hr />
+
+          <div>
+            {newEvent.transportes?.map((t) => (
+              <div key={t.id} className="border mb-2 rounded shadow-sm">
+                <div
+                  className="d-flex justify-content-between align-items-center p-2 bg-light border-bottom"
+                  style={{cursor: "pointer"}}
+                  onClick={() => toggleCollapse(t.id)}>
+                  <div className="fw-bold">
+                    {t.id.includes("_") ? `${t.id.split("_")[1]} - ${t.id.split("_")[2]}` : t.id}
+                  </div>
+
+                  <div className="d-flex align-items-center gap-2">
+                    <span
+                      className={`badge ${t.id.startsWith("0_") ? "bg-secondary" : "bg-success"}`}>
+                      {t.id.startsWith("0_") ? "Manual" : "GPS"}
+                    </span>
+                    <span className="ms-2 fs-5">{openTransportId === t.id ? "−" : "+"}</span>
+                  </div>
+                </div>
+
+                {openTransportId === t.id && (
+                  <div className="p-3">
+                    {[
+                      "duracion",
+                      "ubicacion",
+                      "velocidad",
+                      "ultimo_posicionamiento",
+                      "coordenadas",
+                    ].map((field) => (
+                      <div className="mb-3" key={field}>
+                        <label className="form-label fw-bold text-capitalize">
+                          {field.replace("_", " ")}{" "}
+                          {t.id.startsWith("0_") && (
+                            <span className="text-danger fw-normal ms-1">(Requerido)</span>
+                          )}
+                        </label>
+                        <input
+                          type="text"
+                          className={`form-control ${t.id.startsWith("0_") ? "border-danger" : ""}`}
+                          value={t.registro?.[field] || ""}
+                          onChange={(e) => handleManualRegistroChange(t.id, field, e.target.value)}
+                          required={t.id.startsWith("0_")}
+                          placeholder={t.id.startsWith("0_") ? "Ingresa valor manualmente" : ""}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </form>
       </div>
-    </div>
+    </ModalTemplate>
   );
 };
 
