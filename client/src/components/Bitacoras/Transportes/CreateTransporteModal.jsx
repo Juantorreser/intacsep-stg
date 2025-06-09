@@ -274,6 +274,7 @@ const CreateTransporteModal = ({show, handleClose, addTransporte, transportes, b
                   name={`tracto.${field}`}
                   value={transporteData.tracto[field]}
                   onChange={handleChange}
+                  required={!!roleData?.tracto?.create}
                 />
               </Form.Group>
             ))}
@@ -291,6 +292,7 @@ const CreateTransporteModal = ({show, handleClose, addTransporte, transportes, b
                   name={`remolque.${field}`}
                   value={transporteData.remolque[field]}
                   onChange={handleChange}
+                  required={!!roleData?.remolque?.create}
                 />
               </Form.Group>
             ))}
@@ -307,6 +309,7 @@ const CreateTransporteModal = ({show, handleClose, addTransporte, transportes, b
                 name="lineaTransporte"
                 value={transporteData.lineaTransporte}
                 onChange={handleChange}
+                required={!!roleData?.operador?.create}
               />
             </Form.Group>
             <Form.Group className="mb-3">
@@ -316,6 +319,7 @@ const CreateTransporteModal = ({show, handleClose, addTransporte, transportes, b
                 name="operador"
                 value={transporteData.operador}
                 onChange={handleChange}
+                required={!!roleData?.operador?.create}
               />
             </Form.Group>
             <Form.Group className="mb-3">
@@ -325,6 +329,7 @@ const CreateTransporteModal = ({show, handleClose, addTransporte, transportes, b
                 name="telefono"
                 value={transporteData.telefono}
                 onChange={handleChange}
+                required={!!roleData?.operador?.create}
               />
             </Form.Group>
           </Tab>
