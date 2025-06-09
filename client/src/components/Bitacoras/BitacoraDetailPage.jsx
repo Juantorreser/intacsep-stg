@@ -69,8 +69,24 @@ const BitacoraDetailPage = ({edited}) => {
 
     if (!editedTransporte) return;
 
+    // Ensure ID is properly updated before saving
+    let updatedId = editedTransporte.id;
+
+    if (idMethod === "automatic") {
+      updatedId = `0_${(transportes.length + 1).toString().padStart(2, "0")}_${
+        editedTransporte?.tracto?.eco || "N/A"
+      }`;
+    } else if (idMethod === "wialon" && selectedUnitId && selectedUnitName) {
+      updatedId = `${selectedUnitId}_${selectedUnitName}_${editedTransporte?.tracto?.eco || "N/A"}`;
+    }
+
+    const updatedEditedTransporte = {
+      ...editedTransporte,
+      id: updatedId,
+    };
+
     const updatedTransportes = bitacora.transportes.map((transporte) =>
-      transporte.id === editedTransporte.originalId ? editedTransporte : transporte
+      transporte.id === editedTransporte.originalId ? updatedEditedTransporte : transporte
     );
 
     try {
@@ -1475,9 +1491,71 @@ const BitacoraDetailPage = ({edited}) => {
           onSubmit={handleTransportEdit}>
           <Tabs defaultActiveKey="tracto" className="mb-3">
             {/* GPS ID Tab */}
-            {roleData?.gps_id?.update && editedTransporte?.originalId?.startsWith("blank_") && (
+            {roleData?.gps_id?.update && (
               <Tab eventKey="gps" title="GPS ID">
-                {/* ...ID generation logic */}
+                <Form.Group className="mb-3">
+                  <Form.Label>Método de ID</Form.Label>
+                  <div>
+                    <Form.Check
+                      type="radio"
+                      label="Automático"
+                      name="idMethod"
+                      value="automatic"
+                      checked={idMethod === "automatic"}
+                      onChange={() => setIdMethod("automatic")}
+                    />
+                    <Form.Check
+                      type="radio"
+                      label="GPS ID"
+                      name="idMethod"
+                      value="wialon"
+                      checked={idMethod === "wialon"}
+                      onChange={() => setIdMethod("wialon")}
+                    />
+                  </div>
+                </Form.Group>
+
+                {idMethod === "wialon" && (
+                  <Form.Group className="mb-3">
+                    <Form.Label>Seleccionar unidad Wialon</Form.Label>
+                    <Form.Select
+                      value={selectedUnitId}
+                      onChange={(e) => {
+                        const unitId = e.target.value;
+                        const selected = units?.find((u) => u.id.toString() === unitId);
+                        if (selected) {
+                          setSelectedUnitId(selected.id);
+                          setSelectedUnitName(selected.name);
+
+                          // Update ID preview (if eco exists)
+                          if (editedTransporte?.tracto?.eco) {
+                            const newId = `${selected.id}_${selected.name}_${editedTransporte.tracto.eco}`;
+                            setEditedTransporte((prev) => ({...prev, id: newId}));
+                          }
+                        }
+                      }}>
+                      <option value="">Seleccione una unidad</option>
+                      {units?.map((unit) => (
+                        <option key={unit.id} value={unit.id}>
+                          {unit.name}
+                        </option>
+                      ))}
+                    </Form.Select>
+                  </Form.Group>
+                )}
+
+                {idMethod === "automatic" && (
+                  <Form.Group className="mb-3">
+                    <Form.Label>ID generado</Form.Label>
+                    <Form.Control
+                      type="text"
+                      value={`0_${(transportes.length + 1).toString().padStart(2, "0")}_${
+                        editedTransporte?.tracto?.eco || "N/A"
+                      }`}
+                      disabled
+                    />
+                  </Form.Group>
+                )}
               </Tab>
             )}
 
@@ -1490,12 +1568,38 @@ const BitacoraDetailPage = ({edited}) => {
                     <Form.Control
                       type="text"
                       value={editedTransporte.tracto[field] || ""}
-                      onChange={(e) =>
-                        setEditedTransporte((prev) => ({
-                          ...prev,
-                          tracto: {...prev.tracto, [field]: e.target.value},
-                        }))
-                      }
+                      onChange={(e) => {
+                        const value = e.target.value;
+
+                        setEditedTransporte((prev) => {
+                          const updatedTracto = {
+                            ...prev.tracto,
+                            [field]: value,
+                          };
+
+                          // Only regenerate ID if editing 'eco' and in 'automatic' mode and is editable
+                          if (
+                            field === "eco" &&
+                            idMethod === "automatic" &&
+                            prev.originalId?.startsWith("blank_")
+                          ) {
+                            const updatedId = `0_${(transportes.length + 1)
+                              .toString()
+                              .padStart(2, "0")}_${value || "N/A"}`;
+                            return {
+                              ...prev,
+                              id: updatedId,
+                              tracto: updatedTracto,
+                            };
+                          }
+
+                          // For all other fields
+                          return {
+                            ...prev,
+                            tracto: updatedTracto,
+                          };
+                        });
+                      }}
                     />
                   </Form.Group>
                 ))}
