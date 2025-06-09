@@ -247,6 +247,9 @@ const EventsPage = () => {
                   Calificación
                 </label>
                 <input
+                  type="number"
+                  min={0}
+                  max={3}
                   id="calificacion"
                   className="form-control"
                   value={formData.calificacion}
@@ -299,6 +302,9 @@ const EventsPage = () => {
                   Calificación
                 </label>
                 <input
+                  type="number"
+                  min={0}
+                  max={3}
                   id="calificacion"
                   className="form-control"
                   value={formData.calificacion}
