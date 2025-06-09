@@ -1,6 +1,22 @@
-import React from "react";
+import React, {useEffect, useState} from "react";
+import axios from "axios";
 
 const EventsPopup = ({bitacora, onClose}) => {
+  const [eventTypes, setEventTypes] = useState([]);
+  const baseUrl = import.meta.env.VITE_BASE_URL;
+
+  useEffect(() => {
+    const fetchEventTypes = async () => {
+      try {
+        const res = await axios.get(`${baseUrl}/event_types`, {withCredentials: true});
+        setEventTypes(res.data);
+      } catch (err) {
+        console.error("Error fetching event types:", err);
+      }
+    };
+    fetchEventTypes();
+  }, []);
+
   const eventosOrdenados = [...(bitacora.eventos || [])].sort(
     (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
   );
@@ -25,12 +41,23 @@ const EventsPopup = ({bitacora, onClose}) => {
     });
   };
 
-  const getTransporteLabel = (transporte) => {
-    if (!transporte) return "-";
-    const tractoEco = transporte.tracto?.eco || "";
-    const remolqueEco = transporte.remolque?.eco || "";
-    return `${tractoEco} - ${remolqueEco}`.trim();
+  const getCalificacionForEvent = (nombre) => {
+    const found = eventTypes.find((et) => et.evento === nombre);
+    return found?.calificacion ?? null;
   };
+
+  const calculatePromedioCalificacion = () => {
+    const calificaciones = bitacora.eventos
+      ?.map((evt) => getCalificacionForEvent(evt.nombre))
+      .filter((val) => typeof val === "number");
+
+    if (!calificaciones.length) return "-";
+    const sum = calificaciones.reduce((a, b) => a + b, 0);
+    const avg = sum / calificaciones.length;
+    return Math.round(avg);
+  };
+
+  const promedioCalificacion = calculatePromedioCalificacion();
 
   return (
     <div className="frecuencia-popup-backdrop" onClick={onClose}>
@@ -62,6 +89,9 @@ const EventsPopup = ({bitacora, onClose}) => {
           <div>
             <strong>Estatus:</strong> {bitacora.status}
           </div>
+          <div>
+            <strong>Calificación Promedio:</strong> <span>{promedioCalificacion}</span>
+          </div>
         </div>
 
         <table className="eventos-table mt-3">
@@ -72,11 +102,12 @@ const EventsPopup = ({bitacora, onClose}) => {
               <th>Evento</th>
               <th>Transporte</th>
               <th>Fecha/Hora</th>
+              <th>Calificación</th>
             </tr>
           </thead>
           <tbody>
             {eventosOrdenados.map((evt, idx) => {
-              const transporte = evt.transportes?.[0]; // Usamos el primero
+              const calificacion = getCalificacionForEvent(evt.nombre);
               return (
                 <tr key={idx}>
                   <td>
@@ -97,8 +128,8 @@ const EventsPopup = ({bitacora, onClose}) => {
                       })
                       .join(" | ") || "-"}
                   </td>
-
                   <td>{formatFecha(evt.createdAt)}</td>
+                  <td>{calificacion ?? "-"}</td>
                 </tr>
               );
             })}
