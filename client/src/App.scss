@@ -821,6 +821,12 @@ $gray: #223b53;
   }
 }
 
+.modal-scroll-body {
+  max-height: 70vh; // o lo que se ajuste a tu diseño
+  overflow-y: auto;
+  padding-right: 0.5rem; // para compensar el scroll
+}
+
 .table-wrapper {
   display: flex;
   flex-direction: column;

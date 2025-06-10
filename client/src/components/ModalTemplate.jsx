@@ -12,17 +12,19 @@ const ModalTemplate = ({show, title, onClose, onSubmit, children}) => {
           </button>
         </div>
         <hr />
-        <form className="pm-body" onSubmit={onSubmit}>
-          {children}
-          <div className="pm-footer">
-            <button type="button" className="btn btn-danger" onClick={onClose}>
-              Cancelar
-            </button>
-            <button type="submit" className="btn btn-success">
-              Guardar
-            </button>
-          </div>
-        </form>
+        <div className="modal-scroll-body">
+          <form className="pm-body" onSubmit={onSubmit}>
+            {children}
+            <div className="pm-footer">
+              <button type="button" className="btn btn-danger" onClick={onClose}>
+                Cancelar
+              </button>
+              <button type="submit" className="btn btn-success">
+                Guardar
+              </button>
+            </div>
+          </form>
+        </div>
       </div>
     </section>
   );
