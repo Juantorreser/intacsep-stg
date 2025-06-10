@@ -39,7 +39,7 @@ const EventoSchema = new mongoose.Schema(
     nombre: { type: String, required: true },
     descripcion: { type: String, required: true },
     registrado_por: { type: String, default: "Nombre Usuario" },
-    frecuencia: { type: Number, defaul: 0 },
+    frecuencia: { type: Number, default: 0 },
     isFrecuenciaMet: { type: Boolean, default: null },
     transportes: [TransporteSchema],
   },

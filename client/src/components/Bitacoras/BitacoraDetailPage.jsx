@@ -1388,6 +1388,7 @@ const BitacoraDetailPage = ({edited}) => {
         onEventAdded={async () => {
           const latest = await fetchEventos(); // Modify fetchEventos to return data
           await handleFinish(latest); // Pass it into handleFinish
+          setModalOpen(false);
         }}
       />
 
