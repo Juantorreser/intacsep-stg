@@ -55,7 +55,7 @@ const EventsPopup = ({bitacora, onClose}) => {
     if (!calificaciones.length) return "-";
     const sum = calificaciones.reduce((a, b) => a + b, 0);
     const avg = sum / calificaciones.length;
-    return Math.round(avg);
+    return parseFloat(avg.toFixed(2)); // returns a number rounded to 2 decimals
   };
 
   const promedioCalificacion = calculatePromedioCalificacion();
@@ -86,7 +86,7 @@ const EventsPopup = ({bitacora, onClose}) => {
       ["Tipo Monitoreo:", bitacora.monitoreo],
       ["Origen:", bitacora.origen],
       ["Destino:", bitacora.destino],
-      ["Calificación Promedio: ", promedioCalificacion],
+      ["Calificación: ", promedioCalificacion],
     ];
 
     const startY = 30;
