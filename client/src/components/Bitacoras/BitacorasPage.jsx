@@ -19,6 +19,7 @@ import {
   fetchDestinos,
   fetchOperadores,
 } from "../../utils/api";
+import {generateAuditoriaForCreation, generateAuditoriasFromChanges} from "../../utils/auditoria";
 
 const defaultFormData = {
   bitacora_id: "",
@@ -239,6 +240,15 @@ const BitacorasPage = () => {
         setFormData(defaultFormData); // 💥 Reset all fields
         const operadorFullName = `${user.firstName} ${user.lastName}`;
         const shouldReadAll = roleData?.bitacoras?.read_all;
+
+        const createdBitacora = await response.json();
+
+        // 🔍 Audit bitácora creation
+        await generateAuditoriaForCreation({
+          newData: formData.bitacora_id,
+          bitacoraId: createdBitacora.bitacora_id, // Use backend response ID
+          user,
+        });
 
         try {
           setLoadingBitacoras(true);

@@ -66,3 +66,37 @@ export const createAuditoria = async (auditoriaData) => {
         return { success: false, error: error.message };
     }
 };
+
+export const generateAuditoriaForCreation = async ({ newData, bitacoraId, user }) => {
+    const camposIniciales = Object.keys(newData);
+
+    for (const campo of camposIniciales) {
+        await createAuditoria({
+            tipo: "Creación",
+            bitacora_id: bitacoraId,
+            email: user.email,
+            rol: user.role,
+            seccion: "Bitácora",
+            campo,
+            ValOriginal: "",
+            ValNuevo: String(newData[campo]),
+        });
+    }
+};
+
+export const generateAuditoriaForDeletion = async ({ oldData, bitacoraId, user }) => {
+    const camposEliminados = Object.keys(oldData);
+
+    for (const campo of camposEliminados) {
+        await createAuditoria({
+            tipo: "Eliminación",
+            bitacora_id: bitacoraId,
+            email: user.email,
+            rol: user.role,
+            seccion: "Bitácora",
+            campo,
+            ValOriginal: String(oldData[campo]),
+            ValNuevo: "",
+        });
+    }
+};
