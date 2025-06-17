@@ -11,6 +11,51 @@ const AuthProvider = ({children}) => {
   const [showInactivityPopup, setShowInactivityPopup] = useState(false);
   const inactivityTimeoutRef = useRef(null);
   const [seconds, setSeconds] = useState(5);
+  const [timeoutMinutes, setTimeoutMinutes] = useState(5); // Default to 5 if not fetched
+
+  useEffect(() => {
+    const fetchTimeout = async () => {
+      try {
+        const res = await fetch(`${baseUrl}/inactividad`, {
+          method: "GET",
+          credentials: "include",
+        });
+        const data = await res.json();
+        if (data?.[0]?.value) {
+          setTimeoutMinutes(data[0].value);
+        }
+      } catch (err) {
+        console.error("Failed to fetch inactivity timeout", err);
+      }
+    };
+
+    if (user) fetchTimeout();
+  }, [user]);
+
+  const resetInactivityTimer = () => {
+    if (inactivityTimeoutRef.current) {
+      clearTimeout(inactivityTimeoutRef.current);
+    }
+
+    inactivityTimeoutRef.current = setTimeout(() => {
+      console.log("User inactive");
+      setShowInactivityPopup(true);
+    }, timeoutMinutes * 60 * 1000); // Convert minutes to ms
+  };
+
+  useEffect(() => {
+    if (user) {
+      resetInactivityTimer(); // Set initial timer
+
+      const activityEvents = ["mousemove", "keydown", "click"];
+      activityEvents.forEach((event) => window.addEventListener(event, resetInactivityTimer));
+
+      return () => {
+        activityEvents.forEach((event) => window.removeEventListener(event, resetInactivityTimer));
+        clearTimeout(inactivityTimeoutRef.current);
+      };
+    }
+  }, [user, timeoutMinutes]);
 
   const handleUserActivity = async () => {
     try {
@@ -163,7 +208,7 @@ const AuthProvider = ({children}) => {
             <p>Favor de iniciar sesión nuevamente</p>
             <button onClick={handleRedirectToLogin}>Iniciar Sesión</button>
           </div>
-        </div>  
+        </div>
       )}
     </AuthContext.Provider>
   );
