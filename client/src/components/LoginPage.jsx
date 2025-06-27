@@ -278,8 +278,8 @@ const Login = () => {
           </div>
         ) : (
           <div className=" flex flex-col justify-content-center align-items-center w-full p-5 text-center loginCard">
-            <img src="./logoSpoty.png" alt="logo" width={80} />
-            {/* <img src="./logo1.png" alt="logo" width={80} /> */}
+            {/* <img src="./logoSpoty.png" alt="logo" width={80} /> */}
+            <img src="./logo1.png" alt="logo" width={80} />
             <p className="text-white mb-3">Inicio de sesión</p>
             <form
               onSubmit={loginUser}
@@ -338,7 +338,7 @@ const Login = () => {
               target="_blank"
               rel="noopener noreferrer"
               className="opacity-50 mt-2 text-white text-decoration-none">
-              Powered by © Spotynet 2024 on AWS <br />v 1.4.2
+              Powered by © Spotynet 2024 on AWS <br />v 1.5.1
             </a>
             <p className=" opacity-10"></p>
           </div>

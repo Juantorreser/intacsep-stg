@@ -101,12 +101,12 @@ const Sidebar = () => {
           <div className="user-box" onClick={handleOpenModal}>
             <a className="navbar-brand" href="#">
               <img
-                src="/logoSpoty.png"
+                src="/logo1.png"
                 alt="Logo"
                 width="50"
                 className="d-inline-block align-text-top"
               />
-              <span className="ms-2">Spotynet</span>
+              <span className="ms-2">Intacsep</span>
             </a>
             <span className="mt-3">Bienvenido (a)</span>
             <h5>
