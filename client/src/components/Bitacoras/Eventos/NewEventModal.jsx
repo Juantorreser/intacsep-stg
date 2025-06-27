@@ -586,11 +586,11 @@ const NewEventModal = ({show, onClose, edited, eventTypes, onEventAdded}) => {
                         .filter(
                           (eventType) =>
                             allSelectedTransportesInArriboDestino ||
-                            eventType.eventType.toLowerCase() !== "cierre de servicio"
+                            eventType.evento.toLowerCase() !== "cierre de servicio"
                         )
                         .map((eventType) => (
-                          <option key={eventType._id} value={eventType.eventType}>
-                            {eventType.eventType}
+                          <option key={eventType._id} value={eventType.evento}>
+                            {eventType.evento}
                           </option>
                         ));
                     } else {

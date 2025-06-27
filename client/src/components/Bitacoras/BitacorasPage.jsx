@@ -563,7 +563,7 @@ const BitacorasPage = () => {
     if (evt.isFrecuenciaMet != null) return evt.isFrecuenciaMet ? "#51FF4E" : "#F82929";
 
     const freq = evt.frecuencia;
-    if (!freq) return "#333235";
+    if (!freq) return "#FFFFF";
     const freqMs = freq * 60000;
     const elapsed = Date.now() - new Date(evt.createdAt).getTime();
 
