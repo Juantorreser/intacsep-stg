@@ -3,7 +3,7 @@ import {Form, Tabs, Tab} from "react-bootstrap";
 import {useAuth} from "../../../context/AuthContext";
 import ModalTemplate from "../../../components/ModalTemplate"; // adjust path if needed
 
-const CreateTransporteModal = ({show, handleClose, addTransporte, transportes, bitacora}) => {
+const CreateTransporteModal = ({show, handleClose, addTransporte, transportes, bitacora, units}) => {
   const [transporteData, setTransporteData] = useState({
     tracto: {
       eco: "",
@@ -31,7 +31,8 @@ const CreateTransporteModal = ({show, handleClose, addTransporte, transportes, b
   const [selectedUnitId, setSelectedUnitId] = useState("");
   const [selectedUnitName, setSelectedUnitName] = useState("");
   const [operadores, setOperadores] = useState([]);
-  const [units, setUnits] = useState();
+  // const [units, setUnits] = useState([]);
+
   const [roleData, setRoleData] = useState(null);
 
   const {user, verifyToken, setUser} = useAuth();
@@ -70,7 +71,7 @@ const CreateTransporteModal = ({show, handleClose, addTransporte, transportes, b
 
   useEffect(() => {
     fetchOperadores();
-    fetchAllUnits();
+    // fetchAllUnits();
     console.log("Cached token:", localStorage.getItem("wialon_token"));
   }, []);
 
@@ -91,38 +92,39 @@ const CreateTransporteModal = ({show, handleClose, addTransporte, transportes, b
     }
   };
 
-  const fetchAllUnits = (retryCount = 0) => {
-    const sess = window.wialon.core.Session.getInstance();
-    const MAX_RETRIES = 5;
-    const RETRY_DELAY = 3000;
+  // const fetchAllUnits = (retryCount = 0) => {
+  //   const sess = window.wialon.core.Session.getInstance();
+  //   const MAX_RETRIES = 5;
+  //   const RETRY_DELAY = 3000;
 
-    if (!token) return;
+  //   if (!token) return;
 
-    if (!sess.getBaseUrl()) {
-      sess.initSession("https://hst-api.wialon.com");
-    }
+  //   if (!sess.getBaseUrl()) {
+  //     sess.initSession("https://hst-api.wialon.com");
+  //   }
 
-    sess.loginToken(token, "", (code) => {
-      if (code) {
-        if (retryCount < MAX_RETRIES) {
-          setTimeout(() => fetchAllUnits(retryCount + 1), RETRY_DELAY * (retryCount + 1));
-        }
-        return;
-      }
+  //   sess.loginToken(token, "", (code) => {
+  //     if (code) {
+  //       if (retryCount < MAX_RETRIES) {
+  //         setTimeout(() => fetchAllUnits(retryCount + 1), RETRY_DELAY * (retryCount + 1));
+  //       }
+  //       return;
+  //     }
 
-      const flags = window.wialon.item.Item.dataFlag.base;
-      sess.updateDataFlags([{type: "type", data: "avl_unit", flags, mode: 0}], (code) => {
-        if (code) return;
+  //     const flags = window.wialon.item.Item.dataFlag.base;
+  //     sess.updateDataFlags([{type: "type", data: "avl_unit", flags, mode: 0}], (code) => {
+  //       if (code) return;
 
-        const units = sess.getItems("avl_unit") || [];
-        const unitList = units.map((unit) => ({
-          id: unit.getId(),
-          name: unit.getName(),
-        }));
-        setUnits(unitList);
-      });
-    });
-  };
+  //       const units = sess.getItems("avl_unit") || [];
+  //       const unitList = units.map((unit) => ({
+  //         id: unit.getId(),
+  //         name: unit.getName(),
+  //       }));
+  //       setUnits(unitList);
+  //       console.log("Fetched Wialon units:", unitList);
+  //     });
+  //   });
+  // };
 
   const handleChange = (e) => {
     const {name, value} = e.target;
@@ -228,14 +230,18 @@ const CreateTransporteModal = ({show, handleClose, addTransporte, transportes, b
                   value={selectedUnitId}
                   onChange={(e) => {
                     const unitId = e.target.value;
-                    const selected = units?.find((u) => u.id.toString() === unitId);
+                    const selected = units.find((u) => u.id.toString() === unitId);
                     if (selected) {
                       setSelectedUnitId(selected.id);
                       setSelectedUnitName(selected.name);
                     }
-                  }}>
-                  <option value="">Seleccione una unidad</option>
-                  {units?.map((unit) => (
+                  }}
+                  disabled={units.length === 0} // disable until loaded
+                >
+                  <option value="">
+                    {units.length === 0 ? "Cargando unidades..." : "Seleccione una unidad"}
+                  </option>
+                  {units.map((unit) => (
                     <option key={unit.id} value={unit.id}>
                       {unit.name}
                     </option>

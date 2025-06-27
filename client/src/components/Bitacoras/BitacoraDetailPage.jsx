@@ -1674,6 +1674,7 @@ const BitacoraDetailPage = ({edited}) => {
         addTransporte={addTransporte}
         transportes={transportes}
         bitacora={bitacora}
+        units={units}
       />
     </section>
   );
