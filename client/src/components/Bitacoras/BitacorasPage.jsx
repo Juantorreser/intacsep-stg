@@ -775,7 +775,11 @@ const BitacorasPage = () => {
                               }}>
                               <a
                                 href={`/bitacora/${bitacora._id}`}
-                                className="text-decoration-none d-block text-center text-dark">
+                                className={`text-decoration-none d-block text-center ${
+                                  getLatestFrecuenciaColor(bitacora) === "#000000"
+                                    ? "text-white"
+                                    : "text-dark"
+                                }`}>
                                 {bitacora.bitacora_id}
                               </a>
                             </td>
