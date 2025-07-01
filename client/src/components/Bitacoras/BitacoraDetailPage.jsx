@@ -50,10 +50,19 @@ const BitacoraDetailPage = ({edited}) => {
   const [modalOpen, setModalOpen] = useState(false);
 
   const handleEditTransporte = () => {
+    const selected = selectedTransporte;
+
+    // Determine ID method based on the existing ID
+    let initialIdMethod = "automatic";
+    if (selected.id && !selected.id.startsWith("0_")) {
+      initialIdMethod = "wialon";
+    }
+
     setEditedTransporte({
-      ...selectedTransporte,
-      originalId: selectedTransporte.id, // <-- esto previene que se pierda el tab de GPS ID
+      ...selected,
+      originalId: selected.id,
     });
+    setIdMethod(initialIdMethod); // <-- Set the method based on ID
     setEditTransporteModalVisible(true);
   };
 
@@ -1575,7 +1584,7 @@ const BitacoraDetailPage = ({edited}) => {
                           if (
                             field === "eco" &&
                             idMethod === "automatic" &&
-                            prev.originalId?.startsWith("blank_")
+                            (prev.originalId?.startsWith("blank_") || prev.id?.startsWith("0_"))
                           ) {
                             const updatedId = `0_${(transportes.length + 1)
                               .toString()
