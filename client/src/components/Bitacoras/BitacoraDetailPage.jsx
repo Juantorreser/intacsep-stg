@@ -1068,22 +1068,15 @@ const BitacoraDetailPage = ({edited}) => {
 
             {/* Conditional Buttons */}
             {/* DETALLES BTN */}
-            {activeTab === "detalles" &&
-              roleData?.bit_detalles?.update &&
-              ((roleData.bitacora_abierta.update &&
-                bitacora.status !== "cerrada" &&
-                roleData.bitacoras.update) ||
-                (bitacora.status === "cerrada" &&
-                  roleData.bitacora_cerrada.update &&
-                  roleData.bitacoras.update)) && (
-                <button
-                  className="new-btn position-absolute end-0 me-4"
-                  onClick={() => {
-                    setEditModalVisible(true);
-                  }}>
-                  <i className="fa fa-edit"></i>
-                </button>
-              )}
+            {activeTab === "detalles" && roleData?.bit_detalles?.update && (
+              <button
+                className="new-btn position-absolute end-0 me-4"
+                onClick={() => {
+                  setEditModalVisible(true);
+                }}>
+                <i className="fa fa-edit"></i>
+              </button>
+            )}
             {/* TRANSPORTES BTN */}
             {activeTab === "transportes" && roleData?.bit_transportes?.create && (
               <div className="d-flex justify-content-between align-items-center">
