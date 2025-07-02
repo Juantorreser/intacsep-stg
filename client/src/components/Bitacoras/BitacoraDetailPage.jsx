@@ -883,12 +883,21 @@ const BitacoraDetailPage = ({edited}) => {
     const submitBitacora = updatedBitacora ? updatedBitacora : bitacora;
     console.log(submitBitacora);
     try {
+      const minimalUpdate = {
+        folio_servicio: submitBitacora.folio_servicio,
+        cliente: submitBitacora.cliente,
+        monitoreo: submitBitacora.monitoreo,
+        origen: submitBitacora.origen,
+        destino: submitBitacora.destino,
+      };
+
       const response = await fetch(`${baseUrl}/bitacora/${id}`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(submitBitacora), // Use the updated bitacora
+        body: JSON.stringify(minimalUpdate),
+
         credentials: "include",
       });
 
