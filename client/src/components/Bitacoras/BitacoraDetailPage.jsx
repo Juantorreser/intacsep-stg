@@ -1457,11 +1457,20 @@ const BitacoraDetailPage = ({edited}) => {
 
           <Form.Group className="mb-3">
             <Form.Label>Origen</Form.Label>
-            <Form.Select name="origen" value={bitacora.origen} onChange={handleEditChange} required>
+            <Form.Select
+              name="origen"
+              value={JSON.stringify(bitacora.origen)}
+              onChange={(e) =>
+                setBitacora((prev) => ({
+                  ...prev,
+                  origen: JSON.parse(e.target.value),
+                }))
+              }
+              required>
               <option value="">Selecciona una opción</option>
               {origenes.map((origen) => (
-                <option key={origen._id} value={origen.name}>
-                  {origen.name}
+                <option key={origen._id} value={JSON.stringify(origen)}>
+                  {`${origen.nombre} (${origen.municipio}, ${origen.estado})`}
                 </option>
               ))}
             </Form.Select>
@@ -1471,13 +1480,18 @@ const BitacoraDetailPage = ({edited}) => {
             <Form.Label>Destino</Form.Label>
             <Form.Select
               name="destino"
-              value={bitacora.destino}
-              onChange={handleEditChange}
+              value={JSON.stringify(bitacora.destino)}
+              onChange={(e) =>
+                setBitacora((prev) => ({
+                  ...prev,
+                  destino: JSON.parse(e.target.value),
+                }))
+              }
               required>
               <option value="">Selecciona una opción</option>
               {destinos.map((destino) => (
-                <option key={destino._id} value={destino.name}>
-                  {destino.name}
+                <option key={destino._id} value={JSON.stringify(destino)}>
+                  {`${destino.nombre} (${destino.municipio}, ${destino.estado})`}
                 </option>
               ))}
             </Form.Select>
