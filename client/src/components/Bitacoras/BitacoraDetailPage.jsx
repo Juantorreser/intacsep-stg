@@ -860,6 +860,12 @@ const BitacoraDetailPage = ({edited}) => {
     });
   };
 
+  const isTransporteUsedInEventos = (transporteId) => {
+    return bitacora.eventos.some((evento) => evento.transportes.some((t) => t.id === transporteId));
+  };
+
+  const isTransporteInEvento = isTransporteUsedInEventos(editedTransporte?.originalId);
+
   const areAllTransportesClosed = (bitacoraToCheck = bitacora) => {
     if (!bitacoraToCheck || !bitacoraToCheck.transportes || !bitacoraToCheck.eventos) return false;
 
@@ -1519,68 +1525,82 @@ const BitacoraDetailPage = ({edited}) => {
             {/* GPS ID Tab */}
             {roleData?.gps_id?.update && (
               <Tab eventKey="gps" title="GPS ID">
-                <Form.Group className="mb-3">
-                  <Form.Label>Método de ID</Form.Label>
-                  <div>
-                    <Form.Check
-                      type="radio"
-                      label="Automático"
-                      name="idMethod"
-                      value="automatic"
-                      checked={idMethod === "automatic"}
-                      onChange={() => setIdMethod("automatic")}
-                    />
-                    <Form.Check
-                      type="radio"
-                      label="GPS ID"
-                      name="idMethod"
-                      value="wialon"
-                      checked={idMethod === "wialon"}
-                      onChange={() => setIdMethod("wialon")}
-                    />
-                  </div>
-                </Form.Group>
+                {isTransporteInEvento ? (
+                  <>
+                    <Form.Group className="mb-3">
+                      <Form.Label>ID actual</Form.Label>
+                      <Form.Control type="text" value={editedTransporte.id} disabled />
+                      <Form.Text className="text-muted">
+                        Este transporte ya está vinculado a un evento, por lo tanto no puede cambiar
+                        su ID.
+                      </Form.Text>
+                    </Form.Group>
+                  </>
+                ) : (
+                  <>
+                    <Form.Group className="mb-3">
+                      <Form.Label>Método de ID</Form.Label>
+                      <div>
+                        <Form.Check
+                          type="radio"
+                          label="Automático"
+                          name="idMethod"
+                          value="automatic"
+                          checked={idMethod === "automatic"}
+                          onChange={() => setIdMethod("automatic")}
+                        />
+                        <Form.Check
+                          type="radio"
+                          label="GPS ID"
+                          name="idMethod"
+                          value="wialon"
+                          checked={idMethod === "wialon"}
+                          onChange={() => setIdMethod("wialon")}
+                        />
+                      </div>
+                    </Form.Group>
+                    {idMethod === "wialon" && (
+                      <Form.Group className="mb-3">
+                        <Form.Label>Seleccionar unidad Wialon</Form.Label>
+                        <Form.Select
+                          value={selectedUnitId}
+                          onChange={(e) => {
+                            const unitId = e.target.value;
+                            const selected = units?.find((u) => u.id.toString() === unitId);
+                            if (selected) {
+                              setSelectedUnitId(selected.id);
+                              setSelectedUnitName(selected.name);
 
-                {idMethod === "wialon" && (
-                  <Form.Group className="mb-3">
-                    <Form.Label>Seleccionar unidad Wialon</Form.Label>
-                    <Form.Select
-                      value={selectedUnitId}
-                      onChange={(e) => {
-                        const unitId = e.target.value;
-                        const selected = units?.find((u) => u.id.toString() === unitId);
-                        if (selected) {
-                          setSelectedUnitId(selected.id);
-                          setSelectedUnitName(selected.name);
+                              // Update ID preview (if eco exists)
+                              if (editedTransporte?.tracto?.eco) {
+                                const newId = `${selected.id}_${selected.name}_${editedTransporte.tracto.eco}`;
+                                setEditedTransporte((prev) => ({...prev, id: newId}));
+                              }
+                            }
+                          }}>
+                          <option value="">Seleccione una unidad</option>
+                          {units?.map((unit) => (
+                            <option key={unit.id} value={unit.id}>
+                              {unit.name}
+                            </option>
+                          ))}
+                        </Form.Select>
+                      </Form.Group>
+                    )}
 
-                          // Update ID preview (if eco exists)
-                          if (editedTransporte?.tracto?.eco) {
-                            const newId = `${selected.id}_${selected.name}_${editedTransporte.tracto.eco}`;
-                            setEditedTransporte((prev) => ({...prev, id: newId}));
-                          }
-                        }
-                      }}>
-                      <option value="">Seleccione una unidad</option>
-                      {units?.map((unit) => (
-                        <option key={unit.id} value={unit.id}>
-                          {unit.name}
-                        </option>
-                      ))}
-                    </Form.Select>
-                  </Form.Group>
-                )}
-
-                {idMethod === "automatic" && (
-                  <Form.Group className="mb-3">
-                    <Form.Label>ID generado</Form.Label>
-                    <Form.Control
-                      type="text"
-                      value={`0_${(transportes.length + 1).toString().padStart(2, "0")}_${
-                        editedTransporte?.tracto?.eco || "N/A"
-                      }`}
-                      disabled
-                    />
-                  </Form.Group>
+                    {idMethod === "automatic" && (
+                      <Form.Group className="mb-3">
+                        <Form.Label>ID generado</Form.Label>
+                        <Form.Control
+                          type="text"
+                          value={`0_${(transportes.length + 1).toString().padStart(2, "0")}_${
+                            editedTransporte?.tracto?.eco || "N/A"
+                          }`}
+                          disabled
+                        />
+                      </Form.Group>
+                    )}
+                  </>
                 )}
               </Tab>
             )}
@@ -1594,8 +1614,11 @@ const BitacoraDetailPage = ({edited}) => {
                     <Form.Control
                       type="text"
                       value={editedTransporte.tracto[field] || ""}
+                      disabled={isTransporteInEvento && field === "eco"}
                       onChange={(e) => {
                         const value = e.target.value;
+
+                        if (isTransporteInEvento && field === "eco") return; // prevent change
 
                         setEditedTransporte((prev) => {
                           const updatedTracto = {
@@ -1603,7 +1626,7 @@ const BitacoraDetailPage = ({edited}) => {
                             [field]: value,
                           };
 
-                          // Only regenerate ID if editing 'eco' and in 'automatic' mode and is editable
+                          // Only regenerate ID if editing 'eco' and in 'automatic' mode and editable
                           if (
                             field === "eco" &&
                             idMethod === "automatic" &&
@@ -1619,7 +1642,6 @@ const BitacoraDetailPage = ({edited}) => {
                             };
                           }
 
-                          // For all other fields
                           return {
                             ...prev,
                             tracto: updatedTracto,
