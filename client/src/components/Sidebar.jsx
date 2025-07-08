@@ -19,6 +19,7 @@ const Sidebar = () => {
   const handleCloseModal = () => setShowModal(false);
   const [showInacModal, setShowInacModal] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
   const openInacModal = () => setShowInacModal(true);
   const closeInacModal = () => setShowInacModal(false);
@@ -88,7 +89,25 @@ const Sidebar = () => {
 
   return (
     <>
-      <aside id="leftsidebar" className={isSidebarCollapsed ? "collapsed" : ""}>
+      <button
+        className="btn btn-burger d-md-none mb-5"
+        onClick={() => setIsMobileSidebarOpen(!isMobileSidebarOpen)}>
+        <i className="fa fa-bars"></i>
+      </button>
+
+      <aside
+        id="leftsidebar"
+        className={`${isSidebarCollapsed ? "collapsed" : ""} ${
+          isMobileSidebarOpen ? "mobile-open" : ""
+        }`}>
+        {isMobileSidebarOpen && (
+          <div className="text-end p-2 d-md-none">
+            <button className="btn btn-close-sidebar" onClick={() => setIsMobileSidebarOpen(false)}>
+              <i className="fa fa-times"></i>
+            </button>
+          </div>
+        )}
+
         <div className="sidebar-wrapper">
           {/* <div className="sidebar-toggle text-end p-2">
             <button
