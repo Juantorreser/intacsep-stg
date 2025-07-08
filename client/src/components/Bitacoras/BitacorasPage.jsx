@@ -921,7 +921,9 @@ const BitacorasPage = () => {
             show={showPrintModal}
             title="Método de Impresión"
             onClose={handlePDFToggle}
-            onSubmit={handlePDFSubmit}>
+            onSubmit={handlePDFSubmit}
+            submitClass="btn btn-primary"
+            submitText="Imprimir">
             {/* PDF Option Form */}
             <form onSubmit={handlePDFSubmit}>
               {/* Radio Buttons */}
@@ -1187,7 +1189,12 @@ const BitacorasPage = () => {
       )}
 
       {showFrecuenciaModal && selectedFrecuenciaBitacora && (
-        <EventsPopup bitacora={selectedFrecuenciaBitacora} onClose={closeFrecuenciaModal} />
+        <EventsPopup
+          bitacora={selectedFrecuenciaBitacora}
+          onClose={closeFrecuenciaModal}
+          origenes={origenes}
+          destinos={destinos}
+        />
       )}
     </section>
   );

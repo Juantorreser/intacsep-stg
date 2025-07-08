@@ -2,8 +2,9 @@ import React, {useEffect, useState} from "react";
 import axios from "axios";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import {getLocationText} from "../../../utils/api";
 
-const EventsPopup = ({bitacora, onClose}) => {
+const EventsPopup = ({bitacora, onClose, origenes, destinos}) => {
   const [eventTypes, setEventTypes] = useState([]);
   const baseUrl = import.meta.env.VITE_BASE_URL;
 
@@ -62,35 +63,38 @@ const EventsPopup = ({bitacora, onClose}) => {
 
   const exportToPDF = () => {
     const doc = new jsPDF();
+    const now = new Date();
+    const formattedNow = now.toLocaleDateString("es-MX", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    });
 
-    // Title (centered and bold)
     doc.setFontSize(18);
     doc.setFont("helvetica", "bold");
-    const title = `racking Monitoreo - Bitácora ${bitacora.bitacora_id}`;
+    const title = `Tracking Monitoreo - Bitácora ${bitacora.bitacora_id}`;
     const pageWidth = doc.internal.pageSize.getWidth();
     const textWidth = doc.getTextWidth(title);
     doc.text(title, (pageWidth - textWidth) / 2, 20);
 
-    // Info section (2-column with bold labels and spacing)
     doc.setFontSize(12);
     const leftCol = [
       ["Folio Servicio:", bitacora.folio_servicio],
       ["No. Bitácora:", bitacora.bitacora_id],
       ["Cliente:", bitacora.cliente],
       ["Estatus:", bitacora.status],
-      [("Creado:", formatFecha(bitacora.createdAt))],
-      ,
+      ["Fecha Consulta:", formatFecha(now)],
     ];
 
     const rightCol = [
       ["Tipo Monitoreo:", bitacora.monitoreo],
-      ["Origen:", bitacora.origen],
-      ["Destino:", bitacora.destino],
+      ["Origen:", getLocationText(bitacora.origen, origenes)],
+      ["Destino:", getLocationText(bitacora.destino, destinos)],
       ["Calificación: ", promedioCalificacion],
     ];
 
     const startY = 30;
-    const lineHeight = 8; // increased line height for padding
+    const lineHeight = 8;
     const leftX = 14;
     const rightX = pageWidth / 2 + 5;
 
@@ -110,14 +114,13 @@ const EventsPopup = ({bitacora, onClose}) => {
       doc.text(String(value), rightX + doc.getTextWidth(label) + 2, y);
     });
 
-    // Table with semáforo indicator
     const tableStartY = startY + Math.max(leftCol.length, rightCol.length) * lineHeight + 10;
 
     autoTable(doc, {
       startY: tableStartY,
       head: [["Semáforo", "Evento", "Frecuencia", "Transporte", "Fecha/Hora", "Calificación"]],
       body: eventosOrdenados.map((evt) => [
-        "", // semáforo placeholder
+        "",
         evt.nombre,
         evt.frecuencia ? `${evt.frecuencia} min` : "-",
         evt.transportes
@@ -135,7 +138,7 @@ const EventsPopup = ({bitacora, onClose}) => {
         valign: "middle",
       },
       headStyles: {
-        fillColor: [0, 51, 102], // dark blue
+        fillColor: [0, 51, 102],
         textColor: [255, 255, 255],
         fontStyle: "bold",
       },
@@ -148,17 +151,15 @@ const EventsPopup = ({bitacora, onClose}) => {
         if (data.section === "body" && data.column.index === 0) {
           const evt = eventosOrdenados[data.row.index];
           const color = getSemaforoColor(evt);
-
           const x = data.cell.x + data.cell.width / 2;
           const y = data.cell.y + data.cell.height / 2;
-
           doc.setFillColor(color);
           doc.circle(x, y, 3, "F");
         }
       },
     });
 
-    doc.save(`bitacora_${bitacora.bitacora_id}_eventos.pdf`);
+    doc.save(`bitacora_${bitacora.bitacora_id}_eventos_${formattedNow.replace(/\//g, "-")}.pdf`);
   };
 
   return (
@@ -180,13 +181,13 @@ const EventsPopup = ({bitacora, onClose}) => {
             <strong>No. Bitácora:</strong> {bitacora.bitacora_id}
           </div>
           <div>
-            <strong>Origen:</strong> {bitacora.origen}
+            <strong>Origen:</strong> {getLocationText(bitacora.origen, origenes)}
           </div>
           <div>
             <strong>Cliente:</strong> {bitacora.cliente}
           </div>
           <div>
-            <strong>Destino:</strong> {bitacora.destino}
+            <strong>Destino:</strong> {getLocationText(bitacora.destino, destinos)}
           </div>
           <div>
             <strong>Estatus:</strong> {bitacora.status}
@@ -196,6 +197,9 @@ const EventsPopup = ({bitacora, onClose}) => {
           </div>
           <div>
             <strong>Creado:</strong> {formatFecha(bitacora.createdAt)}
+          </div>
+          <div>
+            <strong>Fecha Consulta:</strong> {formatFecha(new Date())}
           </div>
         </div>
 

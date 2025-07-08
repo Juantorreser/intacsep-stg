@@ -1,4 +1,14 @@
-const ModalTemplate = ({show, title, onClose, onSubmit, children}) => {
+const ModalTemplate = ({
+  show,
+  title,
+  onClose,
+  onSubmit,
+  children,
+  cancelText = "Cancelar",
+  submitText = "Guardar",
+  cancelClass = "btn btn-danger",
+  submitClass = "btn btn-success",
+}) => {
   if (!show) return null;
 
   return (
@@ -16,11 +26,11 @@ const ModalTemplate = ({show, title, onClose, onSubmit, children}) => {
           <form className="pm-body" onSubmit={onSubmit}>
             {children}
             <div className="pm-footer">
-              <button type="button" className="btn btn-danger" onClick={onClose}>
-                Cancelar
+              <button type="button" className={cancelClass} onClick={onClose}>
+                {cancelText}
               </button>
-              <button type="submit" className="btn btn-success">
-                Guardar
+              <button type="submit" className={submitClass}>
+                {submitText}
               </button>
             </div>
           </form>
