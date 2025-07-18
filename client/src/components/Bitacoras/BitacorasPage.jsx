@@ -112,6 +112,18 @@ const BitacorasPage = () => {
         const operadorFullName = `${user.firstName} ${user.lastName}`;
         const shouldReadAll = roleData?.bitacoras?.read_all;
 
+        // Build filters object
+        const filters = {
+          statusFilter,
+          creationDateFilter,
+          clienteFilter,
+          monitoreoFilter,
+          operadorFilter,
+          idFilter,
+          sortField,
+          sortOrder,
+        };
+
         const [
           bitacorasData,
           clientsData,
@@ -121,7 +133,7 @@ const BitacorasPage = () => {
           destinosData,
           operadoresData,
         ] = await Promise.all([
-          fetchBitacoras(currentPage, itemsPerPage, shouldReadAll ? "" : operadorFullName),
+          fetchBitacoras(currentPage, itemsPerPage, shouldReadAll ? "" : operadorFullName, filters),
           fetchClients(),
           fetchMonitoreos(),
           fetchUsers(),
@@ -151,7 +163,20 @@ const BitacorasPage = () => {
     if (user && roleData) {
       initialize();
     }
-  }, [user, roleData, currentPage, itemsPerPage]);
+  }, [
+    user,
+    roleData,
+    currentPage,
+    itemsPerPage,
+    statusFilter,
+    creationDateFilter,
+    clienteFilter,
+    monitoreoFilter,
+    operadorFilter,
+    idFilter,
+    sortField,
+    sortOrder,
+  ]);
 
   const updateFormDataFromUser = () => {
     if (user) {
@@ -252,6 +277,19 @@ const BitacorasPage = () => {
 
         try {
           setLoadingBitacoras(true);
+
+          // Build filters object for refetch
+          const filters = {
+            statusFilter,
+            creationDateFilter,
+            clienteFilter,
+            monitoreoFilter,
+            operadorFilter,
+            idFilter,
+            sortField,
+            sortOrder,
+          };
+
           const [
             bitacorasData,
             clientsData,
@@ -261,7 +299,12 @@ const BitacorasPage = () => {
             destinosData,
             operadoresData,
           ] = await Promise.all([
-            fetchBitacoras(currentPage, itemsPerPage, shouldReadAll ? "" : operadorFullName),
+            fetchBitacoras(
+              currentPage,
+              itemsPerPage,
+              shouldReadAll ? "" : operadorFullName,
+              filters
+            ),
             fetchClients(),
             fetchMonitoreos(),
             fetchUsers(),
@@ -330,70 +373,60 @@ const BitacorasPage = () => {
     }
   };
 
-  const getFilteredBitacoras = () => {
-    let filtered = bitacoras;
-
-    if (idFilter) {
-      filtered = filtered.filter((bitacora) => bitacora.bitacora_id.toString().includes(idFilter));
-    }
-
-    if (statusFilter) {
-      filtered = filtered.filter((bitacora) => bitacora.status === statusFilter);
-    }
-
-    if (clienteFilter) {
-      filtered = filtered.filter((bitacora) => bitacora.cliente === clienteFilter);
-    }
-
-    if (operadorFilter) {
-      filtered = filtered.filter((bitacora) => bitacora.operador === operadorFilter);
-    }
-
-    if (monitoreoFilter) {
-      filtered = filtered.filter((bitacora) => bitacora.monitoreo === monitoreoFilter);
-    }
-
-    if (creationDateFilter) {
-      filtered = filtered.filter(
-        (bitacora) =>
-          new Date(bitacora.createdAt).toISOString().split("T")[0] === creationDateFilter
-      );
-    }
-
-    return filtered;
-  };
-
-  const sortedFilteredBitacoras = sortBitacoras(getFilteredBitacoras(), sortField, sortOrder);
-
-  const filteredBitacoras = bitacoras.filter((bitacora) => {
-    return (
-      (clienteFilter === "" || bitacora.cliente === clienteFilter) &&
-      (operadorFilter === "" || bitacora.operador === operadorFilter)
-    );
-  });
+  // Server-side filtering is now handled by the API
+  const sortedFilteredBitacoras = bitacoras;
 
   const clearFilters = () => {
     setStatusFilter("");
     setCreationDateFilter("");
-    setSortField("ID");
+    setClienteFilter("");
+    setMonitoreoFilter("");
+    setOperadorFilter("");
+    setIdFilter("");
+    setSortField("createdAt");
     setSortOrder("desc");
+    setCurrentPage(1);
+  };
+
+  // Filter change handlers that reset to page 1
+  const handleStatusFilterChange = (value) => {
+    setStatusFilter(value);
+    setCurrentPage(1);
+  };
+
+  const handleCreationDateFilterChange = (value) => {
+    setCreationDateFilter(value);
+    setCurrentPage(1);
+  };
+
+  const handleClienteFilterChange = (value) => {
+    setClienteFilter(value);
+    setCurrentPage(1);
+  };
+
+  const handleMonitoreoFilterChange = (value) => {
+    setMonitoreoFilter(value);
+    setCurrentPage(1);
+  };
+
+  const handleIdFilterChange = (value) => {
+    setIdFilter(value);
+    setCurrentPage(1);
+  };
+
+  const handleOperadorFilterChange = (value) => {
+    setOperadorFilter(value);
+    setCurrentPage(1);
   };
 
   const handlePageChange = (newPage) => {
     setCurrentPage(newPage);
-    const operadorFullName = `${user.firstName} ${user.lastName}`;
-    const shouldReadAll = roleData?.bitacoras?.read_all;
-
-    fetchBitacoras(newPage, itemsPerPage, shouldReadAll ? "" : operadorFullName);
   };
 
   const handleItemsPerPageChange = (event) => {
     const newLimit = Number(event.target.value);
-    const operadorFullName = `${user.firstName} ${user.lastName}`;
-    const shouldReadAll = roleData?.bitacoras?.read_all;
-
     setItemsPerPage(newLimit);
-    fetchBitacoras(currentPage, newLimit, shouldReadAll ? "" : operadorFullName); // Refetch with new limit
+    setCurrentPage(1); // Reset to first page when changing items per page
   };
 
   const generatePDF = async (bitacora, transporteId = "") => {
@@ -467,19 +500,7 @@ const BitacorasPage = () => {
     const order = field === sortField && sortOrder === "asc" ? "desc" : "asc";
     setSortField(field);
     setSortOrder(order);
-    sortData(field, order);
-  };
-
-  const sortData = (field, order) => {
-    filteredBitacoras.sort((a, b) => {
-      if (a[field] < b[field]) {
-        return order === "asc" ? -1 : 1;
-      }
-      if (a[field] > b[field]) {
-        return order === "asc" ? 1 : -1;
-      }
-      return 0;
-    });
+    setCurrentPage(1);
   };
 
   const getEventColor = (bitacora) => {
@@ -664,7 +685,7 @@ const BitacorasPage = () => {
                             className="form-control"
                             placeholder="# ID"
                             value={idFilter}
-                            onChange={(e) => setIdFilter(e.target.value)}
+                            onChange={(e) => handleIdFilterChange(e.target.value)}
                           />
                         </th>
 
@@ -673,7 +694,7 @@ const BitacorasPage = () => {
                             id="clienteFilter"
                             className="form-select"
                             value={clienteFilter}
-                            onChange={(e) => setClienteFilter(e.target.value)}>
+                            onChange={(e) => handleClienteFilterChange(e.target.value)}>
                             <option value="">Todos</option>
                             {clients.map((client, id) => (
                               <option key={id} value={client.razon_social}>
@@ -684,10 +705,10 @@ const BitacorasPage = () => {
                         </th>
                         <th className="two">
                           <select
-                            id="clienteFilter"
+                            id="monitoreoFilter"
                             className="form-select"
                             value={monitoreoFilter}
-                            onChange={(e) => setMonitoreoFilter(e.target.value)}>
+                            onChange={(e) => handleMonitoreoFilterChange(e.target.value)}>
                             <option value="">Todos</option>
                             {monitoreos.map((monitreo, id) => (
                               <option key={id} value={monitreo.tipoMonitoreo}>
@@ -701,7 +722,7 @@ const BitacorasPage = () => {
                             id="operadorFilter"
                             className="form-select"
                             value={operadorFilter}
-                            onChange={(e) => setOperadorFilter(e.target.value)}>
+                            onChange={(e) => handleOperadorFilterChange(e.target.value)}>
                             <option value="">Todos</option>
                             {operadores.map((operador, id) => (
                               <option key={id} value={operador.name}>
@@ -717,7 +738,7 @@ const BitacorasPage = () => {
                               type="date"
                               className="form-control"
                               value={creationDateFilter}
-                              onChange={(e) => setCreationDateFilter(e.target.value)}
+                              onChange={(e) => handleCreationDateFilterChange(e.target.value)}
                             />
                           </div>
                         </th>
@@ -727,7 +748,7 @@ const BitacorasPage = () => {
                               id="statusFilter"
                               className="form-select"
                               value={statusFilter}
-                              onChange={(e) => setStatusFilter(e.target.value)}>
+                              onChange={(e) => handleStatusFilterChange(e.target.value)}>
                               <option value="">Todos</option>
                               <option value="nueva">Nueva</option>
                               <option value="validada">Validada</option>

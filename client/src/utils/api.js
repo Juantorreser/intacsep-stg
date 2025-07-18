@@ -59,9 +59,24 @@ export const fetchUsers = async () => {
   }
 };
 
-export const fetchBitacoras = async (page = 1, limit = 25, operador = "") => {
+export const fetchBitacoras = async (
+  page = 1,
+  limit = 25,
+  operador = "",
+  filters = {}
+) => {
   const params = new URLSearchParams({ page, limit });
   if (operador) params.append("operador", operador);
+
+  // Add all filter parameters
+  if (filters.statusFilter) params.append("statusFilter", filters.statusFilter);
+  if (filters.creationDateFilter) params.append("creationDateFilter", filters.creationDateFilter);
+  if (filters.clienteFilter) params.append("clienteFilter", filters.clienteFilter);
+  if (filters.monitoreoFilter) params.append("monitoreoFilter", filters.monitoreoFilter);
+  if (filters.operadorFilter) params.append("operadorFilter", filters.operadorFilter);
+  if (filters.idFilter) params.append("idFilter", filters.idFilter);
+  if (filters.sortField) params.append("sortField", filters.sortField);
+  if (filters.sortOrder) params.append("sortOrder", filters.sortOrder);
 
   const response = await fetch(`${baseUrl}/bitacoras?${params.toString()}`, {
     credentials: "include",

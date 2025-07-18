@@ -439,12 +439,37 @@ app.get("/bitacoras", async (req, res) => {
     const limit = parseInt(req.query.limit) || 25;
     const skip = (page - 1) * limit;
     const operador = req.query.operador;
+    const statusFilter = req.query.statusFilter;
+    const creationDateFilter = req.query.creationDateFilter;
+    const clienteFilter = req.query.clienteFilter;
+    const monitoreoFilter = req.query.monitoreoFilter;
+    const operadorFilter = req.query.operadorFilter;
+    const idFilter = req.query.idFilter;
+    const sortField = req.query.sortField || "createdAt";
+    const sortOrder = req.query.sortOrder || "desc";
 
     const query = {};
+
+    // Build query based on filters
     if (operador) query.operador = operador;
+    if (statusFilter) query.status = statusFilter;
+    if (clienteFilter) query.cliente = clienteFilter;
+    if (monitoreoFilter) query.monitoreo = monitoreoFilter;
+    if (operadorFilter) query.operador = operadorFilter;
+    if (idFilter) query.bitacora_id = { $regex: idFilter, $options: "i" };
+    if (creationDateFilter) {
+      const startDate = new Date(creationDateFilter);
+      const endDate = new Date(creationDateFilter);
+      endDate.setDate(endDate.getDate() + 1);
+      query.createdAt = { $gte: startDate, $lt: endDate };
+    }
+
+    // Build sort object
+    const sortObj = {};
+    sortObj[sortField] = sortOrder === "asc" ? 1 : -1;
 
     const totalItems = await Bitacora.countDocuments(query);
-    const bitacoras = await Bitacora.find(query).sort({ createdAt: -1 }).skip(skip).limit(limit);
+    const bitacoras = await Bitacora.find(query).sort(sortObj).skip(skip).limit(limit);
 
     res.status(200).json({
       bitacoras,
