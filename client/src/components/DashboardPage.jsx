@@ -524,7 +524,7 @@ const DashboardPage = () => {
               <div className="col-xl-3 col-md-6 mb-4">
                 <div className="stat-card">
                   <div className="stat-icon pending">
-                    <i className="fa fa-check-circle"></i>
+                    <i className="fa fa-clock"></i>
                   </div>
                   <div className="stat-content">
                     <div className="stat-value">{dashboardStats.enProcesoBitacoras}</div>
