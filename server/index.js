@@ -1281,6 +1281,741 @@ app.get('/auditoria/bitacoras', async (req, res) => {
   }
 });
 
+// Dashboard Stats
+app.get('/dashboard/stats', async (req, res) => {
+  try {
+    // Get user from session (already verified by middleware)
+    const user = req.session.user;
+    if (!user) {
+      return res.status(401).json({ message: 'User not found' });
+    }
+
+    // Get role permissions
+    const role = await Role.findOne({ name: user.role });
+    if (!role) {
+      return res.status(401).json({ message: 'Role not found' });
+    }
+
+    // Get filter parameters
+    const { timeFilter = 'all', yearFilter = new Date().getFullYear(), clientFilter = 'all' } = req.query;
+
+    // Build time filter
+    let timeFilterQuery = {};
+    if (timeFilter !== 'all') {
+      const now = new Date();
+      const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+      switch (timeFilter) {
+        case 'today':
+          timeFilterQuery = { createdAt: { $gte: startOfDay } };
+          break;
+        case 'week':
+          const startOfWeek = new Date(now.setDate(now.getDate() - now.getDay()));
+          timeFilterQuery = { createdAt: { $gte: startOfWeek } };
+          break;
+        case 'month':
+          const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+          timeFilterQuery = { createdAt: { $gte: startOfMonth } };
+          break;
+        case 'quarter':
+          const currentQuarter = Math.floor(now.getMonth() / 3);
+          const startOfQuarter = new Date(now.getFullYear(), currentQuarter * 3, 1);
+          timeFilterQuery = { createdAt: { $gte: startOfQuarter } };
+          break;
+        case 'year':
+          const startOfYear = new Date(now.getFullYear(), 0, 1);
+          timeFilterQuery = { createdAt: { $gte: startOfYear } };
+          break;
+      }
+    }
+
+    // Add year filter
+    if (yearFilter && yearFilter !== 'all') {
+      const startOfYear = new Date(parseInt(yearFilter), 0, 1);
+      const endOfYear = new Date(parseInt(yearFilter), 11, 31, 23, 59, 59);
+      timeFilterQuery = {
+        ...timeFilterQuery,
+        createdAt: {
+          $gte: startOfYear,
+          $lte: endOfYear
+        }
+      };
+    }
+
+    // Build filters based on user permissions
+    let bitacoraFilter = { ...timeFilterQuery };
+
+    // Add client filter
+    if (clientFilter !== 'all') {
+      bitacoraFilter.cliente = clientFilter;
+    }
+
+    if (!role.bitacoras?.read_all) {
+      // If user can't read all bitacoras, filter by their name
+      const userFullName = `${user.firstName} ${user.lastName}`;
+      bitacoraFilter.operador = userFullName;
+    }
+
+    // Get bitacora statistics
+    const totalBitacoras = await Bitacora.countDocuments(bitacoraFilter);
+    const nuevasBitacoras = await Bitacora.countDocuments({ ...bitacoraFilter, status: 'nueva' });
+    const enProcesoBitacoras = await Bitacora.countDocuments({ ...bitacoraFilter, status: { $in: ['validada', 'iniciada'] } });
+    const cerradasBitacoras = await Bitacora.countDocuments({ ...bitacoraFilter, status: { $in: ['cerrada', 'finalizada'] } });
+
+    // Get user and client counts (only if user has permission)
+    let totalUsers = 0;
+    let totalClients = 0;
+
+    if (role.usuarios?.read) {
+      totalUsers = await User.countDocuments();
+    }
+
+    if (role.clientes?.read) {
+      totalClients = await Client.countDocuments();
+    }
+
+    // Get recent activity (last 10 auditoria records)
+    let recentActivity = [];
+    try {
+      recentActivity = await Auditoria.find()
+        .sort({ createdAt: -1 })
+        .limit(10)
+        .populate('bitacora_id', 'bitacora_id')
+        .lean();
+    } catch (error) {
+      console.log('Error fetching recent activity:', error);
+    }
+
+    const formattedActivity = recentActivity.map(activity => ({
+      description: `${activity.tipo} - ${activity.seccion}`,
+      icon: getActivityIcon(activity.tipo),
+      color: getActivityColor(activity.tipo),
+      timestamp: activity.createdAt
+    }));
+
+    // Get monthly data for the last 12 months
+    let monthlyData = [];
+    const months = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+
+    try {
+      // Para el gráfico mensual, usamos solo el filtro de año y permisos, no el filtro de tiempo
+      const monthlyFilter = { ...bitacoraFilter };
+      delete monthlyFilter.createdAt; // Removemos el filtro de tiempo para mostrar todos los meses del año
+
+      for (let i = 11; i >= 0; i--) {
+        const date = new Date();
+        date.setMonth(date.getMonth() - i);
+        const startOfMonth = new Date(date.getFullYear(), date.getMonth(), 1);
+        const endOfMonth = new Date(date.getFullYear(), date.getMonth() + 1, 0);
+
+        const monthCount = await Bitacora.countDocuments({
+          ...monthlyFilter,
+          createdAt: { $gte: startOfMonth, $lte: endOfMonth }
+        });
+
+        monthlyData.push({
+          month: months[date.getMonth()],
+          value: monthCount
+        });
+      }
+
+      console.log('Monthly data generated:', monthlyData);
+    } catch (error) {
+      console.log('Error generating monthly data:', error);
+      monthlyData = [];
+    }
+
+    // Get status trends data
+    const statusTrends = [
+      {
+        status: 'Activas',
+        color: '#10b981',
+        data: await Promise.all(months.map(async (month, index) => {
+          const date = new Date();
+          date.setMonth(date.getMonth() - (11 - index));
+          const startOfMonth = new Date(date.getFullYear(), date.getMonth(), 1);
+          const endOfMonth = new Date(date.getFullYear(), date.getMonth() + 1, 0);
+
+          const count = await Bitacora.countDocuments({
+            ...bitacoraFilter,
+            status: { $nin: ['cerrada', 'finalizada'] },
+            createdAt: { $gte: startOfMonth, $lte: endOfMonth }
+          });
+
+          return { month, value: count };
+        }))
+      },
+      {
+        status: 'Completadas',
+        color: '#3b82f6',
+        data: await Promise.all(months.map(async (month, index) => {
+          const date = new Date();
+          date.setMonth(date.getMonth() - (11 - index));
+          const startOfMonth = new Date(date.getFullYear(), date.getMonth(), 1);
+          const endOfMonth = new Date(date.getFullYear(), date.getMonth() + 1, 0);
+
+          const count = await Bitacora.countDocuments({
+            ...bitacoraFilter,
+            status: { $in: ['cerrada', 'finalizada'] },
+            createdAt: { $gte: startOfMonth, $lte: endOfMonth }
+          });
+
+          return { month, value: count };
+        }))
+      },
+      {
+        status: 'Pendientes',
+        color: '#f59e0b',
+        data: await Promise.all(months.map(async (month, index) => {
+          const date = new Date();
+          date.setMonth(date.getMonth() - (11 - index));
+          const startOfMonth = new Date(date.getFullYear(), date.getMonth(), 1);
+          const endOfMonth = new Date(date.getFullYear(), date.getMonth() + 1, 0);
+
+          const count = await Bitacora.countDocuments({
+            ...bitacoraFilter,
+            status: 'nueva',
+            createdAt: { $gte: startOfMonth, $lte: endOfMonth }
+          });
+
+          return { month, value: count };
+        }))
+      }
+    ];
+
+    // Get event distribution
+    const eventDistribution = await Bitacora.aggregate([
+      { $match: bitacoraFilter },
+      { $unwind: '$eventos' },
+      { $group: { _id: '$eventos.tipo', count: { $sum: 1 } } },
+      { $sort: { count: -1 } },
+      { $limit: 10 }
+    ]);
+
+    const eventColors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#84cc16', '#f97316', '#ec4899', '#6366f1'];
+    const formattedEventDistribution = eventDistribution.map((event, index) => ({
+      name: event._id || 'Sin especificar',
+      count: event.count,
+      color: eventColors[index % eventColors.length]
+    }));
+
+    // Get geographic data
+    const geoType = req.query.geoType || 'origen';
+    let geographicData = [];
+    try {
+      if (geoType === 'destino') {
+        geographicData = await Bitacora.aggregate([
+          { $match: bitacoraFilter },
+          { $group: { _id: '$destino', count: { $sum: 1 } } },
+          { $sort: { count: -1 } },
+          { $limit: 10 },
+          {
+            $lookup: {
+              from: 'destinos',
+              localField: '_id',
+              foreignField: 'nombre',
+              as: 'destinoInfo'
+            }
+          },
+          {
+            $project: {
+              name: {
+                $cond: {
+                  if: { $gt: [{ $size: '$destinoInfo' }, 0] },
+                  then: { $arrayElemAt: ['$destinoInfo.nombre', 0] },
+                  else: '$_id'
+                }
+              },
+              count: 1
+            }
+          }
+        ]);
+      } else {
+        geographicData = await Bitacora.aggregate([
+          { $match: bitacoraFilter },
+          { $group: { _id: '$origen', count: { $sum: 1 } } },
+          { $sort: { count: -1 } },
+          { $limit: 10 },
+          {
+            $lookup: {
+              from: 'origenes',
+              localField: '_id',
+              foreignField: 'nombre',
+              as: 'originInfo'
+            }
+          },
+          {
+            $project: {
+              name: {
+                $cond: {
+                  if: { $gt: [{ $size: '$originInfo' }, 0] },
+                  then: { $arrayElemAt: ['$originInfo.nombre', 0] },
+                  else: '$_id'
+                }
+              },
+              count: 1
+            }
+          }
+        ]);
+      }
+    } catch (error) {
+      console.log('Error fetching geographic data:', error);
+    }
+
+    // Get operator efficiency
+    let operatorEfficiency = [];
+    try {
+      operatorEfficiency = await Bitacora.aggregate([
+        { $match: bitacoraFilter },
+        {
+          $group: {
+            _id: '$operador',
+            total: { $sum: 1 },
+            completed: { $sum: { $cond: [{ $in: ['$status', ['cerrada', 'finalizada']] }, 1, 0] } }
+          }
+        },
+        { $sort: { total: -1 } },
+        { $limit: 10 },
+        {
+          $project: {
+            name: '$_id',
+            total: 1,
+            completed: 1,
+            efficiency: { $multiply: [{ $divide: ['$completed', '$total'] }, 100] }
+          }
+        }
+      ]);
+    } catch (error) {
+      console.log('Error fetching operator efficiency:', error);
+    }
+
+    // Get tipos de monitoreo data
+    let tiposMonitoreo = [];
+    try {
+      tiposMonitoreo = await Bitacora.aggregate([
+        { $match: bitacoraFilter },
+        { $group: { _id: '$monitoreo', count: { $sum: 1 } } },
+        { $sort: { count: -1 } },
+        {
+          $lookup: {
+            from: 'monitoreos',
+            localField: '_id',
+            foreignField: 'tipoMonitoreo',
+            as: 'tipoInfo'
+          }
+        },
+        {
+          $project: {
+            nombre: {
+              $cond: {
+                if: { $gt: [{ $size: '$tipoInfo' }, 0] },
+                then: { $arrayElemAt: ['$tipoInfo.tipoMonitoreo', 0] },
+                else: '$_id'
+              }
+            },
+            count: 1,
+            color: { $arrayElemAt: ['$tipoInfo.color', 0] }
+          }
+        }
+      ]);
+    } catch (error) {
+      console.log('Error fetching tipos de monitoreo:', error);
+    }
+
+    // Add colors to tipos de monitoreo if not present
+    const tipoColors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#84cc16', '#f97316', '#ec4899', '#6366f1'];
+    const formattedTiposMonitoreo = tiposMonitoreo.map((tipo, index) => ({
+      ...tipo,
+      color: tipoColors[index % tipoColors.length]
+    }));
+
+    // Get client performance
+    let clientPerformance = [];
+    try {
+      clientPerformance = await Bitacora.aggregate([
+        { $match: bitacoraFilter },
+        {
+          $group: {
+            _id: '$cliente',
+            completed: { $sum: { $cond: [{ $in: ['$status', ['cerrada', 'finalizada']] }, 1, 0] } },
+            pending: { $sum: { $cond: [{ $eq: ['$status', 'nueva'] }, 1, 0] } }
+          }
+        },
+        { $sort: { completed: -1 } },
+        { $limit: 10 },
+        {
+          $lookup: {
+            from: 'clients',
+            localField: '_id',
+            foreignField: 'razon_social',
+            as: 'clientInfo'
+          }
+        },
+        {
+          $project: {
+            name: {
+              $cond: {
+                if: { $gt: [{ $size: '$clientInfo' }, 0] },
+                then: { $arrayElemAt: ['$clientInfo.razon_social', 0] },
+                else: '$_id'
+              }
+            },
+            completed: 1,
+            pending: 1
+          }
+        }
+      ]);
+    } catch (error) {
+      console.log('Error fetching client performance:', error);
+    }
+
+    // Get top clients
+    let topClients = [];
+    try {
+      topClients = await Bitacora.aggregate([
+        { $match: bitacoraFilter },
+        { $group: { _id: '$cliente', count: { $sum: 1 } } },
+        { $sort: { count: -1 } },
+        { $limit: 5 },
+        {
+          $lookup: {
+            from: 'clients',
+            localField: '_id',
+            foreignField: 'razon_social',
+            as: 'clientInfo'
+          }
+        },
+        {
+          $project: {
+            nombre: {
+              $cond: {
+                if: { $gt: [{ $size: '$clientInfo' }, 0] },
+                then: { $arrayElemAt: ['$clientInfo.razon_social', 0] },
+                else: '$_id'
+              }
+            },
+            count: 1
+          }
+        }
+      ]);
+    } catch (error) {
+      console.log('Error fetching top clients:', error);
+    }
+
+    // Get top operadores
+    let topOperadores = [];
+    try {
+      topOperadores = await Bitacora.aggregate([
+        { $match: bitacoraFilter },
+        { $group: { _id: '$operador', count: { $sum: 1 } } },
+        { $sort: { count: -1 } },
+        { $limit: 5 },
+        {
+          $project: {
+            name: '$_id',
+            count: 1
+          }
+        }
+      ]);
+    } catch (error) {
+      console.log('Error fetching top operadores:', error);
+    }
+
+    res.status(200).json({
+      totalBitacoras,
+      nuevasBitacoras,
+      enProcesoBitacoras,
+      cerradasBitacoras,
+      totalUsers,
+      totalClients,
+      recentActivity: formattedActivity,
+      monthlyData,
+      statusTrends,
+      eventDistribution: formattedEventDistribution,
+      geographicData,
+      operatorEfficiency,
+      clientPerformance,
+      tiposMonitoreo: formattedTiposMonitoreo,
+      topClients,
+      topOperadores
+    });
+
+  } catch (err) {
+    console.error('[GET /dashboard/stats] Error:', err);
+    res.status(500).json({ error: 'Failed to fetch dashboard statistics' });
+  }
+});
+
+// Helper functions for dashboard
+function getActivityIcon(tipo) {
+  const iconMap = {
+    'CREATE': 'fa-plus',
+    'UPDATE': 'fa-edit',
+    'DELETE': 'fa-trash',
+    'LOGIN': 'fa-sign-in-alt',
+    'LOGOUT': 'fa-sign-out-alt'
+  };
+  return iconMap[tipo] || 'fa-info-circle';
+}
+
+function getActivityColor(tipo) {
+  const colorMap = {
+    'CREATE': 'success',
+    'UPDATE': 'info',
+    'DELETE': 'danger',
+    'LOGIN': 'primary',
+    'LOGOUT': 'secondary'
+  };
+  return colorMap[tipo] || 'muted';
+}
+
+// Additional dashboard endpoints for detailed data
+app.get('/dashboard/monthly-trend', async (req, res) => {
+  try {
+    const user = req.session.user;
+    if (!user) {
+      return res.status(401).json({ message: 'User not found' });
+    }
+
+    const role = await Role.findById(user.role);
+    if (!role) {
+      return res.status(401).json({ message: 'Role not found' });
+    }
+
+    const { yearFilter = new Date().getFullYear() } = req.query;
+
+    // Build filters based on user permissions
+    let bitacoraFilter = {};
+    if (!role.bitacoras?.read_all) {
+      const userFullName = `${user.firstName} ${user.lastName}`;
+      bitacoraFilter.operador = userFullName;
+    }
+
+    // Add year filter
+    if (yearFilter && yearFilter !== 'all') {
+      const startOfYear = new Date(parseInt(yearFilter), 0, 1);
+      const endOfYear = new Date(parseInt(yearFilter), 11, 31, 23, 59, 59);
+      bitacoraFilter.createdAt = {
+        $gte: startOfYear,
+        $lte: endOfYear
+      };
+    }
+
+    const months = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+    const monthlyData = [];
+
+    for (let i = 0; i < 12; i++) {
+      const date = new Date(parseInt(yearFilter), i, 1);
+      const startOfMonth = new Date(date.getFullYear(), date.getMonth(), 1);
+      const endOfMonth = new Date(date.getFullYear(), date.getMonth() + 1, 0);
+
+      const monthCount = await Bitacora.countDocuments({
+        ...bitacoraFilter,
+        createdAt: { $gte: startOfMonth, $lte: endOfMonth }
+      });
+
+      monthlyData.push({
+        month: months[i],
+        value: monthCount
+      });
+    }
+
+    res.status(200).json(monthlyData);
+  } catch (err) {
+    console.error('[GET /dashboard/monthly-trend] Error:', err);
+    res.status(500).json({ error: 'Failed to fetch monthly trend data' });
+  }
+});
+
+app.get('/dashboard/status-distribution', async (req, res) => {
+  try {
+    const user = req.session.user;
+    if (!user) {
+      return res.status(401).json({ message: 'User not found' });
+    }
+
+    const role = await Role.findOne({ name: user.role });
+    if (!role) {
+      return res.status(401).json({ message: 'Role not found' });
+    }
+
+    const { timeFilter = 'all', yearFilter = new Date().getFullYear(), clientFilter = 'all' } = req.query;
+
+    // Build time filter
+    let timeFilterQuery = {};
+    if (timeFilter !== 'all') {
+      const now = new Date();
+      const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+      switch (timeFilter) {
+        case 'today':
+          timeFilterQuery = { createdAt: { $gte: startOfDay } };
+          break;
+        case 'week':
+          const startOfWeek = new Date(now.setDate(now.getDate() - now.getDay()));
+          timeFilterQuery = { createdAt: { $gte: startOfWeek } };
+          break;
+        case 'month':
+          const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+          timeFilterQuery = { createdAt: { $gte: startOfMonth } };
+          break;
+        case 'quarter':
+          const currentQuarter = Math.floor(now.getMonth() / 3);
+          const startOfQuarter = new Date(now.getFullYear(), currentQuarter * 3, 1);
+          timeFilterQuery = { createdAt: { $gte: startOfQuarter } };
+          break;
+        case 'year':
+          const startOfYear = new Date(now.getFullYear(), 0, 1);
+          timeFilterQuery = { createdAt: { $gte: startOfYear } };
+          break;
+      }
+    }
+
+    // Add year filter
+    if (yearFilter) {
+      const startOfYear = new Date(parseInt(yearFilter), 0, 1);
+      const endOfYear = new Date(parseInt(yearFilter), 11, 31, 23, 59, 59);
+      timeFilterQuery = {
+        ...timeFilterQuery,
+        createdAt: {
+          $gte: startOfYear,
+          $lte: endOfYear
+        }
+      };
+    }
+
+    // Build filters based on user permissions
+    let bitacoraFilter = { ...timeFilterQuery };
+
+    // Add client filter
+    if (clientFilter !== 'all') {
+      bitacoraFilter.cliente = clientFilter;
+    }
+
+    if (!role.bitacoras?.read_all) {
+      const userFullName = `${user.firstName} ${user.lastName}`;
+      bitacoraFilter.operador = userFullName;
+    }
+
+    const statusDistribution = await Bitacora.aggregate([
+      { $match: bitacoraFilter },
+      { $group: { _id: '$status', count: { $sum: 1 } } },
+      { $sort: { count: -1 } }
+    ]);
+
+    const statusColors = {
+      'nueva': '#10b981',
+      'cerrada': '#3b82f6',
+      'finalizada': '#3b82f6',
+      'creada': '#f59e0b',
+      'en_proceso': '#8b5cf6'
+    };
+
+    const formattedStatusDistribution = statusDistribution.map(status => ({
+      status: status._id,
+      count: status.count,
+      color: statusColors[status._id] || '#64748b'
+    }));
+
+    res.status(200).json(formattedStatusDistribution);
+  } catch (err) {
+    console.error('[GET /dashboard/status-distribution] Error:', err);
+    res.status(500).json({ error: 'Failed to fetch status distribution data' });
+  }
+});
+
+app.get('/dashboard/event-types', async (req, res) => {
+  try {
+    const user = req.session.user;
+    if (!user) {
+      return res.status(401).json({ message: 'User not found' });
+    }
+
+    const role = await Role.findOne({ name: user.role });
+    if (!role) {
+      return res.status(401).json({ message: 'Role not found' });
+    }
+
+    const { timeFilter = 'all', yearFilter = new Date().getFullYear(), clientFilter = 'all' } = req.query;
+
+    // Build time filter
+    let timeFilterQuery = {};
+    if (timeFilter !== 'all') {
+      const now = new Date();
+      const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+      switch (timeFilter) {
+        case 'today':
+          timeFilterQuery = { createdAt: { $gte: startOfDay } };
+          break;
+        case 'week':
+          const startOfWeek = new Date(now.setDate(now.getDate() - now.getDay()));
+          timeFilterQuery = { createdAt: { $gte: startOfWeek } };
+          break;
+        case 'month':
+          const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+          timeFilterQuery = { createdAt: { $gte: startOfMonth } };
+          break;
+        case 'quarter':
+          const currentQuarter = Math.floor(now.getMonth() / 3);
+          const startOfQuarter = new Date(now.getFullYear(), currentQuarter * 3, 1);
+          timeFilterQuery = { createdAt: { $gte: startOfQuarter } };
+          break;
+        case 'year':
+          const startOfYear = new Date(now.getFullYear(), 0, 1);
+          timeFilterQuery = { createdAt: { $gte: startOfYear } };
+          break;
+      }
+    }
+
+    // Add year filter
+    if (yearFilter && yearFilter !== 'all') {
+      const startOfYear = new Date(parseInt(yearFilter), 0, 1);
+      const endOfYear = new Date(parseInt(yearFilter), 11, 31, 23, 59, 59);
+      timeFilterQuery = {
+        ...timeFilterQuery,
+        createdAt: {
+          $gte: startOfYear,
+          $lte: endOfYear
+        }
+      };
+    }
+
+    // Build filters based on user permissions
+    let bitacoraFilter = { ...timeFilterQuery };
+
+    // Add client filter
+    if (clientFilter !== 'all') {
+      bitacoraFilter.cliente = clientFilter;
+    }
+
+    if (!role.bitacoras?.read_all) {
+      const userFullName = `${user.firstName} ${user.lastName}`;
+      bitacoraFilter.operador = userFullName;
+    }
+
+    const eventTypes = await Bitacora.aggregate([
+      { $match: bitacoraFilter },
+      { $unwind: '$eventos' },
+      { $group: { _id: '$eventos.nombre', count: { $sum: 1 } } },
+      { $sort: { count: -1 } },
+      { $limit: 10 }
+    ]);
+
+    const eventColors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#84cc16', '#f97316', '#ec4899', '#6366f1'];
+
+    const formattedEventTypes = eventTypes.map((event, index) => ({
+      name: event._id || 'Sin especificar',
+      count: event.count,
+      color: eventColors[index % eventColors.length]
+    }));
+
+    res.status(200).json(formattedEventTypes);
+  } catch (err) {
+    console.error('[GET /dashboard/event-types] Error:', err);
+    res.status(500).json({ error: 'Failed to fetch event types data' });
+  }
+});
 
 //start the server
 app.listen(PORT, () => {

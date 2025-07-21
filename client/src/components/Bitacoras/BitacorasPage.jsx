@@ -1,6 +1,7 @@
 import React, {useState, useEffect} from "react";
 import {createRoot} from "react-dom/client";
 import {useAuth} from "../../context/AuthContext";
+import {useSidebar} from "../../context/SidebarContext";
 import {useNavigate} from "react-router-dom";
 import Header from "../Header";
 import Sidebar from "../Sidebar";
@@ -68,6 +69,7 @@ const defaultFormData = {
 const BitacorasPage = () => {
   const baseUrl = import.meta.env.VITE_BASE_URL;
   const {user} = useAuth();
+  const {isSidebarCollapsed} = useSidebar();
   const navigate = useNavigate();
   const [showModal, setShowModal] = useState(false);
   const [roleData, setRoleData] = useState(null);
@@ -599,7 +601,7 @@ const BitacorasPage = () => {
         <div className="sidebar-wrapper">
           <Sidebar />
         </div>
-        <div className="content-wrapper">
+        <div className={`content-wrapper ${isSidebarCollapsed ? "sidebar-collapsed" : ""}`}>
           <div className="page-header">
             <h1>Monitoreo - Bitácoras</h1>
             {roleData?.bitacoras?.create && (
