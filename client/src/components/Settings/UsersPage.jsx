@@ -2,6 +2,7 @@ import {useState, useEffect} from "react";
 import Sidebar from "../Sidebar";
 import {useAuth} from "../../context/AuthContext";
 import ModalTemplate from "../ModalTemplate";
+import {useSidebar} from "../../context/SidebarContext";
 
 const UsersPage = () => {
   const [users, setUsers] = useState([]);
@@ -22,6 +23,7 @@ const UsersPage = () => {
   const {user, verifyToken, setUser} = useAuth();
   const [roleData, setRoleData] = useState(null);
   const baseUrl = import.meta.env.VITE_BASE_URL;
+  const {isSidebarCollapsed} = useSidebar();
 
   useEffect(() => {
     const init = async () => {
@@ -233,8 +235,7 @@ const UsersPage = () => {
         <div className="sidebar-wrapper">
           <Sidebar />
         </div>
-
-        <div className="content-wrapper">
+        <div className={`content-wrapper ${isSidebarCollapsed ? "sidebar-collapsed" : ""}`}>
           <div className="page-header">
             <h1 className="fs-3 fw-semibold text-black text-center m-0">Sistema - Usuarios</h1>
             {roleData?.usuarios?.create && (

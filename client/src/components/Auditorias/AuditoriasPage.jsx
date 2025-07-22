@@ -4,6 +4,7 @@ import Sidebar from "../Sidebar";
 import * as XLSX from "xlsx";
 import {saveAs} from "file-saver";
 import {useAuth} from "../../context/AuthContext";
+import {useSidebar} from "../../context/SidebarContext";
 
 const AuditoriasPage = () => {
   const [auditorias, setAuditorias] = useState([]);
@@ -25,6 +26,7 @@ const AuditoriasPage = () => {
 
   const {user, verifyToken, setUser} = useAuth();
   const [roleData, setRoleData] = useState(null);
+  const {isSidebarCollapsed} = useSidebar();
 
   useEffect(() => {
     const init = async () => {
@@ -151,7 +153,7 @@ const AuditoriasPage = () => {
         <div className="sidebar-wrapper">
           <Sidebar />
         </div>
-        <div className="content-wrapper">
+        <div className={`content-wrapper ${isSidebarCollapsed ? "sidebar-collapsed" : ""}`}>
           <div className="page-header">
             <div className="">
               <h1 className="fs-3 fw-semibold text-black m-0">Auditoría - Bitácoras</h1>

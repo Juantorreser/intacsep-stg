@@ -2,6 +2,7 @@ import React, {useState, useEffect} from "react";
 import Sidebar from "../Sidebar";
 import ModalTemplate from "../ModalTemplate";
 import {useAuth} from "../../context/AuthContext";
+import {useSidebar} from "../../context/SidebarContext";
 
 const TiposMonitoreo = () => {
   const [monitoreos, setMonitoreos] = useState([]);
@@ -14,6 +15,7 @@ const TiposMonitoreo = () => {
   const [idToDelete, setIdToDelete] = useState("");
   const {user, verifyToken, setUser} = useAuth();
   const [roleData, setRoleData] = useState(null);
+  const {isSidebarCollapsed} = useSidebar();
 
   useEffect(() => {
     const init = async () => {
@@ -154,7 +156,7 @@ const TiposMonitoreo = () => {
         <div className="sidebar-wrapper">
           <Sidebar />
         </div>
-        <div className="content-wrapper">
+        <div className={`content-wrapper ${isSidebarCollapsed ? "sidebar-collapsed" : ""}`}>
           <div className="page-header">
             <h1 className="text-center fs-3 fw-semibold text-black">
               Catálogos - Tipos de Monitoreo

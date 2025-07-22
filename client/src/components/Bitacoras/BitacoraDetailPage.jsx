@@ -13,6 +13,7 @@ import {createAuditoria, generateAuditoriasFromChanges} from "../../utils/audito
 import {getLocationText} from "../../utils/api";
 import {useMemo} from "react";
 import ModalTemplate from "../../components/ModalTemplate"; // make sure path is valid
+import {useSidebar} from "../../context/SidebarContext";
 
 const BitacoraDetailPage = ({edited}) => {
   const {id} = useParams();
@@ -48,6 +49,7 @@ const BitacoraDetailPage = ({edited}) => {
     [editedTransporte?.originalId]
   );
   const [modalOpen, setModalOpen] = useState(false);
+  const {isSidebarCollapsed} = useSidebar();
 
   const handleEditTransporte = () => {
     const selected = selectedTransporte;
@@ -1018,7 +1020,7 @@ const BitacoraDetailPage = ({edited}) => {
         <div className="sidebar-wrapper">
           <Sidebar />
         </div>
-        <div className="content-wrapper">
+        <div className={`content-wrapper ${isSidebarCollapsed ? "sidebar-collapsed" : ""}`}>
           <div
             id="detailHeader"
             className="d-flex justify-content-start ps-5 align-items-center position-relative z-1">

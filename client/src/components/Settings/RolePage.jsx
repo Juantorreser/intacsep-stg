@@ -2,6 +2,7 @@ import React, {useState, useEffect} from "react";
 import Sidebar from "../Sidebar";
 import ModalTemplate from "../ModalTemplate";
 import {useAuth} from "../../context/AuthContext";
+import {useSidebar} from "../../context/SidebarContext";
 
 const RolePage = () => {
   const [roles, setRoles] = useState([]);
@@ -62,6 +63,7 @@ const RolePage = () => {
 
   const {user, verifyToken, setUser} = useAuth();
   const [roleData, setRoleData] = useState(null);
+  const {isSidebarCollapsed} = useSidebar();
 
   useEffect(() => {
     const init = async () => {
@@ -327,7 +329,7 @@ const RolePage = () => {
         <div className="sidebar-wrapper">
           <Sidebar />
         </div>
-        <div className="content-wrapper">
+        <div className={`content-wrapper ${isSidebarCollapsed ? "sidebar-collapsed" : ""}`}>
           <div className="page-header">
             <h1>Sistema - Roles</h1>
             {roleData?.roles?.create && (

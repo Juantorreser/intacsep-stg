@@ -4,6 +4,7 @@ import Sidebar from "../Sidebar";
 import Modal from "react-bootstrap/Modal";
 import Button from "react-bootstrap/Button";
 import Form from "react-bootstrap/Form";
+import {useSidebar} from "../../context/SidebarContext";
 
 const OperadorPage = () => {
   const [operadores, setOperadores] = useState([]);
@@ -14,6 +15,7 @@ const OperadorPage = () => {
   const baseUrl = import.meta.env.VITE_BASE_URL;
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [idToDelete, setIdToDelete] = useState("");
+  const {isSidebarCollapsed} = useSidebar();
 
   useEffect(() => {
     const fetchOperadores = async () => {
@@ -120,12 +122,11 @@ const OperadorPage = () => {
 
   return (
     <section id="operadores">
-      //
       <div className="w-100 d-flex">
         <div className="sidebar-wrapper">
           <Sidebar />
         </div>
-        <div className="content-wrapper">
+        <div className={`content-wrapper ${isSidebarCollapsed ? "sidebar-collapsed" : ""}`}>
           <h1 className="text-center fs-3 fw-semibold text-black">Operadores</h1>
 
           {/* Create New Operador Form */}

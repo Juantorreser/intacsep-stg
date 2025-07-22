@@ -2,6 +2,7 @@ import React, {useState, useEffect} from "react";
 import Sidebar from "../Sidebar";
 import ModalTemplate from "../ModalTemplate";
 import {useAuth} from "../../context/AuthContext";
+import {useSidebar} from "../../context/SidebarContext";
 
 const EventsPage = () => {
   const [events, setEvents] = useState([]);
@@ -13,6 +14,7 @@ const EventsPage = () => {
   const [modalType, setModalType] = useState(""); // 'create', 'edit', ''
   const {user, verifyToken, setUser} = useAuth();
   const [roleData, setRoleData] = useState(null);
+  const {isSidebarCollapsed} = useSidebar();
 
   useEffect(() => {
     const init = async () => {
@@ -157,7 +159,7 @@ const EventsPage = () => {
         <div className="sidebar-wrapper">
           <Sidebar />
         </div>
-        <div className="content-wrapper">
+        <div className={`content-wrapper ${isSidebarCollapsed ? "sidebar-collapsed" : ""}`}>
           <div className="page-header">
             <h1 className="fs-3 fw-semibold text-black m-0">Catálogos - Eventos</h1>
             {roleData?.eventos?.create && (

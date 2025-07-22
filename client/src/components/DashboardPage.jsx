@@ -55,7 +55,7 @@ const DashboardPage = () => {
         setRoleData(roleData);
 
         // Fetch available clients for filter
-        const clientsResponse = await fetch(`${baseUrl}/clientes`, {
+        const clientsResponse = await fetch(`${baseUrl}/clients`, {
           method: "GET",
           credentials: "include",
         });
@@ -232,6 +232,7 @@ const DashboardPage = () => {
               padding: "8px 16px",
               outline: "none",
               transition: "border-color 0.2s",
+              fontSize: "0.85rem", // Set font size smaller
             }}>
             <option value="origen">Por Origen</option>
             <option value="destino">Por Destino</option>
@@ -316,62 +317,47 @@ const DashboardPage = () => {
     );
   };
 
-  const renderTopPerformers = () => {
-    const {topClients, topOperadores} = dashboardStats;
-
+  // --- NUEVAS FUNCIONES DE RENDER ---
+  const renderTopClients = () => {
+    const {topClients} = dashboardStats;
     return (
-      <div className="row">
-        <div className="col-md-6">
-          <div className="chart-card">
-            <div className="chart-header">
-              <h6>Top Clientes</h6>
+      <div className="top-performers">
+        {topClients && topClients.length > 0 ? (
+          topClients.slice(0, 5).map((client, index) => (
+            <div key={index} className="performer-item">
+              <div className="performer-rank">#{index + 1}</div>
+              <div className="performer-info">
+                <div className="performer-name">{client.nombre}</div>
+                <div className="performer-stats">{client.count} bitácoras</div>
+              </div>
+              <div className="performer-score">{client.count}</div>
             </div>
-            <div className="chart-body">
-              {topClients && topClients.length > 0 ? (
-                <div className="top-performers">
-                  {topClients.slice(0, 5).map((client, index) => (
-                    <div key={index} className="performer-item">
-                      <div className="performer-rank">#{index + 1}</div>
-                      <div className="performer-info">
-                        <div className="performer-name">{client.nombre}</div>
-                        <div className="performer-stats">{client.count} bitácoras</div>
-                      </div>
-                      <div className="performer-score">{client.count}</div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center text-muted">No hay datos disponibles</div>
-              )}
-            </div>
-          </div>
-        </div>
+          ))
+        ) : (
+          <div className="text-center text-muted">No hay datos disponibles</div>
+        )}
+      </div>
+    );
+  };
 
-        <div className="col-md-6">
-          <div className="chart-card">
-            <div className="chart-header">
-              <h6>Top Operadores</h6>
+  const renderTopOperadores = () => {
+    const {topOperadores} = dashboardStats;
+    return (
+      <div className="top-performers">
+        {topOperadores && topOperadores.length > 0 ? (
+          topOperadores.slice(0, 5).map((operador, index) => (
+            <div key={index} className="performer-item">
+              <div className="performer-rank">#{index + 1}</div>
+              <div className="performer-info">
+                <div className="performer-name">{operador.name}</div>
+                <div className="performer-stats">{operador.count} bitácoras</div>
+              </div>
+              <div className="performer-score">{operador.count}</div>
             </div>
-            <div className="chart-body">
-              {topOperadores && topOperadores.length > 0 ? (
-                <div className="top-performers">
-                  {topOperadores.slice(0, 5).map((operador, index) => (
-                    <div key={index} className="performer-item">
-                      <div className="performer-rank">#{index + 1}</div>
-                      <div className="performer-info">
-                        <div className="performer-name">{operador.name}</div>
-                        <div className="performer-stats">{operador.count} bitácoras</div>
-                      </div>
-                      <div className="performer-score">{operador.count}</div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center text-muted">No hay datos disponibles</div>
-              )}
-            </div>
-          </div>
-        </div>
+          ))
+        ) : (
+          <div className="text-center text-muted">No hay datos disponibles</div>
+        )}
       </div>
     );
   };
@@ -472,8 +458,8 @@ const DashboardPage = () => {
                         className="filter-select">
                         <option value="all">Todos los clientes</option>
                         {availableClients.map((client) => (
-                          <option key={client._id} value={client._id}>
-                            {client.nombre}
+                          <option key={client._id} value={client.razon_social}>
+                            {client.razon_social}
                           </option>
                         ))}
                       </select>
@@ -516,7 +502,7 @@ const DashboardPage = () => {
                   </div>
                   <div className="stat-content">
                     <div className="stat-value">{dashboardStats.nuevasBitacoras}</div>
-                    <div className="stat-label">Bitácoras nuevas</div>
+                    <div className="stat-label">Nuevas</div>
                   </div>
                 </div>
               </div>
@@ -528,7 +514,7 @@ const DashboardPage = () => {
                   </div>
                   <div className="stat-content">
                     <div className="stat-value">{dashboardStats.enProcesoBitacoras}</div>
-                    <div className="stat-label">Bitácoras en proceso</div>
+                    <div className="stat-label">En proceso</div>
                   </div>
                 </div>
               </div>
@@ -540,7 +526,7 @@ const DashboardPage = () => {
                   </div>
                   <div className="stat-content">
                     <div className="stat-value">{dashboardStats.cerradasBitacoras}</div>
-                    <div className="stat-label">Bitácoras cerradas</div>
+                    <div className="stat-label">Cerradas</div>
                   </div>
                 </div>
               </div>
@@ -558,22 +544,30 @@ const DashboardPage = () => {
               </div>
             </div>
 
-            <div className="row mb-4">
-              <div className="col-xl-6 col-lg-6">
-                <div className="chart-card">
+            {/* Fila: Análisis Geográfico, Top Clientes, Top Operadores */}
+            <div className="row mb-4 align-items-stretch">
+              <div className="col-xl-4 col-lg-4 ">
+                <div className="chart-card mini-card">
                   <div className="chart-header">
                     <h6>Análisis Geográfico</h6>
                   </div>
-                  <div className="chart-body">{renderGeographicChart()}</div>
+                  <div className="chart-body fixed-height-card-body">{renderGeographicChart()}</div>
                 </div>
               </div>
-
-              <div className="col-6">
-                <div className="chart-card">
+              <div className="col-xl-4 col-lg-4 h-100">
+                <div className="chart-card mini-card">
                   <div className="chart-header">
-                    <h6>Tipos de Monitoreo</h6>
+                    <h6>Top Clientes</h6>
                   </div>
-                  <div className="chart-body">{renderTiposMonitoreoChart()}</div>
+                  <div className="chart-body fixed-height-card-body">{renderTopClients()}</div>
+                </div>
+              </div>
+              <div className="col-xl-4 col-lg-4 h-100">
+                <div className="chart-card mini-card">
+                  <div className="chart-header">
+                    <h6>Top Operadores</h6>
+                  </div>
+                  <div className="chart-body fixed-height-card-body">{renderTopOperadores()}</div>
                 </div>
               </div>
             </div>
@@ -646,17 +640,26 @@ const DashboardPage = () => {
               </div>
             </div>
 
-            {/* Top Performers */}
-            <div className="row mb-4">{renderTopPerformers()}</div>
-
-            {/* Activity Timeline */}
-            <div className="row mb-4">
-              <div className="col-12">
-                <div className="chart-card">
+            {/* Fila: Tipos de Monitoreo y Actividad Reciente */}
+            <div className="row mb-4 align-items-stretch">
+              <div className="col-xl-6 col-lg-6 h-100">
+                <div className="chart-card mini-card">
+                  <div className="chart-header">
+                    <h6>Tipos de Monitoreo</h6>
+                  </div>
+                  <div className="chart-body fixed-height-card-body">
+                    {renderTiposMonitoreoChart()}
+                  </div>
+                </div>
+              </div>
+              <div className="col-xl-6 col-lg-6 h-100">
+                <div className="chart-card mini-card">
                   <div className="chart-header">
                     <h6>Actividad Reciente</h6>
                   </div>
-                  <div className="chart-body">{renderActivityTimeline()}</div>
+                  <div className="chart-body fixed-height-card-body">
+                    {renderActivityTimeline()}
+                  </div>
                 </div>
               </div>
             </div>
