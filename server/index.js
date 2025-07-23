@@ -21,6 +21,7 @@ import session from "express-session";
 import nodemailer from "nodemailer";
 import crypto from "crypto";
 import Auditoria from "./models/Auditoria.js";
+import { auditCreation, auditUpdate, auditDeletion } from "./auditoriaUtils.js";
 
 dotenv.config();
 
@@ -545,6 +546,7 @@ app.post("/bitacora", async (req, res) => {
     });
 
     await newItem.save();
+    await auditCreation({ newData: newItem.toObject(), modelId: newItem._id, user: req.session.user || {}, seccion: "Bitacora" });
     res.status(201).send(newItem);
   } catch (err) {
     console.error("Error creating bitacora:", err);
@@ -629,6 +631,7 @@ app.patch("/bitacora/:id", async (req, res) => {
     Object.assign(bitacora, updatedData);
 
     const updatedBitacora = await bitacora.save();
+    await auditUpdate({ oldData: bitacora.toObject(), newData: updatedData, modelId: id, user: req.session.user || {}, seccion: "Bitacora" });
     res.json(updatedBitacora);
   } catch (error) {
     console.error("Error updating bitacora:", error);
@@ -790,6 +793,7 @@ app.post("/monitoreos", async (req, res) => {
   try {
     const newMonitoreo = new Monitoreo({ tipoMonitoreo });
     const savedMonitoreo = await newMonitoreo.save();
+    await auditCreation({ newData: savedMonitoreo.toObject(), modelId: savedMonitoreo._id, user: req.session.user || {}, seccion: "Monitoreo" });
     res.status(201).json(savedMonitoreo);
   } catch (error) {
     console.error("Error creating monitoreo:", error);
@@ -835,6 +839,7 @@ app.post("/users", async (req, res) => {
     });
 
     await newUser.save();
+    await auditCreation({ newData: newUser.toObject(), modelId: newUser._id, user: req.session.user || {}, seccion: "Usuario" });
     res.status(201).json(newUser);
   } catch (error) {
     res.status(400).json({ message: error.message });
@@ -850,6 +855,7 @@ app.delete("/users/:id", async (req, res) => {
     if (!deletedUser) {
       return res.status(404).json({ message: "User not found" });
     }
+    await auditDeletion({ oldData: deletedUser.toObject(), modelId: id, user: req.session.user || {}, seccion: "Usuario" });
     res.status(200).json(deletedUser);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -861,21 +867,18 @@ app.put("/users/:id", async (req, res) => {
   const { password, firstName, lastName, phone, role } = req.body;
 
   try {
+    const prevUser = await User.findById(req.params.id);
+    if (!prevUser) return res.status(404).json({ message: "User not found" });
+    const oldData = prevUser.toObject();
     const updateData = { firstName, lastName, phone, role };
-
-    // Hash the password if it is provided
     if (password) {
-      const prevUser = await User.findById(req.params.id);
-      if (prevUser.password !== password) {
-        const salt = await bcrypt.genSalt(10);
-        const hashedPassword = await bcrypt.hash(password, salt);
-        updateData.password = hashedPassword;
-      }
+      const salt = await bcrypt.genSalt(10);
+      updateData.password = await bcrypt.hash(password, salt);
     }
-
     const user = await User.findByIdAndUpdate(req.params.id, updateData, {
       new: true,
     });
+    await auditUpdate({ oldData, newData: updateData, modelId: req.params.id, user: req.session.user || {}, seccion: "Usuario" });
 
     if (!user) {
       return res.status(404).json({ message: "User not found" });
@@ -919,8 +922,7 @@ app.post("/clients", async (req, res) => {
     // Create new client with ID_Cliente
     const client = new Client(clientData);
     const newClient = await client.save();
-
-    // Respond with created client
+    await auditCreation({ newData: newClient.toObject(), modelId: newClient._id, user: req.session.user || {}, seccion: "Cliente" });
     res.status(201).json(newClient);
   } catch (error) {
     // Handle errors
@@ -931,10 +933,11 @@ app.post("/clients", async (req, res) => {
 // Update a client
 app.put("/clients/:id", async (req, res) => {
   try {
+    const prevClient = await Client.findById(req.params.id);
+    if (!prevClient) return res.status(404).json({ message: "Client not found" });
+    const oldData = prevClient.toObject();
     const updatedClient = await Client.findByIdAndUpdate(req.params.id, req.body, { new: true });
-    if (!updatedClient) {
-      return res.status(404).json({ message: "Client not found" });
-    }
+    await auditUpdate({ oldData, newData: req.body, modelId: req.params.id, user: req.session.user || {}, seccion: "Cliente" });
     res.json(updatedClient);
   } catch (error) {
     res.status(400).json({ message: error.message });
@@ -948,6 +951,7 @@ app.delete("/clients/:id", async (req, res) => {
     if (!deletedClient) {
       return res.status(404).json({ message: "Client not found" });
     }
+    await auditDeletion({ oldData: deletedClient.toObject(), modelId: req.params.id, user: req.session.user || {}, seccion: "Cliente" });
     res.json({ message: "Client deleted" });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -969,11 +973,15 @@ app.put("/event_types/:id", async (req, res) => {
   const { evento, categoria, calificacion } = req.body;
 
   try {
+    const prevEvent = await EventType.findById(req.params.id);
+    if (!prevEvent) return res.status(404).json({ message: "Event not found" });
+    const oldData = prevEvent.toObject();
     const updatedEvent = await EventType.findByIdAndUpdate(
       req.params.id,
       { evento, categoria, calificacion },
       { new: true }
     );
+    await auditUpdate({ oldData, newData: { evento, categoria, calificacion }, modelId: req.params.id, user: req.session.user || {}, seccion: "Evento" });
 
     if (!updatedEvent) return res.status(404).json({ message: "Event not found" });
 
@@ -1000,6 +1008,7 @@ app.post("/event_types", async (req, res) => {
 
     const newEvent = new EventType({ evento, categoria, calificacion });
     const saved = await newEvent.save();
+    await auditCreation({ newData: saved.toObject(), modelId: saved._id, user: req.session.user || {}, seccion: "Evento" });
     res.status(201).json(saved);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -1009,8 +1018,9 @@ app.post("/event_types", async (req, res) => {
 
 app.delete("/event_types/:id", async (req, res) => {
   try {
-    const result = await EventType.findByIdAndDelete(req.params.id);
-    if (!result) return res.status(404).json({ message: "Event not found" });
+    const deletedEvent = await EventType.findByIdAndDelete(req.params.id);
+    if (!deletedEvent) return res.status(404).json({ message: "Event not found" });
+    await auditDeletion({ oldData: deletedEvent.toObject(), modelId: req.params.id, user: req.session.user || {}, seccion: "Evento" });
     res.json({ message: "Event deleted" });
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -1034,6 +1044,7 @@ app.post("/roles", async (req, res) => {
   try {
     const role = new Role(req.body);
     const newRole = await role.save();
+    await auditCreation({ newData: newRole.toObject(), modelId: newRole._id, user: req.session.user || {}, seccion: "Rol" });
     res.status(201).json(newRole);
   } catch (error) {
     console.error("Error creating role:", error);
@@ -1045,10 +1056,14 @@ app.post("/roles", async (req, res) => {
 // PUT update a role
 app.put("/roles/:id", async (req, res) => {
   try {
+    const prevRole = await Role.findById(req.params.id);
+    if (!prevRole) return res.status(404).json({ message: "Role not found" });
+    const oldData = prevRole.toObject();
     const updatedRole = await Role.findByIdAndUpdate(req.params.id, req.body, {
       new: true,
       runValidators: true,
     });
+    await auditUpdate({ oldData, newData: req.body, modelId: req.params.id, user: req.session.user || {}, seccion: "Rol" });
 
     if (!updatedRole) {
       return res.status(404).json({ message: "Role not found" });
@@ -1080,7 +1095,9 @@ app.get("/roles/:roleName", async (req, res) => {
 // DELETE a role
 app.delete("/roles/:id", async (req, res) => {
   try {
-    await Role.findByIdAndDelete(req.params.id);
+    const deletedRole = await Role.findByIdAndDelete(req.params.id);
+    if (!deletedRole) return res.status(404).json({ message: "Role not found" });
+    await auditDeletion({ oldData: deletedRole.toObject(), modelId: req.params.id, user: req.session.user || {}, seccion: "Rol" });
     res.json({ message: "Role deleted" });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -1104,6 +1121,7 @@ app.post("/origenes", async (req, res) => {
     const { estado, municipio, nombre } = req.body;
     const newOrigen = new Origen({ estado, municipio, nombre });
     const savedOrigen = await newOrigen.save();
+    await auditCreation({ newData: savedOrigen.toObject(), modelId: savedOrigen._id, user: req.session.user || {}, seccion: "Origen" });
     res.status(201).json(savedOrigen);
   } catch (e) {
     res.status(500).json({ message: "Failed to create origen", error: e.message });
@@ -1114,12 +1132,16 @@ app.post("/origenes", async (req, res) => {
 // Edit an existing origen
 app.put("/origenes/:id", async (req, res) => {
   try {
+    const prevOrigen = await Origen.findById(req.params.id);
+    if (!prevOrigen) return res.status(404).json({ message: "Origen not found" });
+    const oldData = prevOrigen.toObject();
     const { estado, municipio, nombre } = req.body;
     const updatedOrigen = await Origen.findByIdAndUpdate(
       req.params.id,
       { estado, municipio, nombre },
       { new: true }
     );
+    await auditUpdate({ oldData, newData: { estado, municipio, nombre }, modelId: req.params.id, user: req.session.user || {}, seccion: "Origen" });
     res.json(updatedOrigen);
   } catch (e) {
     res.status(500).json({ message: "Failed to edit origen", error: e.message });
@@ -1130,8 +1152,9 @@ app.put("/origenes/:id", async (req, res) => {
 // Delete an origen
 app.delete("/origenes/:id", async (req, res) => {
   try {
-    const { id } = req.params;
-    await Origen.findByIdAndDelete(id);
+    const deletedOrigen = await Origen.findByIdAndDelete(req.params.id);
+    if (!deletedOrigen) return res.status(404).json({ message: "Origen not found" });
+    await auditDeletion({ oldData: deletedOrigen.toObject(), modelId: req.params.id, user: req.session.user || {}, seccion: "Origen" });
     res.status(204).end();
   } catch (e) {
     res.status(500).json({ message: "Failed to delete origen", error: e.message });
@@ -1154,6 +1177,7 @@ app.post("/destinos", async (req, res) => {
     const { estado, municipio, nombre } = req.body;
     const newDestino = new Destino({ estado, municipio, nombre });
     const savedDestino = await newDestino.save();
+    await auditCreation({ newData: savedDestino.toObject(), modelId: savedDestino._id, user: req.session.user || {}, seccion: "Destino" });
     res.status(201).json(savedDestino);
   } catch (e) {
     res.status(500).json({ message: "Error creating destino", error: e.message });
@@ -1164,12 +1188,16 @@ app.post("/destinos", async (req, res) => {
 // Edit a destino
 app.put("/destinos/:id", async (req, res) => {
   try {
+    const prevDestino = await Destino.findById(req.params.id);
+    if (!prevDestino) return res.status(404).json({ message: "Destino not found" });
+    const oldData = prevDestino.toObject();
     const { estado, municipio, nombre } = req.body;
     const updatedDestino = await Destino.findByIdAndUpdate(
       req.params.id,
       { estado, municipio, nombre },
       { new: true }
     );
+    await auditUpdate({ oldData, newData: { estado, municipio, nombre }, modelId: req.params.id, user: req.session.user || {}, seccion: "Destino" });
     res.status(200).json(updatedDestino);
   } catch (e) {
     res.status(500).json({ message: "Error updating destino", error: e.message });
@@ -1180,7 +1208,9 @@ app.put("/destinos/:id", async (req, res) => {
 // Delete a destino
 app.delete("/destinos/:id", async (req, res) => {
   try {
-    await Destino.findByIdAndDelete(req.params.id);
+    const deletedDestino = await Destino.findByIdAndDelete(req.params.id);
+    if (!deletedDestino) return res.status(404).json({ message: "Destino not found" });
+    await auditDeletion({ oldData: deletedDestino.toObject(), modelId: req.params.id, user: req.session.user || {}, seccion: "Destino" });
     res.status(200).json({ message: "Destino deleted successfully" });
   } catch (e) {
     res.status(500).json({ message: "Error deleting destino", error: e.message });
@@ -1203,6 +1233,7 @@ app.post("/operadores", async (req, res) => {
   try {
     const newOperador = new Operador({ name: req.body.name });
     const savedOperador = await newOperador.save();
+    await auditCreation({ newData: savedOperador.toObject(), modelId: savedOperador._id, user: req.session.user || {}, seccion: "Operador" });
     res.status(201).json(savedOperador);
   } catch (e) {
     res.status(500).json({ message: "Error creating operador", error: e.message });
@@ -1212,11 +1243,15 @@ app.post("/operadores", async (req, res) => {
 // Edit an operador
 app.put("/operadores/:id", async (req, res) => {
   try {
+    const prevOperador = await Operador.findById(req.params.id);
+    if (!prevOperador) return res.status(404).json({ message: "Operador not found" });
+    const oldData = prevOperador.toObject();
     const updatedOperador = await Operador.findByIdAndUpdate(
       req.params.id,
       { name: req.body.name },
       { new: true }
     );
+    await auditUpdate({ oldData, newData: { name: req.body.name }, modelId: req.params.id, user: req.session.user || {}, seccion: "Operador" });
     res.status(200).json(updatedOperador);
   } catch (e) {
     res.status(500).json({ message: "Error updating operador", error: e.message });
@@ -1226,7 +1261,9 @@ app.put("/operadores/:id", async (req, res) => {
 // Delete an operador
 app.delete("/operadores/:id", async (req, res) => {
   try {
-    await Operador.findByIdAndDelete(req.params.id);
+    const deletedOperador = await Operador.findByIdAndDelete(req.params.id);
+    if (!deletedOperador) return res.status(404).json({ message: "Operador not found" });
+    await auditDeletion({ oldData: deletedOperador.toObject(), modelId: req.params.id, user: req.session.user || {}, seccion: "Operador" });
     res.status(200).json({ message: "Operador deleted successfully" });
   } catch (e) {
     res.status(500).json({ message: "Error deleting operador", error: e.message });
