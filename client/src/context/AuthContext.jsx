@@ -1,6 +1,6 @@
 import {createContext, useState, useEffect, useContext, useRef} from "react";
-import {useCookies} from "react-cookie";
 import {useNavigate} from "react-router-dom";
+import PropTypes from "prop-types";
 
 const AuthContext = createContext(undefined);
 
@@ -10,7 +10,6 @@ const AuthProvider = ({children}) => {
   const navigate = useNavigate();
   const [showInactivityPopup, setShowInactivityPopup] = useState(false);
   const inactivityTimeoutRef = useRef(null);
-  const [seconds, setSeconds] = useState(5);
   const [timeoutMinutes, setTimeoutMinutes] = useState(5); // Default to 5 if not fetched
 
   useEffect(() => {
@@ -57,31 +56,7 @@ const AuthProvider = ({children}) => {
     }
   }, [user, timeoutMinutes]);
 
-  const handleUserActivity = async () => {
-    try {
-      const response = await fetch(`${baseUrl}/inactividad`, {
-        method: "GET",
-        credentials: "include",
-      });
-      const data = await response.json();
-      setSeconds(data[0].value);
-    } catch (e) {
-      console.log(e.message);
-    }
-
-    if (!user) {
-      // console.log("User is not logged in");
-      return; // Do nothing if the user is not logged in
-    }
-    // console.log("User activity detected");
-    if (inactivityTimeoutRef.current) {
-      clearTimeout(inactivityTimeoutRef.current);
-    }
-    inactivityTimeoutRef.current = setTimeout(() => {
-      console.log("Inactivity timeout reached");
-      setShowInactivityPopup(true);
-    }, seconds * 60 * 1000);
-  };
+  // Remove handleUserActivity as it is not used
 
   const handleRedirectToLogin = () => {
     setShowInactivityPopup(false);
@@ -140,7 +115,7 @@ const AuthProvider = ({children}) => {
         throw new Error("Failed to refresh token");
       }
 
-      const data = await response.json();
+      await response.json();
       await verifyToken(); // Verify the token again after refreshing
     } catch (e) {
       console.error("Error refreshing token:", e);
@@ -168,7 +143,7 @@ const AuthProvider = ({children}) => {
       errorMsg.classList.add("visually-hidden");
       const data = await response.json();
       setUser(data.user);
-      navigate("/bitacoras"); // Navigate only after successful login
+      navigate("/dashboard"); // Always redirect to dashboard after login
     } catch (e) {
       console.error("Error during login:", e);
       // Show an appropriate error message to the user
@@ -212,6 +187,10 @@ const AuthProvider = ({children}) => {
       )}
     </AuthContext.Provider>
   );
+};
+
+AuthProvider.propTypes = {
+  children: PropTypes.node.isRequired,
 };
 
 export {AuthContext, AuthProvider};
