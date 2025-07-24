@@ -66,7 +66,11 @@ const DashboardPage = () => {
 
         // Fetch dashboard statistics with filters
         const statsResponse = await fetch(
-          `${baseUrl}/dashboard/stats?timeFilter=${timeFilter}&yearFilter=${yearFilter}&clientFilter=${clientFilter}&geoType=${geoType}`,
+          `${baseUrl}/dashboard/stats?timeFilter=${encodeURIComponent(
+            timeFilter
+          )}&yearFilter=${encodeURIComponent(yearFilter)}&clientFilter=${encodeURIComponent(
+            clientFilter
+          )}&geoType=${encodeURIComponent(geoType)}`,
           {
             method: "GET",
             credentials: "include",
