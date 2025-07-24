@@ -12,7 +12,6 @@ const permissionSchema = new mongoose.Schema({
 const RoleSchema = new mongoose.Schema({
   name: { type: String, required: true },
   bitacoras: permissionSchema,
-
   eventos: permissionSchema,
   clientes: permissionSchema,
   usuarios: permissionSchema,
@@ -32,6 +31,7 @@ const RoleSchema = new mongoose.Schema({
   tracto: permissionSchema,
   operador: permissionSchema,
   auditoria_bitacora: permissionSchema,
+  dashboard: permissionSchema,
 
 }, { timestamps: true });
 
