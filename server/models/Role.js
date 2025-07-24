@@ -32,6 +32,7 @@ const RoleSchema = new mongoose.Schema({
   tracto: permissionSchema,
   operador: permissionSchema,
   auditoria_bitacora: permissionSchema,
+  dashboard: permissionSchema,
 
 }, { timestamps: true });
 
