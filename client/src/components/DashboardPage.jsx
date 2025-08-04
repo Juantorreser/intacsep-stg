@@ -117,9 +117,6 @@ const DashboardPage = () => {
               return (
                 <div key={index} className="table-row">
                   <div className="cell tipo-name">
-                    <div className="tipo-icon">
-                      <i className="fa fa-chart-line"></i>
-                    </div>
                     <span>{tipo.nombre}</span>
                   </div>
                   <div className="cell tipo-count">{tipo.count}</div>
@@ -155,27 +152,95 @@ const DashboardPage = () => {
 
     const maxValue = Math.max(...monthlyData.map((d) => d.value));
 
-    // Determinar el mes actual por nombre
+    // Determinar el mes actual por nombre en español
     const now = new Date();
-    const currentMonthName = monthlyData[now.getMonth()]?.month;
+    const spanishMonths = [
+      "Ene",
+      "Feb",
+      "Mar",
+      "Abr",
+      "May",
+      "Jun",
+      "Jul",
+      "Ago",
+      "Sep",
+      "Oct",
+      "Nov",
+      "Dic",
+    ];
+    const currentMonthName = spanishMonths[now.getMonth()];
 
     return (
       <div className="trend-chart">
-        <div className="chart-bars">
+        <div
+          className="chart-bars"
+          style={{
+            height: "300px",
+            display: "flex",
+            alignItems: "flex-end", // Changed from "end" to "flex-end"
+            gap: "10px",
+            padding: "20px 0 40px 0",
+            position: "relative",
+          }}>
           {monthlyData.map((item, index) => {
             const barHeight = maxValue > 0 ? (item.value / maxValue) * 100 : 0;
             const isCurrent = item.month === currentMonthName;
             return (
-              <div key={index} className="chart-bar-item">
+              <div
+                key={index}
+                className="chart-bar-item"
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  flex: 1,
+                  height: "100%",
+                  position: "relative",
+                  justifyContent: "flex-end", // Added this to align bars to bottom
+                }}>
                 <div
                   className="bar"
                   style={{
                     height: `${barHeight}%`,
                     backgroundColor: isCurrent ? "#3b82f6" : "#1e293b",
-                    minHeight: item.value > 0 ? "20px" : "0px",
+                    minHeight: item.value > 0 ? "4px" : "0px",
+                    width: "100%",
+                    maxWidth: "40px",
+                    borderRadius: "4px 4px 0 0",
+                    transition: "height 0.3s ease",
+                    marginBottom: "50px", // Space for labels at bottom
                   }}></div>
-                <span className="bar-label">{item.month}</span>
-                <span className="bar-value">{item.value}</span>
+                <div
+                  style={{
+                    position: "absolute",
+                    bottom: "-40px",
+                    left: "50%",
+                    transform: "translateX(-50%)",
+                    textAlign: "center",
+                    width: "100%",
+                  }}>
+                  <span
+                    className="bar-label"
+                    style={{
+                      fontSize: "12px",
+                      fontWeight: "500",
+                      color: "#6b7280",
+                      display: "block",
+                    }}>
+                    {item.month}
+                  </span>
+                  <span
+                    className="bar-value"
+                    style={{
+                      fontSize: "11px",
+                      fontWeight: "bold",
+                      color: isCurrent ? "#3b82f6" : "#374151",
+                      display: "block",
+                      marginTop: "2px",
+                    }}>
+                    {item.value}
+                  </span>
+                </div>
               </div>
             );
           })}
@@ -291,10 +356,16 @@ const DashboardPage = () => {
   };
 
   const renderProgressCircle = (percentage, label, color = "primary") => {
+    // Handle NaN, undefined, or invalid percentage values
+    const validPercentage =
+      isNaN(percentage) || percentage === undefined || percentage === null
+        ? 0
+        : Math.max(0, Math.min(100, percentage));
+
     const radius = 40;
     const circumference = 2 * Math.PI * radius;
     const strokeDasharray = circumference;
-    const strokeDashoffset = circumference - (percentage / 100) * circumference;
+    const strokeDashoffset = circumference - (validPercentage / 100) * circumference;
 
     return (
       <div className="progress-circle">
@@ -314,7 +385,7 @@ const DashboardPage = () => {
           />
         </svg>
         <div className="progress-text">
-          <div className="progress-percentage">{percentage}%</div>
+          <div className="progress-percentage">{validPercentage}%</div>
           <div className="progress-label">{label}</div>
         </div>
       </div>
@@ -461,11 +532,13 @@ const DashboardPage = () => {
                         onChange={(e) => setClientFilter(e.target.value)}
                         className="filter-select">
                         <option value="all">Todos los clientes</option>
-                        {availableClients.map((client) => (
-                          <option key={client._id} value={client.razon_social}>
-                            {client.razon_social}
-                          </option>
-                        ))}
+                        {availableClients
+                          .sort((a, b) => a.razon_social.localeCompare(b.razon_social))
+                          .map((client) => (
+                            <option key={client._id} value={client.razon_social}>
+                              {client.razon_social}
+                            </option>
+                          ))}
                       </select>
                     </div>
                     <div className="filter-actions">
@@ -553,9 +626,11 @@ const DashboardPage = () => {
               <div className="col-xl-4 col-lg-4 ">
                 <div className="chart-card mini-card">
                   <div className="chart-header">
-                    <h6>Análisis Geográfico</h6>
+                    <h6>Tipos de Monitoreo</h6>
                   </div>
-                  <div className="chart-body fixed-height-card-body">{renderGeographicChart()}</div>
+                  <div className="chart-body fixed-height-card-body">
+                    {renderTiposMonitoreoChart()}
+                  </div>
                 </div>
               </div>
               <div className="col-xl-4 col-lg-4 h-100">
@@ -582,12 +657,13 @@ const DashboardPage = () => {
                 <div className="progress-card">
                   <div className="progress-content">
                     {renderProgressCircle(
-                      dashboardStats.totalBitacoras > 0
+                      dashboardStats.totalBitacoras > 0 &&
+                        dashboardStats.nuevasBitacoras !== undefined
                         ? Math.round(
-                            (dashboardStats.activeBitacoras / dashboardStats.totalBitacoras) * 100
+                            (dashboardStats.nuevasBitacoras / dashboardStats.totalBitacoras) * 100
                           )
                         : 0,
-                      "Activas",
+                      "Nuevas",
                       "success"
                     )}
                   </div>
@@ -598,13 +674,14 @@ const DashboardPage = () => {
                 <div className="progress-card">
                   <div className="progress-content">
                     {renderProgressCircle(
-                      dashboardStats.totalBitacoras > 0
+                      dashboardStats.totalBitacoras > 0 &&
+                        dashboardStats.enProcesoBitacoras !== undefined
                         ? Math.round(
-                            (dashboardStats.completedBitacoras / dashboardStats.totalBitacoras) *
+                            (dashboardStats.enProcesoBitacoras / dashboardStats.totalBitacoras) *
                               100
                           )
                         : 0,
-                      "Completadas",
+                      "En Proceso",
                       "info"
                     )}
                   </div>
@@ -615,12 +692,13 @@ const DashboardPage = () => {
                 <div className="progress-card">
                   <div className="progress-content">
                     {renderProgressCircle(
-                      dashboardStats.totalBitacoras > 0
+                      dashboardStats.totalBitacoras > 0 &&
+                        dashboardStats.cerradasBitacoras !== undefined
                         ? Math.round(
-                            (dashboardStats.pendingBitacoras / dashboardStats.totalBitacoras) * 100
+                            (dashboardStats.cerradasBitacoras / dashboardStats.totalBitacoras) * 100
                           )
                         : 0,
-                      "Pendientes",
+                      "Cerradas",
                       "warning"
                     )}
                   </div>
@@ -631,12 +709,10 @@ const DashboardPage = () => {
                 <div className="progress-card">
                   <div className="progress-content">
                     {renderProgressCircle(
-                      dashboardStats.totalUsers > 0
-                        ? Math.round(
-                            (dashboardStats.activeBitacoras / dashboardStats.totalUsers) * 100
-                          )
+                      dashboardStats.totalBitacoras > 0 && dashboardStats.totalUsers > 0
+                        ? Math.round(dashboardStats.totalBitacoras / dashboardStats.totalUsers)
                         : 0,
-                      "Eficiencia",
+                      "Por Usuario",
                       "primary"
                     )}
                   </div>
@@ -649,11 +725,9 @@ const DashboardPage = () => {
               <div className="col-xl-6 col-lg-6 h-100">
                 <div className="chart-card mini-card">
                   <div className="chart-header">
-                    <h6>Tipos de Monitoreo</h6>
+                    <h6>Análisis Geográfico</h6>
                   </div>
-                  <div className="chart-body fixed-height-card-body">
-                    {renderTiposMonitoreoChart()}
-                  </div>
+                  <div className="chart-body fixed-height-card-body">{renderGeographicChart()}</div>
                 </div>
               </div>
               <div className="col-xl-6 col-lg-6 h-100">
