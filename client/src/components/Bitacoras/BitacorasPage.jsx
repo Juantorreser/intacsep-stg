@@ -622,7 +622,7 @@ const BitacorasPage = () => {
                         <th
                           className="sortable-header"
                           onClick={() => handleSortChange("frecuencia")}
-                          style={{cursor: "pointer", width: "60px"}}>
+                          style={{cursor: "pointer", width: "80px"}}>
                           <div className="header-content">
                             <span className="header-text">Frec</span>
                             {sortField === "frecuencia" && (
@@ -650,7 +650,7 @@ const BitacorasPage = () => {
                         <th
                           className="sortable-header"
                           onClick={() => handleSortChange("cliente")}
-                          style={{cursor: "pointer"}}>
+                          style={{cursor: "pointer", width: "150px"}}>
                           <div className="header-content">
                             <span className="header-text">Cliente</span>
                             {sortField === "cliente" && (
@@ -664,9 +664,13 @@ const BitacorasPage = () => {
                         <th
                           className="sortable-header d-none d-md-table-cell"
                           onClick={() => handleSortChange("monitoreo")}
-                          style={{cursor: "pointer"}}>
+                          style={{cursor: "pointer", width: "120px"}}>
                           <div className="header-content">
-                            <span className="header-text">Tipo Monitoreo</span>
+                            <span className="header-text">
+                              Tipo
+                              <br />
+                              Monitoreo
+                            </span>
                             {sortField === "monitoreo" && (
                               <i
                                 className={`fa fa-sort-${
@@ -678,7 +682,7 @@ const BitacorasPage = () => {
                         <th
                           className="sortable-header d-none d-lg-table-cell"
                           onClick={() => handleSortChange("operador")}
-                          style={{cursor: "pointer"}}>
+                          style={{cursor: "pointer", width: "140px"}}>
                           <div className="header-content">
                             <span className="header-text">Operador</span>
                             {sortField === "operador" && (
@@ -692,9 +696,13 @@ const BitacorasPage = () => {
                         <th
                           className="sortable-header d-none d-md-table-cell"
                           onClick={() => handleSortChange("createdAt")}
-                          style={{cursor: "pointer"}}>
+                          style={{cursor: "pointer", width: "110px"}}>
                           <div className="header-content">
-                            <span className="header-text">Fecha Creación</span>
+                            <span className="header-text">
+                              Fecha
+                              <br />
+                              Creación
+                            </span>
                             {sortField === "createdAt" && (
                               <i
                                 className={`fa fa-sort-${
@@ -718,7 +726,11 @@ const BitacorasPage = () => {
                           </div>
                         </th>
                         <th className="text-center d-none d-lg-table-cell" style={{width: "150px"}}>
-                          <span className="header-text">Estatus Documentación</span>
+                          <span className="header-text">
+                            Estatus
+                            <br />
+                            Documentación
+                          </span>
                         </th>
                         <th className="text-center" style={{width: "80px"}}>
                           <i className="fa fa-download text-muted"></i>
@@ -727,10 +739,10 @@ const BitacorasPage = () => {
 
                       {/* Filter Row */}
                       <tr className="filter-row">
-                        <th className="filter-cell">
+                        <th className="filter-cell" style={{width: "80px"}}>
                           <div className="filter-placeholder"></div>
                         </th>
-                        <th className="filter-cell">
+                        <th className="filter-cell" style={{width: "100px"}}>
                           <input
                             type="text"
                             className="form-control form-control-sm modern-input"
@@ -739,7 +751,7 @@ const BitacorasPage = () => {
                             onChange={(e) => handleIdFilterChange(e.target.value)}
                           />
                         </th>
-                        <th className="filter-cell">
+                        <th className="filter-cell" style={{width: "150px"}}>
                           <select
                             className="form-select form-select-sm modern-select"
                             value={clienteFilter}
@@ -752,7 +764,7 @@ const BitacorasPage = () => {
                             ))}
                           </select>
                         </th>
-                        <th className="filter-cell d-none d-md-table-cell">
+                        <th className="filter-cell d-none d-md-table-cell" style={{width: "120px"}}>
                           <select
                             className="form-select form-select-sm modern-select"
                             value={monitoreoFilter}
@@ -765,7 +777,7 @@ const BitacorasPage = () => {
                             ))}
                           </select>
                         </th>
-                        <th className="filter-cell d-none d-lg-table-cell">
+                        <th className="filter-cell d-none d-lg-table-cell" style={{width: "140px"}}>
                           <select
                             className="form-select form-select-sm modern-select"
                             value={operadorFilter}
@@ -778,7 +790,7 @@ const BitacorasPage = () => {
                             ))}
                           </select>
                         </th>
-                        <th className="filter-cell d-none d-md-table-cell">
+                        <th className="filter-cell d-none d-md-table-cell" style={{width: "110px"}}>
                           <input
                             type="date"
                             className="form-control form-control-sm modern-input"
@@ -786,7 +798,7 @@ const BitacorasPage = () => {
                             onChange={(e) => handleCreationDateFilterChange(e.target.value)}
                           />
                         </th>
-                        <th className="filter-cell">
+                        <th className="filter-cell" style={{width: "120px"}}>
                           <select
                             className="form-select form-select-sm modern-select"
                             value={statusFilter}
@@ -800,10 +812,10 @@ const BitacorasPage = () => {
                             <option value="cerrada (e)">Cerrada (e)</option>
                           </select>
                         </th>
-                        <th className="filter-cell d-none d-lg-table-cell">
+                        <th className="filter-cell d-none d-lg-table-cell" style={{width: "150px"}}>
                           <div className="filter-placeholder"></div>
                         </th>
-                        <th className="filter-cell">
+                        <th className="filter-cell" style={{width: "80px"}}>
                           <div className="filter-placeholder"></div>
                         </th>
                       </tr>
@@ -821,7 +833,7 @@ const BitacorasPage = () => {
                       ) : (
                         sortedFilteredBitacoras.map((bitacora) => (
                           <tr key={bitacora._id} className="table-row">
-                            <td className="table-cell">
+                            <td className="table-cell" style={{width: "80px"}}>
                               <div
                                 className="semaforo-container"
                                 onClick={() => openFrecuenciaModal(bitacora)}
@@ -836,7 +848,7 @@ const BitacorasPage = () => {
                                 ))}
                               </div>
                             </td>
-                            <td className="table-cell">
+                            <td className="table-cell" style={{width: "100px"}}>
                               <a
                                 href={`/bitacora/${bitacora._id}`}
                                 className={`bitacora-link ${
@@ -850,30 +862,38 @@ const BitacorasPage = () => {
                                 {bitacora.bitacora_id}
                               </a>
                             </td>
-                            <td className="table-cell">
+                            <td className="table-cell" style={{width: "150px"}}>
                               <span className="cell-text">{bitacora.cliente}</span>
                             </td>
-                            <td className="table-cell d-none d-md-table-cell">
+                            <td
+                              className="table-cell d-none d-md-table-cell"
+                              style={{width: "120px"}}>
                               <span className="cell-text">{bitacora.monitoreo}</span>
                             </td>
-                            <td className="table-cell d-none d-lg-table-cell">
+                            <td
+                              className="table-cell d-none d-lg-table-cell"
+                              style={{width: "140px"}}>
                               <span className="cell-text">{bitacora.operador}</span>
                             </td>
-                            <td className="table-cell d-none d-md-table-cell">
+                            <td
+                              className="table-cell d-none d-md-table-cell"
+                              style={{width: "110px"}}>
                               <span className="cell-text">
                                 {new Date(bitacora.createdAt).toLocaleDateString()}
                               </span>
                             </td>
-                            <td className="table-cell">
+                            <td className="table-cell" style={{width: "120px"}}>
                               <span className={`status-badge status-${bitacora.status}`}>
                                 {bitacora.status}
                                 {bitacora.edited ? " (e)" : ""}
                               </span>
                             </td>
-                            <td className="table-cell d-none d-lg-table-cell">
+                            <td
+                              className="table-cell d-none d-lg-table-cell"
+                              style={{width: "150px"}}>
                               <span className="cell-text">{getRecorrido(bitacora)}</span>
                             </td>
-                            <td className="table-cell text-center">
+                            <td className="table-cell text-center" style={{width: "80px"}}>
                               <button
                                 className={`action-btn ${
                                   isAnyTransporteClosed(bitacora) ? "btn-primary" : "btn-secondary"

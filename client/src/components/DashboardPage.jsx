@@ -144,31 +144,19 @@ const DashboardPage = () => {
     const monthlyData = dashboardStats.monthlyData || [];
 
     console.log("Monthly data in frontend:", monthlyData);
+    console.log("Current year filter:", yearFilter);
 
     // Si no hay datos, mostrar mensaje
     if (monthlyData.length === 0) {
-      return <div className="text-center text-muted">No hay datos disponibles</div>;
+      return (
+        <div className="text-center text-muted">
+          No hay datos disponibles para{" "}
+          {yearFilter !== "all" ? yearFilter : "el período seleccionado"}
+        </div>
+      );
     }
 
     const maxValue = Math.max(...monthlyData.map((d) => d.value));
-
-    // Determinar el mes actual por nombre en español
-    const now = new Date();
-    const spanishMonths = [
-      "Ene",
-      "Feb",
-      "Mar",
-      "Abr",
-      "May",
-      "Jun",
-      "Jul",
-      "Ago",
-      "Sep",
-      "Oct",
-      "Nov",
-      "Dic",
-    ];
-    const currentMonthName = spanishMonths[now.getMonth()];
 
     return (
       <div className="trend-chart">
@@ -185,7 +173,6 @@ const DashboardPage = () => {
           }}>
           {monthlyData.map((item, index) => {
             const barHeight = maxValue > 0 ? (item.value / maxValue) * 100 : 0;
-            const isCurrent = item.month === currentMonthName;
             return (
               <div
                 key={index}
@@ -204,7 +191,7 @@ const DashboardPage = () => {
                   className="bar"
                   style={{
                     height: `${barHeight}%`,
-                    backgroundColor: isCurrent ? "#3b82f6" : "#1e293b",
+                    backgroundColor: "#3b82f6",
                     minHeight: item.value > 0 ? "4px" : "0px",
                     width: "100%",
                     maxWidth: "35px",
@@ -236,7 +223,7 @@ const DashboardPage = () => {
                     style={{
                       fontSize: "10px",
                       fontWeight: "bold",
-                      color: isCurrent ? "#3b82f6" : "#374151",
+                      color: "#3b82f6",
                       display: "block",
                       marginTop: "2px",
                     }}>
@@ -249,7 +236,9 @@ const DashboardPage = () => {
         </div>
         <div className="chart-summary">
           <div className="summary-item">
-            <span className="summary-label">Total del año:</span>
+            <span className="summary-label">
+              Total {yearFilter !== "all" ? `del ${yearFilter}` : "del período"}:
+            </span>
             <span className="summary-value">
               {monthlyData.reduce((sum, item) => sum + item.value, 0)} bitácoras
             </span>
@@ -257,7 +246,11 @@ const DashboardPage = () => {
           <div className="summary-item">
             <span className="summary-label">Promedio mensual:</span>
             <span className="summary-value">
-              {Math.round(monthlyData.reduce((sum, item) => sum + item.value, 0) / 12)} bitácoras
+              {Math.round(
+                monthlyData.reduce((sum, item) => sum + item.value, 0) /
+                  Math.max(monthlyData.length, 1)
+              )}{" "}
+              bitácoras
             </span>
           </div>
         </div>
@@ -500,7 +493,7 @@ const DashboardPage = () => {
               <div className="col-12">
                 <div className="filter-card">
                   <div className="filter-content">
-                    <div className="row g-2 g-md-3">
+                    <div className="row g-2 g-md-3 align-items-end">
                       <div className="col-12 col-sm-6 col-lg-3">
                         <div className="filter-section">
                           <label className="form-label small mb-1">Período de Tiempo:</label>
@@ -525,13 +518,8 @@ const DashboardPage = () => {
                             onChange={(e) => setYearFilter(e.target.value)}
                             className="filter-select form-select form-select-sm">
                             <option value="all">Todos los años</option>
-                            {Array.from({length: 5}, (_, i) => new Date().getFullYear() - i).map(
-                              (year) => (
-                                <option key={year} value={year}>
-                                  {year}
-                                </option>
-                              )
-                            )}
+                            <option value="2025">2025</option>
+                            <option value="2024">2024</option>
                           </select>
                         </div>
                       </div>
@@ -554,12 +542,12 @@ const DashboardPage = () => {
                         </div>
                       </div>
                       <div className="col-12 col-sm-6 col-lg-3">
-                        <div className="filter-actions d-flex align-items-end">
+                        <div className="filter-actions d-flex justify-content-end">
                           <button
-                            className="filter-btn btn btn-outline-secondary btn-sm w-100"
+                            className="filter-btn btn btn-outline-secondary btn-sm"
                             onClick={() => {
                               setTimeFilter("all");
-                              setYearFilter(new Date().getFullYear());
+                              setYearFilter("all");
                               setClientFilter("all");
                             }}>
                             <i className="fa fa-refresh me-1"></i>
@@ -633,7 +621,9 @@ const DashboardPage = () => {
               <div className="col-12">
                 <div className="chart-card">
                   <div className="chart-header">
-                    <h6 className="mb-0">Tendencia Mensual</h6>
+                    <h6 className="mb-0">
+                      Tendencia Mensual {yearFilter !== "all" ? `- ${yearFilter}` : ""}
+                    </h6>
                   </div>
                   <div className="chart-body">
                     <div className="overflow-auto">{renderMonthlyTrendChart()}</div>

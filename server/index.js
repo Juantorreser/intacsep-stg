@@ -1366,21 +1366,8 @@ app.get('/dashboard/stats', async (req, res) => {
       }
     }
 
-    // Add year filter
-    if (yearFilter && yearFilter !== 'all') {
-      const startOfYear = new Date(parseInt(yearFilter), 0, 1);
-      const endOfYear = new Date(parseInt(yearFilter), 11, 31, 23, 59, 59);
-      timeFilterQuery = {
-        ...timeFilterQuery,
-        createdAt: {
-          $gte: startOfYear,
-          $lte: endOfYear
-        }
-      };
-    }
-
     // Build filters based on user permissions
-    let bitacoraFilter = { ...timeFilterQuery };
+    let bitacoraFilter = {};
 
     // Add client filter
     if (clientFilter !== 'all') {
@@ -1392,6 +1379,28 @@ app.get('/dashboard/stats', async (req, res) => {
       const userFullName = `${user.firstName} ${user.lastName}`;
       bitacoraFilter.operador = userFullName;
     }
+
+    // Add time/year filters - SIEMPRE usar el filtro más específico
+    if (yearFilter && yearFilter !== 'all') {
+      // Si hay un año específico, usar solo ese año (ignorar otros filtros de tiempo)
+      const startOfYear = new Date(parseInt(yearFilter), 0, 1);
+      const endOfYear = new Date(parseInt(yearFilter), 11, 31, 23, 59, 59);
+      bitacoraFilter.createdAt = {
+        $gte: startOfYear,
+        $lte: endOfYear
+      };
+    } else if (Object.keys(timeFilterQuery).length > 0) {
+      // Solo usar filtros de tiempo si no hay año específico
+      bitacoraFilter = { ...bitacoraFilter, ...timeFilterQuery };
+    }
+
+    // Debug: Log the filters being used
+    console.log('Dashboard filters:', {
+      yearFilter,
+      timeFilter,
+      clientFilter,
+      bitacoraFilter: JSON.stringify(bitacoraFilter, null, 2)
+    });
 
     // Get bitacora statistics
     const totalBitacoras = await Bitacora.countDocuments(bitacoraFilter);
@@ -1430,33 +1439,63 @@ app.get('/dashboard/stats', async (req, res) => {
       timestamp: activity.createdAt
     }));
 
-    // Get monthly data for the last 12 months
+    // Get monthly data for the specified year or last 12 months
     let monthlyData = [];
     const months = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
 
     try {
-      // Para el gráfico mensual, usamos solo el filtro de año y permisos, no el filtro de tiempo
-      const monthlyFilter = { ...bitacoraFilter };
-      delete monthlyFilter.createdAt; // Removemos el filtro de tiempo para mostrar todos los meses del año
+      // Para el gráfico mensual, construimos un filtro específico
+      let monthlyFilter = {};
 
-      for (let i = 11; i >= 0; i--) {
-        const date = new Date();
-        date.setMonth(date.getMonth() - i);
-        const startOfMonth = new Date(date.getFullYear(), date.getMonth(), 1);
-        const endOfMonth = new Date(date.getFullYear(), date.getMonth() + 1, 0);
-
-        const monthCount = await Bitacora.countDocuments({
-          ...monthlyFilter,
-          createdAt: { $gte: startOfMonth, $lte: endOfMonth }
-        });
-
-        monthlyData.push({
-          month: months[date.getMonth()],
-          value: monthCount
-        });
+      // Agregar filtro de cliente si existe
+      if (clientFilter !== 'all') {
+        monthlyFilter.cliente = clientFilter;
       }
 
-      console.log('Monthly data generated:', monthlyData);
+      // Agregar filtro de permisos de usuario
+      if (!role.bitacoras?.read_all) {
+        const userFullName = `${user.firstName} ${user.lastName}`;
+        monthlyFilter.operador = userFullName;
+      }
+
+      if (yearFilter && yearFilter !== 'all') {
+        // Si hay un año específico seleccionado, mostrar los 12 meses de ese año
+        const selectedYear = parseInt(yearFilter);
+        for (let i = 0; i < 12; i++) {
+          const startOfMonth = new Date(selectedYear, i, 1);
+          const endOfMonth = new Date(selectedYear, i + 1, 0);
+
+          const monthCount = await Bitacora.countDocuments({
+            ...monthlyFilter,
+            createdAt: { $gte: startOfMonth, $lte: endOfMonth }
+          });
+
+          monthlyData.push({
+            month: months[i],
+            value: monthCount
+          });
+        }
+      } else {
+        // Si no hay año específico, mostrar los últimos 12 meses
+        for (let i = 11; i >= 0; i--) {
+          const date = new Date();
+          date.setMonth(date.getMonth() - i);
+          const startOfMonth = new Date(date.getFullYear(), date.getMonth(), 1);
+          const endOfMonth = new Date(date.getFullYear(), date.getMonth() + 1, 0);
+
+          const monthCount = await Bitacora.countDocuments({
+            ...monthlyFilter,
+            createdAt: { $gte: startOfMonth, $lte: endOfMonth }
+          });
+
+          monthlyData.push({
+            month: months[date.getMonth()],
+            value: monthCount
+          });
+        }
+      }
+
+      console.log('Monthly data generated for year:', yearFilter, monthlyData);
     } catch (error) {
       console.log('Error generating monthly data:', error);
       monthlyData = [];
