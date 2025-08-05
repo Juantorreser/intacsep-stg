@@ -159,14 +159,14 @@ const OrigenPage = () => {
   };
 
   return (
-    <section id="origenPage">
+    <section id="origenPage" className="settings-page">
       <div className="w-100 d-flex">
         <div className="sidebar-wrapper">
           <Sidebar />
         </div>
         <div className={`content-wrapper ${isSidebarCollapsed ? "sidebar-collapsed" : ""}`}>
           <div className="page-header">
-            <h1 className="text-center fs-3 fw-semibold text-black">Catálogos - Orígenes</h1>
+            <h1>Catálogos - Orígenes</h1>
 
             {roleData?.origenes?.create && (
               <button type="button" className="new-btn" onClick={() => setModalType("create")}>
@@ -177,46 +177,48 @@ const OrigenPage = () => {
 
           {/* Tabla */}
           {roleData?.origenes?.read && (
-            <div className="mx-3 my-4">
-              <div className="table-responsive">
-                <table className="table table-striped">
-                  <thead>
-                    <tr>
-                      <th>Nombre</th>
-                      <th>Estado</th>
-                      <th>Municipio</th>
-
-                      <th className="text-end">Acciones</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {origenes.map((origen) => (
-                      <tr key={origen._id}>
-                        <td>{origen.nombre}</td>
-                        <td>{origen.estado}</td>
-                        <td>{origen.municipio}</td>
-
-                        <td className="text-end">
-                          {roleData?.origenes?.update && (
-                            <button
-                              className="btn btn-primary me-2"
-                              onClick={() => handleEdit(origen)}>
-                              <i className="fas fa-edit"></i>
-                            </button>
-                          )}
-
-                          {roleData?.origenes?.delete && (
-                            <button
-                              className="btn btn-danger"
-                              onClick={() => handleDelete(origen._id)}>
-                              <i className="fas fa-trash"></i>
-                            </button>
-                          )}
-                        </td>
+            <div className="settings-content">
+              <div className="table-wrapper">
+                <div className="table-responsive">
+                  <table className="table">
+                    <thead>
+                      <tr>
+                        <th>Nombre</th>
+                        <th>Estado</th>
+                        <th>Municipio</th>
+                        <th className="text-end">Acciones</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {origenes.map((origen) => (
+                        <tr key={origen._id}>
+                          <td>{origen.nombre}</td>
+                          <td>{origen.estado}</td>
+                          <td>{origen.municipio}</td>
+                          <td className="text-end">
+                            <div className="action-buttons">
+                              {roleData?.origenes?.update && (
+                                <button
+                                  className="btn btn-primary"
+                                  onClick={() => handleEdit(origen)}>
+                                  <i className="fas fa-edit"></i>
+                                </button>
+                              )}
+
+                              {roleData?.origenes?.delete && (
+                                <button
+                                  className="btn btn-danger"
+                                  onClick={() => handleDelete(origen._id)}>
+                                  <i className="fas fa-trash"></i>
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
           )}

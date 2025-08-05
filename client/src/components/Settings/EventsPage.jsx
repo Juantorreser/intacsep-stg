@@ -154,14 +154,14 @@ const EventsPage = () => {
   };
 
   return (
-    <section id="eventsPage">
+    <section id="eventsPage" className="settings-page">
       <div className="w-100 d-flex">
         <div className="sidebar-wrapper">
           <Sidebar />
         </div>
         <div className={`content-wrapper ${isSidebarCollapsed ? "sidebar-collapsed" : ""}`}>
           <div className="page-header">
-            <h1 className="fs-3 fw-semibold text-black m-0">Catálogos - Eventos</h1>
+            <h1>Catálogos - Eventos</h1>
             {roleData?.eventos?.create && (
               <button className="new-btn" onClick={() => setModalType("create")}>
                 <i className="fas fa-plus"></i>
@@ -171,44 +171,48 @@ const EventsPage = () => {
 
           {/* Tabla */}
           {roleData?.eventos?.read && (
-            <div className="mx-3 my-4">
-              <div className="table-responsive">
-                <table className="table table-striped">
-                  <thead>
-                    <tr>
-                      <th>Evento</th>
-                      <th>Categoría</th>
-                      <th>Calificación</th>
-                      <th className="text-end">Acciones</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {events.map((event) => (
-                      <tr key={event._id}>
-                        <td>{event.evento}</td>
-                        <td>{event.categoria}</td>
-                        <td>{event.calificacion}</td>
-                        <td className="text-end">
-                          {roleData?.eventos?.update && (
-                            <button
-                              className="btn btn-primary"
-                              onClick={() => handleEditClick(event)}>
-                              <i className="fa fa-edit"></i>
-                            </button>
-                          )}
-
-                          {roleData?.eventos?.delete && (
-                            <button
-                              className="btn btn-danger ms-2"
-                              onClick={() => handleDelete(event._id)}>
-                              <i className="fas fa-trash"></i>
-                            </button>
-                          )}
-                        </td>
+            <div className="settings-content">
+              <div className="table-wrapper">
+                <div className="table-responsive">
+                  <table className="table">
+                    <thead>
+                      <tr>
+                        <th>Evento</th>
+                        <th>Categoría</th>
+                        <th>Calificación</th>
+                        <th className="text-end">Acciones</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {events.map((event) => (
+                        <tr key={event._id}>
+                          <td>{event.evento}</td>
+                          <td>{event.categoria}</td>
+                          <td>{event.calificacion}</td>
+                          <td className="text-end">
+                            <div className="action-buttons">
+                              {roleData?.eventos?.update && (
+                                <button
+                                  className="btn btn-primary"
+                                  onClick={() => handleEditClick(event)}>
+                                  <i className="fa fa-edit"></i>
+                                </button>
+                              )}
+
+                              {roleData?.eventos?.delete && (
+                                <button
+                                  className="btn btn-danger"
+                                  onClick={() => handleDelete(event._id)}>
+                                  <i className="fas fa-trash"></i>
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
           )}

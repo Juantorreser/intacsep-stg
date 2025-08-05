@@ -230,7 +230,7 @@ const UsersPage = () => {
   };
 
   return (
-    <section id="usersPage">
+    <section id="usersPage" className="settings-page">
       <div className="w-100 d-flex">
         <div className="sidebar-wrapper">
           <Sidebar />
@@ -246,10 +246,10 @@ const UsersPage = () => {
           </div>
 
           {roleData?.usuarios?.read && (
-            <div className="mx-3 my-0">
+            <div className="settings-content">
               <div className="table-wrapper">
                 <div className="table-responsive">
-                  <table className="table table-striped">
+                  <table className="table">
                     <thead>
                       <tr>
                         <th>Email</th>
@@ -270,14 +270,16 @@ const UsersPage = () => {
                           <td>{user.role}</td>
                           <td className="d-flex items-center w-100 gap-2 justify-content-end">
                             {roleData?.usuarios?.update && (
-                              <button className="btn btn-primary" onClick={() => handleEdit(user)}>
+                              <button
+                                className="action-btn btn-primary"
+                                onClick={() => handleEdit(user)}>
                                 <i className="fas fa-edit"></i>
                               </button>
                             )}
 
                             {roleData?.usuarios?.delete && (
                               <button
-                                className="btn btn-danger"
+                                className="action-btn btn-danger"
                                 onClick={() => handleDelete(user._id)}>
                                 <i className="fas fa-trash"></i>
                               </button>

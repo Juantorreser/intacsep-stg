@@ -151,16 +151,14 @@ const TiposMonitoreo = () => {
   };
 
   return (
-    <section id="pastBits">
+    <section id="pastBits" className="settings-page">
       <div className="w-100 d-flex">
         <div className="sidebar-wrapper">
           <Sidebar />
         </div>
         <div className={`content-wrapper ${isSidebarCollapsed ? "sidebar-collapsed" : ""}`}>
           <div className="page-header">
-            <h1 className="text-center fs-3 fw-semibold text-black">
-              Catálogos - Tipos de Monitoreo
-            </h1>
+            <h1>Catálogos - Tipos de Monitoreo</h1>
 
             {roleData?.tipos_de_monitoreo?.create && (
               <button type="button" className="new-btn" onClick={() => setShowModal("create")}>
@@ -195,44 +193,48 @@ const TiposMonitoreo = () => {
 
           {/* Responsive Table */}
           {roleData?.tipos_de_monitoreo?.read && (
-            <div className="mx-3 my-4">
-              <div className="table-responsive">
-                <table className="table table-striped">
-                  <thead>
-                    <tr>
-                      <th>Tipo de Monitoreo</th>
-                      <th className="text-end">Acciones</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {monitoreos.map((monitoreo) => (
-                      <tr key={monitoreo._id}>
-                        <td>{monitoreo.tipoMonitoreo}</td>
-                        <td className="text-end">
-                          {roleData?.tipos_de_monitoreo?.update && (
-                            <button
-                              className="btn btn-primary rounded me-2"
-                              onClick={() => {
-                                setCurrentMonitoreo(monitoreo);
-                                setEditingName(monitoreo.tipoMonitoreo);
-                                setShowModal("edit");
-                              }}>
-                              <i className="fas fa-edit"></i>
-                            </button>
-                          )}
-
-                          {roleData?.tipos_de_monitoreo?.delete && (
-                            <button
-                              className="btn btn-danger rounded"
-                              onClick={() => handleDelete(monitoreo._id)}>
-                              <i className="fas fa-trash"></i>
-                            </button>
-                          )}
-                        </td>
+            <div className="settings-content">
+              <div className="table-wrapper">
+                <div className="table-responsive">
+                  <table className="table">
+                    <thead>
+                      <tr>
+                        <th>Tipo de Monitoreo</th>
+                        <th className="text-end">Acciones</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {monitoreos.map((monitoreo) => (
+                        <tr key={monitoreo._id}>
+                          <td>{monitoreo.tipoMonitoreo}</td>
+                          <td className="text-end">
+                            <div className="action-buttons">
+                              {roleData?.tipos_de_monitoreo?.update && (
+                                <button
+                                  className="btn btn-primary"
+                                  onClick={() => {
+                                    setCurrentMonitoreo(monitoreo);
+                                    setEditingName(monitoreo.tipoMonitoreo);
+                                    setShowModal("edit");
+                                  }}>
+                                  <i className="fas fa-edit"></i>
+                                </button>
+                              )}
+
+                              {roleData?.tipos_de_monitoreo?.delete && (
+                                <button
+                                  className="btn btn-danger"
+                                  onClick={() => handleDelete(monitoreo._id)}>
+                                  <i className="fas fa-trash"></i>
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
           )}

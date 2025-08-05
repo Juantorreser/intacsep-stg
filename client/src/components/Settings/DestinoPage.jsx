@@ -158,7 +158,7 @@ const DestinoPage = () => {
   };
 
   return (
-    <section id="destinos">
+    <section id="destinos" className="settings-page">
       <div className="w-100 d-flex">
         <div className="sidebar-wrapper">
           <Sidebar />
@@ -176,46 +176,48 @@ const DestinoPage = () => {
 
           {/* Tabla */}
           {roleData?.destinos?.read && (
-            <div className="mx-3 my-4">
-              <div className="table-responsive">
-                <table className="table table-striped">
-                  <thead>
-                    <tr>
-                      <th>Nombre</th>
-                      <th>Estado</th>
-                      <th>Municipio</th>
-
-                      <th className="text-end">Acciones</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {destinos.map((destino) => (
-                      <tr key={destino._id}>
-                        <td>{destino.nombre}</td>
-                        <td>{destino.estado}</td>
-                        <td>{destino.municipio}</td>
-
-                        <td className="text-end">
-                          {roleData?.destinos?.update && (
-                            <button
-                              className="btn btn-primary rounded me-2"
-                              onClick={() => handleEdit(destino)}>
-                              <i className="fas fa-edit"></i>
-                            </button>
-                          )}
-
-                          {roleData?.destinos?.delete && (
-                            <button
-                              className="btn btn-danger rounded"
-                              onClick={() => handleDelete(destino._id)}>
-                              <i className="fas fa-trash"></i>
-                            </button>
-                          )}
-                        </td>
+            <div className="settings-content">
+              <div className="table-wrapper">
+                <div className="table-responsive">
+                  <table className="table">
+                    <thead>
+                      <tr>
+                        <th>Nombre</th>
+                        <th>Estado</th>
+                        <th>Municipio</th>
+                        <th className="text-end">Acciones</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {destinos.map((destino) => (
+                        <tr key={destino._id}>
+                          <td>{destino.nombre}</td>
+                          <td>{destino.estado}</td>
+                          <td>{destino.municipio}</td>
+                          <td className="text-end">
+                            <div className="action-buttons">
+                              {roleData?.destinos?.update && (
+                                <button
+                                  className="btn btn-primary"
+                                  onClick={() => handleEdit(destino)}>
+                                  <i className="fas fa-edit"></i>
+                                </button>
+                              )}
+
+                              {roleData?.destinos?.delete && (
+                                <button
+                                  className="btn btn-danger"
+                                  onClick={() => handleDelete(destino._id)}>
+                                  <i className="fas fa-trash"></i>
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
           )}
