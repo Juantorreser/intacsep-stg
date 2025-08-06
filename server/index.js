@@ -1444,19 +1444,15 @@ app.get('/dashboard/stats', async (req, res) => {
     const months = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
 
     try {
-      // Para el gráfico mensual, construimos un filtro específico
-      let monthlyFilter = {};
+      // Para el gráfico mensual, usar el mismo filtro base que las tarjetas
+      // pero sin el filtro de tiempo (createdAt) ya que lo controlamos específicamente por mes
+      let monthlyFilter = { ...bitacoraFilter };
+      delete monthlyFilter.createdAt; // Removemos createdAt para controlarlo específicamente
 
-      // Agregar filtro de cliente si existe
-      if (clientFilter !== 'all') {
-        monthlyFilter.cliente = clientFilter;
-      }
-
-      // Agregar filtro de permisos de usuario
-      if (!role.bitacoras?.read_all) {
-        const userFullName = `${user.firstName} ${user.lastName}`;
-        monthlyFilter.operador = userFullName;
-      }
+      console.log('Monthly filter vs Tarjetas filter:', {
+        monthlyFilter: JSON.stringify(monthlyFilter, null, 2),
+        bitacoraFilter: JSON.stringify(bitacoraFilter, null, 2)
+      });
 
       if (yearFilter && yearFilter !== 'all') {
         // Si hay un año específico seleccionado, mostrar los 12 meses de ese año

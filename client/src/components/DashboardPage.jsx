@@ -239,9 +239,7 @@ const DashboardPage = () => {
             <span className="summary-label">
               Total {yearFilter !== "all" ? `del ${yearFilter}` : "del período"}:
             </span>
-            <span className="summary-value">
-              {monthlyData.reduce((sum, item) => sum + item.value, 0)} bitácoras
-            </span>
+            <span className="summary-value">{dashboardStats.totalBitacoras} bitácoras</span>
           </div>
           <div className="summary-item">
             <span className="summary-label">Promedio mensual:</span>
