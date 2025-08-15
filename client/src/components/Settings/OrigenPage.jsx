@@ -58,42 +58,6 @@ const OrigenPage = () => {
     {clave: "32", nombre: "Zacatecas"},
   ];
 
-  // Mexican states array
-  const estados = [
-    {clave: "01", nombre: "Aguascalientes"},
-    {clave: "02", nombre: "Baja California"},
-    {clave: "03", nombre: "Baja California Sur"},
-    {clave: "04", nombre: "Campeche"},
-    {clave: "05", nombre: "Coahuila de Zaragoza"},
-    {clave: "06", nombre: "Colima"},
-    {clave: "07", nombre: "Chiapas"},
-    {clave: "08", nombre: "Chihuahua"},
-    {clave: "09", nombre: "Distrito Federal"},
-    {clave: "10", nombre: "Durango"},
-    {clave: "11", nombre: "Guanajuato"},
-    {clave: "12", nombre: "Guerrero"},
-    {clave: "13", nombre: "Hidalgo"},
-    {clave: "14", nombre: "Jalisco"},
-    {clave: "15", nombre: "México"},
-    {clave: "16", nombre: "Michoacán de Ocampo"},
-    {clave: "17", nombre: "Morelos"},
-    {clave: "18", nombre: "Nayarit"},
-    {clave: "19", nombre: "Nuevo León"},
-    {clave: "20", nombre: "Oaxaca"},
-    {clave: "21", nombre: "Puebla"},
-    {clave: "22", nombre: "Querétaro"},
-    {clave: "23", nombre: "Quintana Roo"},
-    {clave: "24", nombre: "San Luis Potosí"},
-    {clave: "25", nombre: "Sinaloa"},
-    {clave: "26", nombre: "Sonora"},
-    {clave: "27", nombre: "Tabasco"},
-    {clave: "28", nombre: "Tamaulipas"},
-    {clave: "29", nombre: "Tlaxcala"},
-    {clave: "30", nombre: "Veracruz de Ignacio de la Llave"},
-    {clave: "31", nombre: "Yucatán"},
-    {clave: "32", nombre: "Zacatecas"},
-  ];
-
   const {user, verifyToken, setUser} = useAuth();
   const [roleData, setRoleData] = useState(null);
   const {isSidebarCollapsed} = useSidebar();
@@ -289,12 +253,12 @@ const OrigenPage = () => {
   };
 
   return (
-    <section id="origenPage" className="settings-page" className="settings-page">
+    <section id="origenPage" className="settings-page">
       <div className="w-100 d-flex">
         <div className="sidebar-wrapper">
           <Sidebar />
         </div>
-        <div className={`content-wrapper`}>
+        <div className={`content-wrapper ${isSidebarCollapsed ? "sidebar-collapsed" : ""}`}>
           <div className="page-header">
             <h1>Catálogos - Orígenes</h1>
 
