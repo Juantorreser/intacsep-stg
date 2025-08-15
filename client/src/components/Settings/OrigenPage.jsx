@@ -22,6 +22,42 @@ const OrigenPage = () => {
     cliente: "",
   });
 
+  // Mexican states array
+  const estados = [
+    {clave: "01", nombre: "Aguascalientes"},
+    {clave: "02", nombre: "Baja California"},
+    {clave: "03", nombre: "Baja California Sur"},
+    {clave: "04", nombre: "Campeche"},
+    {clave: "05", nombre: "Coahuila de Zaragoza"},
+    {clave: "06", nombre: "Colima"},
+    {clave: "07", nombre: "Chiapas"},
+    {clave: "08", nombre: "Chihuahua"},
+    {clave: "09", nombre: "Distrito Federal"},
+    {clave: "10", nombre: "Durango"},
+    {clave: "11", nombre: "Guanajuato"},
+    {clave: "12", nombre: "Guerrero"},
+    {clave: "13", nombre: "Hidalgo"},
+    {clave: "14", nombre: "Jalisco"},
+    {clave: "15", nombre: "México"},
+    {clave: "16", nombre: "Michoacán de Ocampo"},
+    {clave: "17", nombre: "Morelos"},
+    {clave: "18", nombre: "Nayarit"},
+    {clave: "19", nombre: "Nuevo León"},
+    {clave: "20", nombre: "Oaxaca"},
+    {clave: "21", nombre: "Puebla"},
+    {clave: "22", nombre: "Querétaro"},
+    {clave: "23", nombre: "Quintana Roo"},
+    {clave: "24", nombre: "San Luis Potosí"},
+    {clave: "25", nombre: "Sinaloa"},
+    {clave: "26", nombre: "Sonora"},
+    {clave: "27", nombre: "Tabasco"},
+    {clave: "28", nombre: "Tamaulipas"},
+    {clave: "29", nombre: "Tlaxcala"},
+    {clave: "30", nombre: "Veracruz de Ignacio de la Llave"},
+    {clave: "31", nombre: "Yucatán"},
+    {clave: "32", nombre: "Zacatecas"},
+  ];
+
   const {user, verifyToken, setUser} = useAuth();
   const [roleData, setRoleData] = useState(null);
   const {isSidebarCollapsed} = useSidebar();
@@ -254,14 +290,19 @@ const OrigenPage = () => {
                     />
                   </div>
                   <div className="flex-fill">
-                    <input
-                      type="text"
+                    <select
                       className="form-control form-control-sm border-0 bg-white shadow-sm"
                       placeholder="Buscar por estado..."
                       name="estado"
                       value={filters.estado}
-                      onChange={handleFilterChange}
-                    />
+                      onChange={handleFilterChange}>
+                      <option value="">Todos los estados</option>
+                      {estados.map((estado) => (
+                        <option key={estado.clave} value={estado.nombre}>
+                          {estado.nombre}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                   <div className="flex-fill">
                     <select
@@ -333,13 +374,13 @@ const OrigenPage = () => {
                       ))}
                     </tbody>
                   </table>
-                {filteredOrigenes.length === 0 && (
-                  <div className="text-center py-4">
-                    <p className="text-muted">
-                      No se encontraron orígenes que coincidan con los filtros.
-                    </p>
-                  </div>
-                )}
+                  {filteredOrigenes.length === 0 && (
+                    <div className="text-center py-4">
+                      <p className="text-muted">
+                        No se encontraron orígenes que coincidan con los filtros.
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -367,12 +408,18 @@ const OrigenPage = () => {
                 <label htmlFor="estado" className="form-label">
                   Estado
                 </label>
-                <input
+                <select
                   id="estado"
                   className="form-control"
                   value={formData.estado}
-                  onChange={handleChange}
-                />
+                  onChange={handleChange}>
+                  <option value="">Selecciona un estado</option>
+                  {estados.map((estado) => (
+                    <option key={estado.clave} value={estado.nombre}>
+                      {estado.nombre}
+                    </option>
+                  ))}
+                </select>
               </div>
               <div className="mb-3">
                 <label htmlFor="municipio" className="form-label">
@@ -422,12 +469,18 @@ const OrigenPage = () => {
                 <label htmlFor="estado" className="form-label">
                   Estado
                 </label>
-                <input
+                <select
                   id="estado"
                   className="form-control"
                   value={formData.estado}
-                  onChange={handleChange}
-                />
+                  onChange={handleChange}>
+                  <option value="">Selecciona un estado</option>
+                  {estados.map((estado) => (
+                    <option key={estado.clave} value={estado.nombre}>
+                      {estado.nombre}
+                    </option>
+                  ))}
+                </select>
               </div>
               <div className="mb-3">
                 <label htmlFor="municipio" className="form-label">

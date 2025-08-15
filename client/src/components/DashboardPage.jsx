@@ -29,11 +29,18 @@ const DashboardPage = () => {
     tiposMonitoreo: [],
   });
   const [loading, setLoading] = useState(true);
-  const [timeFilter, setTimeFilter] = useState("all");
-  const [yearFilter, setYearFilter] = useState("all");
   const [clientFilter, setClientFilter] = useState("all");
   const [availableClients, setAvailableClients] = useState([]);
   const [geoType, setGeoType] = useState("origen");
+
+  // Nuevos filtros para anomalías
+  const [fechaDesde, setFechaDesde] = useState("");
+  const [fechaHasta, setFechaHasta] = useState("");
+  const [lineaTransporteFilter, setLineaTransporteFilter] = useState("all");
+  const [operadorFilter, setOperadorFilter] = useState("all");
+  const [availableLineasTransporte, setAvailableLineasTransporte] = useState([]);
+  const [availableOperadores, setAvailableOperadores] = useState([]);
+
   const baseUrl = import.meta.env.VITE_BASE_URL;
 
   useEffect(() => {
@@ -64,13 +71,41 @@ const DashboardPage = () => {
           setAvailableClients(clientsData);
         }
 
+        // Fetch available transport lines for filter
+        const lineasResponse = await fetch(`${baseUrl}/lineas-transporte`, {
+          method: "GET",
+          credentials: "include",
+        });
+        if (lineasResponse.ok) {
+          const lineasData = await lineasResponse.json();
+          setAvailableLineasTransporte(lineasData);
+        } else {
+          console.warn("Transport lines endpoint not available:", lineasResponse.status);
+          setAvailableLineasTransporte([]);
+        }
+
+        // Fetch available operators for filter
+        const operadoresResponse = await fetch(`${baseUrl}/operadores`, {
+          method: "GET",
+          credentials: "include",
+        });
+        if (operadoresResponse.ok) {
+          const operadoresData = await operadoresResponse.json();
+          setAvailableOperadores(operadoresData);
+        } else {
+          console.warn("Operators endpoint not available:", operadoresResponse.status);
+          setAvailableOperadores([]);
+        }
+
         // Fetch dashboard statistics with filters
         const statsResponse = await fetch(
-          `${baseUrl}/dashboard/stats?timeFilter=${encodeURIComponent(
-            timeFilter
-          )}&yearFilter=${encodeURIComponent(yearFilter)}&clientFilter=${encodeURIComponent(
+          `${baseUrl}/dashboard/stats?clientFilter=${encodeURIComponent(
             clientFilter
-          )}&geoType=${encodeURIComponent(geoType)}`,
+          )}&geoType=${encodeURIComponent(geoType)}&fechaDesde=${encodeURIComponent(
+            fechaDesde
+          )}&fechaHasta=${encodeURIComponent(fechaHasta)}&lineaTransporte=${encodeURIComponent(
+            lineaTransporteFilter
+          )}&operador=${encodeURIComponent(operadorFilter)}`,
           {
             method: "GET",
             credentials: "include",
@@ -90,7 +125,17 @@ const DashboardPage = () => {
     };
 
     fetchDashboardData();
-  }, [user, navigate, baseUrl, timeFilter, yearFilter, clientFilter, geoType]);
+  }, [
+    user,
+    navigate,
+    baseUrl,
+    clientFilter,
+    geoType,
+    fechaDesde,
+    fechaHasta,
+    lineaTransporteFilter,
+    operadorFilter,
+  ]);
 
   // Chart rendering functions
   const renderTiposMonitoreoChart = () => {
@@ -144,14 +189,12 @@ const DashboardPage = () => {
     const monthlyData = dashboardStats.monthlyData || [];
 
     console.log("Monthly data in frontend:", monthlyData);
-    console.log("Current year filter:", yearFilter);
 
     // Si no hay datos, mostrar mensaje
     if (monthlyData.length === 0) {
       return (
         <div className="text-center text-muted">
-          No hay datos disponibles para{" "}
-          {yearFilter !== "all" ? yearFilter : "el período seleccionado"}
+          No hay datos disponibles para el período seleccionado
         </div>
       );
     }
@@ -236,9 +279,7 @@ const DashboardPage = () => {
         </div>
         <div className="chart-summary">
           <div className="summary-item">
-            <span className="summary-label">
-              Total {yearFilter !== "all" ? `del ${yearFilter}` : "del período"}:
-            </span>
+            <span className="summary-label">Total del período:</span>
             <span className="summary-value">{dashboardStats.totalBitacoras} bitácoras</span>
           </div>
           <div className="summary-item">
@@ -492,36 +533,32 @@ const DashboardPage = () => {
                 <div className="filter-card">
                   <div className="filter-content">
                     <div className="row g-2 g-md-3 align-items-end">
-                      <div className="col-12 col-sm-6 col-lg-3">
+                      {/* Filtros de fecha primero */}
+                      <div className="col-12 col-sm-6 col-lg-2">
                         <div className="filter-section">
-                          <label className="form-label small mb-1">Período de Tiempo:</label>
-                          <select
-                            value={timeFilter}
-                            onChange={(e) => setTimeFilter(e.target.value)}
-                            className="filter-select form-select form-select-sm">
-                            <option value="all">Todos los períodos</option>
-                            <option value="today">Hoy</option>
-                            <option value="week">Esta semana</option>
-                            <option value="month">Este mes</option>
-                            <option value="quarter">Este trimestre</option>
-                            <option value="year">Este año</option>
-                          </select>
+                          <label className="form-label small mb-1">Fecha Desde:</label>
+                          <input
+                            type="date"
+                            value={fechaDesde}
+                            onChange={(e) => setFechaDesde(e.target.value)}
+                            className="filter-select form-control form-control-sm"
+                          />
                         </div>
                       </div>
-                      <div className="col-12 col-sm-6 col-lg-3">
+                      <div className="col-12 col-sm-6 col-lg-2">
                         <div className="filter-section">
-                          <label className="form-label small mb-1">Año:</label>
-                          <select
-                            value={yearFilter}
-                            onChange={(e) => setYearFilter(e.target.value)}
-                            className="filter-select form-select form-select-sm">
-                            <option value="all">Todos los años</option>
-                            <option value="2025">2025</option>
-                            <option value="2024">2024</option>
-                          </select>
+                          <label className="form-label small mb-1">Fecha Hasta:</label>
+                          <input
+                            type="date"
+                            value={fechaHasta}
+                            onChange={(e) => setFechaHasta(e.target.value)}
+                            className="filter-select form-control form-control-sm"
+                          />
                         </div>
                       </div>
-                      <div className="col-12 col-sm-6 col-lg-3">
+
+                      {/* Filtro de cliente después */}
+                      <div className="col-12 col-sm-6 col-lg-2">
                         <div className="filter-section">
                           <label className="form-label small mb-1">Cliente:</label>
                           <select
@@ -529,24 +566,73 @@ const DashboardPage = () => {
                             onChange={(e) => setClientFilter(e.target.value)}
                             className="filter-select form-select form-select-sm">
                             <option value="all">Todos los clientes</option>
-                            {availableClients
-                              .sort((a, b) => a.razon_social.localeCompare(b.razon_social))
-                              .map((client) => (
-                                <option key={client._id} value={client.razon_social}>
-                                  {client.razon_social}
-                                </option>
-                              ))}
+                            {availableClients && availableClients.length > 0
+                              ? availableClients
+                                  .filter((client) => client && client.razon_social)
+                                  .sort((a, b) => a.razon_social.localeCompare(b.razon_social))
+                                  .map((client) => (
+                                    <option key={client._id} value={client.razon_social}>
+                                      {client.razon_social}
+                                    </option>
+                                  ))
+                              : null}
                           </select>
                         </div>
                       </div>
-                      <div className="col-12 col-sm-6 col-lg-3">
+
+                      {/* Filtros de línea de transporte y operador */}
+                      <div className="col-12 col-sm-6 col-lg-2">
+                        <div className="filter-section">
+                          <label className="form-label small mb-1">Línea Transporte:</label>
+                          <select
+                            value={lineaTransporteFilter}
+                            onChange={(e) => setLineaTransporteFilter(e.target.value)}
+                            className="filter-select form-select form-select-sm">
+                            <option value="all">Todas las líneas</option>
+                            {availableLineasTransporte && availableLineasTransporte.length > 0
+                              ? availableLineasTransporte
+                                  .filter((linea) => linea && linea.nombre)
+                                  .sort((a, b) => a.nombre.localeCompare(b.nombre))
+                                  .map((linea) => (
+                                    <option key={linea._id} value={linea.nombre}>
+                                      {linea.nombre}
+                                    </option>
+                                  ))
+                              : null}
+                          </select>
+                        </div>
+                      </div>
+                      <div className="col-12 col-sm-6 col-lg-2">
+                        <div className="filter-section">
+                          <label className="form-label small mb-1">Operador:</label>
+                          <select
+                            value={operadorFilter}
+                            onChange={(e) => setOperadorFilter(e.target.value)}
+                            className="filter-select form-select form-select-sm">
+                            <option value="all">Todos los operadores</option>
+                            {availableOperadores && availableOperadores.length > 0
+                              ? availableOperadores
+                                  .filter((operador) => operador && operador.nombre)
+                                  .sort((a, b) => a.nombre.localeCompare(b.nombre))
+                                  .map((operador) => (
+                                    <option key={operador._id} value={operador.nombre}>
+                                      {operador.nombre}
+                                    </option>
+                                  ))
+                              : null}
+                          </select>
+                        </div>
+                      </div>
+                      <div className="col-12 col-sm-6 col-lg-2">
                         <div className="filter-actions d-flex justify-content-end">
                           <button
                             className="filter-btn btn btn-outline-secondary btn-sm"
                             onClick={() => {
-                              setTimeFilter("all");
-                              setYearFilter("all");
                               setClientFilter("all");
+                              setFechaDesde("");
+                              setFechaHasta("");
+                              setLineaTransporteFilter("all");
+                              setOperadorFilter("all");
                             }}>
                             <i className="fa fa-refresh me-1"></i>
                             Resetear
@@ -619,9 +705,7 @@ const DashboardPage = () => {
               <div className="col-12">
                 <div className="chart-card">
                   <div className="chart-header">
-                    <h6 className="mb-0">
-                      Tendencia Mensual {yearFilter !== "all" ? `- ${yearFilter}` : ""}
-                    </h6>
+                    <h6 className="mb-0">Tendencia Mensual</h6>
                   </div>
                   <div className="chart-body">
                     <div className="overflow-auto">{renderMonthlyTrendChart()}</div>
