@@ -294,7 +294,7 @@ const OrigenPage = () => {
         <div className="sidebar-wrapper">
           <Sidebar />
         </div>
-        <div className="content-wrapper">
+        <div className={`content-wrapper`}>
           <div className="page-header">
             <h1>Catálogos - Orígenes</h1>
 
