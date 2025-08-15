@@ -2,6 +2,7 @@ import {useState, useEffect} from "react";
 import Sidebar from "../Sidebar";
 import {useAuth} from "../../context/AuthContext";
 import ModalTemplate from "../ModalTemplate";
+import {useSidebar} from "../../context/SidebarContext";
 
 const UsersPage = () => {
   const [users, setUsers] = useState([]);
@@ -22,6 +23,7 @@ const UsersPage = () => {
   const {user, verifyToken, setUser} = useAuth();
   const [roleData, setRoleData] = useState(null);
   const baseUrl = import.meta.env.VITE_BASE_URL;
+  const {isSidebarCollapsed} = useSidebar();
 
   useEffect(() => {
     const init = async () => {
@@ -228,13 +230,12 @@ const UsersPage = () => {
   };
 
   return (
-    <section id="usersPage">
+    <section id="usersPage" className="settings-page">
       <div className="w-100 d-flex">
         <div className="sidebar-wrapper">
           <Sidebar />
         </div>
-
-        <div className="content-wrapper">
+        <div className={`content-wrapper ${isSidebarCollapsed ? "sidebar-collapsed" : ""}`}>
           <div className="page-header">
             <h1 className="fs-3 fw-semibold text-black text-center m-0">Sistema - Usuarios</h1>
             {roleData?.usuarios?.create && (
@@ -245,10 +246,10 @@ const UsersPage = () => {
           </div>
 
           {roleData?.usuarios?.read && (
-            <div className="mx-3 my-0">
+            <div className="settings-content">
               <div className="table-wrapper">
                 <div className="table-responsive">
-                  <table className="table table-striped">
+                  <table className="table">
                     <thead>
                       <tr>
                         <th>Email</th>
@@ -269,14 +270,16 @@ const UsersPage = () => {
                           <td>{user.role}</td>
                           <td className="d-flex items-center w-100 gap-2 justify-content-end">
                             {roleData?.usuarios?.update && (
-                              <button className="btn btn-primary" onClick={() => handleEdit(user)}>
+                              <button
+                                className="action-btn btn-primary"
+                                onClick={() => handleEdit(user)}>
                                 <i className="fas fa-edit"></i>
                               </button>
                             )}
 
                             {roleData?.usuarios?.delete && (
                               <button
-                                className="btn btn-danger"
+                                className="action-btn btn-danger"
                                 onClick={() => handleDelete(user._id)}>
                                 <i className="fas fa-trash"></i>
                               </button>

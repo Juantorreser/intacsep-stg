@@ -3,8 +3,10 @@ import "bootstrap/dist/css/bootstrap.min.css";
 import "bootstrap/dist/js/bootstrap.bundle.min";
 import "@fortawesome/fontawesome-free/css/all.min.css";
 import {Route, Routes} from "react-router-dom";
+import {SidebarProvider} from "./context/SidebarContext";
 import Login from "./components/LoginPage";
 import Home from "./components/Home";
+import DashboardPage from "./components/DashboardPage";
 import TiposMonitoreo from "./components/Settings/TiposMonitoreo";
 import UsersPage from "./components/Settings/UsersPage";
 import UserRolePage from "./components/Settings/RolePage";
@@ -23,11 +25,12 @@ import AuditoriasPage from "./components/Auditorias/AuditoriasPage";
 
 function App() {
   return (
-    <>
+    <SidebarProvider>
       <Routes>
         <Route path="/" element={<Login />}></Route>
         <Route path="/login" element={<Login />}></Route>
         <Route path="/inicio" element={<Home />}></Route>
+        <Route path="/dashboard" element={<DashboardPage />}></Route>
         <Route path="/bitacoras" element={<BitacorasPage />}></Route>
         <Route path="/bitacora/:id" element={<BitacoraRouter edited={false} />} />
         <Route path="/bitacoras/:id/editada" element={<BitacoraRouter edited={true} />} />
@@ -45,7 +48,7 @@ function App() {
         <Route path="/units" element={<WialonUnits />} />
         <Route path="/auditoria/bitacoras" element={<AuditoriasPage />} />
       </Routes>
-    </>
+    </SidebarProvider>
   );
 }
 

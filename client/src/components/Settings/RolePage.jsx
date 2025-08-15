@@ -2,6 +2,7 @@ import React, {useState, useEffect} from "react";
 import Sidebar from "../Sidebar";
 import ModalTemplate from "../ModalTemplate";
 import {useAuth} from "../../context/AuthContext";
+import {useSidebar} from "../../context/SidebarContext";
 
 const RolePage = () => {
   const [roles, setRoles] = useState([]);
@@ -62,6 +63,7 @@ const RolePage = () => {
 
   const {user, verifyToken, setUser} = useAuth();
   const [roleData, setRoleData] = useState(null);
+  const {isSidebarCollapsed} = useSidebar();
 
   useEffect(() => {
     const init = async () => {
@@ -322,12 +324,12 @@ const RolePage = () => {
   };
 
   return (
-    <section id="rolePage">
+    <section id="rolePage" className="settings-page">
       <div className="w-100 d-flex">
         <div className="sidebar-wrapper">
           <Sidebar />
         </div>
-        <div className="content-wrapper">
+        <div className={`content-wrapper ${isSidebarCollapsed ? "sidebar-collapsed" : ""}`}>
           <div className="page-header">
             <h1>Sistema - Roles</h1>
             {roleData?.roles?.create && (
@@ -339,7 +341,7 @@ const RolePage = () => {
 
           {/* Role Cards */}
           {roleData?.roles?.read && (
-            <div className="mx-3 my-4">
+            <div className="settings-content">
               <div className="mb-3 d-flex align-items-end gap-2">
                 <div className="flex-grow-1">
                   <label htmlFor="roleSelect" className="form-label fw-bold">
@@ -402,72 +404,72 @@ const RolePage = () => {
               </div>
 
               {editRole && (
-                <div
-                  className="table-responsive border-black shadow-lg"
-                  style={{maxHeight: "650px", overflowY: "auto"}}>
-                  <table className="table table-bordered table-hover">
-                    <thead
-                      className="table-light"
-                      style={{position: "sticky", top: 0, zIndex: 1, backgroundColor: "#f8f9fa"}}>
-                      <tr>
-                        <th>Módulo</th>
-                        <th className="text-center">Crear</th>
-                        <th className="text-center">Ver</th>
-                        <th className="text-center">Editar</th>
-                        <th className="text-center">Eliminar</th>
-                        <th className="text-center">Ver Todo</th>
-                      </tr>
-                    </thead>
+                <div className="table-wrapper">
+                  <div className="table-responsive" style={{maxHeight: "650px", overflowY: "auto"}}>
+                    <table className="table">
+                      <thead
+                        className="table-light"
+                        style={{position: "sticky", top: 0, zIndex: 1, backgroundColor: "#f8f9fa"}}>
+                        <tr>
+                          <th>Módulo</th>
+                          <th className="text-center">Crear</th>
+                          <th className="text-center">Ver</th>
+                          <th className="text-center">Editar</th>
+                          <th className="text-center">Eliminar</th>
+                          <th className="text-center">Ver Todo</th>
+                        </tr>
+                      </thead>
 
-                    <tbody>
-                      {/* PANEL 1: Monitoreo */}
-                      <tr className="table-group-divider fw-bold bg-secondary text-white">
-                        <td colSpan="5">Monitoreo</td>
-                      </tr>
-                      {["bitacoras"].map((key) =>
-                        renderPermissionRow(key, editRoleData, setEditRoleData)
-                      )}
-                      <tr className="table-group-divider fw-bold bg-secondary text-white">
-                        <td colSpan="5">Monitoreo &gt; Bitácoras &gt; Datos Bitácora</td>
-                      </tr>
-                      {["bit_detalles", "bit_transportes", "bit_eventos"].map((key) =>
-                        renderPermissionRow(key, editRoleData, setEditRoleData)
-                      )}
+                      <tbody>
+                        {/* PANEL 1: Monitoreo */}
+                        <tr className="table-group-divider fw-bold bg-secondary text-white">
+                          <td colSpan="5">Monitoreo</td>
+                        </tr>
+                        {["bitacoras"].map((key) =>
+                          renderPermissionRow(key, editRoleData, setEditRoleData)
+                        )}
+                        <tr className="table-group-divider fw-bold bg-secondary text-white">
+                          <td colSpan="5">Monitoreo &gt; Bitácoras &gt; Datos Bitácora</td>
+                        </tr>
+                        {["bit_detalles", "bit_transportes", "bit_eventos"].map((key) =>
+                          renderPermissionRow(key, editRoleData, setEditRoleData)
+                        )}
 
-                      <tr className="table-group-divider fw-bold bg-secondary text-white">
-                        <td colSpan="5">
-                          Monitoreo &gt; Bitácoras &gt; Datos Bitácora &gt; Datos Transportes
-                        </td>
-                      </tr>
-                      {["gps_id", "remolque", "tracto", "operador"].map((key) =>
-                        renderPermissionRow(key, editRoleData, setEditRoleData)
-                      )}
+                        <tr className="table-group-divider fw-bold bg-secondary text-white">
+                          <td colSpan="5">
+                            Monitoreo &gt; Bitácoras &gt; Datos Bitácora &gt; Datos Transportes
+                          </td>
+                        </tr>
+                        {["gps_id", "remolque", "tracto", "operador"].map((key) =>
+                          renderPermissionRow(key, editRoleData, setEditRoleData)
+                        )}
 
-                      {/* PANEL 2: Configuración > Catálogos */}
-                      <tr className="table-group-divider fw-bold bg-secondary text-white">
-                        <td colSpan="5">Configuración &gt; Catálogos</td>
-                      </tr>
-                      {["tipos_de_monitoreo", "eventos", "clientes", "origenes", "destinos"].map(
-                        (key) => renderPermissionRow(key, editRoleData, setEditRoleData)
-                      )}
+                        {/* PANEL 2: Configuración > Catálogos */}
+                        <tr className="table-group-divider fw-bold bg-secondary text-white">
+                          <td colSpan="5">Configuración &gt; Catálogos</td>
+                        </tr>
+                        {["tipos_de_monitoreo", "eventos", "clientes", "origenes", "destinos"].map(
+                          (key) => renderPermissionRow(key, editRoleData, setEditRoleData)
+                        )}
 
-                      {/* PANEL 2: Configuración > Sistema */}
-                      <tr className="fw-bold bg-secondary text-white">
-                        <td colSpan="5">Configuración &gt; Sistema</td>
-                      </tr>
-                      {["usuarios", "roles", "inactividad"].map((key) =>
-                        renderPermissionRow(key, editRoleData, setEditRoleData)
-                      )}
+                        {/* PANEL 2: Configuración > Sistema */}
+                        <tr className="fw-bold bg-secondary text-white">
+                          <td colSpan="5">Configuración &gt; Sistema</td>
+                        </tr>
+                        {["usuarios", "roles", "inactividad"].map((key) =>
+                          renderPermissionRow(key, editRoleData, setEditRoleData)
+                        )}
 
-                      {/* PANEL 3: Auditoría */}
-                      <tr className="table-group-divider fw-bold bg-secondary text-white">
-                        <td colSpan="5">Auditoría</td>
-                      </tr>
-                      {["auditoria_bitacora"].map((key) =>
-                        renderPermissionRow(key, editRoleData, setEditRoleData)
-                      )}
-                    </tbody>
-                  </table>
+                        {/* PANEL 3: Auditoría */}
+                        <tr className="table-group-divider fw-bold bg-secondary text-white">
+                          <td colSpan="5">Auditoría</td>
+                        </tr>
+                        {["auditoria_bitacora"].map((key) =>
+                          renderPermissionRow(key, editRoleData, setEditRoleData)
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               )}
             </div>

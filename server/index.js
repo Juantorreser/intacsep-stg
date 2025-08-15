@@ -21,6 +21,7 @@ import session from "express-session";
 import nodemailer from "nodemailer";
 import crypto from "crypto";
 import Auditoria from "./models/Auditoria.js";
+import { auditCreation, auditUpdate, auditDeletion } from "./auditoriaUtils.js";
 
 dotenv.config();
 
@@ -545,6 +546,7 @@ app.post("/bitacora", async (req, res) => {
     });
 
     await newItem.save();
+    await auditCreation({ newData: newItem.toObject(), modelId: newItem._id, user: req.session.user || {}, seccion: "Bitacora" });
     res.status(201).send(newItem);
   } catch (err) {
     console.error("Error creating bitacora:", err);
@@ -629,6 +631,7 @@ app.patch("/bitacora/:id", async (req, res) => {
     Object.assign(bitacora, updatedData);
 
     const updatedBitacora = await bitacora.save();
+    await auditUpdate({ oldData: bitacora.toObject(), newData: updatedData, modelId: id, user: req.session.user || {}, seccion: "Bitacora" });
     res.json(updatedBitacora);
   } catch (error) {
     console.error("Error updating bitacora:", error);
@@ -790,6 +793,7 @@ app.post("/monitoreos", async (req, res) => {
   try {
     const newMonitoreo = new Monitoreo({ tipoMonitoreo });
     const savedMonitoreo = await newMonitoreo.save();
+    await auditCreation({ newData: savedMonitoreo.toObject(), modelId: savedMonitoreo._id, user: req.session.user || {}, seccion: "Monitoreo" });
     res.status(201).json(savedMonitoreo);
   } catch (error) {
     console.error("Error creating monitoreo:", error);
@@ -835,6 +839,7 @@ app.post("/users", async (req, res) => {
     });
 
     await newUser.save();
+    await auditCreation({ newData: newUser.toObject(), modelId: newUser._id, user: req.session.user || {}, seccion: "Usuario" });
     res.status(201).json(newUser);
   } catch (error) {
     res.status(400).json({ message: error.message });
@@ -850,6 +855,7 @@ app.delete("/users/:id", async (req, res) => {
     if (!deletedUser) {
       return res.status(404).json({ message: "User not found" });
     }
+    await auditDeletion({ oldData: deletedUser.toObject(), modelId: id, user: req.session.user || {}, seccion: "Usuario" });
     res.status(200).json(deletedUser);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -861,21 +867,18 @@ app.put("/users/:id", async (req, res) => {
   const { password, firstName, lastName, phone, role } = req.body;
 
   try {
+    const prevUser = await User.findById(req.params.id);
+    if (!prevUser) return res.status(404).json({ message: "User not found" });
+    const oldData = prevUser.toObject();
     const updateData = { firstName, lastName, phone, role };
-
-    // Hash the password if it is provided
     if (password) {
-      const prevUser = await User.findById(req.params.id);
-      if (prevUser.password !== password) {
-        const salt = await bcrypt.genSalt(10);
-        const hashedPassword = await bcrypt.hash(password, salt);
-        updateData.password = hashedPassword;
-      }
+      const salt = await bcrypt.genSalt(10);
+      updateData.password = await bcrypt.hash(password, salt);
     }
-
     const user = await User.findByIdAndUpdate(req.params.id, updateData, {
       new: true,
     });
+    await auditUpdate({ oldData, newData: updateData, modelId: req.params.id, user: req.session.user || {}, seccion: "Usuario" });
 
     if (!user) {
       return res.status(404).json({ message: "User not found" });
@@ -919,8 +922,7 @@ app.post("/clients", async (req, res) => {
     // Create new client with ID_Cliente
     const client = new Client(clientData);
     const newClient = await client.save();
-
-    // Respond with created client
+    await auditCreation({ newData: newClient.toObject(), modelId: newClient._id, user: req.session.user || {}, seccion: "Cliente" });
     res.status(201).json(newClient);
   } catch (error) {
     // Handle errors
@@ -931,10 +933,11 @@ app.post("/clients", async (req, res) => {
 // Update a client
 app.put("/clients/:id", async (req, res) => {
   try {
+    const prevClient = await Client.findById(req.params.id);
+    if (!prevClient) return res.status(404).json({ message: "Client not found" });
+    const oldData = prevClient.toObject();
     const updatedClient = await Client.findByIdAndUpdate(req.params.id, req.body, { new: true });
-    if (!updatedClient) {
-      return res.status(404).json({ message: "Client not found" });
-    }
+    await auditUpdate({ oldData, newData: req.body, modelId: req.params.id, user: req.session.user || {}, seccion: "Cliente" });
     res.json(updatedClient);
   } catch (error) {
     res.status(400).json({ message: error.message });
@@ -948,6 +951,7 @@ app.delete("/clients/:id", async (req, res) => {
     if (!deletedClient) {
       return res.status(404).json({ message: "Client not found" });
     }
+    await auditDeletion({ oldData: deletedClient.toObject(), modelId: req.params.id, user: req.session.user || {}, seccion: "Cliente" });
     res.json({ message: "Client deleted" });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -969,11 +973,15 @@ app.put("/event_types/:id", async (req, res) => {
   const { evento, categoria, calificacion } = req.body;
 
   try {
+    const prevEvent = await EventType.findById(req.params.id);
+    if (!prevEvent) return res.status(404).json({ message: "Event not found" });
+    const oldData = prevEvent.toObject();
     const updatedEvent = await EventType.findByIdAndUpdate(
       req.params.id,
       { evento, categoria, calificacion },
       { new: true }
     );
+    await auditUpdate({ oldData, newData: { evento, categoria, calificacion }, modelId: req.params.id, user: req.session.user || {}, seccion: "Evento" });
 
     if (!updatedEvent) return res.status(404).json({ message: "Event not found" });
 
@@ -1000,6 +1008,7 @@ app.post("/event_types", async (req, res) => {
 
     const newEvent = new EventType({ evento, categoria, calificacion });
     const saved = await newEvent.save();
+    await auditCreation({ newData: saved.toObject(), modelId: saved._id, user: req.session.user || {}, seccion: "Evento" });
     res.status(201).json(saved);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -1009,8 +1018,9 @@ app.post("/event_types", async (req, res) => {
 
 app.delete("/event_types/:id", async (req, res) => {
   try {
-    const result = await EventType.findByIdAndDelete(req.params.id);
-    if (!result) return res.status(404).json({ message: "Event not found" });
+    const deletedEvent = await EventType.findByIdAndDelete(req.params.id);
+    if (!deletedEvent) return res.status(404).json({ message: "Event not found" });
+    await auditDeletion({ oldData: deletedEvent.toObject(), modelId: req.params.id, user: req.session.user || {}, seccion: "Evento" });
     res.json({ message: "Event deleted" });
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -1034,6 +1044,7 @@ app.post("/roles", async (req, res) => {
   try {
     const role = new Role(req.body);
     const newRole = await role.save();
+    await auditCreation({ newData: newRole.toObject(), modelId: newRole._id, user: req.session.user || {}, seccion: "Rol" });
     res.status(201).json(newRole);
   } catch (error) {
     console.error("Error creating role:", error);
@@ -1045,10 +1056,14 @@ app.post("/roles", async (req, res) => {
 // PUT update a role
 app.put("/roles/:id", async (req, res) => {
   try {
+    const prevRole = await Role.findById(req.params.id);
+    if (!prevRole) return res.status(404).json({ message: "Role not found" });
+    const oldData = prevRole.toObject();
     const updatedRole = await Role.findByIdAndUpdate(req.params.id, req.body, {
       new: true,
       runValidators: true,
     });
+    await auditUpdate({ oldData, newData: req.body, modelId: req.params.id, user: req.session.user || {}, seccion: "Rol" });
 
     if (!updatedRole) {
       return res.status(404).json({ message: "Role not found" });
@@ -1080,7 +1095,9 @@ app.get("/roles/:roleName", async (req, res) => {
 // DELETE a role
 app.delete("/roles/:id", async (req, res) => {
   try {
-    await Role.findByIdAndDelete(req.params.id);
+    const deletedRole = await Role.findByIdAndDelete(req.params.id);
+    if (!deletedRole) return res.status(404).json({ message: "Role not found" });
+    await auditDeletion({ oldData: deletedRole.toObject(), modelId: req.params.id, user: req.session.user || {}, seccion: "Rol" });
     res.json({ message: "Role deleted" });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -1104,6 +1121,7 @@ app.post("/origenes", async (req, res) => {
     const { estado, municipio, nombre } = req.body;
     const newOrigen = new Origen({ estado, municipio, nombre });
     const savedOrigen = await newOrigen.save();
+    await auditCreation({ newData: savedOrigen.toObject(), modelId: savedOrigen._id, user: req.session.user || {}, seccion: "Origen" });
     res.status(201).json(savedOrigen);
   } catch (e) {
     res.status(500).json({ message: "Failed to create origen", error: e.message });
@@ -1114,12 +1132,16 @@ app.post("/origenes", async (req, res) => {
 // Edit an existing origen
 app.put("/origenes/:id", async (req, res) => {
   try {
+    const prevOrigen = await Origen.findById(req.params.id);
+    if (!prevOrigen) return res.status(404).json({ message: "Origen not found" });
+    const oldData = prevOrigen.toObject();
     const { estado, municipio, nombre } = req.body;
     const updatedOrigen = await Origen.findByIdAndUpdate(
       req.params.id,
       { estado, municipio, nombre },
       { new: true }
     );
+    await auditUpdate({ oldData, newData: { estado, municipio, nombre }, modelId: req.params.id, user: req.session.user || {}, seccion: "Origen" });
     res.json(updatedOrigen);
   } catch (e) {
     res.status(500).json({ message: "Failed to edit origen", error: e.message });
@@ -1130,8 +1152,9 @@ app.put("/origenes/:id", async (req, res) => {
 // Delete an origen
 app.delete("/origenes/:id", async (req, res) => {
   try {
-    const { id } = req.params;
-    await Origen.findByIdAndDelete(id);
+    const deletedOrigen = await Origen.findByIdAndDelete(req.params.id);
+    if (!deletedOrigen) return res.status(404).json({ message: "Origen not found" });
+    await auditDeletion({ oldData: deletedOrigen.toObject(), modelId: req.params.id, user: req.session.user || {}, seccion: "Origen" });
     res.status(204).end();
   } catch (e) {
     res.status(500).json({ message: "Failed to delete origen", error: e.message });
@@ -1154,6 +1177,7 @@ app.post("/destinos", async (req, res) => {
     const { estado, municipio, nombre } = req.body;
     const newDestino = new Destino({ estado, municipio, nombre });
     const savedDestino = await newDestino.save();
+    await auditCreation({ newData: savedDestino.toObject(), modelId: savedDestino._id, user: req.session.user || {}, seccion: "Destino" });
     res.status(201).json(savedDestino);
   } catch (e) {
     res.status(500).json({ message: "Error creating destino", error: e.message });
@@ -1164,12 +1188,16 @@ app.post("/destinos", async (req, res) => {
 // Edit a destino
 app.put("/destinos/:id", async (req, res) => {
   try {
+    const prevDestino = await Destino.findById(req.params.id);
+    if (!prevDestino) return res.status(404).json({ message: "Destino not found" });
+    const oldData = prevDestino.toObject();
     const { estado, municipio, nombre } = req.body;
     const updatedDestino = await Destino.findByIdAndUpdate(
       req.params.id,
       { estado, municipio, nombre },
       { new: true }
     );
+    await auditUpdate({ oldData, newData: { estado, municipio, nombre }, modelId: req.params.id, user: req.session.user || {}, seccion: "Destino" });
     res.status(200).json(updatedDestino);
   } catch (e) {
     res.status(500).json({ message: "Error updating destino", error: e.message });
@@ -1180,7 +1208,9 @@ app.put("/destinos/:id", async (req, res) => {
 // Delete a destino
 app.delete("/destinos/:id", async (req, res) => {
   try {
-    await Destino.findByIdAndDelete(req.params.id);
+    const deletedDestino = await Destino.findByIdAndDelete(req.params.id);
+    if (!deletedDestino) return res.status(404).json({ message: "Destino not found" });
+    await auditDeletion({ oldData: deletedDestino.toObject(), modelId: req.params.id, user: req.session.user || {}, seccion: "Destino" });
     res.status(200).json({ message: "Destino deleted successfully" });
   } catch (e) {
     res.status(500).json({ message: "Error deleting destino", error: e.message });
@@ -1198,11 +1228,62 @@ app.get("/operadores", async (req, res) => {
   }
 });
 
+// Get available operators from bitacoras
+app.get("/operadores-bitacoras", async (req, res) => {
+  try {
+    const operadores = await Bitacora.aggregate([
+      {
+        $group: {
+          _id: '$operador',
+          nombre: { $first: '$operador' }
+        }
+      },
+      { $sort: { nombre: 1 } },
+      {
+        $project: {
+          _id: 1,
+          nombre: 1
+        }
+      }
+    ]);
+
+    res.status(200).json(operadores);
+  } catch (e) {
+    res.status(500).json({ message: "Error fetching operadores from bitacoras", error: e.message });
+  }
+});
+
+// Get available transport lines from bitacoras
+app.get("/lineas-transporte-bitacoras", async (req, res) => {
+  try {
+    const lineasTransporte = await Bitacora.aggregate([
+      {
+        $group: {
+          _id: '$linea_transporte',
+          nombre: { $first: '$linea_transporte' }
+        }
+      },
+      { $sort: { nombre: 1 } },
+      {
+        $project: {
+          _id: 1,
+          nombre: 1
+        }
+      }
+    ]);
+
+    res.status(200).json(lineasTransporte);
+  } catch (e) {
+    res.status(500).json({ message: "Error fetching transport lines from bitacoras", error: e.message });
+  }
+});
+
 // Create a new operador
 app.post("/operadores", async (req, res) => {
   try {
     const newOperador = new Operador({ name: req.body.name });
     const savedOperador = await newOperador.save();
+    await auditCreation({ newData: savedOperador.toObject(), modelId: savedOperador._id, user: req.session.user || {}, seccion: "Operador" });
     res.status(201).json(savedOperador);
   } catch (e) {
     res.status(500).json({ message: "Error creating operador", error: e.message });
@@ -1212,11 +1293,15 @@ app.post("/operadores", async (req, res) => {
 // Edit an operador
 app.put("/operadores/:id", async (req, res) => {
   try {
+    const prevOperador = await Operador.findById(req.params.id);
+    if (!prevOperador) return res.status(404).json({ message: "Operador not found" });
+    const oldData = prevOperador.toObject();
     const updatedOperador = await Operador.findByIdAndUpdate(
       req.params.id,
       { name: req.body.name },
       { new: true }
     );
+    await auditUpdate({ oldData, newData: { name: req.body.name }, modelId: req.params.id, user: req.session.user || {}, seccion: "Operador" });
     res.status(200).json(updatedOperador);
   } catch (e) {
     res.status(500).json({ message: "Error updating operador", error: e.message });
@@ -1226,7 +1311,9 @@ app.put("/operadores/:id", async (req, res) => {
 // Delete an operador
 app.delete("/operadores/:id", async (req, res) => {
   try {
-    await Operador.findByIdAndDelete(req.params.id);
+    const deletedOperador = await Operador.findByIdAndDelete(req.params.id);
+    if (!deletedOperador) return res.status(404).json({ message: "Operador not found" });
+    await auditDeletion({ oldData: deletedOperador.toObject(), modelId: req.params.id, user: req.session.user || {}, seccion: "Operador" });
     res.status(200).json({ message: "Operador deleted successfully" });
   } catch (e) {
     res.status(500).json({ message: "Error deleting operador", error: e.message });
@@ -1281,6 +1368,1209 @@ app.get('/auditoria/bitacoras', async (req, res) => {
   }
 });
 
+// Dashboard Stats
+app.get('/dashboard/stats', async (req, res) => {
+  try {
+    // Get user from session (already verified by middleware)
+    const user = req.session.user;
+    if (!user) {
+      return res.status(401).json({ message: 'User not found' });
+    }
+
+    // Get role permissions
+    const role = await Role.findOne({ name: user.role });
+    if (!role) {
+      return res.status(401).json({ message: 'Role not found' });
+    }
+
+    // Get filter parameters
+    const {
+      timeFilter = 'all',
+      yearFilter = new Date().getFullYear(),
+      clientFilter = 'all',
+      fechaDesde = '',
+      fechaHasta = '',
+      lineaTransporte = 'all',
+      operador = 'all'
+    } = req.query;
+
+    // Build time filter
+    let timeFilterQuery = {};
+    if (timeFilter !== 'all') {
+      const now = new Date();
+      const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+      switch (timeFilter) {
+        case 'today':
+          timeFilterQuery = { createdAt: { $gte: startOfDay } };
+          break;
+        case 'week':
+          const startOfWeek = new Date(now.setDate(now.getDate() - now.getDay()));
+          timeFilterQuery = { createdAt: { $gte: startOfWeek } };
+          break;
+        case 'month':
+          const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+          timeFilterQuery = { createdAt: { $gte: startOfMonth } };
+          break;
+        case 'quarter':
+          const currentQuarter = Math.floor(now.getMonth() / 3);
+          const startOfQuarter = new Date(now.getFullYear(), currentQuarter * 3, 1);
+          timeFilterQuery = { createdAt: { $gte: startOfQuarter } };
+          break;
+        case 'year':
+          const startOfYear = new Date(now.getFullYear(), 0, 1);
+          timeFilterQuery = { createdAt: { $gte: startOfYear } };
+          break;
+      }
+    }
+
+    // Build filters based on user permissions
+    let bitacoraFilter = {};
+
+    // Add client filter
+    if (clientFilter !== 'all') {
+      bitacoraFilter.cliente = clientFilter;
+    }
+
+    // Add date range filter (priority over timeFilter and yearFilter)
+    console.log('Date filter values:', { fechaDesde, fechaHasta, fechaDesdeType: typeof fechaDesde, fechaHastaType: typeof fechaHasta });
+
+    if (fechaDesde && fechaHasta && fechaDesde.trim() !== '' && fechaHasta.trim() !== '') {
+      const startDate = new Date(fechaDesde);
+      const endDate = new Date(fechaHasta + 'T23:59:59.999Z');
+
+      console.log('Parsed dates:', { startDate, endDate, startDateValid: !isNaN(startDate), endDateValid: !isNaN(endDate) });
+
+      if (!isNaN(startDate) && !isNaN(endDate)) {
+        bitacoraFilter.createdAt = {
+          $gte: startDate,
+          $lte: endDate
+        };
+        console.log('Date filter applied:', bitacoraFilter.createdAt);
+      }
+    }
+
+    // Add transport line filter
+    if (lineaTransporte !== 'all') {
+      bitacoraFilter.linea_transporte = lineaTransporte;
+    }
+
+    // Add operator filter
+    if (operador !== 'all') {
+      bitacoraFilter.operador = operador;
+    }
+
+    if (!role.bitacoras?.read_all) {
+      // If user can't read all bitacoras, filter by their name
+      const userFullName = `${user.firstName} ${user.lastName}`;
+      // Only override operator filter if no specific operator is selected
+      if (operador === 'all') {
+        bitacoraFilter.operador = userFullName;
+      }
+    }
+
+    // Add time/year filters - only if no date range filter is applied
+    if (!fechaDesde || !fechaHasta) {
+      if (yearFilter && yearFilter !== 'all') {
+        // Si hay un año específico, usar solo ese año (ignorar otros filtros de tiempo)
+        const startOfYear = new Date(parseInt(yearFilter), 0, 1);
+        const endOfYear = new Date(parseInt(yearFilter), 11, 31, 23, 59, 59);
+        bitacoraFilter.createdAt = {
+          $gte: startOfYear,
+          $lte: endOfYear
+        };
+      } else if (Object.keys(timeFilterQuery).length > 0) {
+        // Solo usar filtros de tiempo si no hay año específico
+        bitacoraFilter = { ...bitacoraFilter, ...timeFilterQuery };
+      }
+    }
+
+    // Debug: Log the filters being used
+    console.log('Dashboard filters:', {
+      yearFilter,
+      timeFilter,
+      clientFilter,
+      fechaDesde,
+      fechaHasta,
+      lineaTransporte,
+      operador,
+      bitacoraFilter: JSON.stringify(bitacoraFilter, null, 2)
+    });
+
+    // Get bitacora statistics
+    const totalBitacoras = await Bitacora.countDocuments(bitacoraFilter);
+    const nuevasBitacoras = await Bitacora.countDocuments({ ...bitacoraFilter, status: 'nueva' });
+    const enProcesoBitacoras = await Bitacora.countDocuments({ ...bitacoraFilter, status: { $in: ['validada', 'iniciada'] } });
+    const cerradasBitacoras = await Bitacora.countDocuments({ ...bitacoraFilter, status: { $in: ['cerrada', 'finalizada'] } });
+
+    // Get user and client counts (only if user has permission)
+    let totalUsers = 0;
+    let totalClients = 0;
+
+    if (role.usuarios?.read) {
+      totalUsers = await User.countDocuments();
+    }
+
+    if (role.clientes?.read) {
+      totalClients = await Client.countDocuments();
+    }
+
+    // Get recent activity (last 10 auditoria records)
+    let recentActivity = [];
+    try {
+      recentActivity = await Auditoria.find()
+        .sort({ createdAt: -1 })
+        .limit(10)
+        .populate('bitacora_id', 'bitacora_id')
+        .lean();
+    } catch (error) {
+      console.log('Error fetching recent activity:', error);
+    }
+
+    const formattedActivity = recentActivity.map(activity => ({
+      description: `${activity.tipo} - ${activity.seccion}`,
+      icon: getActivityIcon(activity.tipo),
+      color: getActivityColor(activity.tipo),
+      timestamp: activity.createdAt
+    }));
+
+    // Get monthly data for the specified year or last 12 months
+    let monthlyData = [];
+    const months = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+
+    try {
+      // Para el gráfico mensual, usar el mismo filtro base que las tarjetas
+      // pero sin el filtro de tiempo (createdAt) ya que lo controlamos específicamente por mes
+      let monthlyFilter = { ...bitacoraFilter };
+      delete monthlyFilter.createdAt; // Removemos createdAt para controlarlo específicamente
+
+      console.log('Monthly filter vs Tarjetas filter:', {
+        monthlyFilter: JSON.stringify(monthlyFilter, null, 2),
+        bitacoraFilter: JSON.stringify(bitacoraFilter, null, 2)
+      });
+
+      if (yearFilter && yearFilter !== 'all') {
+        // Si hay un año específico seleccionado, mostrar los 12 meses de ese año
+        const selectedYear = parseInt(yearFilter);
+        for (let i = 0; i < 12; i++) {
+          const startOfMonth = new Date(selectedYear, i, 1);
+          const endOfMonth = new Date(selectedYear, i + 1, 0);
+
+          const monthCount = await Bitacora.countDocuments({
+            ...monthlyFilter,
+            createdAt: { $gte: startOfMonth, $lte: endOfMonth }
+          });
+
+          monthlyData.push({
+            month: months[i],
+            value: monthCount
+          });
+        }
+      } else {
+        // Si no hay año específico, mostrar los últimos 12 meses
+        for (let i = 11; i >= 0; i--) {
+          const date = new Date();
+          date.setMonth(date.getMonth() - i);
+          const startOfMonth = new Date(date.getFullYear(), date.getMonth(), 1);
+          const endOfMonth = new Date(date.getFullYear(), date.getMonth() + 1, 0);
+
+          const monthCount = await Bitacora.countDocuments({
+            ...monthlyFilter,
+            createdAt: { $gte: startOfMonth, $lte: endOfMonth }
+          });
+
+          monthlyData.push({
+            month: months[date.getMonth()],
+            value: monthCount
+          });
+        }
+      }
+
+      console.log('Monthly data generated for year:', yearFilter, monthlyData);
+    } catch (error) {
+      console.log('Error generating monthly data:', error);
+      monthlyData = [];
+    }
+
+    // Get status trends data
+    const statusTrends = [
+      {
+        status: 'Activas',
+        color: '#10b981',
+        data: await Promise.all(months.map(async (month, index) => {
+          const date = new Date();
+          date.setMonth(date.getMonth() - (11 - index));
+          const startOfMonth = new Date(date.getFullYear(), date.getMonth(), 1);
+          const endOfMonth = new Date(date.getFullYear(), date.getMonth() + 1, 0);
+
+          const count = await Bitacora.countDocuments({
+            ...bitacoraFilter,
+            status: { $nin: ['cerrada', 'finalizada'] },
+            createdAt: { $gte: startOfMonth, $lte: endOfMonth }
+          });
+
+          return { month, value: count };
+        }))
+      },
+      {
+        status: 'Completadas',
+        color: '#3b82f6',
+        data: await Promise.all(months.map(async (month, index) => {
+          const date = new Date();
+          date.setMonth(date.getMonth() - (11 - index));
+          const startOfMonth = new Date(date.getFullYear(), date.getMonth(), 1);
+          const endOfMonth = new Date(date.getFullYear(), date.getMonth() + 1, 0);
+
+          const count = await Bitacora.countDocuments({
+            ...bitacoraFilter,
+            status: { $in: ['cerrada', 'finalizada'] },
+            createdAt: { $gte: startOfMonth, $lte: endOfMonth }
+          });
+
+          return { month, value: count };
+        }))
+      },
+      {
+        status: 'Pendientes',
+        color: '#f59e0b',
+        data: await Promise.all(months.map(async (month, index) => {
+          const date = new Date();
+          date.setMonth(date.getMonth() - (11 - index));
+          const startOfMonth = new Date(date.getFullYear(), date.getMonth(), 1);
+          const endOfMonth = new Date(date.getFullYear(), date.getMonth() + 1, 0);
+
+          const count = await Bitacora.countDocuments({
+            ...bitacoraFilter,
+            status: 'nueva',
+            createdAt: { $gte: startOfMonth, $lte: endOfMonth }
+          });
+
+          return { month, value: count };
+        }))
+      }
+    ];
+
+    // Get event distribution
+    const eventDistribution = await Bitacora.aggregate([
+      { $match: bitacoraFilter },
+      { $unwind: '$eventos' },
+      { $group: { _id: '$eventos.tipo', count: { $sum: 1 } } },
+      { $sort: { count: -1 } },
+      { $limit: 10 }
+    ]);
+
+    const eventColors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#84cc16', '#f97316', '#ec4899', '#6366f1'];
+    const formattedEventDistribution = eventDistribution.map((event, index) => ({
+      name: event._id || 'Sin especificar',
+      count: event.count,
+      color: eventColors[index % eventColors.length]
+    }));
+
+    // Get event categories statistics for pie chart (excluding "General")
+    let eventCategoriesStats = [];
+    try {
+      // First, let's get all event types to understand the mapping
+      const eventTypes = await EventType.find({ categoria: { $in: ['ENA', 'ONC', 'DR', 'FM'] } });
+      console.log('Available event types:', eventTypes);
+
+      // Get event names for each category
+      const eventNamesByCategory = {};
+      eventTypes.forEach(eventType => {
+        if (!eventNamesByCategory[eventType.categoria]) {
+          eventNamesByCategory[eventType.categoria] = [];
+        }
+        eventNamesByCategory[eventType.categoria].push(eventType.evento);
+      });
+
+      console.log('Event names by category:', eventNamesByCategory);
+
+      // Now aggregate by event names that belong to our categories
+      eventCategoriesStats = await Bitacora.aggregate([
+        { $match: bitacoraFilter },
+        { $unwind: '$eventos' },
+        {
+          $match: {
+            'eventos.nombre': {
+              $in: eventTypes.map(et => et.evento)
+            }
+          }
+        },
+        {
+          $lookup: {
+            from: 'eventtypes',
+            localField: 'eventos.nombre',
+            foreignField: 'evento',
+            as: 'eventTypeInfo'
+          }
+        },
+        {
+          $group: {
+            _id: { $arrayElemAt: ['$eventTypeInfo.categoria', 0] },
+            count: { $sum: 1 }
+          }
+        },
+        { $sort: { count: -1 } }
+      ]);
+
+      console.log('Raw event categories stats:', eventCategoriesStats);
+
+      // Define colors for each category
+      const categoryColors = {
+        'ENA': '#3b82f6',  // Blue
+        'FM': '#10b981',   // Green
+        'ONC': '#f59e0b',  // Orange
+        'DR': '#ef4444'    // Red
+      };
+
+      // Format the data with colors and ensure all categories are present
+      const allCategories = ['ENA', 'FM', 'ONC', 'DR'];
+      const formattedCategories = allCategories.map(category => {
+        const found = eventCategoriesStats.find(stat => stat._id === category);
+        return {
+          categoria: category,
+          count: found ? found.count : 0,
+          color: categoryColors[category]
+        };
+      });
+
+      eventCategoriesStats = formattedCategories;
+      console.log('Formatted event categories stats:', eventCategoriesStats);
+    } catch (error) {
+      console.log('Error fetching event categories stats:', error);
+      eventCategoriesStats = [];
+    }
+
+    // Get geographic data
+    const geoType = req.query.geoType || 'origen';
+    let geographicData = [];
+    try {
+      if (geoType === 'destino') {
+        geographicData = await Bitacora.aggregate([
+          { $match: bitacoraFilter },
+          { $group: { _id: '$destino', count: { $sum: 1 } } },
+          { $sort: { count: -1 } },
+          { $limit: 10 },
+          {
+            $lookup: {
+              from: 'destinos',
+              localField: '_id',
+              foreignField: 'nombre',
+              as: 'destinoInfo'
+            }
+          },
+          {
+            $project: {
+              name: {
+                $cond: {
+                  if: { $gt: [{ $size: '$destinoInfo' }, 0] },
+                  then: { $arrayElemAt: ['$destinoInfo.nombre', 0] },
+                  else: '$_id'
+                }
+              },
+              count: 1
+            }
+          }
+        ]);
+      } else {
+        geographicData = await Bitacora.aggregate([
+          { $match: bitacoraFilter },
+          { $group: { _id: '$origen', count: { $sum: 1 } } },
+          { $sort: { count: -1 } },
+          { $limit: 10 },
+          {
+            $lookup: {
+              from: 'origenes',
+              localField: '_id',
+              foreignField: 'nombre',
+              as: 'originInfo'
+            }
+          },
+          {
+            $project: {
+              name: {
+                $cond: {
+                  if: { $gt: [{ $size: '$originInfo' }, 0] },
+                  then: { $arrayElemAt: ['$originInfo.nombre', 0] },
+                  else: '$_id'
+                }
+              },
+              count: 1
+            }
+          }
+        ]);
+      }
+    } catch (error) {
+      console.log('Error fetching geographic data:', error);
+    }
+
+    // Get operator efficiency
+    let operatorEfficiency = [];
+    try {
+      operatorEfficiency = await Bitacora.aggregate([
+        { $match: bitacoraFilter },
+        {
+          $group: {
+            _id: '$operador',
+            total: { $sum: 1 },
+            completed: { $sum: { $cond: [{ $in: ['$status', ['cerrada', 'finalizada']] }, 1, 0] } }
+          }
+        },
+        { $sort: { total: -1 } },
+        { $limit: 10 },
+        {
+          $project: {
+            name: '$_id',
+            total: 1,
+            completed: 1,
+            efficiency: { $multiply: [{ $divide: ['$completed', '$total'] }, 100] }
+          }
+        }
+      ]);
+    } catch (error) {
+      console.log('Error fetching operator efficiency:', error);
+    }
+
+    // Get tipos de monitoreo data
+    let tiposMonitoreo = [];
+    try {
+      tiposMonitoreo = await Bitacora.aggregate([
+        { $match: bitacoraFilter },
+        { $group: { _id: '$monitoreo', count: { $sum: 1 } } },
+        { $sort: { count: -1 } },
+        {
+          $lookup: {
+            from: 'monitoreos',
+            localField: '_id',
+            foreignField: 'tipoMonitoreo',
+            as: 'tipoInfo'
+          }
+        },
+        {
+          $project: {
+            nombre: {
+              $cond: {
+                if: { $gt: [{ $size: '$tipoInfo' }, 0] },
+                then: { $arrayElemAt: ['$tipoInfo.tipoMonitoreo', 0] },
+                else: '$_id'
+              }
+            },
+            count: 1,
+            color: { $arrayElemAt: ['$tipoInfo.color', 0] }
+          }
+        }
+      ]);
+    } catch (error) {
+      console.log('Error fetching tipos de monitoreo:', error);
+    }
+
+    // Add colors to tipos de monitoreo if not present
+    const tipoColors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#84cc16', '#f97316', '#ec4899', '#6366f1'];
+    const formattedTiposMonitoreo = tiposMonitoreo.map((tipo, index) => ({
+      ...tipo,
+      color: tipoColors[index % tipoColors.length]
+    }));
+
+    // Get client performance
+    let clientPerformance = [];
+    try {
+      clientPerformance = await Bitacora.aggregate([
+        { $match: bitacoraFilter },
+        {
+          $group: {
+            _id: '$cliente',
+            completed: { $sum: { $cond: [{ $in: ['$status', ['cerrada', 'finalizada']] }, 1, 0] } },
+            pending: { $sum: { $cond: [{ $eq: ['$status', 'nueva'] }, 1, 0] } }
+          }
+        },
+        { $sort: { completed: -1 } },
+        { $limit: 10 },
+        {
+          $lookup: {
+            from: 'clients',
+            localField: '_id',
+            foreignField: 'razon_social',
+            as: 'clientInfo'
+          }
+        },
+        {
+          $project: {
+            name: {
+              $cond: {
+                if: { $gt: [{ $size: '$clientInfo' }, 0] },
+                then: { $arrayElemAt: ['$clientInfo.razon_social', 0] },
+                else: '$_id'
+              }
+            },
+            completed: 1,
+            pending: 1
+          }
+        }
+      ]);
+    } catch (error) {
+      console.log('Error fetching client performance:', error);
+    }
+
+    // Get top clients
+    let topClients = [];
+    try {
+      topClients = await Bitacora.aggregate([
+        { $match: bitacoraFilter },
+        { $group: { _id: '$cliente', count: { $sum: 1 } } },
+        { $sort: { count: -1 } },
+        { $limit: 5 },
+        {
+          $lookup: {
+            from: 'clients',
+            localField: '_id',
+            foreignField: 'razon_social',
+            as: 'clientInfo'
+          }
+        },
+        {
+          $project: {
+            nombre: {
+              $cond: {
+                if: { $gt: [{ $size: '$clientInfo' }, 0] },
+                then: { $arrayElemAt: ['$clientInfo.razon_social', 0] },
+                else: '$_id'
+              }
+            },
+            count: 1
+          }
+        }
+      ]);
+    } catch (error) {
+      console.log('Error fetching top clients:', error);
+    }
+
+    // Get top operadores
+    let topOperadores = [];
+    try {
+      topOperadores = await Bitacora.aggregate([
+        { $match: bitacoraFilter },
+        { $group: { _id: '$operador', count: { $sum: 1 } } },
+        { $sort: { count: -1 } },
+        { $limit: 5 },
+        {
+          $project: {
+            name: '$_id',
+            count: 1
+          }
+        }
+      ]);
+    } catch (error) {
+      console.log('Error fetching top operadores:', error);
+    }
+
+    res.status(200).json({
+      totalBitacoras,
+      nuevasBitacoras,
+      enProcesoBitacoras,
+      cerradasBitacoras,
+      totalUsers,
+      totalClients,
+      recentActivity: formattedActivity,
+      monthlyData,
+      statusTrends,
+      eventDistribution: formattedEventDistribution,
+      eventCategoriesStats,
+      geographicData,
+      operatorEfficiency,
+      clientPerformance,
+      tiposMonitoreo: formattedTiposMonitoreo,
+      topClients,
+      topOperadores
+    });
+
+  } catch (err) {
+    console.error('[GET /dashboard/stats] Error:', err);
+    res.status(500).json({ error: 'Failed to fetch dashboard statistics' });
+  }
+});
+
+// Helper functions for dashboard
+function getActivityIcon(tipo) {
+  const iconMap = {
+    'CREATE': 'fa-plus',
+    'UPDATE': 'fa-edit',
+    'DELETE': 'fa-trash',
+    'LOGIN': 'fa-sign-in-alt',
+    'LOGOUT': 'fa-sign-out-alt'
+  };
+  return iconMap[tipo] || 'fa-info-circle';
+}
+
+function getActivityColor(tipo) {
+  const colorMap = {
+    'CREATE': 'success',
+    'UPDATE': 'info',
+    'DELETE': 'danger',
+    'LOGIN': 'primary',
+    'LOGOUT': 'secondary'
+  };
+  return colorMap[tipo] || 'muted';
+}
+
+// Additional dashboard endpoints for detailed data
+app.get('/dashboard/monthly-trend', async (req, res) => {
+  try {
+    const user = req.session.user;
+    if (!user) {
+      return res.status(401).json({ message: 'User not found' });
+    }
+
+    const role = await Role.findById(user.role);
+    if (!role) {
+      return res.status(401).json({ message: 'Role not found' });
+    }
+
+    const { yearFilter = new Date().getFullYear() } = req.query;
+
+    // Build filters based on user permissions
+    let bitacoraFilter = {};
+    if (!role.bitacoras?.read_all) {
+      const userFullName = `${user.firstName} ${user.lastName}`;
+      bitacoraFilter.operador = userFullName;
+    }
+
+    // Add year filter
+    if (yearFilter && yearFilter !== 'all') {
+      const startOfYear = new Date(parseInt(yearFilter), 0, 1);
+      const endOfYear = new Date(parseInt(yearFilter), 11, 31, 23, 59, 59);
+      bitacoraFilter.createdAt = {
+        $gte: startOfYear,
+        $lte: endOfYear
+      };
+    }
+
+    const months = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+    const monthlyData = [];
+
+    for (let i = 0; i < 12; i++) {
+      const date = new Date(parseInt(yearFilter), i, 1);
+      const startOfMonth = new Date(date.getFullYear(), date.getMonth(), 1);
+      const endOfMonth = new Date(date.getFullYear(), date.getMonth() + 1, 0);
+
+      const monthCount = await Bitacora.countDocuments({
+        ...bitacoraFilter,
+        createdAt: { $gte: startOfMonth, $lte: endOfMonth }
+      });
+
+      monthlyData.push({
+        month: months[i],
+        value: monthCount
+      });
+    }
+
+    res.status(200).json(monthlyData);
+  } catch (err) {
+    console.error('[GET /dashboard/monthly-trend] Error:', err);
+    res.status(500).json({ error: 'Failed to fetch monthly trend data' });
+  }
+});
+
+app.get('/dashboard/status-distribution', async (req, res) => {
+  try {
+    const user = req.session.user;
+    if (!user) {
+      return res.status(401).json({ message: 'User not found' });
+    }
+
+    const role = await Role.findOne({ name: user.role });
+    if (!role) {
+      return res.status(401).json({ message: 'Role not found' });
+    }
+
+    const { timeFilter = 'all', yearFilter = new Date().getFullYear(), clientFilter = 'all' } = req.query;
+
+    // Build time filter
+    let timeFilterQuery = {};
+    if (timeFilter !== 'all') {
+      const now = new Date();
+      const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+      switch (timeFilter) {
+        case 'today':
+          timeFilterQuery = { createdAt: { $gte: startOfDay } };
+          break;
+        case 'week':
+          const startOfWeek = new Date(now.setDate(now.getDate() - now.getDay()));
+          timeFilterQuery = { createdAt: { $gte: startOfWeek } };
+          break;
+        case 'month':
+          const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+          timeFilterQuery = { createdAt: { $gte: startOfMonth } };
+          break;
+        case 'quarter':
+          const currentQuarter = Math.floor(now.getMonth() / 3);
+          const startOfQuarter = new Date(now.getFullYear(), currentQuarter * 3, 1);
+          timeFilterQuery = { createdAt: { $gte: startOfQuarter } };
+          break;
+        case 'year':
+          const startOfYear = new Date(now.getFullYear(), 0, 1);
+          timeFilterQuery = { createdAt: { $gte: startOfYear } };
+          break;
+      }
+    }
+
+    // Add year filter
+    if (yearFilter) {
+      const startOfYear = new Date(parseInt(yearFilter), 0, 1);
+      const endOfYear = new Date(parseInt(yearFilter), 11, 31, 23, 59, 59);
+      timeFilterQuery = {
+        ...timeFilterQuery,
+        createdAt: {
+          $gte: startOfYear,
+          $lte: endOfYear
+        }
+      };
+    }
+
+    // Build filters based on user permissions
+    let bitacoraFilter = { ...timeFilterQuery };
+
+    // Add client filter
+    if (clientFilter !== 'all') {
+      bitacoraFilter.cliente = clientFilter;
+    }
+
+    if (!role.bitacoras?.read_all) {
+      const userFullName = `${user.firstName} ${user.lastName}`;
+      bitacoraFilter.operador = userFullName;
+    }
+
+    const statusDistribution = await Bitacora.aggregate([
+      { $match: bitacoraFilter },
+      { $group: { _id: '$status', count: { $sum: 1 } } },
+      { $sort: { count: -1 } }
+    ]);
+
+    const statusColors = {
+      'nueva': '#10b981',
+      'cerrada': '#3b82f6',
+      'finalizada': '#3b82f6',
+      'creada': '#f59e0b',
+      'en_proceso': '#8b5cf6'
+    };
+
+    const formattedStatusDistribution = statusDistribution.map(status => ({
+      status: status._id,
+      count: status.count,
+      color: statusColors[status._id] || '#64748b'
+    }));
+
+    res.status(200).json(formattedStatusDistribution);
+  } catch (err) {
+    console.error('[GET /dashboard/status-distribution] Error:', err);
+    res.status(500).json({ error: 'Failed to fetch status distribution data' });
+  }
+});
+
+app.get('/dashboard/event-types', async (req, res) => {
+  try {
+    const user = req.session.user;
+    if (!user) {
+      return res.status(401).json({ message: 'User not found' });
+    }
+
+    const role = await Role.findOne({ name: user.role });
+    if (!role) {
+      return res.status(401).json({ message: 'Role not found' });
+    }
+
+    const { timeFilter = 'all', yearFilter = new Date().getFullYear(), clientFilter = 'all' } = req.query;
+
+    // Build time filter
+    let timeFilterQuery = {};
+    if (timeFilter !== 'all') {
+      const now = new Date();
+      const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+      switch (timeFilter) {
+        case 'today':
+          timeFilterQuery = { createdAt: { $gte: startOfDay } };
+          break;
+        case 'week':
+          const startOfWeek = new Date(now.setDate(now.getDate() - now.getDay()));
+          timeFilterQuery = { createdAt: { $gte: startOfWeek } };
+          break;
+        case 'month':
+          const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+          timeFilterQuery = { createdAt: { $gte: startOfMonth } };
+          break;
+        case 'quarter':
+          const currentQuarter = Math.floor(now.getMonth() / 3);
+          const startOfQuarter = new Date(now.getFullYear(), currentQuarter * 3, 1);
+          timeFilterQuery = { createdAt: { $gte: startOfQuarter } };
+          break;
+        case 'year':
+          const startOfYear = new Date(now.getFullYear(), 0, 1);
+          timeFilterQuery = { createdAt: { $gte: startOfYear } };
+          break;
+      }
+    }
+
+    // Add year filter
+    if (yearFilter && yearFilter !== 'all') {
+      const startOfYear = new Date(parseInt(yearFilter), 0, 1);
+      const endOfYear = new Date(parseInt(yearFilter), 11, 31, 23, 59, 59);
+      timeFilterQuery = {
+        ...timeFilterQuery,
+        createdAt: {
+          $gte: startOfYear,
+          $lte: endOfYear
+        }
+      };
+    }
+
+    // Build filters based on user permissions
+    let bitacoraFilter = { ...timeFilterQuery };
+
+    // Add client filter
+    if (clientFilter !== 'all') {
+      bitacoraFilter.cliente = clientFilter;
+    }
+
+    if (!role.bitacoras?.read_all) {
+      const userFullName = `${user.firstName} ${user.lastName}`;
+      bitacoraFilter.operador = userFullName;
+    }
+
+    const eventTypes = await Bitacora.aggregate([
+      { $match: bitacoraFilter },
+      { $unwind: '$eventos' },
+      { $group: { _id: '$eventos.nombre', count: { $sum: 1 } } },
+      { $sort: { count: -1 } },
+      { $limit: 10 }
+    ]);
+
+    const eventColors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#84cc16', '#f97316', '#ec4899', '#6366f1'];
+
+    const formattedEventTypes = eventTypes.map((event, index) => ({
+      name: event._id || 'Sin especificar',
+      count: event.count,
+      color: eventColors[index % eventColors.length]
+    }));
+
+    res.status(200).json(formattedEventTypes);
+  } catch (err) {
+    console.error('[GET /dashboard/event-types] Error:', err);
+    res.status(500).json({ error: 'Failed to fetch event types data' });
+  }
+});
+
+// Test endpoint for event categories
+app.get('/test/event-categories', async (req, res) => {
+  try {
+    // Get all event types
+    const eventTypes = await EventType.find();
+    console.log('All event types:', eventTypes);
+
+    // Get event types by category
+    const eventTypesByCategory = await EventType.find({ categoria: { $in: ['ENA', 'ONC', 'DR', 'FM'] } });
+    console.log('Event types by category:', eventTypesByCategory);
+
+    // Get some bitacoras with events
+    const bitacorasWithEvents = await Bitacora.find({ 'eventos.0': { $exists: true } }).limit(5);
+    console.log('Bitacoras with events:', bitacorasWithEvents);
+
+    res.json({
+      allEventTypes: eventTypes,
+      eventTypesByCategory: eventTypesByCategory,
+      bitacorasWithEvents: bitacorasWithEvents
+    });
+  } catch (error) {
+    console.error('Error in test endpoint:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Endpoint para obtener datos de eventos ONC para el gráfico de barras
+app.get('/dashboard/onc-events', async (req, res) => {
+  try {
+    const user = req.session.user;
+    if (!user) {
+      return res.status(401).json({ message: 'User not found' });
+    }
+
+    const role = await Role.findOne({ name: user.role });
+    if (!role) {
+      return res.status(401).json({ message: 'Role not found' });
+    }
+
+    // Obtener filtros de la query
+    const {
+      clientFilter = 'all',
+      fechaDesde = '',
+      fechaHasta = '',
+      lineaTransporte = 'all',
+      operador = 'all'
+    } = req.query;
+
+    // Construir filtros de bitácora
+    let bitacoraFilter = {};
+
+    // Filtro de fechas
+    console.log('ONC Date filter values:', { fechaDesde, fechaHasta, fechaDesdeType: typeof fechaDesde, fechaHastaType: typeof fechaHasta });
+
+    if (fechaDesde && fechaHasta && fechaDesde.trim() !== '' && fechaHasta.trim() !== '') {
+      const startDate = new Date(fechaDesde);
+      const endDate = new Date(fechaHasta + 'T23:59:59.999Z');
+
+      console.log('ONC Parsed dates:', { startDate, endDate, startDateValid: !isNaN(startDate), endDateValid: !isNaN(endDate) });
+
+      if (!isNaN(startDate) && !isNaN(endDate)) {
+        bitacoraFilter.createdAt = {
+          $gte: startDate,
+          $lte: endDate
+        };
+        console.log('ONC Date filter applied:', bitacoraFilter.createdAt);
+      }
+    }
+
+    // Filtro de cliente
+    if (clientFilter !== 'all') {
+      bitacoraFilter.cliente = clientFilter;
+    }
+
+    // Filtro de línea de transporte
+    if (lineaTransporte !== 'all') {
+      bitacoraFilter.linea_transporte = lineaTransporte;
+    }
+
+    // Filtro de operador
+    if (operador !== 'all') {
+      bitacoraFilter.operador = operador;
+    }
+
+    // Filtro de permisos de usuario
+    if (!role.bitacoras?.read_all) {
+      const userFullName = `${user.firstName} ${user.lastName}`;
+      // Only override operator filter if no specific operator is selected
+      if (operador === 'all') {
+        bitacoraFilter.operador = userFullName;
+      }
+    }
+
+    // Obtener todos los eventos de tipo ONC
+    const oncEventTypes = await EventType.find({ categoria: 'ONC' });
+    console.log('ONC Event types found:', oncEventTypes);
+
+    // Obtener datos de eventos ONC de las bitácoras
+    const oncEventsData = await Bitacora.aggregate([
+      { $match: bitacoraFilter },
+      { $unwind: '$eventos' },
+      {
+        $lookup: {
+          from: 'eventtypes',
+          localField: 'eventos.nombre',
+          foreignField: 'evento',
+          as: 'eventTypeInfo'
+        }
+      },
+      {
+        $match: {
+          'eventTypeInfo.categoria': 'ONC'
+        }
+      },
+      {
+        $group: {
+          _id: '$eventos.nombre',
+          count: { $sum: 1 }
+        }
+      },
+      { $sort: { count: -1 } }
+    ]);
+
+    console.log('ONC Events data:', oncEventsData);
+
+    // Función para generar iniciales del evento
+    const getEventInitials = (eventName) => {
+      // Obtener la parte antes del "/"
+      const parts = eventName.split('/');
+      if (parts.length === 0) {
+        return eventName.substring(0, 3).toUpperCase();
+      }
+
+      const beforeSlash = parts[0].trim();
+
+      // Dividir en palabras y obtener las iniciales
+      const words = beforeSlash.split(' ').filter(word => word.length > 0);
+
+      if (words.length === 0) {
+        return eventName.substring(0, 3).toUpperCase();
+      }
+
+      // Generar iniciales basadas en el número de palabras
+      let initials = '';
+      if (words.length === 1) {
+        // Si es 1 palabra, usar solo una letra
+        initials = words[0].charAt(0).toUpperCase();
+      } else if (words.length === 2) {
+        // Si son 2 palabras, usar 2 letras
+        initials = words[0].charAt(0).toUpperCase() + words[1].charAt(0).toUpperCase();
+      } else if (words.length >= 3) {
+        // Si son 3 o más palabras, usar 3 letras
+        initials = words[0].charAt(0).toUpperCase() + words[1].charAt(0).toUpperCase() + words[2].charAt(0).toUpperCase();
+      }
+
+      return initials;
+    };
+
+    // Colores para las barras
+    const barColors = [
+      '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4',
+      '#84cc16', '#f97316', '#ec4899', '#6366f1', '#14b8a6', '#f43f5e'
+    ];
+
+    // Formatear datos para el gráfico
+    const formattedData = oncEventTypes.map((eventType, index) => {
+      const eventData = oncEventsData.find(data => data._id === eventType.evento);
+      const count = eventData ? eventData.count : 0;
+
+      return {
+        eventName: eventType.evento,
+        initials: getEventInitials(eventType.evento),
+        count: count,
+        color: barColors[index % barColors.length]
+      };
+    });
+
+    res.status(200).json(formattedData);
+  } catch (error) {
+    console.error('[GET /dashboard/onc-events] Error:', error);
+    res.status(500).json({ error: 'Failed to fetch ONC events data' });
+  }
+});
+
+// Endpoint para obtener bitácoras con anomalías
+app.get('/dashboard/bitacoras-anomalias', async (req, res) => {
+  try {
+    const user = req.session.user;
+    if (!user) {
+      return res.status(401).json({ message: 'User not found' });
+    }
+
+    const role = await Role.findOne({ name: user.role });
+    if (!role) {
+      return res.status(401).json({ message: 'Role not found' });
+    }
+
+    // Obtener filtros de la query
+    const {
+      clientFilter = 'all',
+      fechaDesde = '',
+      fechaHasta = '',
+      lineaTransporte = 'all',
+      operador = 'all'
+    } = req.query;
+
+    // Construir filtros de bitácora
+    let bitacoraFilter = {};
+
+    // Filtro de fechas
+    console.log('Bitacoras Anomalias Date filter values:', { fechaDesde, fechaHasta, fechaDesdeType: typeof fechaDesde, fechaHastaType: typeof fechaHasta });
+
+    if (fechaDesde && fechaHasta && fechaDesde.trim() !== '' && fechaHasta.trim() !== '') {
+      const startDate = new Date(fechaDesde);
+      const endDate = new Date(fechaHasta + 'T23:59:59.999Z');
+
+      console.log('Bitacoras Anomalias Parsed dates:', { startDate, endDate, startDateValid: !isNaN(startDate), endDateValid: !isNaN(endDate) });
+
+      if (!isNaN(startDate) && !isNaN(endDate)) {
+        bitacoraFilter.createdAt = {
+          $gte: startDate,
+          $lte: endDate
+        };
+        console.log('Bitacoras Anomalias Date filter applied:', bitacoraFilter.createdAt);
+      }
+    }
+
+    // Filtro de cliente
+    if (clientFilter !== 'all') {
+      bitacoraFilter.cliente = clientFilter;
+    }
+
+    // Filtro de línea de transporte
+    if (lineaTransporte !== 'all') {
+      bitacoraFilter.linea_transporte = lineaTransporte;
+    }
+
+    // Filtro de operador
+    if (operador !== 'all') {
+      bitacoraFilter.operador = operador;
+    }
+
+    // Filtro de permisos de usuario
+    if (!role.bitacoras?.read_all) {
+      const userFullName = `${user.firstName} ${user.lastName}`;
+      // Only override operator filter if no specific operator is selected
+      if (operador === 'all') {
+        bitacoraFilter.operador = userFullName;
+      }
+    }
+
+    // Obtener bitácoras que tengan al menos un evento de categoría diferente a "General"
+    const bitacorasConAnomalias = await Bitacora.aggregate([
+      { $match: bitacoraFilter },
+      { $unwind: '$eventos' },
+      {
+        $lookup: {
+          from: 'eventtypes',
+          localField: 'eventos.nombre',
+          foreignField: 'evento',
+          as: 'eventTypeInfo'
+        }
+      },
+      {
+        $match: {
+          'eventTypeInfo.categoria': { $ne: 'General' }
+        }
+      },
+      {
+        $group: {
+          _id: '$_id',
+          bitacora_id: { $first: '$bitacora_id' },
+          cliente: { $first: '$cliente' },
+          linea_transporte: { $first: '$linea_transporte' },
+          operador: { $first: '$operador' },
+          origen: { $first: '$origen' },
+          destino: { $first: '$destino' },
+          status: { $first: '$status' },
+          createdAt: { $first: '$createdAt' },
+          eventos: { $push: '$eventos' },
+          eventTypes: { $push: '$eventTypeInfo' }
+        }
+      },
+      { $sort: { createdAt: -1 } }
+    ]);
+
+    // Formatear los datos para la respuesta
+    const formattedBitacoras = bitacorasConAnomalias.map(bitacora => {
+      // Obtener las categorías únicas de eventos para esta bitácora
+      const categorias = [...new Set(bitacora.eventTypes.flat().map(et => et.categoria).filter(cat => cat && cat !== 'General'))];
+
+      return {
+        _id: bitacora._id,
+        bitacora_id: bitacora.bitacora_id,
+        cliente: bitacora.cliente,
+        linea_transporte: bitacora.linea_transporte,
+        operador: bitacora.operador,
+        origen: bitacora.origen,
+        destino: bitacora.destino,
+        status: bitacora.status,
+        createdAt: bitacora.createdAt,
+        categorias: categorias,
+        totalEventos: bitacora.eventos.length
+      };
+    });
+
+    res.status(200).json(formattedBitacoras);
+  } catch (error) {
+    console.error('[GET /dashboard/bitacoras-anomalias] Error:', error);
+    res.status(500).json({ error: 'Failed to fetch bitacoras with anomalies' });
+  }
+});
 
 //start the server
 app.listen(PORT, () => {

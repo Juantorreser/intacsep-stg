@@ -1,7 +1,8 @@
-import React, {useState, useEffect} from "react";
+import {useState, useEffect} from "react";
 import "bootstrap/dist/css/bootstrap.min.css";
 import "bootstrap/dist/js/bootstrap.bundle.min";
 import {useAuth} from "../context/AuthContext";
+import {useSidebar} from "../context/SidebarContext";
 import {useNavigate} from "react-router-dom";
 import ProfileModal from "./Profile/ProfilePage";
 import InactivityModal from "./Settings/InactivityModal";
@@ -9,16 +10,16 @@ import Footer from "./Footer";
 
 const Sidebar = () => {
   const {user, verifyToken, setUser, logout} = useAuth();
+  const {isSidebarCollapsed, toggleSidebar} = useSidebar();
   const navigate = useNavigate();
   const [roleData, setRoleData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [initialized, setInitialized] = useState(false); // Track initialization
+  const [initialized, setInitialized] = useState(false);
   const baseUrl = import.meta.env.VITE_BASE_URL;
   const [showModal, setShowModal] = useState(false);
   const handleOpenModal = () => setShowModal(true);
   const handleCloseModal = () => setShowModal(false);
   const [showInacModal, setShowInacModal] = useState(false);
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
   const openInacModal = () => setShowInacModal(true);
@@ -27,23 +28,23 @@ const Sidebar = () => {
   useEffect(() => {
     const init = async () => {
       try {
-        const data = await verifyToken(); // Ensure user is verified
+        const data = await verifyToken();
         setUser(data);
-        setInitialized(true); // Set initialization as complete
+        setInitialized(true);
       } catch (e) {
         console.log("Error verifying token or fetching user:", e);
         navigate("/login");
       } finally {
-        setLoading(false); // Set loading to false once initialization is done
+        setLoading(false);
       }
     };
 
     init();
-  }, []); // Run only on mount
+  }, []);
 
   useEffect(() => {
     const fetchRolePermissions = async () => {
-      if (!user) return; // Ensure user is available before fetching role data
+      if (!user) return;
 
       try {
         const response = await fetch(`${baseUrl}/roles/${user.role}`, {
@@ -66,7 +67,6 @@ const Sidebar = () => {
     dashboardCollapse: false,
     bitacorasCollapse: false,
     settingsCollapse: false,
-    integrationsCollapse: false,
     catalogosCollapse: false,
     sistemaCollapse: false,
     auditoriaCollapse: false,
@@ -79,18 +79,42 @@ const Sidebar = () => {
     }));
   };
 
+  // Handle icon clicks in collapsed state
+  const handleIconClick = (action, submenuToExpand = null) => {
+    if (isSidebarCollapsed) {
+      // Expand sidebar first
+      toggleSidebar();
+
+      // If there's a submenu to expand, do it after a short delay
+      if (submenuToExpand) {
+        setTimeout(() => {
+          setCollapsedItems((prev) => ({
+            ...prev,
+            [submenuToExpand]: true,
+          }));
+        }, 300); // Wait for sidebar expansion animation
+      }
+    } else {
+      // Execute the original action only if sidebar is not collapsed
+      action();
+    }
+  };
+
   if (loading) {
     return (
-      <div className="loading-placeholder text-center py-5 w-full h-full flex items-center justify-center">
-        <i className="fa fa-spinner fa-spin me-1" style={{fontSize: "24px"}}></i> Cargando Menu...
+      <div className="sidebar-loading">
+        <div className="loading-spinner">
+          <i className="fa fa-spinner fa-spin"></i>
+          <span>Cargando...</span>
+        </div>
       </div>
-    ); // Add a loading indicator
+    );
   }
 
   return (
     <>
       <button
-        className="btn btn-burger d-md-none mb-5"
+        className="sidebar-toggle-btn d-md-none"
         onClick={() => setIsMobileSidebarOpen(!isMobileSidebarOpen)}>
         <i className="fa fa-bars"></i>
       </button>
@@ -100,182 +124,259 @@ const Sidebar = () => {
         className={`${isSidebarCollapsed ? "collapsed" : ""} ${
           isMobileSidebarOpen ? "mobile-open" : ""
         }`}>
-        {isMobileSidebarOpen && (
-          <div className="text-end p-2 d-md-none">
-            <button className="btn btn-close-sidebar" onClick={() => setIsMobileSidebarOpen(false)}>
-              <i className="fa fa-times"></i>
+        {/* Floating Collapse Button (only when collapsed) */}
+        {isSidebarCollapsed && (
+          <div className="floating-collapse-btn">
+            <button onClick={toggleSidebar} className="collapse-btn">
+              <i className="fa fa-chevron-right"></i>
             </button>
           </div>
         )}
 
         <div className="sidebar-wrapper">
-          {/* <div className="sidebar-toggle text-end p-2">
-            <button
-              className="btn btn-sm text-white"
-              onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}>
-              <i className={`fa fa-chevron-${isSidebarCollapsed ? "right" : "left"}`} />
-            </button>
-          </div> */}
+          {/* Mobile close button */}
+          {isMobileSidebarOpen && (
+            <div className="mobile-close-btn">
+              <button onClick={() => setIsMobileSidebarOpen(false)}>
+                <i className="fa fa-times"></i>
+              </button>
+            </div>
+          )}
 
-          <div className="user-box" onClick={handleOpenModal}>
-            <a className="navbar-brand" href="#">
-              <img
-                src="/logo1.png"
-                alt="Logo"
-                width="50"
-                className="d-inline-block align-text-top"
-              />
-              <span className="ms-2">Intacsep</span>
-            </a>
-            <span className="mt-3">Bienvenido (a)</span>
-            <h5>
-              {user?.firstName} {user?.lastName}
-            </h5>
-            {user && (
-              <>
-                <span>{user.email}</span>
-                <span>{user.role}</span>
-              </>
+          {/* User Profile Section */}
+          <div className="user-profile" onClick={handleOpenModal}>
+            {/* Collapse/Expand Button (only when expanded) */}
+            {!isSidebarCollapsed && (
+              <div className="sidebar-toggle" onClick={(e) => e.stopPropagation()}>
+                <button onClick={toggleSidebar} className="collapse-btn">
+                  <i className="fa fa-chevron-left"></i>
+                </button>
+              </div>
+            )}
+
+            <div className="user-avatar">
+              <img src="/logo1.png" alt="Logo" />
+            </div>
+            {!isSidebarCollapsed && (
+              <div className="user-info">
+                <h6 className="user-name">
+                  {user?.firstName} {user?.lastName}
+                </h6>
+                <span className="user-role">{user?.role}</span>
+                <span className="user-email">{user?.email}</span>
+              </div>
             )}
           </div>
 
-          {/* <div className="menu-title">Menú</div> */}
-          <div className="scrollable-content">
-            <ul className="nav">
+          {/* Navigation Menu */}
+          <nav className="sidebar-nav">
+            <ul className="nav-menu">
+              {/* Dashboard */}
+              <li className="nav-item">
+                <div
+                  className="nav-link"
+                  onClick={() => handleIconClick(() => navigate("/dashboard"))}>
+                  <div className="nav-link-content">
+                    <i className="fa fa-tachometer-alt"></i>
+                    {!isSidebarCollapsed && <span>Dashboard</span>}
+                  </div>
+                </div>
+              </li>
+
+              {/* Monitoreo */}
               {roleData?.bitacoras?.read && (
                 <li className="nav-item">
                   <div
-                    className="nav-link-title"
-                    onClick={() => toggleCollapse("bitacorasCollapse")}>
-                    <div className="d-flex align-items-center">
-                      {/* <i className="fa fa-book " /> */}
+                    className="nav-link has-submenu"
+                    onClick={() =>
+                      handleIconClick(
+                        () => toggleCollapse("bitacorasCollapse"),
+                        "bitacorasCollapse"
+                      )
+                    }>
+                    <div className="nav-link-content">
+                      <i className="fa fa-chart-line"></i>
                       {!isSidebarCollapsed && <span>Monitoreo</span>}
                     </div>
-                    <i className={`fa fa-${collapsedItems.bitacorasCollapse ? "minus" : "plus"}`} />
+                    {!isSidebarCollapsed && (
+                      <i
+                        className={`fa fa-chevron-${
+                          collapsedItems.bitacorasCollapse ? "up" : "down"
+                        }`}
+                      />
+                    )}
                   </div>
 
-                  {collapsedItems.bitacorasCollapse && (
+                  {collapsedItems.bitacorasCollapse && !isSidebarCollapsed && (
                     <ul className="submenu">
-                      <li onClick={() => navigate("/bitacoras")}>Bitácoras</li>
+                      <li onClick={() => navigate("/bitacoras")}>
+                        <i className="fa fa-book"></i>
+                        <span>Bitácoras</span>
+                      </li>
                     </ul>
                   )}
                 </li>
               )}
 
+              {/* Configuración */}
               {roleData && (
                 <li className="nav-item">
                   <div
-                    className="nav-link-title"
-                    onClick={() => toggleCollapse("settingsCollapse")}>
-                    Configuración
-                    <i className={`fa fa-${collapsedItems.settingsCollapse ? "minus" : "plus"}`} />
+                    className="nav-link has-submenu"
+                    onClick={() =>
+                      handleIconClick(() => toggleCollapse("settingsCollapse"), "settingsCollapse")
+                    }>
+                    <div className="nav-link-content">
+                      <i className="fa fa-cog"></i>
+                      {!isSidebarCollapsed && <span>Configuración</span>}
+                    </div>
+                    {!isSidebarCollapsed && (
+                      <i
+                        className={`fa fa-chevron-${
+                          collapsedItems.settingsCollapse ? "up" : "down"
+                        }`}
+                      />
+                    )}
                   </div>
 
-                  {collapsedItems.settingsCollapse && (
+                  {collapsedItems.settingsCollapse && !isSidebarCollapsed && (
                     <ul className="submenu">
                       {/* Catálogos */}
-                      <li onClick={() => toggleCollapse("catalogosCollapse")}>
-                        Catálogos
-                        <i
-                          className={`fa fa-${collapsedItems.catalogosCollapse ? "minus" : "plus"}`}
-                        />
+                      <li className="submenu-item">
+                        <div
+                          className="submenu-link has-submenu"
+                          onClick={() => toggleCollapse("catalogosCollapse")}>
+                          <div className="submenu-link-content">
+                            <i className="fa fa-list"></i>
+                            <span>Catálogos</span>
+                          </div>
+                          <i
+                            className={`fa fa-chevron-${
+                              collapsedItems.catalogosCollapse ? "up" : "down"
+                            }`}
+                          />
+                        </div>
+
+                        {collapsedItems.catalogosCollapse && (
+                          <ul className="sub-submenu">
+                            {roleData.tipos_de_monitoreo?.read && (
+                              <li onClick={() => navigate("/tipos_monitoreo")}>
+                                <i className="fa fa-tags"></i>
+                                <span>Tipos Monitoreo</span>
+                              </li>
+                            )}
+                            {roleData.eventos?.read && (
+                              <li onClick={() => navigate("/eventos")}>
+                                <i className="fa fa-calendar-alt"></i>
+                                <span>Eventos</span>
+                              </li>
+                            )}
+                            {roleData.clientes?.read && (
+                              <li onClick={() => navigate("/clientes")}>
+                                <i className="fa fa-building"></i>
+                                <span>Clientes</span>
+                              </li>
+                            )}
+                            {roleData.origenes?.read && (
+                              <li onClick={() => navigate("/origenes")}>
+                                <i className="fa fa-map-marker-alt"></i>
+                                <span>Origenes</span>
+                              </li>
+                            )}
+                            {roleData.destinos?.read && (
+                              <li onClick={() => navigate("/destinos")}>
+                                <i className="fa fa-map-pin"></i>
+                                <span>Destinos</span>
+                              </li>
+                            )}
+                          </ul>
+                        )}
                       </li>
-                      {collapsedItems.catalogosCollapse && (
-                        <ul className="submenu">
-                          {roleData.tipos_de_monitoreo.read && (
-                            <li onClick={() => navigate("/tipos_monitoreo")}>Tipos Monitoreo</li>
-                          )}
-                          {roleData.eventos.read && (
-                            <li onClick={() => navigate("/eventos")}>Eventos</li>
-                          )}
-                          {roleData.clientes.read && (
-                            <li onClick={() => navigate("/clientes")}>Clientes</li>
-                          )}
-                          {roleData.origenes.read && (
-                            <li onClick={() => navigate("/origenes")}>Origenes</li>
-                          )}
-                          {roleData.destinos.read && (
-                            <li onClick={() => navigate("/destinos")}>Destinos</li>
-                          )}
-                        </ul>
-                      )}
 
                       {/* Sistema */}
-                      <li onClick={() => toggleCollapse("sistemaCollapse")}>
-                        Sistema
-                        <i
-                          className={`fa fa-${collapsedItems.sistemaCollapse ? "minus" : "plus"}`}
-                        />
+                      <li className="submenu-item">
+                        <div
+                          className="submenu-link has-submenu"
+                          onClick={() => toggleCollapse("sistemaCollapse")}>
+                          <div className="submenu-link-content">
+                            <i className="fa fa-server"></i>
+                            <span>Sistema</span>
+                          </div>
+                          <i
+                            className={`fa fa-chevron-${
+                              collapsedItems.sistemaCollapse ? "up" : "down"
+                            }`}
+                          />
+                        </div>
+
+                        {collapsedItems.sistemaCollapse && (
+                          <ul className="sub-submenu">
+                            {roleData.usuarios?.read && (
+                              <li onClick={() => navigate("/usuarios")}>
+                                <i className="fa fa-users"></i>
+                                <span>Usuarios</span>
+                              </li>
+                            )}
+                            {roleData.roles?.read && (
+                              <li onClick={() => navigate("/roles")}>
+                                <i className="fa fa-user-shield"></i>
+                                <span>Roles</span>
+                              </li>
+                            )}
+                            {roleData.inactividad?.read && (
+                              <li onClick={openInacModal}>
+                                <i className="fa fa-clock"></i>
+                                <span>Inactividad</span>
+                              </li>
+                            )}
+                          </ul>
+                        )}
                       </li>
-                      {collapsedItems.sistemaCollapse && (
-                        <ul className="submenu">
-                          {roleData.usuarios.read && (
-                            <li onClick={() => navigate("/usuarios")}>Usuarios</li>
-                          )}
-                          {roleData.roles.read && <li onClick={() => navigate("/roles")}>Roles</li>}
-                          {roleData.inactividad.read && (
-                            <li onClick={openInacModal}>Inactividad</li>
-                          )}
-                        </ul>
-                      )}
 
                       {/* Auditoría */}
-                      <li onClick={() => toggleCollapse("auditoriaCollapse")}>
-                        Auditoría
-                        <i
-                          className={`fa fa-${collapsedItems.auditoriaCollapse ? "minus" : "plus"}`}
-                        />
+                      <li className="submenu-item">
+                        <div
+                          className="submenu-link has-submenu"
+                          onClick={() => toggleCollapse("auditoriaCollapse")}>
+                          <div className="submenu-link-content">
+                            <i className="fa fa-shield-alt"></i>
+                            <span>Auditoría</span>
+                          </div>
+                          <i
+                            className={`fa fa-chevron-${
+                              collapsedItems.auditoriaCollapse ? "up" : "down"
+                            }`}
+                          />
+                        </div>
+
+                        {collapsedItems.auditoriaCollapse && (
+                          <ul className="sub-submenu">
+                            {roleData.auditoria_bitacora?.read && (
+                              <li onClick={() => navigate("/auditoria/bitacoras")}>
+                                <i className="fa fa-history"></i>
+                                <span>Bitácoras</span>
+                              </li>
+                            )}
+                          </ul>
+                        )}
                       </li>
-                      {collapsedItems.auditoriaCollapse && (
-                        <ul className="submenu">
-                          {roleData.auditoria_bitacora.read && (
-                            <li onClick={() => navigate("/auditoria/bitacoras")}>Bitácoras</li>
-                          )}
-                        </ul>
-                      )}
                     </ul>
                   )}
                 </li>
               )}
             </ul>
-          </div>
-          <div className="footer-wrapper">
-            <div className="logout-title" onClick={logout}>
-              <p className="p-0 m-0">Cerrar Sesión</p>
-              {/* <i className="fas fa-power-off"></i> */}
+          </nav>
+
+          {/* Logout Section */}
+          <div className="sidebar-footer">
+            <div className="logout-btn" onClick={logout}>
+              <i className="fa fa-sign-out-alt"></i>
+              {!isSidebarCollapsed && <span>Cerrar Sesión</span>}
             </div>
           </div>
         </div>
 
-        {/* Auditoria Collapsible */}
-        <p className="">
-          <a
-            className="text-white-50 text-decoration-none d-flex justify-content-between align-items-center me-2 itemLine p-0 mb-0"
-            role="button"
-            onClick={() => toggleCollapse("auditoriaCollapse")}
-            style={{fontSize: "0.92rem"}}>
-            Auditoria
-            <i
-              className={`fa ${
-                collapsedItems.auditoriaCollapse ? "fa-minus" : "fa-plus"
-              } text-white-50 my-auto icon-toggle`}></i>
-          </a>
-        </p>
-
-        <div className={`collapse mb-2 ${collapsedItems.auditoriaCollapse ? "show" : ""}`}>
-          <ul className="nav flex-column w-75 ms-4 gap-2 itemLine2">
-            {roleData?.auditoria_bitacora?.read && (
-              <li
-                className="text-white-50 cursor-pointer"
-                onClick={() => navigate("/auditoria/bitacoras")}
-                style={{fontSize: "0.85rem"}}>
-                Bitacoras
-              </li>
-            )}
-          </ul>
-        </div>
-
-        <Footer />
+        {!isSidebarCollapsed && <Footer />}
       </aside>
 
       <InactivityModal show={showInacModal} handleClose={closeInacModal} />

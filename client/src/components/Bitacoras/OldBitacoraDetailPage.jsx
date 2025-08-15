@@ -9,6 +9,7 @@ import {Modal, Button, Form, Row} from "react-bootstrap";
 import "bootstrap/dist/js/bootstrap.bundle.min.js";
 import CreateTransporteModal from "./Transportes/CreateTransporteModal";
 import NewEventModal from "./Eventos/NewEventModal";
+import {useSidebar} from "../../context/SidebarContext";
 
 const BitacoraDetailPage = ({edited}) => {
   const {id} = useParams();
@@ -34,6 +35,7 @@ const BitacoraDetailPage = ({edited}) => {
   const [isEditTransporteModalVisible, setEditTransporteModalVisible] = useState(false);
   const [editedTransporte, setEditedTransporte] = useState(null);
   const [selectedTransportes, setSelectedTransportes] = useState([]);
+  const {isSidebarCollapsed} = useSidebar();
 
   const handleEditTransporte = () => {
     setEditedTransporte(selectedTransporte);
@@ -980,7 +982,7 @@ const BitacoraDetailPage = ({edited}) => {
         <div className="sidebar-wrapper">
           <Sidebar />
         </div>
-        <div className="content-wrapper">
+        <div className={`content-wrapper ${isSidebarCollapsed ? "sidebar-collapsed" : ""}`}>
           <div
             id="detailHeader"
             className="d-flex justify-content-start ps-5 align-items-center position-relative z-1">
@@ -1309,9 +1311,7 @@ const BitacoraDetailPage = ({edited}) => {
           </div>
         </div>
       </div>
-
       <NewEventModal edited={edited} eventTypes={eventTypes} />
-
       {editModalVisible && (
         <>
           <Modal
@@ -1520,7 +1520,6 @@ const BitacoraDetailPage = ({edited}) => {
           </Modal>
         </>
       )}
-
       {/* EDIT TRANSPORTES */}
       {isEditTransporteModalVisible && (
         <>
@@ -1753,7 +1752,6 @@ const BitacoraDetailPage = ({edited}) => {
           </div>
         </>
       )}
-
       {/* CREATE TRASNPORTES */}
       <CreateTransporteModal
         show={showModal}

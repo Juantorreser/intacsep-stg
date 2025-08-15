@@ -13,6 +13,7 @@ import {createAuditoria, generateAuditoriasFromChanges} from "../../utils/audito
 import {getLocationText} from "../../utils/api";
 import {useMemo} from "react";
 import ModalTemplate from "../../components/ModalTemplate"; // make sure path is valid
+import {useSidebar} from "../../context/SidebarContext";
 
 const BitacoraDetailPage = ({edited}) => {
   const {id} = useParams();
@@ -48,6 +49,7 @@ const BitacoraDetailPage = ({edited}) => {
     [editedTransporte?.originalId]
   );
   const [modalOpen, setModalOpen] = useState(false);
+  const {isSidebarCollapsed} = useSidebar();
 
   const handleEditTransporte = () => {
     const selected = selectedTransporte;
@@ -525,9 +527,9 @@ const BitacoraDetailPage = ({edited}) => {
 
   if (!bitacora) {
     return (
-      <div className="loading-placeholder text-center py-5 w-full h-full flex items-center justify-center">
-        <i className="fa fa-spinner fa-spin me-1" style={{fontSize: "24px"}}></i> Cargando
-        bitacora...
+      <div className="loading-container text-center py-5">
+        <i className="fa fa-spinner fa-spin text-primary me-2" style={{fontSize: "24px"}}></i>
+        <span className="text-muted">Cargando bitácora...</span>
       </div>
     );
   }
@@ -547,26 +549,13 @@ const BitacoraDetailPage = ({edited}) => {
     const [eventColor, setEventColor] = useState("#333235");
 
     useEffect(() => {
-      // const computeEventColor = () => {
-      //   if (!frecuencia) return "#333235";
-
-      //   const frecuenciaMs = frecuencia * 60000; // minutos a ms
-      //   const elapsed = Date.now() - new Date(createdAt).getTime();
-
-      //   if (elapsed < frecuenciaMs * 0.75) return "#51FF4E"; // verde
-      //   if (elapsed < frecuenciaMs) return "#ECEC27"; // amarillo
-      //   return "#F82929"; // rojo
-      // };
-
       const computeEventColor = () => {
         if (!frecuencia) return "#333235";
 
         if (!isLastEvent) {
-          // use the persisted boolean
           return event.isFrecuenciaMet ? "#51FF4E" : "#F82929";
         }
 
-        // last event: dynamic countdown
         const frecuenciaMs = frecuencia * 60000;
         const elapsed = Date.now() - new Date(createdAt).getTime();
 
@@ -575,7 +564,6 @@ const BitacoraDetailPage = ({edited}) => {
         return "#F82929";
       };
 
-      // Asigna color inmediatamente y luego cada minuto
       setEventColor(computeEventColor());
       const interval = setInterval(() => {
         setEventColor(computeEventColor());
@@ -596,11 +584,9 @@ const BitacoraDetailPage = ({edited}) => {
       setFormData({...formData, [name]: value});
     };
 
-    // ─── In EventCard, swap out your old handleFormSubmit ───
     const handleFormSubmit = async (e) => {
       e.preventDefault();
 
-      // 1) build the new eventos array
       const updatedEventos = bitacora.eventos.map((evt) =>
         evt._id === event._id
           ? {
@@ -611,19 +597,14 @@ const BitacoraDetailPage = ({edited}) => {
           : evt
       );
 
-      // 2) grab old vs new versions of this one event
       const oldEvent = bitacora.eventos.find((evt) => evt._id === event._id);
       const newEvent = updatedEventos.find((evt) => evt._id === event._id);
 
-      // 3) optimistic UI update
       const updatedBitacora = {...bitacora, eventos: updatedEventos};
       setBitacora(updatedBitacora);
       setEventos(updatedEventos);
 
-      // 4) send to server
       await handleEditSubmit(e, updatedBitacora);
-
-      // 5) only if PATCH succeeded, audit per‐field in “Eventos”
 
       await generateAuditoriasFromChanges({
         oldData: oldEvent,
@@ -633,7 +614,6 @@ const BitacoraDetailPage = ({edited}) => {
         seccion: "Eventos",
       });
 
-      // 6) close modal
       setShowModal(false);
     };
 
@@ -657,33 +637,39 @@ const BitacoraDetailPage = ({edited}) => {
       return (
         <div className="mb-3">
           <div
-            className="d-flex justify-content-between align-items-center cursor-pointer border p-2 rounded"
+            className="d-flex justify-content-between align-items-center cursor-pointer border p-2 rounded modern-card"
             onClick={toggleCollapse}>
-            <span>
+            <span className="fw-medium">
               {transporte.id.includes("_")
                 ? `${transporte.id.split("_")[1]} - ${transporte.id.split("_")[2]}`
                 : transporte.id}
             </span>
-            <span>{isOpen ? "-" : "+"}</span>
+            <span className="text-primary fw-bold">{isOpen ? "−" : "+"}</span>
           </div>
           {isOpen && (
-            <div className="mt-2">
-              <p>
-                <strong>Duracion :</strong> {transporte.registro.duracion}
-              </p>
-              <p>
-                <strong>Ubicacion :</strong> {transporte.registro.ubicacion}
-              </p>
-              <p>
-                <strong>Velocidad :</strong> {transporte.registro.velocidad}
-              </p>
-              <p>
-                <strong>Ultimo Posicionamiento :</strong>{" "}
-                {transporte.registro.ultimo_posicionamiento}
-              </p>
-              <p>
-                <strong>Coordenadas :</strong> {transporte.registro.coordenadas}
-              </p>
+            <div className="mt-3 p-3 bg-light rounded">
+              <div className="row">
+                <div className="col-md-6">
+                  <p className="mb-2">
+                    <strong>Duración:</strong> {transporte.registro.duracion}
+                  </p>
+                  <p className="mb-2">
+                    <strong>Ubicación:</strong> {transporte.registro.ubicacion}
+                  </p>
+                  <p className="mb-2">
+                    <strong>Velocidad:</strong> {transporte.registro.velocidad}
+                  </p>
+                </div>
+                <div className="col-md-6">
+                  <p className="mb-2">
+                    <strong>Último Posicionamiento:</strong>{" "}
+                    {transporte.registro.ultimo_posicionamiento}
+                  </p>
+                  <p className="mb-2">
+                    <strong>Coordenadas:</strong> {transporte.registro.coordenadas}
+                  </p>
+                </div>
+              </div>
             </div>
           )}
         </div>
@@ -691,20 +677,22 @@ const BitacoraDetailPage = ({edited}) => {
     };
 
     return (
-      <div className="card mb-3">
-        <div className="card-header d-flex justify-content-between align-items-center pt-3 px-3">
-          <span className="text-muted small">
-            {new Date(createdAt).toLocaleString("es-MX", {
-              dateStyle: "short",
-              timeStyle: "short",
-            })}
-          </span>
-          <h5 className="card-title fw-semibold mb-0">{nombre}</h5>
+      <div className="modern-card mb-4">
+        <div className="card-header-modern d-flex justify-content-between align-items-center pt-3 px-4">
+          <div className="d-flex align-items-center gap-3">
+            <span className="text-muted small">
+              {new Date(createdAt).toLocaleString("es-MX", {
+                dateStyle: "short",
+                timeStyle: "short",
+              })}
+            </span>
+            <h5 className="card-title fw-semibold mb-0">{nombre}</h5>
+          </div>
 
           {roleData?.bit_eventos?.update && (
             <button
               onClick={handleEditClick}
-              className="new-btn"
+              className="action-btn btn-primary"
               disabled={
                 !(
                   (roleData && roleData.bit_eventos.update && bitacora.status !== "cerrada") ||
@@ -717,27 +705,30 @@ const BitacoraDetailPage = ({edited}) => {
           {!roleData?.bit_eventos?.update && <div></div>}
         </div>
 
-        <div className="card-body">
+        <div className="card-body-modern px-4 pb-4">
           <div className="row">
             <div className="col-md-6">
-              <p className="card-text">
-                <strong>Registrado por:</strong> {registrado_por}
-              </p>
-              <p className="card-text">
-                <strong>Descripción:</strong> {descripcion}
-              </p>
-              <div className="d-flex align-items-start gap-2">
-                <strong>Frecuencia: </strong>
-                <p> {`${frecuencia}  min`} </p>
-                <div className="semaforoEvent">
-                  <div className="circle" style={{backgroundColor: eventColor}}></div>
+              <div className="info-group mb-3">
+                <label className="info-label">Registrado por:</label>
+                <span className="info-value">{registrado_por}</span>
+              </div>
+              <div className="info-group mb-3">
+                <label className="info-label">Descripción:</label>
+                <span className="info-value">{descripcion}</span>
+              </div>
+              <div className="info-group mb-3">
+                <label className="info-label">Frecuencia:</label>
+                <div className="d-flex align-items-center gap-2">
+                  <span className="info-value">{`${frecuencia} min`}</span>
+                  <div className="semaforo-container">
+                    <div className="semaforo-circle" style={{backgroundColor: eventColor}}></div>
+                  </div>
                 </div>
               </div>
             </div>
 
-            {/* New right col */}
             <div className="col-md-6">
-              <p className="fw-bold text-center fs-5">Transportes</p>
+              <h6 className="fw-bold text-center mb-3">Transportes</h6>
               {event.transportes.map((t, i) => (
                 <div key={i}>
                   <CollapsibleTransporte transporte={t} />
@@ -746,6 +737,7 @@ const BitacoraDetailPage = ({edited}) => {
             </div>
           </div>
         </div>
+
         <ModalTemplate
           show={showTransporteModal}
           title="Transporte Information"
@@ -1018,106 +1010,57 @@ const BitacoraDetailPage = ({edited}) => {
         <div className="sidebar-wrapper">
           <Sidebar />
         </div>
-        <div className="content-wrapper">
-          <div
-            id="detailHeader"
-            className="d-flex justify-content-start ps-5 align-items-center position-relative z-1">
-            <div
-              className="position-absolute start-0 ms-2 btn"
-              onClick={() => navigate("/bitacoras")}>
-              <i className="fa fa-chevron-left fw-bold"></i>
+        <div className={`content-wrapper ${isSidebarCollapsed ? "sidebar-collapsed" : ""}`}>
+          <div className="page-header-modern">
+            <div className="back-button" onClick={() => navigate("/bitacoras")}>
+              <i className="fa fa-chevron-left"></i>
+              <span>Volver</span>
             </div>
-            {/* Tab Navigation */}
-            <ul className="nav nav-tabs ms-2" id="bitacoraTabs" role="tablist">
+
+            {/* Modern Tab Navigation */}
+            <div className="modern-tabs">
               {roleData?.bit_detalles.read && (
-                <li className="nav-item" role="presentation">
-                  <button
-                    className="nav-link active"
-                    id="detalles-tab"
-                    data-bs-toggle="tab"
-                    data-bs-target="#detalles"
-                    type="button"
-                    role="tab"
-                    aria-controls="detalles"
-                    aria-selected="true"
-                    onClick={() => handleTabClick("detalles")}>
-                    <h6 className="p-0 m-0  fw-semibold">Detalles</h6>
-                    <p className="text-center p-0 m-0" style={{fontSize: "0.8rem"}}>
-                      ID: {bitacora.bitacora_id}
-                    </p>
-                  </button>
-                </li>
+                <button
+                  className={`tab-button ${activeTab === "detalles" ? "active" : ""}`}
+                  onClick={() => handleTabClick("detalles")}>
+                  <span className="tab-title">Detalles</span>
+                  <span className="tab-subtitle">ID: {bitacora.bitacora_id}</span>
+                </button>
               )}
 
               {roleData?.bit_transportes.read && (
-                <li className="nav-item" role="presentation">
-                  <button
-                    className="nav-link"
-                    id="transportes-tab"
-                    data-bs-toggle="tab"
-                    data-bs-target="#transportes"
-                    type="button"
-                    role="tab"
-                    aria-controls="transportes"
-                    aria-selected="false"
-                    onClick={() => handleTabClick("transportes")}>
-                    <h6 className="p-0 m-0  fw-semibold">Transportes</h6>
-                    <p className="text-center p-0 m-0" style={{fontSize: "0.8rem"}}>
-                      Total: {bitacora.transportes.length}
-                    </p>
-                  </button>
-                </li>
+                <button
+                  className={`tab-button ${activeTab === "transportes" ? "active" : ""}`}
+                  onClick={() => handleTabClick("transportes")}>
+                  <span className="tab-title">Transportes</span>
+                  <span className="tab-subtitle">Total: {bitacora.transportes.length}</span>
+                </button>
               )}
 
               {roleData?.bit_eventos.read && (
-                <li className="nav-item" role="presentation">
-                  <button
-                    className="nav-link block"
-                    id="eventos-tab"
-                    data-bs-toggle="tab"
-                    data-bs-target="#eventos"
-                    type="button"
-                    role="tab"
-                    aria-controls="eventos"
-                    aria-selected="false"
-                    onClick={() => handleTabClick("eventos")}>
-                    <h6 className="p-0 m-0  fw-semibold">Eventos</h6>
-                    <p className="text-center p-0 m-0" style={{fontSize: "0.8rem"}}>
-                      Total: {bitacora.eventos.length}
-                    </p>
-                  </button>
-                </li>
+                <button
+                  className={`tab-button ${activeTab === "eventos" ? "active" : ""}`}
+                  onClick={() => handleTabClick("eventos")}>
+                  <span className="tab-title">Eventos</span>
+                  <span className="tab-subtitle">Total: {bitacora.eventos.length}</span>
+                </button>
               )}
-            </ul>
+            </div>
 
-            {/* Conditional Buttons */}
-            {/* DETALLES BTN */}
+            {/* Action Buttons */}
             {activeTab === "detalles" && roleData?.bit_detalles?.update && (
-              <button
-                className="new-btn position-absolute end-0 me-4"
-                onClick={() => {
-                  setEditModalVisible(true);
-                }}>
+              <button className="action-btn btn-primary" onClick={() => setEditModalVisible(true)}>
                 <i className="fa fa-edit"></i>
               </button>
             )}
-            {/* TRANSPORTES BTN */}
             {activeTab === "transportes" && roleData?.bit_transportes?.create && (
-              <div className="d-flex justify-content-between align-items-center">
-                <button
-                  variant="primary"
-                  onClick={handleShow}
-                  className="new-btn position-absolute end-0 me-4">
-                  <i className="fa fa-plus"></i>
-                </button>
-              </div>
+              <button className="action-btn btn-primary" onClick={handleShow}>
+                <i className="fa fa-plus"></i>
+              </button>
             )}
-            {/* EVENTOS BTN */}
             {activeTab === "eventos" && roleData?.bit_eventos?.create && (
               <button
-                className="new-btn position-absolute end-0 me-4"
-                data-bs-toggle="modal"
-                data-bs-target="#eventModal"
+                className="action-btn btn-primary"
                 disabled={areAllTransportesClosed()}
                 onClick={() => setModalOpen(true)}>
                 <FontAwesomeIcon icon={faPlus} />
@@ -1125,264 +1068,363 @@ const BitacoraDetailPage = ({edited}) => {
             )}
           </div>
 
-          <div className="scrollable-content flex-grow-1 overflow-auto px-3">
-            <div className="tab-content" id="bitacoraTabsContent">
+          <div className="content-area">
+            <div className="tab-content-modern">
               {/* Detalles Tab Content */}
               {roleData?.bit_detalles.read && (
-                <div
-                  className="tab-pane fade show active mt-4 mx-4"
-                  id="detalles"
-                  role="tabpanel"
-                  aria-labelledby="detalles-tab">
-                  <div className="card-body">
-                    <h5 className="fw-bold mb-4 text-center">Información General</h5>
-                    <div className="row">
-                      {/* Column 1 */}
-                      <div className="col-md-6">
-                        <h6 className="card-subtitle mb-2">
-                          <strong>Folio Servicio:</strong> {bitacora.folio_servicio}
-                        </h6>
-                        <h6 className="card-subtitle mb-2">
-                          <strong>No. Bitácora:</strong> {bitacora.bitacora_id}
-                        </h6>
-                        <h6 className="card-subtitle mb-2">
-                          <strong>Cliente:</strong> {bitacora.cliente}
-                        </h6>
-                        <h6 className="card-subtitle mb-2">
-                          <strong>Estatus:</strong> {capitalizeFirstLetter(bitacora.status)}
-                        </h6>
+                <div className={`tab-pane-modern ${activeTab === "detalles" ? "active" : ""}`}>
+                  <div className="modern-card">
+                    <div className="card-header-modern">
+                      <h5 className="fw-bold mb-0">Información General</h5>
+                    </div>
+                    <div className="card-body-modern">
+                      <div className="row">
+                        <div className="col-md-6">
+                          <div className="info-group mb-3">
+                            <label className="info-label">Folio Servicio:</label>
+                            <span className="info-value">{bitacora.folio_servicio}</span>
+                          </div>
+                          <div className="info-group mb-3">
+                            <label className="info-label">No. Bitácora:</label>
+                            <span className="info-value">{bitacora.bitacora_id}</span>
+                          </div>
+                          <div className="info-group mb-3">
+                            <label className="info-label">Cliente:</label>
+                            <span className="info-value">{bitacora.cliente}</span>
+                          </div>
+                          <div className="info-group mb-3">
+                            <label className="info-label">Estatus:</label>
+                            <span className={`status-badge status-${bitacora.status}`}>
+                              {capitalizeFirstLetter(bitacora.status)}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="col-md-6">
+                          <div className="info-group mb-3">
+                            <label className="info-label">Tipo Monitoreo:</label>
+                            <span className="info-value">{bitacora.monitoreo}</span>
+                          </div>
+                          <div className="info-group mb-3">
+                            <label className="info-label">Origen:</label>
+                            <span className="info-value">
+                              {getLocationText(bitacora.origen, origenes)}
+                            </span>
+                          </div>
+                          <div className="info-group mb-3">
+                            <label className="info-label">Destino:</label>
+                            <span className="info-value">
+                              {getLocationText(bitacora.destino, destinos)}
+                            </span>
+                          </div>
+                        </div>
                       </div>
 
-                      {/* Column 4 */}
-                      <div className="col-md-6">
-                        <h6 className="card-subtitle mb-2">
-                          <strong>Tipo Monitoreo:</strong> {bitacora.monitoreo}
-                        </h6>
-                        <h6 className="card-subtitle mb-2">
-                          <p>
-                            <strong>Origen:</strong> {getLocationText(bitacora.origen, origenes)}
-                          </p>
-                        </h6>
-                        <h6 className="card-subtitle mb-2">
-                          <p>
-                            <strong>Destino:</strong> {getLocationText(bitacora.destino, destinos)}
-                          </p>
-                        </h6>
+                      {bitacora.custodia && (
+                        <div className="custodia-section">
+                          <h6 className="fw-bold mb-3">Información Custodia Física</h6>
+                          <div className="row">
+                            <div className="col-md-6">
+                              <div className="info-group mb-2">
+                                <label className="info-label">Nombre Custodio 1:</label>
+                                <span className="info-value">
+                                  {bitacora.custodia.custodio1_nombre || "--"}
+                                </span>
+                              </div>
+                              <div className="info-group mb-2">
+                                <label className="info-label">Teléfono Custodio 1:</label>
+                                <span className="info-value">
+                                  {bitacora.custodia.custodio1_telefono || "--"}
+                                </span>
+                              </div>
+                              <div className="info-group mb-2">
+                                <label className="info-label">Nombre Custodio 2:</label>
+                                <span className="info-value">
+                                  {bitacora.custodia.custodio2_nombre || "--"}
+                                </span>
+                              </div>
+                              <div className="info-group mb-2">
+                                <label className="info-label">Teléfono Custodio 2:</label>
+                                <span className="info-value">
+                                  {bitacora.custodia.custodio2_telefono || "--"}
+                                </span>
+                              </div>
+                            </div>
+
+                            <div className="col-md-6">
+                              <div className="info-group mb-2">
+                                <label className="info-label">Placa:</label>
+                                <span className="info-value">
+                                  {bitacora.custodia.placa || "--"}
+                                </span>
+                              </div>
+                              <div className="info-group mb-2">
+                                <label className="info-label">Modelo:</label>
+                                <span className="info-value">
+                                  {bitacora.custodia.modelo || "--"}
+                                </span>
+                              </div>
+                              <div className="info-group mb-2">
+                                <label className="info-label">Color:</label>
+                                <span className="info-value">
+                                  {bitacora.custodia.color || "--"}
+                                </span>
+                              </div>
+                              <div className="info-group mb-2">
+                                <label className="info-label">Marca:</label>
+                                <span className="info-value">
+                                  {bitacora.custodia.marca || "--"}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="monitoreo-section">
+                        <h6 className="fw-bold mb-3">Información de Monitoreo</h6>
+                        {bitacora.transportes.map((t) => {
+                          const validacionEvento = bitacora.eventos.find(
+                            (evento) =>
+                              evento.nombre.toLowerCase() === "validación" &&
+                              evento.transportes.some((tr) => tr.id === t.id)
+                          );
+                          const inicioMonitoreo = validacionEvento
+                            ? validacionEvento.transportes.find((tr) => tr.id === t.id)
+                                ?.inicioMonitoreo
+                            : null;
+
+                          const cierreEvento = bitacora.eventos.find(
+                            (evento) =>
+                              evento.nombre.toLowerCase() === "cierre de servicio" &&
+                              evento.transportes.some((tr) => tr.id === t.id)
+                          );
+                          const finalMonitoreo = cierreEvento
+                            ? cierreEvento.transportes.find((tr) => tr.id === t.id)?.finalMonitoreo
+                            : null;
+
+                          return (
+                            <div
+                              key={t.id}
+                              className="transporte-monitoreo mb-3 p-3 bg-light rounded">
+                              <h6 className="fw-semibold mb-2">
+                                GPS ID:{" "}
+                                {t.id.includes("_")
+                                  ? `${t.id.split("_")[1]} - ${t.id.split("_")[2]}`
+                                  : t.id}
+                              </h6>
+                              <div className="row">
+                                <div className="col-md-6">
+                                  <div className="info-group mb-2">
+                                    <label className="info-label">Inicio Monitoreo:</label>
+                                    <span className="info-value">
+                                      {inicioMonitoreo ? formatDate(inicioMonitoreo) : "--"}
+                                    </span>
+                                  </div>
+                                </div>
+                                <div className="col-md-6">
+                                  <div className="info-group mb-2">
+                                    <label className="info-label">Final Monitoreo:</label>
+                                    <span className="info-value">
+                                      {finalMonitoreo ? formatDate(finalMonitoreo) : "--"}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
-
-                    {bitacora.custodia && (
-                      <div className="mt-4 border-top pt-3">
-                        <h5 className="fw-bold mb-4 text-center">Información Custodia Física</h5>
-                        <div className="row">
-                          <div className="col-md-6">
-                            <p>
-                              <strong>Nombre Custodio 1:</strong>{" "}
-                              {bitacora.custodia.custodio1_nombre || "--"}
-                            </p>
-                            <p>
-                              <strong>Teléfono Custodio 1:</strong>{" "}
-                              {bitacora.custodia.custodio1_telefono || "--"}
-                            </p>
-                            <p>
-                              <strong>Nombre Custodio 2:</strong>{" "}
-                              {bitacora.custodia.custodio2_nombre || "--"}
-                            </p>
-                            <p>
-                              <strong>Teléfono Custodio 2:</strong>{" "}
-                              {bitacora.custodia.custodio2_telefono || "--"}
-                            </p>
-                          </div>
-
-                          <div className="col-md-6">
-                            <p>
-                              <strong>Placa:</strong> {bitacora.custodia.placa || "--"}
-                            </p>
-                            <p>
-                              <strong>Modelo:</strong> {bitacora.custodia.modelo || "--"}
-                            </p>
-                            <p>
-                              <strong>Color:</strong> {bitacora.custodia.color || "--"}
-                            </p>
-                            <p>
-                              <strong>Marca:</strong> {bitacora.custodia.marca || "--"}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                    <hr />
-                    {bitacora.transportes.map((t) => {
-                      // Find the "Validacion" event and extract inicioMonitoreo
-                      const validacionEvento = bitacora.eventos.find(
-                        (evento) =>
-                          evento.nombre.toLowerCase() === "validación" &&
-                          evento.transportes.some((tr) => tr.id === t.id)
-                      );
-                      const inicioMonitoreo = validacionEvento
-                        ? validacionEvento.transportes.find((tr) => tr.id === t.id)?.inicioMonitoreo
-                        : null;
-
-                      // Find the "CIERRE DE SERVICIO" event and extract finalMonitoreo
-                      const cierreEvento = bitacora.eventos.find(
-                        (evento) =>
-                          evento.nombre.toLowerCase() === "cierre de servicio" &&
-                          evento.transportes.some((tr) => tr.id === t.id)
-                      );
-                      const finalMonitoreo = cierreEvento
-                        ? cierreEvento.transportes.find((tr) => tr.id === t.id)?.finalMonitoreo
-                        : null;
-
-                      return (
-                        <div key={t.id}>
-                          <p className="fw-bold">{`GPS ID : ${
-                            t.id.includes("_")
-                              ? `${t.id.split("_")[1]} - ${t.id.split("_")[2]}`
-                              : t.id
-                          }`}</p>
-                          <div>
-                            <p className="card-text mb-2">
-                              <strong>Inicio Monitoreo:</strong>{" "}
-                              {inicioMonitoreo ? formatDate(inicioMonitoreo) : "--"}
-                            </p>
-                          </div>
-                          <div>
-                            <p className="card-text mb-2">
-                              <strong>Final Monitoreo:</strong>{" "}
-                              {finalMonitoreo ? formatDate(finalMonitoreo) : "--"}
-                            </p>
-                          </div>
-                          <hr />
-                        </div>
-                      );
-                    })}
                   </div>
                 </div>
               )}
 
               {/* Transportes Tab Content */}
-              <div
-                className="tab-pane fade"
-                id="transportes"
-                role="tabpanel"
-                aria-labelledby="transportes-tab">
-                <div className="d-flex mt-4">
-                  {/* Left Side: List of Transporte IDs */}
-                  <div className="col-md-4 border-end pe-3">
-                    <h5 className="fw-semibold">Lista de Transportes</h5>
-                    {roleData?.gps_id?.read && (
-                      <ul className="list-group">
-                        {bitacora.transportes.map((transporte) => {
-                          const transporteId = transporte.id.includes("_")
-                            ? `${transporte.id.split("_")[1]} - ${transporte.id.split("_")[2]}` // Obtiene la parte después del '_'
-                            : transporte.id; // Mantiene el ID original
+              {roleData?.bit_transportes.read && (
+                <div className={`tab-pane-modern ${activeTab === "transportes" ? "active" : ""}`}>
+                  <div className="modern-card">
+                    <div className="card-header-modern">
+                      <h5 className="fw-bold mb-0">Gestión de Transportes</h5>
+                    </div>
+                    <div className="card-body-modern">
+                      <div className="row">
+                        <div className="col-md-4 border-end pe-4">
+                          <h6 className="fw-semibold mb-3">Lista de Transportes</h6>
+                          {roleData?.gps_id?.read && (
+                            <div className="transporte-list">
+                              {bitacora.transportes.map((transporte) => {
+                                const transporteId = transporte.id.includes("_")
+                                  ? `${transporte.id.split("_")[1]} - ${
+                                      transporte.id.split("_")[2]
+                                    }`
+                                  : transporte.id;
 
-                          return (
-                            <li
-                              key={transporte.id}
-                              className={`list-group-item mt-2 ${
-                                selectedTransporte?.id === transporte.id ? "active" : ""
-                              }`}
-                              onClick={() => handleSelectTransporte(transporte)}
-                              style={{cursor: "pointer"}}>
-                              GPS ID: {`${transporteId}`}
-                            </li>
-                          );
-                        })}
-                      </ul>
-                    )}
-                  </div>
-
-                  {/* Right Side: Selected Transporte Details */}
-                  <div className="col-md-8 ps-3">
-                    {selectedTransporte ? (
-                      <>
-                        <div className="d-flex justify-content-end mt-3 me-4 position-absolute end-0 ">
-                          {roleData.bit_transportes.update && (
-                            <button className="new-btn" onClick={handleEditTransporte}>
-                              <i className="fa fa-edit"></i>
-                            </button>
-                          )}
-                        </div>
-                        <div className="row mt-3">
-                          {roleData?.tracto?.read && (
-                            <div className="col-md-3">
-                              <h5 className="card-subtitle mb-2 fw-semibold">Tracto:</h5>
-                              <h6 className="card-subtitle mb-2">
-                                <strong>Eco:</strong> {selectedTransporte.tracto.eco}
-                              </h6>
-                              <h6 className="card-subtitle mb-2">
-                                <strong>Placa:</strong> {selectedTransporte.tracto.placa}
-                              </h6>
-                              <h6 className="card-subtitle mb-2">
-                                <strong>Marca:</strong> {selectedTransporte.tracto.marca}
-                              </h6>
-                              <h6 className="card-subtitle mb-2">
-                                <strong>Modelo:</strong> {selectedTransporte.tracto.modelo}
-                              </h6>
-                              <h6 className="card-subtitle mb-2">
-                                <strong>Color:</strong> {selectedTransporte.tracto.color}
-                              </h6>
-                              <h6 className="card-subtitle mb-2">
-                                <strong>Tipo:</strong> {selectedTransporte.tracto.tipo}
-                              </h6>
-                            </div>
-                          )}
-
-                          {roleData?.remolque?.read && (
-                            <div className="col-md-3">
-                              <h5 className="card-subtitle mb-2 fw-semibold">Remolque:</h5>
-                              <h6 className="card-subtitle mb-2">
-                                <strong>Eco:</strong> {selectedTransporte.remolque.eco}
-                              </h6>
-                              <h6 className="card-subtitle mb-2">
-                                <strong>Placa:</strong> {selectedTransporte.remolque.placa}
-                              </h6>
-                              <h6 className="card-subtitle mb-2">
-                                <strong>Color:</strong> {selectedTransporte.remolque.color}
-                              </h6>
-                              <h6 className="card-subtitle mb-2">
-                                <strong>Capacidad:</strong> {selectedTransporte.remolque.capacidad}
-                              </h6>
-                              <h6 className="card-subtitle mb-2">
-                                <strong>Sello:</strong> {selectedTransporte.remolque.sello}
-                              </h6>
-                            </div>
-                          )}
-
-                          {roleData?.operador?.read && (
-                            <div className="col-md-4">
-                              <h6 className="card-subtitle mb-2">
-                                <strong>Linea Transporte:</strong>{" "}
-                                {selectedTransporte.lineaTransporte}
-                              </h6>
-                              <h6 className="card-subtitle mb-2">
-                                <strong>Operador:</strong> {selectedTransporte.operador}
-                              </h6>
-                              <h6 className="card-subtitle mb-2">
-                                <strong>Telefono:</strong> {selectedTransporte.telefono}
-                              </h6>
+                                return (
+                                  <div
+                                    key={transporte.id}
+                                    className={`transporte-item ${
+                                      selectedTransporte?.id === transporte.id ? "active" : ""
+                                    }`}
+                                    onClick={() => handleSelectTransporte(transporte)}>
+                                    <span className="transporte-id">GPS ID: {transporteId}</span>
+                                  </div>
+                                );
+                              })}
                             </div>
                           )}
                         </div>
-                      </>
-                    ) : (
-                      <div className="alert alert-info" role="alert">
-                        Seleccione un transporte de la lista para ver los detalles.
+
+                        <div className="col-md-8 ps-4">
+                          {selectedTransporte ? (
+                            <div className="transporte-details">
+                              <div className="d-flex justify-content-end mb-3">
+                                {roleData.bit_transportes.update && (
+                                  <button
+                                    className="action-btn btn-primary"
+                                    onClick={handleEditTransporte}>
+                                    <i className="fa fa-edit"></i>
+                                  </button>
+                                )}
+                              </div>
+
+                              <div className="row">
+                                {roleData?.tracto?.read && (
+                                  <div className="col-md-6">
+                                    <div className="detail-section">
+                                      <h6 className="fw-semibold mb-3">Tracto</h6>
+                                      <div className="info-group mb-2">
+                                        <label className="info-label">Eco:</label>
+                                        <span className="info-value">
+                                          {selectedTransporte.tracto.eco}
+                                        </span>
+                                      </div>
+                                      <div className="info-group mb-2">
+                                        <label className="info-label">Placa:</label>
+                                        <span className="info-value">
+                                          {selectedTransporte.tracto.placa}
+                                        </span>
+                                      </div>
+                                      <div className="info-group mb-2">
+                                        <label className="info-label">Marca:</label>
+                                        <span className="info-value">
+                                          {selectedTransporte.tracto.marca}
+                                        </span>
+                                      </div>
+                                      <div className="info-group mb-2">
+                                        <label className="info-label">Modelo:</label>
+                                        <span className="info-value">
+                                          {selectedTransporte.tracto.modelo}
+                                        </span>
+                                      </div>
+                                      <div className="info-group mb-2">
+                                        <label className="info-label">Color:</label>
+                                        <span className="info-value">
+                                          {selectedTransporte.tracto.color}
+                                        </span>
+                                      </div>
+                                      <div className="info-group mb-2">
+                                        <label className="info-label">Tipo:</label>
+                                        <span className="info-value">
+                                          {selectedTransporte.tracto.tipo}
+                                        </span>
+                                      </div>
+                                    </div>
+                                  </div>
+                                )}
+
+                                {roleData?.remolque?.read && (
+                                  <div className="col-md-6">
+                                    <div className="detail-section">
+                                      <h6 className="fw-semibold mb-3">Remolque</h6>
+                                      <div className="info-group mb-2">
+                                        <label className="info-label">Eco:</label>
+                                        <span className="info-value">
+                                          {selectedTransporte.remolque.eco}
+                                        </span>
+                                      </div>
+                                      <div className="info-group mb-2">
+                                        <label className="info-label">Placa:</label>
+                                        <span className="info-value">
+                                          {selectedTransporte.remolque.placa}
+                                        </span>
+                                      </div>
+                                      <div className="info-group mb-2">
+                                        <label className="info-label">Color:</label>
+                                        <span className="info-value">
+                                          {selectedTransporte.remolque.color}
+                                        </span>
+                                      </div>
+                                      <div className="info-group mb-2">
+                                        <label className="info-label">Capacidad:</label>
+                                        <span className="info-value">
+                                          {selectedTransporte.remolque.capacidad}
+                                        </span>
+                                      </div>
+                                      <div className="info-group mb-2">
+                                        <label className="info-label">Sello:</label>
+                                        <span className="info-value">
+                                          {selectedTransporte.remolque.sello}
+                                        </span>
+                                      </div>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+
+                              {roleData?.operador?.read && (
+                                <div className="operador-section mt-4">
+                                  <h6 className="fw-semibold mb-3">Información del Operador</h6>
+                                  <div className="row">
+                                    <div className="col-md-4">
+                                      <div className="info-group mb-2">
+                                        <label className="info-label">Línea Transporte:</label>
+                                        <span className="info-value">
+                                          {selectedTransporte.lineaTransporte}
+                                        </span>
+                                      </div>
+                                    </div>
+                                    <div className="col-md-4">
+                                      <div className="info-group mb-2">
+                                        <label className="info-label">Operador:</label>
+                                        <span className="info-value">
+                                          {selectedTransporte.operador}
+                                        </span>
+                                      </div>
+                                    </div>
+                                    <div className="col-md-4">
+                                      <div className="info-group mb-2">
+                                        <label className="info-label">Teléfono:</label>
+                                        <span className="info-value">
+                                          {selectedTransporte.telefono}
+                                        </span>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <div className="empty-state">
+                              <i
+                                className="fa fa-truck text-muted mb-3"
+                                style={{fontSize: "3rem"}}></i>
+                              <p className="text-muted">
+                                Seleccione un transporte de la lista para ver los detalles.
+                              </p>
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    )}
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
 
               {/* Eventos Tab Content */}
-              <div
-                className="tab-pane fade"
-                id="eventos"
-                role="tabpanel"
-                aria-labelledby="eventos-tab">
-                <div className="container mt-4">
-                  <div>
+              {roleData?.bit_eventos.read && (
+                <div className={`tab-pane-modern ${activeTab === "eventos" ? "active" : ""}`}>
+                  <div className="eventos-container">
                     {eventos
                       .slice()
                       .reverse()
@@ -1391,7 +1433,7 @@ const BitacoraDetailPage = ({edited}) => {
                       ))}
                   </div>
                 </div>
-              </div>
+              )}
             </div>
           </div>
         </div>

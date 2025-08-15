@@ -1,9 +1,10 @@
-import React, {useEffect, useState} from "react";
-import Header from "../Header";
+import {useEffect, useState} from "react";
 import Sidebar from "../Sidebar";
 import * as XLSX from "xlsx";
 import {saveAs} from "file-saver";
 import {useAuth} from "../../context/AuthContext";
+import {useSidebar} from "../../context/SidebarContext";
+import {useNavigate} from "react-router-dom";
 
 const AuditoriasPage = () => {
   const [auditorias, setAuditorias] = useState([]);
@@ -25,6 +26,8 @@ const AuditoriasPage = () => {
 
   const {user, verifyToken, setUser} = useAuth();
   const [roleData, setRoleData] = useState(null);
+  const {isSidebarCollapsed} = useSidebar();
+  const navigate = useNavigate();
 
   useEffect(() => {
     const init = async () => {
@@ -146,12 +149,12 @@ const AuditoriasPage = () => {
   };
 
   return (
-    <section id="auditorias">
+    <section id="auditorias" className="settings-page">
       <div className="w-100 d-flex">
         <div className="sidebar-wrapper">
           <Sidebar />
         </div>
-        <div className="content-wrapper">
+        <div className={`content-wrapper ${isSidebarCollapsed ? "sidebar-collapsed" : ""}`}>
           <div className="page-header">
             <div className="">
               <h1 className="fs-3 fw-semibold text-black m-0">Auditoría - Bitácoras</h1>
@@ -165,10 +168,10 @@ const AuditoriasPage = () => {
           </div>
 
           {roleData?.auditoria_bitacora?.read && (
-            <div className="mx-3 my-0">
+            <div className="settings-content">
               <div className="table-wrapper">
                 <div className="table-responsive">
-                  <table className="table table-striped">
+                  <table className="table">
                     <thead>
                       <tr>
                         <th onClick={() => handleSort("tipo")}>Tipo {getSortIcon("tipo")}</th>
@@ -304,9 +307,9 @@ const AuditoriasPage = () => {
                     id="itemsPerPage"
                     className="form-select itemsSelector s-font ms-2"
                     value={rowsPerPage}
-                    onChange={(e) => {
-                      const newLimit = Number(e.target.value);
+                    onChange={() => {
                       // Deberás crear este state y lógica si quieres hacerlo dinámico
+                      // const newLimit = Number(e.target.value);
                       // setRowsPerPage(newLimit); // Si decides hacerlo editable
                       setCurrentPage(1);
                     }}

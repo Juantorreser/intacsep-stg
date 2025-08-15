@@ -3,6 +3,7 @@ import Sidebar from "../Sidebar";
 import ClientCard from "./ClientCard";
 import ModalTemplate from "../ModalTemplate";
 import {useAuth} from "../../context/AuthContext";
+import {useSidebar} from "../../context/SidebarContext";
 
 const ClientsPage = () => {
   const [clients, setClients] = useState([]);
@@ -33,6 +34,7 @@ const ClientsPage = () => {
 
   const {user, verifyToken, setUser} = useAuth();
   const [roleData, setRoleData] = useState(null);
+  const {isSidebarCollapsed} = useSidebar();
 
   useEffect(() => {
     const init = async () => {
@@ -212,7 +214,7 @@ const ClientsPage = () => {
         <div className="sidebar-wrapper">
           <Sidebar />
         </div>
-        <div className="content-wrapper">
+        <div className={`content-wrapper ${isSidebarCollapsed ? "sidebar-collapsed" : ""}`}>
           <div className="page-header">
             <h1 className="fs-3 fw-semibold text-black">Catálogos - Clientes</h1>
 
