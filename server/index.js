@@ -1228,6 +1228,56 @@ app.get("/operadores", async (req, res) => {
   }
 });
 
+// Get available operators from bitacoras
+app.get("/operadores-bitacoras", async (req, res) => {
+  try {
+    const operadores = await Bitacora.aggregate([
+      {
+        $group: {
+          _id: '$operador',
+          nombre: { $first: '$operador' }
+        }
+      },
+      { $sort: { nombre: 1 } },
+      {
+        $project: {
+          _id: 1,
+          nombre: 1
+        }
+      }
+    ]);
+
+    res.status(200).json(operadores);
+  } catch (e) {
+    res.status(500).json({ message: "Error fetching operadores from bitacoras", error: e.message });
+  }
+});
+
+// Get available transport lines from bitacoras
+app.get("/lineas-transporte-bitacoras", async (req, res) => {
+  try {
+    const lineasTransporte = await Bitacora.aggregate([
+      {
+        $group: {
+          _id: '$linea_transporte',
+          nombre: { $first: '$linea_transporte' }
+        }
+      },
+      { $sort: { nombre: 1 } },
+      {
+        $project: {
+          _id: 1,
+          nombre: 1
+        }
+      }
+    ]);
+
+    res.status(200).json(lineasTransporte);
+  } catch (e) {
+    res.status(500).json({ message: "Error fetching transport lines from bitacoras", error: e.message });
+  }
+});
+
 // Create a new operador
 app.post("/operadores", async (req, res) => {
   try {
@@ -1334,7 +1384,15 @@ app.get('/dashboard/stats', async (req, res) => {
     }
 
     // Get filter parameters
-    const { timeFilter = 'all', yearFilter = new Date().getFullYear(), clientFilter = 'all' } = req.query;
+    const {
+      timeFilter = 'all',
+      yearFilter = new Date().getFullYear(),
+      clientFilter = 'all',
+      fechaDesde = '',
+      fechaHasta = '',
+      lineaTransporte = 'all',
+      operador = 'all'
+    } = req.query;
 
     // Build time filter
     let timeFilterQuery = {};
@@ -1374,24 +1432,57 @@ app.get('/dashboard/stats', async (req, res) => {
       bitacoraFilter.cliente = clientFilter;
     }
 
+    // Add date range filter (priority over timeFilter and yearFilter)
+    console.log('Date filter values:', { fechaDesde, fechaHasta, fechaDesdeType: typeof fechaDesde, fechaHastaType: typeof fechaHasta });
+
+    if (fechaDesde && fechaHasta && fechaDesde.trim() !== '' && fechaHasta.trim() !== '') {
+      const startDate = new Date(fechaDesde);
+      const endDate = new Date(fechaHasta + 'T23:59:59.999Z');
+
+      console.log('Parsed dates:', { startDate, endDate, startDateValid: !isNaN(startDate), endDateValid: !isNaN(endDate) });
+
+      if (!isNaN(startDate) && !isNaN(endDate)) {
+        bitacoraFilter.createdAt = {
+          $gte: startDate,
+          $lte: endDate
+        };
+        console.log('Date filter applied:', bitacoraFilter.createdAt);
+      }
+    }
+
+    // Add transport line filter
+    if (lineaTransporte !== 'all') {
+      bitacoraFilter.linea_transporte = lineaTransporte;
+    }
+
+    // Add operator filter
+    if (operador !== 'all') {
+      bitacoraFilter.operador = operador;
+    }
+
     if (!role.bitacoras?.read_all) {
       // If user can't read all bitacoras, filter by their name
       const userFullName = `${user.firstName} ${user.lastName}`;
-      bitacoraFilter.operador = userFullName;
+      // Only override operator filter if no specific operator is selected
+      if (operador === 'all') {
+        bitacoraFilter.operador = userFullName;
+      }
     }
 
-    // Add time/year filters - SIEMPRE usar el filtro más específico
-    if (yearFilter && yearFilter !== 'all') {
-      // Si hay un año específico, usar solo ese año (ignorar otros filtros de tiempo)
-      const startOfYear = new Date(parseInt(yearFilter), 0, 1);
-      const endOfYear = new Date(parseInt(yearFilter), 11, 31, 23, 59, 59);
-      bitacoraFilter.createdAt = {
-        $gte: startOfYear,
-        $lte: endOfYear
-      };
-    } else if (Object.keys(timeFilterQuery).length > 0) {
-      // Solo usar filtros de tiempo si no hay año específico
-      bitacoraFilter = { ...bitacoraFilter, ...timeFilterQuery };
+    // Add time/year filters - only if no date range filter is applied
+    if (!fechaDesde || !fechaHasta) {
+      if (yearFilter && yearFilter !== 'all') {
+        // Si hay un año específico, usar solo ese año (ignorar otros filtros de tiempo)
+        const startOfYear = new Date(parseInt(yearFilter), 0, 1);
+        const endOfYear = new Date(parseInt(yearFilter), 11, 31, 23, 59, 59);
+        bitacoraFilter.createdAt = {
+          $gte: startOfYear,
+          $lte: endOfYear
+        };
+      } else if (Object.keys(timeFilterQuery).length > 0) {
+        // Solo usar filtros de tiempo si no hay año específico
+        bitacoraFilter = { ...bitacoraFilter, ...timeFilterQuery };
+      }
     }
 
     // Debug: Log the filters being used
@@ -1399,6 +1490,10 @@ app.get('/dashboard/stats', async (req, res) => {
       yearFilter,
       timeFilter,
       clientFilter,
+      fechaDesde,
+      fechaHasta,
+      lineaTransporte,
+      operador,
       bitacoraFilter: JSON.stringify(bitacoraFilter, null, 2)
     });
 
@@ -1570,6 +1665,80 @@ app.get('/dashboard/stats', async (req, res) => {
       count: event.count,
       color: eventColors[index % eventColors.length]
     }));
+
+    // Get event categories statistics for pie chart (excluding "General")
+    let eventCategoriesStats = [];
+    try {
+      // First, let's get all event types to understand the mapping
+      const eventTypes = await EventType.find({ categoria: { $in: ['ENA', 'ONC', 'DR', 'FM'] } });
+      console.log('Available event types:', eventTypes);
+
+      // Get event names for each category
+      const eventNamesByCategory = {};
+      eventTypes.forEach(eventType => {
+        if (!eventNamesByCategory[eventType.categoria]) {
+          eventNamesByCategory[eventType.categoria] = [];
+        }
+        eventNamesByCategory[eventType.categoria].push(eventType.evento);
+      });
+
+      console.log('Event names by category:', eventNamesByCategory);
+
+      // Now aggregate by event names that belong to our categories
+      eventCategoriesStats = await Bitacora.aggregate([
+        { $match: bitacoraFilter },
+        { $unwind: '$eventos' },
+        {
+          $match: {
+            'eventos.nombre': {
+              $in: eventTypes.map(et => et.evento)
+            }
+          }
+        },
+        {
+          $lookup: {
+            from: 'eventtypes',
+            localField: 'eventos.nombre',
+            foreignField: 'evento',
+            as: 'eventTypeInfo'
+          }
+        },
+        {
+          $group: {
+            _id: { $arrayElemAt: ['$eventTypeInfo.categoria', 0] },
+            count: { $sum: 1 }
+          }
+        },
+        { $sort: { count: -1 } }
+      ]);
+
+      console.log('Raw event categories stats:', eventCategoriesStats);
+
+      // Define colors for each category
+      const categoryColors = {
+        'ENA': '#3b82f6',  // Blue
+        'FM': '#10b981',   // Green
+        'ONC': '#f59e0b',  // Orange
+        'DR': '#ef4444'    // Red
+      };
+
+      // Format the data with colors and ensure all categories are present
+      const allCategories = ['ENA', 'FM', 'ONC', 'DR'];
+      const formattedCategories = allCategories.map(category => {
+        const found = eventCategoriesStats.find(stat => stat._id === category);
+        return {
+          categoria: category,
+          count: found ? found.count : 0,
+          color: categoryColors[category]
+        };
+      });
+
+      eventCategoriesStats = formattedCategories;
+      console.log('Formatted event categories stats:', eventCategoriesStats);
+    } catch (error) {
+      console.log('Error fetching event categories stats:', error);
+      eventCategoriesStats = [];
+    }
 
     // Get geographic data
     const geoType = req.query.geoType || 'origen';
@@ -1804,6 +1973,7 @@ app.get('/dashboard/stats', async (req, res) => {
       monthlyData,
       statusTrends,
       eventDistribution: formattedEventDistribution,
+      eventCategoriesStats,
       geographicData,
       operatorEfficiency,
       clientPerformance,
@@ -2086,6 +2256,319 @@ app.get('/dashboard/event-types', async (req, res) => {
   } catch (err) {
     console.error('[GET /dashboard/event-types] Error:', err);
     res.status(500).json({ error: 'Failed to fetch event types data' });
+  }
+});
+
+// Test endpoint for event categories
+app.get('/test/event-categories', async (req, res) => {
+  try {
+    // Get all event types
+    const eventTypes = await EventType.find();
+    console.log('All event types:', eventTypes);
+
+    // Get event types by category
+    const eventTypesByCategory = await EventType.find({ categoria: { $in: ['ENA', 'ONC', 'DR', 'FM'] } });
+    console.log('Event types by category:', eventTypesByCategory);
+
+    // Get some bitacoras with events
+    const bitacorasWithEvents = await Bitacora.find({ 'eventos.0': { $exists: true } }).limit(5);
+    console.log('Bitacoras with events:', bitacorasWithEvents);
+
+    res.json({
+      allEventTypes: eventTypes,
+      eventTypesByCategory: eventTypesByCategory,
+      bitacorasWithEvents: bitacorasWithEvents
+    });
+  } catch (error) {
+    console.error('Error in test endpoint:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Endpoint para obtener datos de eventos ONC para el gráfico de barras
+app.get('/dashboard/onc-events', async (req, res) => {
+  try {
+    const user = req.session.user;
+    if (!user) {
+      return res.status(401).json({ message: 'User not found' });
+    }
+
+    const role = await Role.findOne({ name: user.role });
+    if (!role) {
+      return res.status(401).json({ message: 'Role not found' });
+    }
+
+    // Obtener filtros de la query
+    const {
+      clientFilter = 'all',
+      fechaDesde = '',
+      fechaHasta = '',
+      lineaTransporte = 'all',
+      operador = 'all'
+    } = req.query;
+
+    // Construir filtros de bitácora
+    let bitacoraFilter = {};
+
+    // Filtro de fechas
+    console.log('ONC Date filter values:', { fechaDesde, fechaHasta, fechaDesdeType: typeof fechaDesde, fechaHastaType: typeof fechaHasta });
+
+    if (fechaDesde && fechaHasta && fechaDesde.trim() !== '' && fechaHasta.trim() !== '') {
+      const startDate = new Date(fechaDesde);
+      const endDate = new Date(fechaHasta + 'T23:59:59.999Z');
+
+      console.log('ONC Parsed dates:', { startDate, endDate, startDateValid: !isNaN(startDate), endDateValid: !isNaN(endDate) });
+
+      if (!isNaN(startDate) && !isNaN(endDate)) {
+        bitacoraFilter.createdAt = {
+          $gte: startDate,
+          $lte: endDate
+        };
+        console.log('ONC Date filter applied:', bitacoraFilter.createdAt);
+      }
+    }
+
+    // Filtro de cliente
+    if (clientFilter !== 'all') {
+      bitacoraFilter.cliente = clientFilter;
+    }
+
+    // Filtro de línea de transporte
+    if (lineaTransporte !== 'all') {
+      bitacoraFilter.linea_transporte = lineaTransporte;
+    }
+
+    // Filtro de operador
+    if (operador !== 'all') {
+      bitacoraFilter.operador = operador;
+    }
+
+    // Filtro de permisos de usuario
+    if (!role.bitacoras?.read_all) {
+      const userFullName = `${user.firstName} ${user.lastName}`;
+      // Only override operator filter if no specific operator is selected
+      if (operador === 'all') {
+        bitacoraFilter.operador = userFullName;
+      }
+    }
+
+    // Obtener todos los eventos de tipo ONC
+    const oncEventTypes = await EventType.find({ categoria: 'ONC' });
+    console.log('ONC Event types found:', oncEventTypes);
+
+    // Obtener datos de eventos ONC de las bitácoras
+    const oncEventsData = await Bitacora.aggregate([
+      { $match: bitacoraFilter },
+      { $unwind: '$eventos' },
+      {
+        $lookup: {
+          from: 'eventtypes',
+          localField: 'eventos.nombre',
+          foreignField: 'evento',
+          as: 'eventTypeInfo'
+        }
+      },
+      {
+        $match: {
+          'eventTypeInfo.categoria': 'ONC'
+        }
+      },
+      {
+        $group: {
+          _id: '$eventos.nombre',
+          count: { $sum: 1 }
+        }
+      },
+      { $sort: { count: -1 } }
+    ]);
+
+    console.log('ONC Events data:', oncEventsData);
+
+    // Función para generar iniciales del evento
+    const getEventInitials = (eventName) => {
+      // Obtener la parte antes del "/"
+      const parts = eventName.split('/');
+      if (parts.length === 0) {
+        return eventName.substring(0, 3).toUpperCase();
+      }
+
+      const beforeSlash = parts[0].trim();
+
+      // Dividir en palabras y obtener las iniciales
+      const words = beforeSlash.split(' ').filter(word => word.length > 0);
+
+      if (words.length === 0) {
+        return eventName.substring(0, 3).toUpperCase();
+      }
+
+      // Generar iniciales basadas en el número de palabras
+      let initials = '';
+      if (words.length === 1) {
+        // Si es 1 palabra, usar solo una letra
+        initials = words[0].charAt(0).toUpperCase();
+      } else if (words.length === 2) {
+        // Si son 2 palabras, usar 2 letras
+        initials = words[0].charAt(0).toUpperCase() + words[1].charAt(0).toUpperCase();
+      } else if (words.length >= 3) {
+        // Si son 3 o más palabras, usar 3 letras
+        initials = words[0].charAt(0).toUpperCase() + words[1].charAt(0).toUpperCase() + words[2].charAt(0).toUpperCase();
+      }
+
+      return initials;
+    };
+
+    // Colores para las barras
+    const barColors = [
+      '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4',
+      '#84cc16', '#f97316', '#ec4899', '#6366f1', '#14b8a6', '#f43f5e'
+    ];
+
+    // Formatear datos para el gráfico
+    const formattedData = oncEventTypes.map((eventType, index) => {
+      const eventData = oncEventsData.find(data => data._id === eventType.evento);
+      const count = eventData ? eventData.count : 0;
+
+      return {
+        eventName: eventType.evento,
+        initials: getEventInitials(eventType.evento),
+        count: count,
+        color: barColors[index % barColors.length]
+      };
+    });
+
+    res.status(200).json(formattedData);
+  } catch (error) {
+    console.error('[GET /dashboard/onc-events] Error:', error);
+    res.status(500).json({ error: 'Failed to fetch ONC events data' });
+  }
+});
+
+// Endpoint para obtener bitácoras con anomalías
+app.get('/dashboard/bitacoras-anomalias', async (req, res) => {
+  try {
+    const user = req.session.user;
+    if (!user) {
+      return res.status(401).json({ message: 'User not found' });
+    }
+
+    const role = await Role.findOne({ name: user.role });
+    if (!role) {
+      return res.status(401).json({ message: 'Role not found' });
+    }
+
+    // Obtener filtros de la query
+    const {
+      clientFilter = 'all',
+      fechaDesde = '',
+      fechaHasta = '',
+      lineaTransporte = 'all',
+      operador = 'all'
+    } = req.query;
+
+    // Construir filtros de bitácora
+    let bitacoraFilter = {};
+
+    // Filtro de fechas
+    console.log('Bitacoras Anomalias Date filter values:', { fechaDesde, fechaHasta, fechaDesdeType: typeof fechaDesde, fechaHastaType: typeof fechaHasta });
+
+    if (fechaDesde && fechaHasta && fechaDesde.trim() !== '' && fechaHasta.trim() !== '') {
+      const startDate = new Date(fechaDesde);
+      const endDate = new Date(fechaHasta + 'T23:59:59.999Z');
+
+      console.log('Bitacoras Anomalias Parsed dates:', { startDate, endDate, startDateValid: !isNaN(startDate), endDateValid: !isNaN(endDate) });
+
+      if (!isNaN(startDate) && !isNaN(endDate)) {
+        bitacoraFilter.createdAt = {
+          $gte: startDate,
+          $lte: endDate
+        };
+        console.log('Bitacoras Anomalias Date filter applied:', bitacoraFilter.createdAt);
+      }
+    }
+
+    // Filtro de cliente
+    if (clientFilter !== 'all') {
+      bitacoraFilter.cliente = clientFilter;
+    }
+
+    // Filtro de línea de transporte
+    if (lineaTransporte !== 'all') {
+      bitacoraFilter.linea_transporte = lineaTransporte;
+    }
+
+    // Filtro de operador
+    if (operador !== 'all') {
+      bitacoraFilter.operador = operador;
+    }
+
+    // Filtro de permisos de usuario
+    if (!role.bitacoras?.read_all) {
+      const userFullName = `${user.firstName} ${user.lastName}`;
+      // Only override operator filter if no specific operator is selected
+      if (operador === 'all') {
+        bitacoraFilter.operador = userFullName;
+      }
+    }
+
+    // Obtener bitácoras que tengan al menos un evento de categoría diferente a "General"
+    const bitacorasConAnomalias = await Bitacora.aggregate([
+      { $match: bitacoraFilter },
+      { $unwind: '$eventos' },
+      {
+        $lookup: {
+          from: 'eventtypes',
+          localField: 'eventos.nombre',
+          foreignField: 'evento',
+          as: 'eventTypeInfo'
+        }
+      },
+      {
+        $match: {
+          'eventTypeInfo.categoria': { $ne: 'General' }
+        }
+      },
+      {
+        $group: {
+          _id: '$_id',
+          bitacora_id: { $first: '$bitacora_id' },
+          cliente: { $first: '$cliente' },
+          linea_transporte: { $first: '$linea_transporte' },
+          operador: { $first: '$operador' },
+          origen: { $first: '$origen' },
+          destino: { $first: '$destino' },
+          status: { $first: '$status' },
+          createdAt: { $first: '$createdAt' },
+          eventos: { $push: '$eventos' },
+          eventTypes: { $push: '$eventTypeInfo' }
+        }
+      },
+      { $sort: { createdAt: -1 } }
+    ]);
+
+    // Formatear los datos para la respuesta
+    const formattedBitacoras = bitacorasConAnomalias.map(bitacora => {
+      // Obtener las categorías únicas de eventos para esta bitácora
+      const categorias = [...new Set(bitacora.eventTypes.flat().map(et => et.categoria).filter(cat => cat && cat !== 'General'))];
+
+      return {
+        _id: bitacora._id,
+        bitacora_id: bitacora.bitacora_id,
+        cliente: bitacora.cliente,
+        linea_transporte: bitacora.linea_transporte,
+        operador: bitacora.operador,
+        origen: bitacora.origen,
+        destino: bitacora.destino,
+        status: bitacora.status,
+        createdAt: bitacora.createdAt,
+        categorias: categorias,
+        totalEventos: bitacora.eventos.length
+      };
+    });
+
+    res.status(200).json(formattedBitacoras);
+  } catch (error) {
+    console.error('[GET /dashboard/bitacoras-anomalias] Error:', error);
+    res.status(500).json({ error: 'Failed to fetch bitacoras with anomalies' });
   }
 });
 

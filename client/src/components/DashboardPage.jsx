@@ -23,11 +23,14 @@ const DashboardPage = () => {
     topOperadores: [],
     statusTrends: [],
     eventDistribution: [],
+    eventCategoriesStats: [],
     geographicData: [],
     operatorEfficiency: [],
     clientPerformance: [],
     tiposMonitoreo: [],
   });
+  const [oncEventsData, setOncEventsData] = useState([]);
+  const [bitacorasAnomalias, setBitacorasAnomalias] = useState([]);
   const [loading, setLoading] = useState(true);
   const [clientFilter, setClientFilter] = useState("all");
   const [availableClients, setAvailableClients] = useState([]);
@@ -71,8 +74,8 @@ const DashboardPage = () => {
           setAvailableClients(clientsData);
         }
 
-        // Fetch available transport lines for filter
-        const lineasResponse = await fetch(`${baseUrl}/lineas-transporte`, {
+        // Fetch available transport lines for filter from bitacoras
+        const lineasResponse = await fetch(`${baseUrl}/lineas-transporte-bitacoras`, {
           method: "GET",
           credentials: "include",
         });
@@ -84,8 +87,8 @@ const DashboardPage = () => {
           setAvailableLineasTransporte([]);
         }
 
-        // Fetch available operators for filter
-        const operadoresResponse = await fetch(`${baseUrl}/operadores`, {
+        // Fetch available operators for filter from bitacoras
+        const operadoresResponse = await fetch(`${baseUrl}/operadores-bitacoras`, {
           method: "GET",
           credentials: "include",
         });
@@ -116,6 +119,48 @@ const DashboardPage = () => {
           const statsData = await statsResponse.json();
           console.log("Dashboard stats received:", statsData);
           setDashboardStats(statsData);
+        }
+
+        // Fetch ONC events data for bar chart
+        const oncResponse = await fetch(
+          `${baseUrl}/dashboard/onc-events?clientFilter=${encodeURIComponent(
+            clientFilter
+          )}&fechaDesde=${encodeURIComponent(fechaDesde)}&fechaHasta=${encodeURIComponent(
+            fechaHasta
+          )}&lineaTransporte=${encodeURIComponent(
+            lineaTransporteFilter
+          )}&operador=${encodeURIComponent(operadorFilter)}`,
+          {
+            method: "GET",
+            credentials: "include",
+          }
+        );
+
+        if (oncResponse.ok) {
+          const oncData = await oncResponse.json();
+          console.log("ONC events data received:", oncData);
+          setOncEventsData(oncData);
+        }
+
+        // Fetch bitácoras con anomalías
+        const anomaliasResponse = await fetch(
+          `${baseUrl}/dashboard/bitacoras-anomalias?clientFilter=${encodeURIComponent(
+            clientFilter
+          )}&fechaDesde=${encodeURIComponent(fechaDesde)}&fechaHasta=${encodeURIComponent(
+            fechaHasta
+          )}&lineaTransporte=${encodeURIComponent(
+            lineaTransporteFilter
+          )}&operador=${encodeURIComponent(operadorFilter)}`,
+          {
+            method: "GET",
+            credentials: "include",
+          }
+        );
+
+        if (anomaliasResponse.ok) {
+          const anomaliasData = await anomaliasResponse.json();
+          console.log("Bitácoras con anomalías received:", anomaliasData);
+          setBitacorasAnomalias(anomaliasData);
         }
       } catch (error) {
         console.error("Error fetching dashboard data:", error);
@@ -428,6 +473,246 @@ const DashboardPage = () => {
   };
 
   // --- NUEVAS FUNCIONES DE RENDER ---
+  const renderAnomaliasPieChart = () => {
+    const eventCategoriesStats = dashboardStats.eventCategoriesStats || [];
+
+    if (eventCategoriesStats.length === 0) {
+      return <div className="text-center text-muted">No hay datos de anomalías disponibles</div>;
+    }
+
+    // Calculate total for percentages
+    const total = eventCategoriesStats.reduce((sum, category) => sum + category.count, 0);
+
+    if (total === 0) {
+      return (
+        <div className="text-center text-muted">
+          No hay eventos registrados en las categorías especificadas
+        </div>
+      );
+    }
+
+    // Generate conic gradient for pie chart
+    let currentAngle = 0;
+    const gradientStops = eventCategoriesStats
+      .filter((category) => category.count > 0)
+      .map((category) => {
+        const percentage = (category.count / total) * 100;
+        const startAngle = currentAngle;
+        const endAngle = currentAngle + percentage * 3.6; // 3.6 degrees per 1%
+        currentAngle = endAngle;
+
+        return `${category.color} ${startAngle}deg ${endAngle}deg`;
+      })
+      .join(", ");
+
+    return (
+      <div
+        className="pie-chart-container"
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: "20px",
+        }}>
+        <div
+          className="pie-chart"
+          style={{
+            position: "relative",
+            width: "200px",
+            height: "200px",
+            borderRadius: "50%",
+            background: gradientStops || "conic-gradient(#e5e7eb 0deg 360deg)",
+          }}>
+          <div
+            style={{
+              position: "absolute",
+              top: "50%",
+              left: "50%",
+              transform: "translate(-50%, -50%)",
+              width: "80px",
+              height: "80px",
+              borderRadius: "50%",
+              background: "#fff",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}>
+            <span
+              style={{
+                fontSize: "14px",
+                fontWeight: "bold",
+                color: "#374151",
+              }}>
+              {total}
+            </span>
+          </div>
+        </div>
+        <div
+          className="pie-legend"
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            gap: "8px",
+          }}>
+          {eventCategoriesStats.map((category, index) => {
+            const percentage = total > 0 ? ((category.count / total) * 100).toFixed(1) : 0;
+            return (
+              <div
+                key={index}
+                className="legend-item"
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "8px",
+                }}>
+                <span
+                  className="legend-color"
+                  style={{
+                    width: "12px",
+                    height: "12px",
+                    borderRadius: "2px",
+                    background: category.color,
+                  }}></span>
+                <span
+                  className="legend-text"
+                  style={{
+                    fontSize: "12px",
+                    color: "#ffffff",
+                  }}>
+                  {category.categoria} - {percentage}%
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
+  const renderOncBarChart = () => {
+    if (oncEventsData.length === 0) {
+      return <div className="text-center text-muted">No hay datos de eventos ONC disponibles</div>;
+    }
+
+    const maxCount = Math.max(...oncEventsData.map((event) => event.count));
+    const maxHeight = 200; // Altura máxima de las barras en píxeles
+
+    return (
+      <div className="bar-chart-container">
+        <div
+          className="bar-chart"
+          style={{
+            display: "flex",
+            alignItems: "flex-end",
+            gap: "8px",
+            height: "250px",
+            padding: "15px 0 35px 0",
+          }}>
+          {oncEventsData.map((event, index) => {
+            const barHeight = maxCount > 0 ? (event.count / maxCount) * maxHeight : 0;
+            return (
+              <div
+                key={index}
+                className="bar-item"
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  flex: 1,
+                  height: "100%",
+                  position: "relative",
+                  justifyContent: "flex-end",
+                }}>
+                <div
+                  className="bar"
+                  style={{
+                    height: `${barHeight}px`,
+                    backgroundColor: event.color,
+                    minHeight: event.count > 0 ? "4px" : "0px",
+                    width: "100%",
+                    maxWidth: "35px",
+                    borderRadius: "4px 4px 0 0",
+                    transition: "height 0.3s ease",
+                    marginBottom: "40px",
+                    position: "relative",
+                  }}>
+                  <span
+                    className="bar-value"
+                    style={{
+                      position: "absolute",
+                      top: "-25px",
+                      left: "50%",
+                      transform: "translateX(-50%)",
+                      fontSize: "10px",
+                      fontWeight: "bold",
+                      color: event.color,
+                      whiteSpace: "nowrap",
+                    }}>
+                    {event.count}
+                  </span>
+                </div>
+                <div
+                  style={{
+                    position: "absolute",
+                    bottom: "-35px",
+                    left: "50%",
+                    transform: "translateX(-50%)",
+                    textAlign: "center",
+                    width: "100%",
+                  }}>
+                  <span
+                    className="bar-label"
+                    style={{
+                      fontSize: "11px",
+                      fontWeight: "500",
+                      color: "#6b7280",
+                      display: "block",
+                      cursor: "help",
+                      position: "relative",
+                    }}
+                    title={event.eventName}>
+                    {event.initials}
+                  </span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        <div
+          className="chart-summary"
+          style={{
+            marginTop: "20px",
+            padding: "10px",
+            backgroundColor: "#f9fafb",
+            borderRadius: "8px",
+          }}>
+          <div
+            className="summary-item"
+            style={{display: "flex", justifyContent: "space-between", marginBottom: "5px"}}>
+            <span className="summary-label" style={{fontSize: "12px", color: "#6b7280"}}>
+              Total eventos ONC:
+            </span>
+            <span
+              className="summary-value"
+              style={{fontSize: "12px", fontWeight: "bold", color: "#374151"}}>
+              {oncEventsData.reduce((sum, event) => sum + event.count, 0)} eventos
+            </span>
+          </div>
+          <div className="summary-item" style={{display: "flex", justifyContent: "space-between"}}>
+            <span className="summary-label" style={{fontSize: "12px", color: "#6b7280"}}>
+              Tipos de eventos:
+            </span>
+            <span
+              className="summary-value"
+              style={{fontSize: "12px", fontWeight: "bold", color: "#374151"}}>
+              {oncEventsData.length} tipos
+            </span>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   const renderTopClients = () => {
     const {topClients} = dashboardStats;
     return (
@@ -468,6 +753,84 @@ const DashboardPage = () => {
         ) : (
           <div className="text-center text-muted small">No hay datos disponibles</div>
         )}
+      </div>
+    );
+  };
+
+  const renderBitacorasAnomalias = () => {
+    if (bitacorasAnomalias.length === 0) {
+      return (
+        <div className="text-center text-muted">
+          No hay bitácoras con anomalías en el período seleccionado
+        </div>
+      );
+    }
+
+    const getBadgeColor = (categoria) => {
+      const colorMap = {
+        ENA: "bg-warning",
+        ONC: "bg-info",
+        FM: "bg-danger",
+        DR: "bg-success",
+      };
+      return colorMap[categoria] || "bg-secondary";
+    };
+
+    return (
+      <div>
+        <div className="table-responsive" style={{maxHeight: "400px", overflowY: "auto"}}>
+          <table className="table table-hover table-sm">
+            <thead className="sticky-top" style={{backgroundColor: "#f8f9fa"}}>
+              <tr>
+                <th className="small">Cliente</th>
+                <th className="small">No. Bitácora</th>
+                <th className="small">Línea Transporte</th>
+                <th className="small">Operador</th>
+                <th className="small">Origen</th>
+                <th className="small">Destino</th>
+                <th className="small">Estado</th>
+                <th className="small">Anomalías</th>
+              </tr>
+            </thead>
+            <tbody>
+              {bitacorasAnomalias.map((bitacora, index) => (
+                <tr key={bitacora._id || index}>
+                  <td className="small">{bitacora.cliente || "N/A"}</td>
+                  <td className="small">{bitacora.bitacora_id || "N/A"}</td>
+                  <td className="small">{bitacora.linea_transporte || "N/A"}</td>
+                  <td className="small">{bitacora.operador || "N/A"}</td>
+                  <td className="small">{bitacora.origen || "N/A"}</td>
+                  <td className="small">{bitacora.destino || "N/A"}</td>
+                  <td className="small">
+                    <span
+                      className={`badge ${
+                        bitacora.status === "cerrada"
+                          ? "bg-success"
+                          : bitacora.status === "nueva"
+                          ? "bg-warning"
+                          : "bg-info"
+                      }`}>
+                      {bitacora.status || "N/A"}
+                    </span>
+                  </td>
+                  <td className="small">
+                    <div className="d-flex flex-wrap gap-1">
+                      {bitacora.categorias && bitacora.categorias.length > 0 ? (
+                        bitacora.categorias.map((categoria, catIndex) => (
+                          <span key={catIndex} className={`badge ${getBadgeColor(categoria)}`}>
+                            {categoria}
+                          </span>
+                        ))
+                      ) : (
+                        <span className="badge bg-secondary">N/A</span>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     );
   };
@@ -641,6 +1004,56 @@ const DashboardPage = () => {
                       </div>
                     </div>
                   </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Dashboard de Anomalías */}
+            <div className="row mb-3 mb-md-4">
+              <div className="col-12">
+                <div className="chart-card">
+                  <div className="chart-header">
+                    <h6 className="mb-0">Dashboard de Anomalías</h6>
+                  </div>
+                  <div className="chart-body">
+                    <div className="row g-3">
+                      {/* Anomalías Aceptadas - Gráfico de Pie */}
+                      <div className="col-12 col-lg-6">
+                        <div className="chart-card">
+                          <div className="chart-header">
+                            <h6 className="mb-0">Anomalías Aceptadas</h6>
+                          </div>
+                          <div className="chart-body">{renderAnomaliasPieChart()}</div>
+                        </div>
+                      </div>
+
+                      {/* Operador No Responde - Gráfico de Barras */}
+                      <div className="col-12 col-lg-6">
+                        <div className="chart-card">
+                          <div className="chart-header">
+                            <h6 className="mb-0">Operador No Responde</h6>
+                          </div>
+                          <div className="chart-body">{renderOncBarChart()}</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Lista de Bitácoras con Anomalías */}
+            <div className="row mb-3 mb-md-4">
+              <div className="col-12">
+                <div className="chart-card">
+                  <div className="chart-header d-flex justify-content-between align-items-center">
+                    <h6 className="mb-0">Lista de Bitácoras con Anomalías</h6>
+                    <button className="btn btn-sm btn-outline-success">
+                      <i className="fa fa-file-excel me-1"></i>
+                      Excel
+                    </button>
+                  </div>
+                  <div className="chart-body">{renderBitacorasAnomalias()}</div>
                 </div>
               </div>
             </div>
