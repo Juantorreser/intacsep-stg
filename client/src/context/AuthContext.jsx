@@ -143,7 +143,7 @@ const AuthProvider = ({children}) => {
       errorMsg.classList.add("visually-hidden");
       const data = await response.json();
       setUser(data.user);
-      navigate("/dashboard"); // Always redirect to dashboard after login
+      navigate("/bitacoras"); // Always redirect to bitacoras after login
     } catch (e) {
       console.error("Error during login:", e);
       // Show an appropriate error message to the user

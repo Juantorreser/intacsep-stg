@@ -258,11 +258,7 @@ const DestinoPage = () => {
         <div className="sidebar-wrapper">
           <Sidebar />
         </div>
-<<<<<<< HEAD
-        <div className={`content-wrapper`}>
-=======
         <div className={`content-wrapper ${isSidebarCollapsed ? "sidebar-collapsed" : ""}`}>
->>>>>>> work
           <div className="page-header">
             <h1>Catálogos - Destinos</h1>
 
