@@ -1,4 +1,4 @@
-import {useState, useEffect} from "react";
+import {useState, useEffect, useCallback, useMemo} from "react";
 import {useAuth} from "../context/AuthContext";
 import {useSidebar} from "../context/SidebarContext";
 import {useNavigate} from "react-router-dom";
@@ -50,7 +50,242 @@ const DashboardPage = () => {
   const [availableOperadores, setAvailableOperadores] = useState([]);
   const [applyFiltersTrigger, setApplyFiltersTrigger] = useState(0);
 
+  // Cache para evitar llamadas duplicadas
+  const [dataCache, setDataCache] = useState({
+    roleData: null,
+    clients: null,
+    lineasTransporte: null,
+    operadores: null,
+    lastFetch: null,
+  });
+
+  // Debounce para filtros
+  const [debouncedFilters, setDebouncedFilters] = useState({
+    clientFilter: "all",
+    geoType: "origen",
+    fechaDesde: "",
+    fechaHasta: "",
+    lineaTransporteFilter: "all",
+    operadorFilter: "all",
+  });
+
   const baseUrl = import.meta.env.VITE_BASE_URL;
+
+  // Memoizar los filtros para evitar llamadas innecesarias
+  const currentFilters = useMemo(
+    () => ({
+      clientFilter,
+      geoType,
+      fechaDesde,
+      fechaHasta,
+      lineaTransporteFilter,
+      operadorFilter,
+    }),
+    [clientFilter, geoType, fechaDesde, fechaHasta, lineaTransporteFilter, operadorFilter]
+  );
+
+  // Memoizar datos procesados para evitar re-renders innecesarios
+  const processedDashboardStats = useMemo(() => {
+    if (!dashboardStats) return null;
+
+    return {
+      ...dashboardStats,
+      // Procesar datos adicionales si es necesario
+      processedMonthlyData:
+        dashboardStats.monthlyData?.map((item) => ({
+          ...item,
+          displayValue: item.value.toLocaleString(),
+        })) || [],
+    };
+  }, [dashboardStats]);
+
+  const processedOncEvents = useMemo(() => {
+    if (!oncEventsData) return [];
+
+    return oncEventsData.map((event) => ({
+      ...event,
+      displayCount: event.count.toLocaleString(),
+    }));
+  }, [oncEventsData]);
+
+  // Debounce effect para filtros
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      setDebouncedFilters(currentFilters);
+    }, 500); // 500ms debounce
+
+    return () => clearTimeout(timeoutId);
+  }, [currentFilters]);
+
+  // Función para obtener datos estáticos (solo una vez)
+  const fetchStaticData = useCallback(async () => {
+    try {
+      // Verificar que el usuario esté autenticado
+      if (!user || !user.role) {
+        console.log("User not authenticated, skipping static data fetch");
+        return;
+      }
+
+      // Solo obtener datos estáticos si no están en cache o han pasado más de 5 minutos
+      const now = Date.now();
+      const cacheExpiry = 5 * 60 * 1000; // 5 minutos
+
+      if (!dataCache.lastFetch || now - dataCache.lastFetch > cacheExpiry) {
+        console.log("Fetching static data...");
+
+        // Fetch role permissions
+        if (!dataCache.roleData) {
+          const roleResponse = await fetch(`${baseUrl}/roles/${user.role}`, {
+            method: "GET",
+            credentials: "include",
+          });
+          const roleData = await roleResponse.json();
+          setRoleData(roleData);
+          setDataCache((prev) => ({...prev, roleData}));
+        } else {
+          setRoleData(dataCache.roleData);
+        }
+
+        // Fetch available clients for filter
+        if (!dataCache.clients) {
+          const clientsResponse = await fetch(`${baseUrl}/clients`, {
+            method: "GET",
+            credentials: "include",
+          });
+          if (clientsResponse.ok) {
+            const clientsData = await clientsResponse.json();
+            setAvailableClients(clientsData);
+            setDataCache((prev) => ({...prev, clients: clientsData}));
+          }
+        } else {
+          setAvailableClients(dataCache.clients);
+        }
+
+        // Fetch available transport lines for filter from bitacoras
+        if (!dataCache.lineasTransporte) {
+          const lineasResponse = await fetch(`${baseUrl}/lineas-transporte-bitacoras`, {
+            method: "GET",
+            credentials: "include",
+          });
+          if (lineasResponse.ok) {
+            const lineasData = await lineasResponse.json();
+            setAvailableLineasTransporte(lineasData);
+            setDataCache((prev) => ({...prev, lineasTransporte: lineasData}));
+          } else {
+            console.warn("Transport lines endpoint not available:", lineasResponse.status);
+            setAvailableLineasTransporte([]);
+            setDataCache((prev) => ({...prev, lineasTransporte: []}));
+          }
+        } else {
+          setAvailableLineasTransporte(dataCache.lineasTransporte);
+        }
+
+        // Fetch available operators for filter from bitacoras
+        if (!dataCache.operadores) {
+          const operadoresResponse = await fetch(`${baseUrl}/operadores-bitacoras`, {
+            method: "GET",
+            credentials: "include",
+          });
+          if (operadoresResponse.ok) {
+            const operadoresData = await operadoresResponse.json();
+            setAvailableOperadores(operadoresData);
+            setDataCache((prev) => ({...prev, operadores: operadoresData}));
+          } else {
+            console.warn("Operators endpoint not available:", operadoresResponse.status);
+            setAvailableOperadores([]);
+            setDataCache((prev) => ({...prev, operadores: []}));
+          }
+        } else {
+          setAvailableOperadores(dataCache.operadores);
+        }
+
+        setDataCache((prev) => ({...prev, lastFetch: now}));
+      } else {
+        // Usar datos del cache
+        console.log("Using cached static data");
+        if (dataCache.roleData) setRoleData(dataCache.roleData);
+        if (dataCache.clients) setAvailableClients(dataCache.clients);
+        if (dataCache.lineasTransporte) setAvailableLineasTransporte(dataCache.lineasTransporte);
+        if (dataCache.operadores) setAvailableOperadores(dataCache.operadores);
+      }
+    } catch (error) {
+      console.error("Error fetching static data:", error);
+    }
+  }, [baseUrl, user?.role, dataCache]);
+
+  // Función para obtener datos dinámicos del dashboard
+  const fetchDashboardData = useCallback(async () => {
+    try {
+      // Verificar que el usuario esté autenticado
+      if (!user || !user.role) {
+        console.log("User not authenticated, skipping dashboard data fetch");
+        return;
+      }
+
+      setLoading(true);
+      console.log("Fetching dashboard data with filters:", debouncedFilters);
+
+      // Crear un solo endpoint que devuelva todos los datos del dashboard
+      const queryParams = new URLSearchParams({
+        clientFilter: debouncedFilters.clientFilter,
+        geoType: debouncedFilters.geoType,
+        fechaDesde: debouncedFilters.fechaDesde,
+        fechaHasta: debouncedFilters.fechaHasta,
+        lineaTransporte: debouncedFilters.lineaTransporteFilter,
+        operador: debouncedFilters.operadorFilter,
+      });
+
+      const dashboardResponse = await fetch(
+        `${baseUrl}/dashboard/all-data?${queryParams.toString()}`,
+        {
+          method: "GET",
+          credentials: "include",
+        }
+      );
+
+      if (dashboardResponse.ok) {
+        const dashboardData = await dashboardResponse.json();
+        console.log("Dashboard data received:", dashboardData);
+
+        // Actualizar todos los estados con los datos recibidos
+        setDashboardStats(dashboardData.stats || {});
+        setOncEventsData(dashboardData.oncEvents || []);
+        setBitacorasAnomalias(dashboardData.bitacorasAnomalias || []);
+      } else {
+        console.error("Failed to fetch dashboard data:", dashboardResponse.status);
+      }
+    } catch (error) {
+      console.error("Error fetching dashboard data:", error);
+    } finally {
+      setLoading(false);
+    }
+  }, [baseUrl, debouncedFilters]);
+
+  // Effect para datos estáticos (solo una vez al montar)
+  useEffect(() => {
+    if (!user) {
+      navigate("/login");
+      return;
+    }
+
+    if (user && user.role) {
+      fetchStaticData();
+    }
+  }, [user, navigate, fetchStaticData]);
+
+  // Effect para datos dinámicos (cuando cambian los filtros)
+  useEffect(() => {
+    if (user && user.role && debouncedFilters) {
+      fetchDashboardData();
+    }
+  }, [user, debouncedFilters, fetchDashboardData]);
+
+  // Effect para aplicar filtros manualmente
+  useEffect(() => {
+    if (applyFiltersTrigger > 0) {
+      fetchDashboardData();
+    }
+  }, [applyFiltersTrigger, fetchDashboardData]);
 
   const downloadBitacorasAnomaliasExcel = () => {
     if (bitacorasAnomalias.length === 0) {
@@ -101,135 +336,9 @@ const DashboardPage = () => {
     XLSX.writeFile(workbook, filename);
   };
 
-  useEffect(() => {
-    if (!user) {
-      navigate("/login");
-      return;
-    }
-
-    const fetchDashboardData = async () => {
-      try {
-        setLoading(true);
-
-        // Fetch role permissions
-        const roleResponse = await fetch(`${baseUrl}/roles/${user.role}`, {
-          method: "GET",
-          credentials: "include",
-        });
-        const roleData = await roleResponse.json();
-        setRoleData(roleData);
-
-        // Fetch available clients for filter
-        const clientsResponse = await fetch(`${baseUrl}/clients`, {
-          method: "GET",
-          credentials: "include",
-        });
-        if (clientsResponse.ok) {
-          const clientsData = await clientsResponse.json();
-          setAvailableClients(clientsData);
-        }
-
-        // Fetch available transport lines for filter from bitacoras
-        const lineasResponse = await fetch(`${baseUrl}/lineas-transporte-bitacoras`, {
-          method: "GET",
-          credentials: "include",
-        });
-        if (lineasResponse.ok) {
-          const lineasData = await lineasResponse.json();
-          setAvailableLineasTransporte(lineasData);
-        } else {
-          console.warn("Transport lines endpoint not available:", lineasResponse.status);
-          setAvailableLineasTransporte([]);
-        }
-
-        // Fetch available operators for filter from bitacoras
-        const operadoresResponse = await fetch(`${baseUrl}/operadores-bitacoras`, {
-          method: "GET",
-          credentials: "include",
-        });
-        if (operadoresResponse.ok) {
-          const operadoresData = await operadoresResponse.json();
-          setAvailableOperadores(operadoresData);
-        } else {
-          console.warn("Operators endpoint not available:", operadoresResponse.status);
-          setAvailableOperadores([]);
-        }
-
-        // Fetch dashboard statistics with filters
-        const statsResponse = await fetch(
-          `${baseUrl}/dashboard/stats?clientFilter=${encodeURIComponent(
-            clientFilter
-          )}&geoType=${encodeURIComponent(geoType)}&fechaDesde=${encodeURIComponent(
-            fechaDesde
-          )}&fechaHasta=${encodeURIComponent(fechaHasta)}&lineaTransporte=${encodeURIComponent(
-            lineaTransporteFilter
-          )}&operador=${encodeURIComponent(operadorFilter)}`,
-          {
-            method: "GET",
-            credentials: "include",
-          }
-        );
-
-        if (statsResponse.ok) {
-          const statsData = await statsResponse.json();
-          console.log("Dashboard stats received:", statsData);
-          setDashboardStats(statsData);
-        }
-
-        // Fetch ONC events data for bar chart
-        const oncResponse = await fetch(
-          `${baseUrl}/dashboard/onc-events?clientFilter=${encodeURIComponent(
-            clientFilter
-          )}&fechaDesde=${encodeURIComponent(fechaDesde)}&fechaHasta=${encodeURIComponent(
-            fechaHasta
-          )}&lineaTransporte=${encodeURIComponent(
-            lineaTransporteFilter
-          )}&operador=${encodeURIComponent(operadorFilter)}`,
-          {
-            method: "GET",
-            credentials: "include",
-          }
-        );
-
-        if (oncResponse.ok) {
-          const oncData = await oncResponse.json();
-          console.log("ONC events data received:", oncData);
-          setOncEventsData(oncData);
-        }
-
-        // Fetch bitácoras con anomalías
-        const anomaliasResponse = await fetch(
-          `${baseUrl}/dashboard/bitacoras-anomalias?clientFilter=${encodeURIComponent(
-            clientFilter
-          )}&fechaDesde=${encodeURIComponent(fechaDesde)}&fechaHasta=${encodeURIComponent(
-            fechaHasta
-          )}&lineaTransporte=${encodeURIComponent(
-            lineaTransporteFilter
-          )}&operador=${encodeURIComponent(operadorFilter)}`,
-          {
-            method: "GET",
-            credentials: "include",
-          }
-        );
-
-        if (anomaliasResponse.ok) {
-          const anomaliasData = await anomaliasResponse.json();
-          console.log("Bitácoras con anomalías received:", anomaliasData);
-          setBitacorasAnomalias(anomaliasData);
-        }
-      } catch (error) {
-        console.error("Error fetching dashboard data:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchDashboardData();
-  }, [user, navigate, baseUrl, applyFiltersTrigger]);
-
   // Chart rendering functions
   const renderTiposMonitoreoChart = () => {
-    const tiposMonitoreo = dashboardStats.tiposMonitoreo || [];
+    const tiposMonitoreo = processedDashboardStats?.tiposMonitoreo || [];
 
     if (tiposMonitoreo.length === 0) {
       return <div className="text-center text-muted">No hay datos disponibles</div>;
@@ -276,7 +385,7 @@ const DashboardPage = () => {
   };
 
   const renderMonthlyTrendChart = () => {
-    const monthlyData = dashboardStats.monthlyData || [];
+    const monthlyData = processedDashboardStats?.monthlyData || [];
 
     console.log("Monthly data in frontend:", monthlyData);
 
@@ -650,11 +759,11 @@ const DashboardPage = () => {
   };
 
   const renderOncBarChart = () => {
-    if (oncEventsData.length === 0) {
+    if (processedOncEvents.length === 0) {
       return <div className="text-center text-muted">No hay datos de eventos ONC disponibles</div>;
     }
 
-    const maxCount = Math.max(...oncEventsData.map((event) => event.count));
+    const maxCount = Math.max(...processedOncEvents.map((event) => event.count));
     const maxHeight = 200; // Altura máxima de las barras en píxeles
 
     return (
@@ -668,7 +777,7 @@ const DashboardPage = () => {
             height: "250px",
             padding: "15px 0 35px 0",
           }}>
-          {oncEventsData.map((event, index) => {
+          {processedOncEvents.map((event, index) => {
             const barHeight = maxCount > 0 ? (event.count / maxCount) * maxHeight : 0;
             return (
               <div
@@ -755,7 +864,7 @@ const DashboardPage = () => {
             <span
               className="summary-value"
               style={{fontSize: "12px", fontWeight: "bold", color: "#374151"}}>
-              {oncEventsData.reduce((sum, event) => sum + event.count, 0)} eventos
+              {processedOncEvents.reduce((sum, event) => sum + event.count, 0)} eventos
             </span>
           </div>
           <div className="summary-item" style={{display: "flex", justifyContent: "space-between"}}>
@@ -765,7 +874,7 @@ const DashboardPage = () => {
             <span
               className="summary-value"
               style={{fontSize: "12px", fontWeight: "bold", color: "#374151"}}>
-              {oncEventsData.length} tipos
+              {processedOncEvents.length} tipos
             </span>
           </div>
         </div>
@@ -894,6 +1003,29 @@ const DashboardPage = () => {
       </div>
     );
   };
+
+  // Verificar autenticación antes de renderizar
+  if (!user || !user.role) {
+    return (
+      <section id="dashboard">
+        <div className="w-100 d-flex h-100 mt-0">
+          <div className="sidebar-wrapper">
+            <Sidebar />
+          </div>
+          <div className={`content-wrapper ${isSidebarCollapsed ? "sidebar-collapsed" : ""}`}>
+            <div
+              className="d-flex justify-content-center align-items-center"
+              style={{height: "100vh"}}>
+              <div className="text-center">
+                <i className="fa fa-spinner fa-spin fa-2x text-primary mb-3"></i>
+                <p className="text-muted">Verificando autenticación...</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    );
+  }
 
   if (loading) {
     return (

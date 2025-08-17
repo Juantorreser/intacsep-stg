@@ -3004,6 +3004,270 @@ app.get('/dashboard/bitacoras-anomalias', async (req, res) => {
   }
 });
 
+// Dashboard All Data - Consolidated endpoint for better performance
+app.get('/dashboard/all-data', async (req, res) => {
+  try {
+    // Get user from session (already verified by middleware)
+    const user = req.session.user;
+    if (!user) {
+      return res.status(401).json({ message: 'User not found' });
+    }
+
+    // Get role permissions
+    const role = await Role.findOne({ name: user.role });
+    if (!role) {
+      return res.status(401).json({ message: 'Role not found' });
+    }
+
+    // Get filter parameters
+    const {
+      clientFilter = 'all',
+      geoType = 'origen',
+      fechaDesde = '',
+      fechaHasta = '',
+      lineaTransporte = 'all',
+      operador = 'all'
+    } = req.query;
+
+    // Build filters based on user permissions
+    let bitacoraFilter = {};
+
+    // Add client filter
+    if (clientFilter !== 'all') {
+      bitacoraFilter.cliente = clientFilter;
+    }
+
+    // Add date range filter
+    if (fechaDesde && fechaHasta && fechaDesde.trim() !== '' && fechaHasta.trim() !== '') {
+      const startDate = new Date(fechaDesde);
+      const endDate = new Date(fechaHasta + 'T23:59:59.999Z');
+
+      if (!isNaN(startDate) && !isNaN(endDate)) {
+        bitacoraFilter.createdAt = {
+          $gte: startDate,
+          $lte: endDate
+        };
+      }
+    }
+
+    // Add transport line filter
+    if (lineaTransporte !== 'all') {
+      bitacoraFilter.linea_transporte = lineaTransporte;
+    }
+
+    // Add operator filter
+    if (operador !== 'all') {
+      const userFullName = operador;
+      if (bitacoraFilter.$or || bitacoraFilter.$and || Object.keys(bitacoraFilter).some(key => key !== 'cliente' && key !== 'createdAt' && key !== 'linea_transporte')) {
+        const existingFilters = {};
+        if (bitacoraFilter.$or) {
+          existingFilters.$or = bitacoraFilter.$or;
+          delete bitacoraFilter.$or;
+        }
+        if (bitacoraFilter.$and) {
+          existingFilters.$and = bitacoraFilter.$and;
+          delete bitacoraFilter.$and;
+        }
+
+        Object.keys(bitacoraFilter).forEach(key => {
+          if (key !== 'cliente' && key !== 'createdAt' && key !== 'linea_transporte') {
+            existingFilters[key] = bitacoraFilter[key];
+            delete bitacoraFilter[key];
+          }
+        });
+
+        bitacoraFilter.$and = [
+          existingFilters,
+          {
+            $or: [
+              { operador: userFullName },
+              { 'transportes.operador': userFullName }
+            ]
+          }
+        ];
+      } else {
+        bitacoraFilter.$or = [
+          { operador: userFullName },
+          { 'transportes.operador': userFullName }
+        ];
+      }
+    }
+
+    // Execute all queries in parallel for better performance
+    const [
+      statsResult,
+      oncEventsResult,
+      bitacorasAnomaliasResult
+    ] = await Promise.all([
+      // Get dashboard stats
+      (async () => {
+        const totalBitacoras = await Bitacora.countDocuments(bitacoraFilter);
+        const nuevasBitacoras = await Bitacora.countDocuments({ ...bitacoraFilter, status: 'Nueva' });
+        const enProcesoBitacoras = await Bitacora.countDocuments({ ...bitacoraFilter, status: 'En Proceso' });
+        const cerradasBitacoras = await Bitacora.countDocuments({ ...bitacoraFilter, status: 'Cerrada' });
+        const totalUsers = await User.countDocuments();
+        const totalClients = await Client.countDocuments();
+
+        // Get recent activity
+        const recentActivity = await Bitacora.find(bitacoraFilter)
+          .sort({ createdAt: -1 })
+          .limit(10)
+          .select('bitacora_id cliente status createdAt');
+
+        // Get monthly data
+        const monthlyData = await Bitacora.aggregate([
+          { $match: bitacoraFilter },
+          {
+            $group: {
+              _id: {
+                year: { $year: '$createdAt' },
+                month: { $month: '$createdAt' }
+              },
+              count: { $sum: 1 }
+            }
+          },
+          { $sort: { '_id.year': 1, '_id.month': 1 } }
+        ]);
+
+        // Get tipos de monitoreo
+        const tiposMonitoreo = await Bitacora.aggregate([
+          { $match: bitacoraFilter },
+          {
+            $lookup: {
+              from: 'monitoreos',
+              localField: 'tipo_monitoreo',
+              foreignField: '_id',
+              as: 'monitoreoInfo'
+            }
+          },
+          {
+            $group: {
+              _id: '$tipo_monitoreo',
+              count: { $sum: 1 },
+              nombre: { $first: '$monitoreoInfo.tipoMonitoreo' }
+            }
+          }
+        ]);
+
+        return {
+          totalBitacoras,
+          nuevasBitacoras,
+          enProcesoBitacoras,
+          cerradasBitacoras,
+          totalUsers,
+          totalClients,
+          recentActivity,
+          monthlyData: monthlyData.map(item => ({
+            month: `${item._id.year}-${item._id.month.toString().padStart(2, '0')}`,
+            value: item.count
+          })),
+          tiposMonitoreo: tiposMonitoreo.map(item => ({
+            nombre: item.nombre[0] || 'Sin tipo',
+            count: item.count,
+            color: '#3b82f6'
+          }))
+        };
+      })(),
+
+      // Get ONC events data
+      (async () => {
+        const oncEvents = await Bitacora.aggregate([
+          { $match: bitacoraFilter },
+          { $unwind: '$eventos' },
+          {
+            $lookup: {
+              from: 'eventtypes',
+              localField: 'eventos.nombre',
+              foreignField: 'evento',
+              as: 'eventTypeInfo'
+            }
+          },
+          {
+            $match: {
+              'eventTypeInfo.categoria': 'ONC'
+            }
+          },
+          {
+            $group: {
+              _id: '$eventos.nombre',
+              count: { $sum: 1 }
+            }
+          },
+          { $sort: { count: -1 } },
+          { $limit: 10 }
+        ]);
+
+        return oncEvents;
+      })(),
+
+      // Get bitácoras con anomalías
+      (async () => {
+        const bitacorasConAnomalias = await Bitacora.aggregate([
+          { $match: bitacoraFilter },
+          { $unwind: '$eventos' },
+          {
+            $lookup: {
+              from: 'eventtypes',
+              localField: 'eventos.nombre',
+              foreignField: 'evento',
+              as: 'eventTypeInfo'
+            }
+          },
+          {
+            $match: {
+              'eventTypeInfo.categoria': { $ne: 'General' }
+            }
+          },
+          {
+            $group: {
+              _id: '$_id',
+              bitacora_id: { $first: '$bitacora_id' },
+              cliente: { $first: '$cliente' },
+              linea_transporte: { $first: '$linea_transporte' },
+              operador: { $first: '$operador' },
+              origen: { $first: '$origen' },
+              destino: { $first: '$destino' },
+              status: { $first: '$status' },
+              createdAt: { $first: '$createdAt' },
+              eventos: { $push: '$eventos' },
+              eventTypes: { $push: '$eventTypeInfo' }
+            }
+          },
+          { $sort: { createdAt: -1 } }
+        ]);
+
+        return bitacorasConAnomalias.map(bitacora => {
+          const categorias = [...new Set(bitacora.eventTypes.flat().map(et => et.categoria).filter(cat => cat && cat !== 'General'))];
+          return {
+            _id: bitacora._id,
+            bitacora_id: bitacora.bitacora_id,
+            cliente: bitacora.cliente,
+            linea_transporte: bitacora.linea_transporte,
+            operador: bitacora.operador,
+            origen: bitacora.origen,
+            destino: bitacora.destino,
+            status: bitacora.status,
+            createdAt: bitacora.createdAt,
+            categorias: categorias,
+            totalEventos: bitacora.eventos.length
+          };
+        });
+      })()
+    ]);
+
+    // Return consolidated data
+    res.status(200).json({
+      stats: statsResult,
+      oncEvents: oncEventsResult,
+      bitacorasAnomalias: bitacorasAnomaliasResult
+    });
+
+  } catch (error) {
+    console.error('[GET /dashboard/all-data] Error:', error);
+    res.status(500).json({ error: 'Failed to fetch dashboard data' });
+  }
+});
+
 //start the server
 app.listen(PORT, () => {
   console.log(`Server Running at ${PORT}`);
