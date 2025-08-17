@@ -5,6 +5,7 @@ import {useNavigate} from "react-router-dom";
 import Sidebar from "./Sidebar";
 import {Chart as ChartJS, ArcElement, Tooltip, Legend} from "chart.js";
 import {Doughnut} from "react-chartjs-2";
+import * as XLSX from "xlsx";
 
 ChartJS.register(ArcElement, Tooltip, Legend);
 
@@ -50,6 +51,55 @@ const DashboardPage = () => {
   const [applyFiltersTrigger, setApplyFiltersTrigger] = useState(0);
 
   const baseUrl = import.meta.env.VITE_BASE_URL;
+
+  const downloadBitacorasAnomaliasExcel = () => {
+    if (bitacorasAnomalias.length === 0) {
+      alert("No hay datos para exportar");
+      return;
+    }
+
+    // Prepare data for Excel
+    const excelData = bitacorasAnomalias.map((bitacora) => ({
+      Cliente: bitacora.cliente || "N/A",
+      "No. Bitácora": bitacora.bitacora_id || "N/A",
+      "Línea Transporte": bitacora.linea_transporte || "N/A",
+      Operador: bitacora.operador || "N/A",
+      Origen: bitacora.origen || "N/A",
+      Destino: bitacora.destino || "N/A",
+      Estado: bitacora.status || "N/A",
+      Anomalías:
+        bitacora.categorias && bitacora.categorias.length > 0
+          ? bitacora.categorias.join(", ")
+          : "N/A",
+    }));
+
+    // Create workbook and worksheet
+    const workbook = XLSX.utils.book_new();
+    const worksheet = XLSX.utils.json_to_sheet(excelData);
+
+    // Set column widths
+    const columnWidths = [
+      {wch: 20}, // Cliente
+      {wch: 15}, // No. Bitácora
+      {wch: 20}, // Línea Transporte
+      {wch: 20}, // Operador
+      {wch: 25}, // Origen
+      {wch: 25}, // Destino
+      {wch: 12}, // Estado
+      {wch: 30}, // Anomalías
+    ];
+    worksheet["!cols"] = columnWidths;
+
+    // Add worksheet to workbook
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Bitácoras con Anomalías");
+
+    // Generate filename with current date
+    const currentDate = new Date().toISOString().split("T")[0];
+    const filename = `Bitacoras_Anomalias_${currentDate}.xlsx`;
+
+    // Save the file
+    XLSX.writeFile(workbook, filename);
+  };
 
   useEffect(() => {
     if (!user) {
@@ -1082,7 +1132,10 @@ const DashboardPage = () => {
                 <div className="chart-card">
                   <div className="chart-header d-flex justify-content-between align-items-center">
                     <h6 className="mb-0">Lista de Bitácoras con Anomalías</h6>
-                    <button className="btn btn-sm btn-outline-success">
+                    <button
+                      className="btn btn-sm btn-outline-success"
+                      onClick={downloadBitacorasAnomaliasExcel}
+                      disabled={bitacorasAnomalias.length === 0}>
                       <i className="fa fa-file-excel me-1"></i>
                       Excel
                     </button>
