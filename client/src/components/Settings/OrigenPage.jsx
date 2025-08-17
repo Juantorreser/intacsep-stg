@@ -15,6 +15,14 @@ const OrigenPage = () => {
   const [idToDelete, setIdToDelete] = useState("");
   const [modalType, setModalType] = useState(""); // 'create', 'edit'
 
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(25);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
+  const startItem = (currentPage - 1) * itemsPerPage + 1;
+  const endItem = Math.min(currentPage * itemsPerPage, totalItems);
+
   // Filter states
   const [filters, setFilters] = useState({
     nombre: "",
@@ -145,7 +153,13 @@ const OrigenPage = () => {
       return nombreMatch && estadoMatch && clienteMatch;
     });
     setFilteredOrigenes(filtered);
-  }, [origenes, filters]);
+
+    // Update pagination
+    const totalFiltered = filtered.length;
+    setTotalItems(totalFiltered);
+    setTotalPages(Math.ceil(totalFiltered / itemsPerPage));
+    setCurrentPage(1); // Reset to first page when filters change
+  }, [origenes, filters, itemsPerPage]);
 
   const handleFilterChange = (e) => {
     const {name, value} = e.target;
@@ -161,6 +175,24 @@ const OrigenPage = () => {
       estado: "",
       cliente: "",
     });
+  };
+
+  // Pagination handlers
+  const handlePageChange = (newPage) => {
+    setCurrentPage(newPage);
+  };
+
+  const handleItemsPerPageChange = (event) => {
+    const newLimit = Number(event.target.value);
+    setItemsPerPage(newLimit);
+    setCurrentPage(1); // Reset to first page when changing items per page
+  };
+
+  // Get paginated data
+  const getPaginatedOrigenes = () => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    return filteredOrigenes.slice(startIndex, endIndex);
   };
 
   const handleDelete = (id) => {
@@ -334,7 +366,7 @@ const OrigenPage = () => {
           {/* Tabla */}
           {roleData?.origenes?.read && (
             <div className="settings-content">
-              <div className="table-wrapper">
+              <div className="table-wrapper" style={{maxHeight: "60vh", overflowY: "auto"}}>
                 <div className="table-responsive">
                   <table className="table">
                     <thead>
@@ -346,7 +378,7 @@ const OrigenPage = () => {
                       </tr>
                     </thead>
                     <tbody>
-                      {filteredOrigenes.map((origen) => (
+                      {getPaginatedOrigenes().map((origen) => (
                         <tr key={origen._id}>
                           <td>{origen.nombre}</td>
                           <td>{origen.estado}</td>
@@ -381,6 +413,74 @@ const OrigenPage = () => {
                       </p>
                     </div>
                   )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Pagination Controls */}
+          {roleData?.origenes?.read && filteredOrigenes.length > 0 && (
+            <div className="pagination-container">
+              <div className="pagination-content">
+                <div className="pagination-info">
+                  <div className="items-per-page">
+                    <label htmlFor="itemsPerPage" className="form-label">
+                      Items por página:
+                    </label>
+                    <select
+                      id="itemsPerPage"
+                      className="form-select form-select-sm modern-select"
+                      value={itemsPerPage}
+                      onChange={handleItemsPerPageChange}>
+                      <option value={25}>25</option>
+                      <option value={50}>50</option>
+                      <option value={100}>100</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="pagination-stats">
+                  <span className="stats-text">{`${startItem}-${endItem} de ${totalItems}`}</span>
+                </div>
+
+                <div className="pagination-controls">
+                  <button
+                    className="pagination-btn"
+                    disabled={currentPage === 1}
+                    onClick={() => handlePageChange(currentPage - 1)}>
+                    <i className="fa fa-chevron-left"></i>
+                  </button>
+
+                  <div className="page-numbers">
+                    {Array.from({length: Math.min(3, totalPages)}).map((_, index) => {
+                      const pageNum = index + 1;
+                      return (
+                        <button
+                          key={pageNum}
+                          className={`page-btn ${pageNum === currentPage ? "active" : ""}`}
+                          onClick={() => handlePageChange(pageNum)}>
+                          {pageNum}
+                        </button>
+                      );
+                    })}
+                    {totalPages > 3 && (
+                      <>
+                        <span className="page-ellipsis">...</span>
+                        <button
+                          className={`page-btn ${totalPages === currentPage ? "active" : ""}`}
+                          onClick={() => handlePageChange(totalPages)}>
+                          {totalPages}
+                        </button>
+                      </>
+                    )}
+                  </div>
+
+                  <button
+                    className="pagination-btn"
+                    disabled={currentPage === totalPages}
+                    onClick={() => handlePageChange(currentPage + 1)}>
+                    <i className="fa fa-chevron-right"></i>
+                  </button>
                 </div>
               </div>
             </div>

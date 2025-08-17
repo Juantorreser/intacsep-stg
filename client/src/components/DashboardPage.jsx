@@ -924,6 +924,7 @@ const DashboardPage = () => {
           <Sidebar />
         </div>
         <div className={`content-wrapper ${isSidebarCollapsed ? "sidebar-collapsed" : ""}`}>
+          {/* Título */}
           <div className="page-header">
             <h1 className="fs-3 fw-semibold text-black m-0">Dashboard</h1>
           </div>
@@ -950,7 +951,7 @@ const DashboardPage = () => {
               </div>
             </div>
 
-            {/* Filter Card */}
+            {/* Filtros */}
             <div className="row mb-3 mb-md-4">
               <div className="col-12">
                 <div className="filter-card">
@@ -1092,60 +1093,7 @@ const DashboardPage = () => {
               </div>
             </div>
 
-            {/* Dashboard de Anomalías */}
-            <div className="row mb-3 mb-md-4">
-              <div className="col-12">
-                <div className="chart-card">
-                  <div className="chart-header">
-                    <h6 className="mb-0">Dashboard de Anomalías</h6>
-                  </div>
-                  <div className="chart-body">
-                    <div className="row g-3">
-                      {/* Anomalías Aceptadas - Gráfico de Pie */}
-                      <div className="col-12 col-lg-6">
-                        <div className="chart-card">
-                          <div className="chart-header">
-                            <h6 className="mb-0">Anomalías Aceptadas</h6>
-                          </div>
-                          <div className="chart-body">{renderAnomaliasPieChart()}</div>
-                        </div>
-                      </div>
-
-                      {/* Operador No Responde - Gráfico de Barras */}
-                      <div className="col-12 col-lg-6">
-                        <div className="chart-card">
-                          <div className="chart-header">
-                            <h6 className="mb-0">Operador No Responde</h6>
-                          </div>
-                          <div className="chart-body">{renderOncBarChart()}</div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Lista de Bitácoras con Anomalías */}
-            <div className="row mb-3 mb-md-4">
-              <div className="col-12">
-                <div className="chart-card">
-                  <div className="chart-header d-flex justify-content-between align-items-center">
-                    <h6 className="mb-0">Lista de Bitácoras con Anomalías</h6>
-                    <button
-                      className="btn btn-sm btn-outline-success"
-                      onClick={downloadBitacorasAnomaliasExcel}
-                      disabled={bitacorasAnomalias.length === 0}>
-                      <i className="fa fa-file-excel me-1"></i>
-                      Excel
-                    </button>
-                  </div>
-                  <div className="chart-body">{renderBitacorasAnomalias()}</div>
-                </div>
-              </div>
-            </div>
-
-            {/* Statistics Cards */}
+            {/* Totales */}
             <div className="row mb-3 mb-md-4 g-2 g-md-3">
               <div className="col-6 col-md-3 mb-2 mb-md-0">
                 <div className="stat-card h-100">
@@ -1200,7 +1148,7 @@ const DashboardPage = () => {
               </div>
             </div>
 
-            {/* Main Charts Section */}
+            {/* Tendencia mensual */}
             <div className="row mb-3 mb-md-4">
               <div className="col-12">
                 <div className="chart-card">
@@ -1214,7 +1162,7 @@ const DashboardPage = () => {
               </div>
             </div>
 
-            {/* Progress Circles */}
+            {/* % */}
             <div className="row mb-3 mb-md-4 g-2 g-md-3">
               <div className="col-6 col-md-3 mb-2 mb-md-0">
                 <div className="progress-card h-100">
@@ -1275,7 +1223,7 @@ const DashboardPage = () => {
                       dashboardStats.totalBitacoras > 0 && dashboardStats.totalUsers > 0
                         ? Math.round(dashboardStats.totalBitacoras / dashboardStats.totalUsers)
                         : 0,
-                      "Por Usuario",
+                      "Con Anomalias",
                       "primary"
                     )}
                   </div>
@@ -1283,65 +1231,130 @@ const DashboardPage = () => {
               </div>
             </div>
 
-            {/* Fila: Tipos de Monitoreo, Top Clientes, Top Operadores */}
-            <div className="row mb-3 mb-md-4 g-2 g-md-3">
-              <div className="col-12 col-lg-4 mb-2 mb-lg-0">
-                <div className="chart-card mini-card h-100">
+            {/* Análisis de anomalías */}
+            <div className="row mb-3 mb-md-4">
+              <div className="col-12">
+                <div className="chart-card">
+                  <div className="chart-header">
+                    <h6 className="mb-0">Análisis de Anomalías</h6>
+                  </div>
+                  <div className="chart-body">
+                    <div className="row g-3">
+                      {/* Anomalías Aceptadas - Gráfico de Pie */}
+                      <div className="col-12 col-lg-6">
+                        <div className="chart-card">
+                          <div className="chart-header">
+                            <h6 className="mb-0">Anomalías Aceptadas</h6>
+                          </div>
+                          <div className="chart-body">{renderAnomaliasPieChart()}</div>
+                        </div>
+                      </div>
+
+                      {/* Operador No Responde - Gráfico de Barras */}
+                      <div className="col-12 col-lg-6">
+                        <div className="chart-card">
+                          <div className="chart-header">
+                            <h6 className="mb-0">Operador No Responde</h6>
+                          </div>
+                          <div className="chart-body">{renderOncBarChart()}</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Lista de bitácoras con anomalías */}
+            <div className="row mb-3 mb-md-4">
+              <div className="col-12">
+                <div className="chart-card">
+                  <div className="chart-header d-flex justify-content-between align-items-center">
+                    <h6 className="mb-0">Lista de Bitácoras con Anomalías</h6>
+                    <button
+                      className="btn btn-sm btn-outline-success"
+                      onClick={downloadBitacorasAnomaliasExcel}
+                      disabled={bitacorasAnomalias.length === 0}>
+                      <i className="fa fa-file-excel me-1"></i>
+                      Excel
+                    </button>
+                  </div>
+                  <div className="chart-body">{renderBitacorasAnomalias()}</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Tipos de monitoreo */}
+            <div className="row mb-3 mb-md-4">
+              <div className="col-12">
+                <div className="chart-card">
                   <div className="chart-header">
                     <h6 className="mb-0">Tipos de Monitoreo</h6>
                   </div>
-                  <div className="chart-body fixed-height-card-body">
+                  <div className="chart-body">
                     <div className="overflow-auto">{renderTiposMonitoreoChart()}</div>
                   </div>
                 </div>
               </div>
-              <div className="col-12 col-lg-4 mb-2 mb-lg-0">
-                <div className="chart-card mini-card h-100">
+            </div>
+
+            {/* Lista descendente de clientes */}
+            <div className="row mb-3 mb-md-4">
+              <div className="col-12">
+                <div className="chart-card">
                   <div className="chart-header">
-                    <h6 className="mb-0">Top Clientes</h6>
+                    <h6 className="mb-0">Lista Descendente de Clientes</h6>
                   </div>
-                  <div className="chart-body fixed-height-card-body">
+                  <div className="chart-body">
                     <div className="overflow-auto">{renderTopClients()}</div>
                   </div>
                 </div>
               </div>
-              <div className="col-12 col-lg-4 mb-2 mb-lg-0">
-                <div className="chart-card mini-card h-100">
+            </div>
+
+            {/* Top Operadores */}
+            <div className="row mb-3 mb-md-4">
+              <div className="col-12">
+                <div className="chart-card">
                   <div className="chart-header">
                     <h6 className="mb-0">Top Operadores</h6>
                   </div>
-                  <div className="chart-body fixed-height-card-body">
+                  <div className="chart-body">
                     <div className="overflow-auto">{renderTopOperadores()}</div>
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* Fila: Análisis Geográfico y Actividad Reciente */}
-            <div className="row mb-3 mb-md-4 g-2 g-md-3">
-              <div className="col-12 col-lg-6 mb-2 mb-lg-0">
-                <div className="chart-card mini-card h-100">
+            {/* Análisis geográfico */}
+            <div className="row mb-3 mb-md-4">
+              <div className="col-12">
+                <div className="chart-card">
                   <div className="chart-header">
                     <h6 className="mb-0">Análisis Geográfico</h6>
                   </div>
-                  <div className="chart-body fixed-height-card-body">
+                  <div className="chart-body">
                     <div className="overflow-auto">{renderGeographicChart()}</div>
                   </div>
                 </div>
               </div>
-              <div className="col-12 col-lg-6 mb-2 mb-lg-0">
-                <div className="chart-card mini-card h-100">
+            </div>
+
+            {/* Actividad reciente */}
+            <div className="row mb-3 mb-md-4">
+              <div className="col-12">
+                <div className="chart-card">
                   <div className="chart-header">
                     <h6 className="mb-0">Actividad Reciente</h6>
                   </div>
-                  <div className="chart-body fixed-height-card-body">
+                  <div className="chart-body">
                     <div className="overflow-auto">{renderActivityTimeline()}</div>
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* Quick Actions */}
+            {/* Acciones rápidas */}
             <div className="row mb-3 mb-md-4">
               <div className="col-12">
                 <div className="chart-card">
