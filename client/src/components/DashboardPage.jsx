@@ -3,6 +3,10 @@ import {useAuth} from "../context/AuthContext";
 import {useSidebar} from "../context/SidebarContext";
 import {useNavigate} from "react-router-dom";
 import Sidebar from "./Sidebar";
+import {Chart as ChartJS, ArcElement, Tooltip, Legend} from "chart.js";
+import {Doughnut} from "react-chartjs-2";
+
+ChartJS.register(ArcElement, Tooltip, Legend);
 
 const DashboardPage = () => {
   const {user} = useAuth();
@@ -43,6 +47,7 @@ const DashboardPage = () => {
   const [operadorFilter, setOperadorFilter] = useState("all");
   const [availableLineasTransporte, setAvailableLineasTransporte] = useState([]);
   const [availableOperadores, setAvailableOperadores] = useState([]);
+  const [applyFiltersTrigger, setApplyFiltersTrigger] = useState(0);
 
   const baseUrl = import.meta.env.VITE_BASE_URL;
 
@@ -170,17 +175,7 @@ const DashboardPage = () => {
     };
 
     fetchDashboardData();
-  }, [
-    user,
-    navigate,
-    baseUrl,
-    clientFilter,
-    geoType,
-    fechaDesde,
-    fechaHasta,
-    lineaTransporteFilter,
-    operadorFilter,
-  ]);
+  }, [user, navigate, baseUrl, applyFiltersTrigger]);
 
   // Chart rendering functions
   const renderTiposMonitoreoChart = () => {
@@ -491,19 +486,40 @@ const DashboardPage = () => {
       );
     }
 
-    // Generate conic gradient for pie chart
-    let currentAngle = 0;
-    const gradientStops = eventCategoriesStats
-      .filter((category) => category.count > 0)
-      .map((category) => {
-        const percentage = (category.count / total) * 100;
-        const startAngle = currentAngle;
-        const endAngle = currentAngle + percentage * 3.6; // 3.6 degrees per 1%
-        currentAngle = endAngle;
+    // Prepare data for Chart.js
+    const chartData = {
+      labels: eventCategoriesStats.map((category) => category.categoria),
+      datasets: [
+        {
+          data: eventCategoriesStats.map((category) => category.count),
+          backgroundColor: eventCategoriesStats.map((category) => category.color),
+          borderWidth: 2,
+          borderColor: "#ffffff",
+          hoverBorderWidth: 3,
+        },
+      ],
+    };
 
-        return `${category.color} ${startAngle}deg ${endAngle}deg`;
-      })
-      .join(", ");
+    const chartOptions = {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          display: false, // We'll create our own legend
+        },
+        tooltip: {
+          callbacks: {
+            label: function (context) {
+              const label = context.label || "";
+              const value = context.parsed;
+              const percentage = ((value / total) * 100).toFixed(1);
+              return `${label}: ${value} (${percentage}%)`;
+            },
+          },
+        },
+      },
+      cutout: "60%", // This makes it a donut chart
+    };
 
     return (
       <div
@@ -520,22 +536,16 @@ const DashboardPage = () => {
             position: "relative",
             width: "200px",
             height: "200px",
-            borderRadius: "50%",
-            background: gradientStops || "conic-gradient(#e5e7eb 0deg 360deg)",
           }}>
+          <Doughnut data={chartData} options={chartOptions} />
           <div
             style={{
               position: "absolute",
               top: "50%",
               left: "50%",
               transform: "translate(-50%, -50%)",
-              width: "80px",
-              height: "80px",
-              borderRadius: "50%",
-              background: "#fff",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
+              textAlign: "center",
+              pointerEvents: "none",
             }}>
             <span
               style={{
@@ -894,6 +904,26 @@ const DashboardPage = () => {
             <div className="row mb-3 mb-md-4">
               <div className="col-12">
                 <div className="filter-card">
+                  <div className="filter-header d-flex justify-content-end align-items-center mb-2">
+                    <div className="d-flex align-items-center gap-2">
+                      {loading && (
+                        <span className="badge bg-warning">
+                          <i className="fa fa-spinner fa-spin me-1"></i>
+                          Cargando...
+                        </span>
+                      )}
+                      {(fechaDesde ||
+                        fechaHasta ||
+                        clientFilter !== "all" ||
+                        lineaTransporteFilter !== "all" ||
+                        operadorFilter !== "all") && (
+                        <span className="badge bg-primary">
+                          <i className="fa fa-filter me-1"></i>
+                          Filtros Activos
+                        </span>
+                      )}
+                    </div>
+                  </div>
                   <div className="filter-content">
                     <div className="row g-2 g-md-3 align-items-end">
                       {/* Filtros de fecha primero */}
@@ -987,7 +1017,12 @@ const DashboardPage = () => {
                         </div>
                       </div>
                       <div className="col-12 col-sm-6 col-lg-2">
-                        <div className="filter-actions d-flex justify-content-end">
+                        <div className="filter-actions d-flex justify-content-end gap-2">
+                          <button
+                            className="filter-btn btn btn-outline-primary btn-sm"
+                            onClick={() => setApplyFiltersTrigger((prev) => prev + 1)}>
+                            <i className="fa fa-check me-1"></i>
+                          </button>
                           <button
                             className="filter-btn btn btn-outline-secondary btn-sm"
                             onClick={() => {
@@ -998,7 +1033,6 @@ const DashboardPage = () => {
                               setOperadorFilter("all");
                             }}>
                             <i className="fa fa-refresh me-1"></i>
-                            Resetear
                           </button>
                         </div>
                       </div>

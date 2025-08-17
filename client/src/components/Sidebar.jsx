@@ -172,7 +172,7 @@ const Sidebar = () => {
           <nav className="sidebar-nav">
             <ul className="nav-menu">
               {/* Dashboard */}
-              {/* <li className="nav-item">
+              <li className="nav-item">
                 <div
                   className="nav-link"
                   onClick={() => handleIconClick(() => navigate("/dashboard"))}>
@@ -181,7 +181,7 @@ const Sidebar = () => {
                     {!isSidebarCollapsed && <span>Dashboard</span>}
                   </div>
                 </div>
-              </li> */}
+              </li>
 
               {/* Monitoreo */}
               {roleData?.bitacoras?.read && (

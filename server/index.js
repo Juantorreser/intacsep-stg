@@ -1233,9 +1233,47 @@ app.get("/operadores-bitacoras", async (req, res) => {
   try {
     const operadores = await Bitacora.aggregate([
       {
-        $group: {
-          _id: '$operador',
-          nombre: { $first: '$operador' }
+        $facet: {
+          // Obtener operadores del campo principal
+          mainOperators: [
+            {
+              $group: {
+                _id: '$operador',
+                nombre: { $first: '$operador' }
+              }
+            }
+          ],
+          // Obtener operadores del array transportes
+          transportOperators: [
+            { $unwind: '$transportes' },
+            {
+              $group: {
+                _id: '$transportes.operador',
+                nombre: { $first: '$transportes.operador' }
+              }
+            }
+          ]
+        }
+      },
+      {
+        $project: {
+          allOperators: {
+            $setUnion: [
+              '$mainOperators',
+              '$transportOperators'
+            ]
+          }
+        }
+      },
+      { $unwind: '$allOperators' },
+      {
+        $replaceRoot: {
+          newRoot: '$allOperators'
+        }
+      },
+      {
+        $match: {
+          nombre: { $ne: null, $ne: '' }
         }
       },
       { $sort: { nombre: 1 } },
@@ -1258,9 +1296,47 @@ app.get("/lineas-transporte-bitacoras", async (req, res) => {
   try {
     const lineasTransporte = await Bitacora.aggregate([
       {
-        $group: {
-          _id: '$linea_transporte',
-          nombre: { $first: '$linea_transporte' }
+        $facet: {
+          // Obtener líneas de transporte del campo principal
+          mainLines: [
+            {
+              $group: {
+                _id: '$linea_transporte',
+                nombre: { $first: '$linea_transporte' }
+              }
+            }
+          ],
+          // Obtener líneas de transporte del array transportes
+          transportLines: [
+            { $unwind: '$transportes' },
+            {
+              $group: {
+                _id: '$transportes.lineaTransporte',
+                nombre: { $first: '$transportes.lineaTransporte' }
+              }
+            }
+          ]
+        }
+      },
+      {
+        $project: {
+          allLines: {
+            $setUnion: [
+              '$mainLines',
+              '$transportLines'
+            ]
+          }
+        }
+      },
+      { $unwind: '$allLines' },
+      {
+        $replaceRoot: {
+          newRoot: '$allLines'
+        }
+      },
+      {
+        $match: {
+          nombre: { $ne: null, $ne: '' }
         }
       },
       { $sort: { nombre: 1 } },
@@ -1452,12 +1528,82 @@ app.get('/dashboard/stats', async (req, res) => {
 
     // Add transport line filter
     if (lineaTransporte !== 'all') {
-      bitacoraFilter.linea_transporte = lineaTransporte;
+      // If we already have filters, we need to combine them properly
+      if (bitacoraFilter.$or || bitacoraFilter.$and || Object.keys(bitacoraFilter).some(key => key !== 'cliente' && key !== 'createdAt')) {
+        // Create a new $and filter to combine existing filters with transport line filter
+        const existingFilters = {};
+        if (bitacoraFilter.$or) {
+          existingFilters.$or = bitacoraFilter.$or;
+          delete bitacoraFilter.$or;
+        }
+        if (bitacoraFilter.$and) {
+          existingFilters.$and = bitacoraFilter.$and;
+          delete bitacoraFilter.$and;
+        }
+
+        // Add other existing filters
+        Object.keys(bitacoraFilter).forEach(key => {
+          if (key !== 'cliente' && key !== 'createdAt') {
+            existingFilters[key] = bitacoraFilter[key];
+            delete bitacoraFilter[key];
+          }
+        });
+
+        bitacoraFilter.$and = [
+          existingFilters,
+          {
+            $or: [
+              { linea_transporte: lineaTransporte },
+              { 'transportes.lineaTransporte': lineaTransporte }
+            ]
+          }
+        ];
+      } else {
+        bitacoraFilter.$or = [
+          { linea_transporte: lineaTransporte },
+          { 'transportes.lineaTransporte': lineaTransporte }
+        ];
+      }
     }
 
     // Add operator filter
     if (operador !== 'all') {
-      bitacoraFilter.operador = operador;
+      // If we already have filters, we need to combine them properly
+      if (bitacoraFilter.$or || bitacoraFilter.$and || Object.keys(bitacoraFilter).some(key => key !== 'cliente' && key !== 'createdAt')) {
+        // Create a new $and filter to combine existing filters with operator filter
+        const existingFilters = {};
+        if (bitacoraFilter.$or) {
+          existingFilters.$or = bitacoraFilter.$or;
+          delete bitacoraFilter.$or;
+        }
+        if (bitacoraFilter.$and) {
+          existingFilters.$and = bitacoraFilter.$and;
+          delete bitacoraFilter.$and;
+        }
+
+        // Add other existing filters
+        Object.keys(bitacoraFilter).forEach(key => {
+          if (key !== 'cliente' && key !== 'createdAt') {
+            existingFilters[key] = bitacoraFilter[key];
+            delete bitacoraFilter[key];
+          }
+        });
+
+        bitacoraFilter.$and = [
+          existingFilters,
+          {
+            $or: [
+              { operador: operador },
+              { 'transportes.operador': operador }
+            ]
+          }
+        ];
+      } else {
+        bitacoraFilter.$or = [
+          { operador: operador },
+          { 'transportes.operador': operador }
+        ];
+      }
     }
 
     if (!role.bitacoras?.read_all) {
@@ -1465,7 +1611,42 @@ app.get('/dashboard/stats', async (req, res) => {
       const userFullName = `${user.firstName} ${user.lastName}`;
       // Only override operator filter if no specific operator is selected
       if (operador === 'all') {
-        bitacoraFilter.operador = userFullName;
+        // If we already have filters, we need to combine them properly
+        if (bitacoraFilter.$or || bitacoraFilter.$and || Object.keys(bitacoraFilter).some(key => key !== 'cliente' && key !== 'createdAt')) {
+          // Create a new $and filter to combine existing filters with user permission filter
+          const existingFilters = {};
+          if (bitacoraFilter.$or) {
+            existingFilters.$or = bitacoraFilter.$or;
+            delete bitacoraFilter.$or;
+          }
+          if (bitacoraFilter.$and) {
+            existingFilters.$and = bitacoraFilter.$and;
+            delete bitacoraFilter.$and;
+          }
+
+          // Add other existing filters
+          Object.keys(bitacoraFilter).forEach(key => {
+            if (key !== 'cliente' && key !== 'createdAt') {
+              existingFilters[key] = bitacoraFilter[key];
+              delete bitacoraFilter[key];
+            }
+          });
+
+          bitacoraFilter.$and = [
+            existingFilters,
+            {
+              $or: [
+                { operador: userFullName },
+                { 'transportes.operador': userFullName }
+              ]
+            }
+          ];
+        } else {
+          bitacoraFilter.$or = [
+            { operador: userFullName },
+            { 'transportes.operador': userFullName }
+          ];
+        }
       }
     }
 
@@ -1486,7 +1667,7 @@ app.get('/dashboard/stats', async (req, res) => {
     }
 
     // Debug: Log the filters being used
-    console.log('Dashboard filters:', {
+    console.log('Dashboard stats filters:', {
       yearFilter,
       timeFilter,
       clientFilter,
@@ -1683,6 +1864,16 @@ app.get('/dashboard/stats', async (req, res) => {
       });
 
       console.log('Event names by category:', eventNamesByCategory);
+
+      // First, let's see how many bitacoras match our filter for event categories
+      const matchingBitacorasForCategories = await Bitacora.find(bitacoraFilter).limit(5);
+      console.log('Matching bitacoras for event categories (first 5):', matchingBitacorasForCategories.map(b => ({
+        _id: b._id,
+        bitacora_id: b.bitacora_id,
+        operador: b.operador,
+        eventos: b.eventos?.length || 0,
+        eventNames: b.eventos?.map(e => e.nombre) || []
+      })));
 
       // Now aggregate by event names that belong to our categories
       eventCategoriesStats = await Bitacora.aggregate([
@@ -2335,26 +2526,157 @@ app.get('/dashboard/onc-events', async (req, res) => {
 
     // Filtro de línea de transporte
     if (lineaTransporte !== 'all') {
-      bitacoraFilter.linea_transporte = lineaTransporte;
+      // If we already have filters, we need to combine them properly
+      if (bitacoraFilter.$or || bitacoraFilter.$and || Object.keys(bitacoraFilter).some(key => key !== 'cliente' && key !== 'createdAt')) {
+        // Create a new $and filter to combine existing filters with transport line filter
+        const existingFilters = {};
+        if (bitacoraFilter.$or) {
+          existingFilters.$or = bitacoraFilter.$or;
+          delete bitacoraFilter.$or;
+        }
+        if (bitacoraFilter.$and) {
+          existingFilters.$and = bitacoraFilter.$and;
+          delete bitacoraFilter.$and;
+        }
+
+        // Add other existing filters
+        Object.keys(bitacoraFilter).forEach(key => {
+          if (key !== 'cliente' && key !== 'createdAt') {
+            existingFilters[key] = bitacoraFilter[key];
+            delete bitacoraFilter[key];
+          }
+        });
+
+        bitacoraFilter.$and = [
+          existingFilters,
+          {
+            $or: [
+              { linea_transporte: lineaTransporte },
+              { 'transportes.lineaTransporte': lineaTransporte }
+            ]
+          }
+        ];
+      } else {
+        bitacoraFilter.$or = [
+          { linea_transporte: lineaTransporte },
+          { 'transportes.lineaTransporte': lineaTransporte }
+        ];
+      }
     }
 
     // Filtro de operador
     if (operador !== 'all') {
-      bitacoraFilter.operador = operador;
+      // If we already have filters, we need to combine them properly
+      if (bitacoraFilter.$or || bitacoraFilter.$and || Object.keys(bitacoraFilter).some(key => key !== 'cliente' && key !== 'createdAt')) {
+        // Create a new $and filter to combine existing filters with operator filter
+        const existingFilters = {};
+        if (bitacoraFilter.$or) {
+          existingFilters.$or = bitacoraFilter.$or;
+          delete bitacoraFilter.$or;
+        }
+        if (bitacoraFilter.$and) {
+          existingFilters.$and = bitacoraFilter.$and;
+          delete bitacoraFilter.$and;
+        }
+
+        // Add other existing filters
+        Object.keys(bitacoraFilter).forEach(key => {
+          if (key !== 'cliente' && key !== 'createdAt') {
+            existingFilters[key] = bitacoraFilter[key];
+            delete bitacoraFilter[key];
+          }
+        });
+
+        bitacoraFilter.$and = [
+          existingFilters,
+          {
+            $or: [
+              { operador: operador },
+              { 'transportes.operador': operador }
+            ]
+          }
+        ];
+      } else {
+        bitacoraFilter.$or = [
+          { operador: operador },
+          { 'transportes.operador': operador }
+        ];
+      }
     }
 
-    // Filtro de permisos de usuario
+
+
+    // Debug: Log the filters being used for ONC events
+    console.log('ONC events filters:', {
+      clientFilter,
+      fechaDesde,
+      fechaHasta,
+      lineaTransporte,
+      operador,
+      bitacoraFilter: JSON.stringify(bitacoraFilter, null, 2)
+    });
+
+    // Filtro de permisos de usuario para ONC events
     if (!role.bitacoras?.read_all) {
       const userFullName = `${user.firstName} ${user.lastName}`;
-      // Only override operator filter if no specific operator is selected
-      if (operador === 'all') {
-        bitacoraFilter.operador = userFullName;
+      // Always apply user permission filter, but if a specific operator is selected, 
+      // make sure it matches the user's name
+      if (operador !== 'all' && operador !== userFullName) {
+        // If a specific operator is selected that doesn't match the user, return empty results
+        console.log('ONC events: User does not have permission to view this operator, returning empty results');
+        return res.status(200).json([]);
+      }
+
+      // If we already have filters, we need to combine them properly
+      if (bitacoraFilter.$or || bitacoraFilter.$and || Object.keys(bitacoraFilter).some(key => key !== 'cliente' && key !== 'createdAt')) {
+        // Create a new $and filter to combine existing filters with user permission filter
+        const existingFilters = {};
+        if (bitacoraFilter.$or) {
+          existingFilters.$or = bitacoraFilter.$or;
+          delete bitacoraFilter.$or;
+        }
+        if (bitacoraFilter.$and) {
+          existingFilters.$and = bitacoraFilter.$and;
+          delete bitacoraFilter.$and;
+        }
+
+        // Add other existing filters
+        Object.keys(bitacoraFilter).forEach(key => {
+          if (key !== 'cliente' && key !== 'createdAt') {
+            existingFilters[key] = bitacoraFilter[key];
+            delete bitacoraFilter[key];
+          }
+        });
+
+        bitacoraFilter.$and = [
+          existingFilters,
+          {
+            $or: [
+              { operador: userFullName },
+              { 'transportes.operador': userFullName }
+            ]
+          }
+        ];
+      } else {
+        bitacoraFilter.$or = [
+          { operador: userFullName },
+          { 'transportes.operador': userFullName }
+        ];
       }
     }
 
     // Obtener todos los eventos de tipo ONC
     const oncEventTypes = await EventType.find({ categoria: 'ONC' });
     console.log('ONC Event types found:', oncEventTypes);
+
+    // First, let's see how many bitacoras match our filter
+    const matchingBitacoras = await Bitacora.find(bitacoraFilter).limit(5);
+    console.log('Matching bitacoras for ONC events (first 5):', matchingBitacoras.map(b => ({
+      _id: b._id,
+      bitacora_id: b.bitacora_id,
+      operador: b.operador,
+      eventos: b.eventos?.length || 0
+    })));
 
     // Obtener datos de eventos ONC de las bitácoras
     const oncEventsData = await Bitacora.aggregate([
@@ -2493,20 +2815,130 @@ app.get('/dashboard/bitacoras-anomalias', async (req, res) => {
 
     // Filtro de línea de transporte
     if (lineaTransporte !== 'all') {
-      bitacoraFilter.linea_transporte = lineaTransporte;
+      // If we already have filters, we need to combine them properly
+      if (bitacoraFilter.$or || bitacoraFilter.$and || Object.keys(bitacoraFilter).some(key => key !== 'cliente' && key !== 'createdAt')) {
+        // Create a new $and filter to combine existing filters with transport line filter
+        const existingFilters = {};
+        if (bitacoraFilter.$or) {
+          existingFilters.$or = bitacoraFilter.$or;
+          delete bitacoraFilter.$or;
+        }
+        if (bitacoraFilter.$and) {
+          existingFilters.$and = bitacoraFilter.$and;
+          delete bitacoraFilter.$and;
+        }
+
+        // Add other existing filters
+        Object.keys(bitacoraFilter).forEach(key => {
+          if (key !== 'cliente' && key !== 'createdAt') {
+            existingFilters[key] = bitacoraFilter[key];
+            delete bitacoraFilter[key];
+          }
+        });
+
+        bitacoraFilter.$and = [
+          existingFilters,
+          {
+            $or: [
+              { linea_transporte: lineaTransporte },
+              { 'transportes.lineaTransporte': lineaTransporte }
+            ]
+          }
+        ];
+      } else {
+        bitacoraFilter.$or = [
+          { linea_transporte: lineaTransporte },
+          { 'transportes.lineaTransporte': lineaTransporte }
+        ];
+      }
     }
 
     // Filtro de operador
     if (operador !== 'all') {
-      bitacoraFilter.operador = operador;
+      // If we already have filters, we need to combine them properly
+      if (bitacoraFilter.$or || bitacoraFilter.$and || Object.keys(bitacoraFilter).some(key => key !== 'cliente' && key !== 'createdAt')) {
+        // Create a new $and filter to combine existing filters with operator filter
+        const existingFilters = {};
+        if (bitacoraFilter.$or) {
+          existingFilters.$or = bitacoraFilter.$or;
+          delete bitacoraFilter.$or;
+        }
+        if (bitacoraFilter.$and) {
+          existingFilters.$and = bitacoraFilter.$and;
+          delete bitacoraFilter.$and;
+        }
+
+        // Add other existing filters
+        Object.keys(bitacoraFilter).forEach(key => {
+          if (key !== 'cliente' && key !== 'createdAt') {
+            existingFilters[key] = bitacoraFilter[key];
+            delete bitacoraFilter[key];
+          }
+        });
+
+        bitacoraFilter.$and = [
+          existingFilters,
+          {
+            $or: [
+              { operador: operador },
+              { 'transportes.operador': operador }
+            ]
+          }
+        ];
+      } else {
+        bitacoraFilter.$or = [
+          { operador: operador },
+          { 'transportes.operador': operador }
+        ];
+      }
     }
 
-    // Filtro de permisos de usuario
+    // Filtro de permisos de usuario para bitacoras anomalias
     if (!role.bitacoras?.read_all) {
       const userFullName = `${user.firstName} ${user.lastName}`;
-      // Only override operator filter if no specific operator is selected
-      if (operador === 'all') {
-        bitacoraFilter.operador = userFullName;
+      // Always apply user permission filter, but if a specific operator is selected, 
+      // make sure it matches the user's name
+      if (operador !== 'all' && operador !== userFullName) {
+        // If a specific operator is selected that doesn't match the user, return empty results
+        console.log('Bitacoras anomalias: User does not have permission to view this operator, returning empty results');
+        return res.status(200).json([]);
+      }
+
+      // If we already have filters, we need to combine them properly
+      if (bitacoraFilter.$or || bitacoraFilter.$and || Object.keys(bitacoraFilter).some(key => key !== 'cliente' && key !== 'createdAt')) {
+        // Create a new $and filter to combine existing filters with user permission filter
+        const existingFilters = {};
+        if (bitacoraFilter.$or) {
+          existingFilters.$or = bitacoraFilter.$or;
+          delete bitacoraFilter.$or;
+        }
+        if (bitacoraFilter.$and) {
+          existingFilters.$and = bitacoraFilter.$and;
+          delete bitacoraFilter.$and;
+        }
+
+        // Add other existing filters
+        Object.keys(bitacoraFilter).forEach(key => {
+          if (key !== 'cliente' && key !== 'createdAt') {
+            existingFilters[key] = bitacoraFilter[key];
+            delete bitacoraFilter[key];
+          }
+        });
+
+        bitacoraFilter.$and = [
+          existingFilters,
+          {
+            $or: [
+              { operador: userFullName },
+              { 'transportes.operador': userFullName }
+            ]
+          }
+        ];
+      } else {
+        bitacoraFilter.$or = [
+          { operador: userFullName },
+          { 'transportes.operador': userFullName }
+        ];
       }
     }
 
