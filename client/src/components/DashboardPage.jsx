@@ -1,4 +1,4 @@
-import {useState, useEffect, useCallback, useMemo} from "react";
+import {useState, useEffect} from "react";
 import {useAuth} from "../context/AuthContext";
 import {useSidebar} from "../context/SidebarContext";
 import {useNavigate} from "react-router-dom";
@@ -26,6 +26,7 @@ const DashboardPage = () => {
     statusDistribution: [],
     topClients: [],
     topOperadores: [],
+    topLineasTransporte: [],
     statusTrends: [],
     eventDistribution: [],
     eventCategoriesStats: [],
@@ -49,243 +50,16 @@ const DashboardPage = () => {
   const [availableLineasTransporte, setAvailableLineasTransporte] = useState([]);
   const [availableOperadores, setAvailableOperadores] = useState([]);
   const [applyFiltersTrigger, setApplyFiltersTrigger] = useState(0);
-
-  // Cache para evitar llamadas duplicadas
-  const [dataCache, setDataCache] = useState({
-    roleData: null,
-    clients: null,
-    lineasTransporte: null,
-    operadores: null,
-    lastFetch: null,
-  });
-
-  // Debounce para filtros
-  const [debouncedFilters, setDebouncedFilters] = useState({
-    clientFilter: "all",
-    geoType: "origen",
-    fechaDesde: "",
-    fechaHasta: "",
-    lineaTransporteFilter: "all",
-    operadorFilter: "all",
-  });
+  const [oncViewMode, setOncViewMode] = useState("chart"); // 'chart' or 'list'
+  const [lineasViewMode, setLineasViewMode] = useState("chart"); // 'chart' or 'list'
 
   const baseUrl = import.meta.env.VITE_BASE_URL;
 
-  // Memoizar los filtros para evitar llamadas innecesarias
-  const currentFilters = useMemo(
-    () => ({
-      clientFilter,
-      geoType,
-      fechaDesde,
-      fechaHasta,
-      lineaTransporteFilter,
-      operadorFilter,
-    }),
-    [clientFilter, geoType, fechaDesde, fechaHasta, lineaTransporteFilter, operadorFilter]
-  );
-
-  // Memoizar datos procesados para evitar re-renders innecesarios
-  const processedDashboardStats = useMemo(() => {
-    if (!dashboardStats) return null;
-
-    return {
-      ...dashboardStats,
-      // Procesar datos adicionales si es necesario
-      processedMonthlyData:
-        dashboardStats.monthlyData?.map((item) => ({
-          ...item,
-          displayValue: item.value.toLocaleString(),
-        })) || [],
-    };
-  }, [dashboardStats]);
-
-  const processedOncEvents = useMemo(() => {
-    if (!oncEventsData) return [];
-
-    return oncEventsData.map((event) => ({
-      ...event,
-      displayCount: event.count.toLocaleString(),
-    }));
-  }, [oncEventsData]);
-
-  // Debounce effect para filtros
-  useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      setDebouncedFilters(currentFilters);
-    }, 500); // 500ms debounce
-
-    return () => clearTimeout(timeoutId);
-  }, [currentFilters]);
-
-  // Función para obtener datos estáticos (solo una vez)
-  const fetchStaticData = useCallback(async () => {
-    try {
-      // Verificar que el usuario esté autenticado
-      if (!user || !user.role) {
-        console.log("User not authenticated, skipping static data fetch");
-        return;
-      }
-
-      // Solo obtener datos estáticos si no están en cache o han pasado más de 5 minutos
-      const now = Date.now();
-      const cacheExpiry = 5 * 60 * 1000; // 5 minutos
-
-      if (!dataCache.lastFetch || now - dataCache.lastFetch > cacheExpiry) {
-        console.log("Fetching static data...");
-
-        // Fetch role permissions
-        if (!dataCache.roleData) {
-          const roleResponse = await fetch(`${baseUrl}/roles/${user.role}`, {
-            method: "GET",
-            credentials: "include",
-          });
-          const roleData = await roleResponse.json();
-          setRoleData(roleData);
-          setDataCache((prev) => ({...prev, roleData}));
-        } else {
-          setRoleData(dataCache.roleData);
-        }
-
-        // Fetch available clients for filter
-        if (!dataCache.clients) {
-          const clientsResponse = await fetch(`${baseUrl}/clients`, {
-            method: "GET",
-            credentials: "include",
-          });
-          if (clientsResponse.ok) {
-            const clientsData = await clientsResponse.json();
-            setAvailableClients(clientsData);
-            setDataCache((prev) => ({...prev, clients: clientsData}));
-          }
-        } else {
-          setAvailableClients(dataCache.clients);
-        }
-
-        // Fetch available transport lines for filter from bitacoras
-        if (!dataCache.lineasTransporte) {
-          const lineasResponse = await fetch(`${baseUrl}/lineas-transporte-bitacoras`, {
-            method: "GET",
-            credentials: "include",
-          });
-          if (lineasResponse.ok) {
-            const lineasData = await lineasResponse.json();
-            setAvailableLineasTransporte(lineasData);
-            setDataCache((prev) => ({...prev, lineasTransporte: lineasData}));
-          } else {
-            console.warn("Transport lines endpoint not available:", lineasResponse.status);
-            setAvailableLineasTransporte([]);
-            setDataCache((prev) => ({...prev, lineasTransporte: []}));
-          }
-        } else {
-          setAvailableLineasTransporte(dataCache.lineasTransporte);
-        }
-
-        // Fetch available operators for filter from bitacoras
-        if (!dataCache.operadores) {
-          const operadoresResponse = await fetch(`${baseUrl}/operadores-bitacoras`, {
-            method: "GET",
-            credentials: "include",
-          });
-          if (operadoresResponse.ok) {
-            const operadoresData = await operadoresResponse.json();
-            setAvailableOperadores(operadoresData);
-            setDataCache((prev) => ({...prev, operadores: operadoresData}));
-          } else {
-            console.warn("Operators endpoint not available:", operadoresResponse.status);
-            setAvailableOperadores([]);
-            setDataCache((prev) => ({...prev, operadores: []}));
-          }
-        } else {
-          setAvailableOperadores(dataCache.operadores);
-        }
-
-        setDataCache((prev) => ({...prev, lastFetch: now}));
-      } else {
-        // Usar datos del cache
-        console.log("Using cached static data");
-        if (dataCache.roleData) setRoleData(dataCache.roleData);
-        if (dataCache.clients) setAvailableClients(dataCache.clients);
-        if (dataCache.lineasTransporte) setAvailableLineasTransporte(dataCache.lineasTransporte);
-        if (dataCache.operadores) setAvailableOperadores(dataCache.operadores);
-      }
-    } catch (error) {
-      console.error("Error fetching static data:", error);
-    }
-  }, [baseUrl, user?.role, dataCache]);
-
-  // Función para obtener datos dinámicos del dashboard
-  const fetchDashboardData = useCallback(async () => {
-    try {
-      // Verificar que el usuario esté autenticado
-      if (!user || !user.role) {
-        console.log("User not authenticated, skipping dashboard data fetch");
-        return;
-      }
-
-      setLoading(true);
-      console.log("Fetching dashboard data with filters:", debouncedFilters);
-
-      // Crear un solo endpoint que devuelva todos los datos del dashboard
-      const queryParams = new URLSearchParams({
-        clientFilter: debouncedFilters.clientFilter,
-        geoType: debouncedFilters.geoType,
-        fechaDesde: debouncedFilters.fechaDesde,
-        fechaHasta: debouncedFilters.fechaHasta,
-        lineaTransporte: debouncedFilters.lineaTransporteFilter,
-        operador: debouncedFilters.operadorFilter,
-      });
-
-      const dashboardResponse = await fetch(
-        `${baseUrl}/dashboard/all-data?${queryParams.toString()}`,
-        {
-          method: "GET",
-          credentials: "include",
-        }
-      );
-
-      if (dashboardResponse.ok) {
-        const dashboardData = await dashboardResponse.json();
-        console.log("Dashboard data received:", dashboardData);
-
-        // Actualizar todos los estados con los datos recibidos
-        setDashboardStats(dashboardData.stats || {});
-        setOncEventsData(dashboardData.oncEvents || []);
-        setBitacorasAnomalias(dashboardData.bitacorasAnomalias || []);
-      } else {
-        console.error("Failed to fetch dashboard data:", dashboardResponse.status);
-      }
-    } catch (error) {
-      console.error("Error fetching dashboard data:", error);
-    } finally {
-      setLoading(false);
-    }
-  }, [baseUrl, debouncedFilters]);
-
-  // Effect para datos estáticos (solo una vez al montar)
-  useEffect(() => {
-    if (!user) {
-      navigate("/login");
-      return;
-    }
-
-    if (user && user.role) {
-      fetchStaticData();
-    }
-  }, [user, navigate, fetchStaticData]);
-
-  // Effect para datos dinámicos (cuando cambian los filtros)
-  useEffect(() => {
-    if (user && user.role && debouncedFilters) {
-      fetchDashboardData();
-    }
-  }, [user, debouncedFilters, fetchDashboardData]);
-
-  // Effect para aplicar filtros manualmente
-  useEffect(() => {
-    if (applyFiltersTrigger > 0) {
-      fetchDashboardData();
-    }
-  }, [applyFiltersTrigger, fetchDashboardData]);
+  // Helper function to format numbers with thousands separator
+  const formatNumber = (num) => {
+    if (num === null || num === undefined) return "0";
+    return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  };
 
   const downloadBitacorasAnomaliasExcel = () => {
     if (bitacorasAnomalias.length === 0) {
@@ -336,9 +110,135 @@ const DashboardPage = () => {
     XLSX.writeFile(workbook, filename);
   };
 
+  useEffect(() => {
+    if (!user) {
+      navigate("/login");
+      return;
+    }
+
+    const fetchDashboardData = async () => {
+      try {
+        setLoading(true);
+
+        // Fetch role permissions
+        const roleResponse = await fetch(`${baseUrl}/roles/${user.role}`, {
+          method: "GET",
+          credentials: "include",
+        });
+        const roleData = await roleResponse.json();
+        setRoleData(roleData);
+
+        // Fetch available clients for filter
+        const clientsResponse = await fetch(`${baseUrl}/clients`, {
+          method: "GET",
+          credentials: "include",
+        });
+        if (clientsResponse.ok) {
+          const clientsData = await clientsResponse.json();
+          setAvailableClients(clientsData);
+        }
+
+        // Fetch available transport lines for filter from bitacoras
+        const lineasResponse = await fetch(`${baseUrl}/lineas-transporte-bitacoras`, {
+          method: "GET",
+          credentials: "include",
+        });
+        if (lineasResponse.ok) {
+          const lineasData = await lineasResponse.json();
+          setAvailableLineasTransporte(lineasData);
+        } else {
+          console.warn("Transport lines endpoint not available:", lineasResponse.status);
+          setAvailableLineasTransporte([]);
+        }
+
+        // Fetch available operators for filter from bitacoras
+        const operadoresResponse = await fetch(`${baseUrl}/operadores-bitacoras`, {
+          method: "GET",
+          credentials: "include",
+        });
+        if (operadoresResponse.ok) {
+          const operadoresData = await operadoresResponse.json();
+          setAvailableOperadores(operadoresData);
+        } else {
+          console.warn("Operators endpoint not available:", operadoresResponse.status);
+          setAvailableOperadores([]);
+        }
+
+        // Fetch dashboard statistics with filters
+        const statsResponse = await fetch(
+          `${baseUrl}/dashboard/stats?clientFilter=${encodeURIComponent(
+            clientFilter
+          )}&geoType=${encodeURIComponent(geoType)}&fechaDesde=${encodeURIComponent(
+            fechaDesde
+          )}&fechaHasta=${encodeURIComponent(fechaHasta)}&lineaTransporte=${encodeURIComponent(
+            lineaTransporteFilter
+          )}&operador=${encodeURIComponent(operadorFilter)}`,
+          {
+            method: "GET",
+            credentials: "include",
+          }
+        );
+
+        if (statsResponse.ok) {
+          const statsData = await statsResponse.json();
+          console.log("Dashboard stats received:", statsData);
+          setDashboardStats(statsData);
+        }
+
+        // Fetch ONC events data for bar chart
+        const oncResponse = await fetch(
+          `${baseUrl}/dashboard/onc-events?clientFilter=${encodeURIComponent(
+            clientFilter
+          )}&fechaDesde=${encodeURIComponent(fechaDesde)}&fechaHasta=${encodeURIComponent(
+            fechaHasta
+          )}&lineaTransporte=${encodeURIComponent(
+            lineaTransporteFilter
+          )}&operador=${encodeURIComponent(operadorFilter)}`,
+          {
+            method: "GET",
+            credentials: "include",
+          }
+        );
+
+        if (oncResponse.ok) {
+          const oncData = await oncResponse.json();
+          console.log("ONC events data received:", oncData);
+          setOncEventsData(oncData);
+        }
+
+        // Fetch bitácoras con anomalías
+        const anomaliasResponse = await fetch(
+          `${baseUrl}/dashboard/bitacoras-anomalias?clientFilter=${encodeURIComponent(
+            clientFilter
+          )}&fechaDesde=${encodeURIComponent(fechaDesde)}&fechaHasta=${encodeURIComponent(
+            fechaHasta
+          )}&lineaTransporte=${encodeURIComponent(
+            lineaTransporteFilter
+          )}&operador=${encodeURIComponent(operadorFilter)}`,
+          {
+            method: "GET",
+            credentials: "include",
+          }
+        );
+
+        if (anomaliasResponse.ok) {
+          const anomaliasData = await anomaliasResponse.json();
+          console.log("Bitácoras con anomalías received:", anomaliasData);
+          setBitacorasAnomalias(anomaliasData);
+        }
+      } catch (error) {
+        console.error("Error fetching dashboard data:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDashboardData();
+  }, [user, navigate, baseUrl, applyFiltersTrigger]);
+
   // Chart rendering functions
   const renderTiposMonitoreoChart = () => {
-    const tiposMonitoreo = processedDashboardStats?.tiposMonitoreo || [];
+    const tiposMonitoreo = dashboardStats.tiposMonitoreo || [];
 
     if (tiposMonitoreo.length === 0) {
       return <div className="text-center text-muted">No hay datos disponibles</div>;
@@ -363,7 +263,7 @@ const DashboardPage = () => {
                   <div className="cell tipo-name">
                     <span className="small">{tipo.nombre}</span>
                   </div>
-                  <div className="cell tipo-count small">{tipo.count}</div>
+                  <div className="cell tipo-count small">{formatNumber(tipo.count)}</div>
                   <div className="cell tipo-percentage small">{percentage.toFixed(1)}%</div>
                   <div className="cell tipo-bar">
                     <div className="bar-container">
@@ -385,7 +285,7 @@ const DashboardPage = () => {
   };
 
   const renderMonthlyTrendChart = () => {
-    const monthlyData = processedDashboardStats?.monthlyData || [];
+    const monthlyData = dashboardStats.monthlyData || [];
 
     console.log("Monthly data in frontend:", monthlyData);
 
@@ -469,7 +369,7 @@ const DashboardPage = () => {
                       display: "block",
                       marginTop: "2px",
                     }}>
-                    {item.value}
+                    {formatNumber(item.value)}
                   </span>
                 </div>
               </div>
@@ -479,14 +379,18 @@ const DashboardPage = () => {
         <div className="chart-summary">
           <div className="summary-item">
             <span className="summary-label">Total del período:</span>
-            <span className="summary-value">{dashboardStats.totalBitacoras} bitácoras</span>
+            <span className="summary-value">
+              {formatNumber(dashboardStats.totalBitacoras)} bitácoras
+            </span>
           </div>
           <div className="summary-item">
             <span className="summary-label">Promedio mensual:</span>
             <span className="summary-value">
-              {Math.round(
-                monthlyData.reduce((sum, item) => sum + item.value, 0) /
-                  Math.max(monthlyData.length, 1)
+              {formatNumber(
+                Math.round(
+                  monthlyData.reduce((sum, item) => sum + item.value, 0) /
+                    Math.max(monthlyData.length, 1)
+                )
               )}{" "}
               bitácoras
             </span>
@@ -549,7 +453,7 @@ const DashboardPage = () => {
               </div>
               <div className="geo-info">
                 <div className="geo-name small">{location.name}</div>
-                <div className="geo-count small">{location.count} bitácoras</div>
+                <div className="geo-count small">{formatNumber(location.count)} bitácoras</div>
               </div>
               <div className="geo-percentage small">
                 {Math.round(
@@ -647,7 +551,15 @@ const DashboardPage = () => {
 
     // Prepare data for Chart.js
     const chartData = {
-      labels: eventCategoriesStats.map((category) => category.categoria),
+      labels: eventCategoriesStats.map((category) => {
+        const labelMap = {
+          ENA: "Estadia no autorizada",
+          FM: "Falla mecánica",
+          ONC: "Operador no responde",
+          DR: "Desvío de ruta",
+        };
+        return labelMap[category.categoria] || category.categoria;
+      }),
       datasets: [
         {
           data: eventCategoriesStats.map((category) => category.count),
@@ -667,6 +579,9 @@ const DashboardPage = () => {
           display: false, // We'll create our own legend
         },
         tooltip: {
+          position: "nearest",
+          yAlign: "top",
+          xAlign: "center",
           callbacks: {
             label: function (context) {
               const label = context.label || "";
@@ -706,14 +621,16 @@ const DashboardPage = () => {
               textAlign: "center",
               pointerEvents: "none",
             }}>
-            <span
+            <div
               style={{
                 fontSize: "14px",
                 fontWeight: "bold",
                 color: "#374151",
+                lineHeight: "1.2",
               }}>
-              {total}
-            </span>
+              <div>{total}</div>
+              <div style={{fontSize: "10px", marginTop: "2px"}}>Bitácoras</div>
+            </div>
           </div>
         </div>
         <div
@@ -723,8 +640,45 @@ const DashboardPage = () => {
             flexDirection: "column",
             gap: "8px",
           }}>
+          {/* Total at the top of legend */}
+          <div
+            className="legend-total"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+              marginBottom: "8px",
+              paddingBottom: "8px",
+              borderBottom: "1px solid rgba(255,255,255,0.2)",
+            }}>
+            <span
+              className="legend-color"
+              style={{
+                width: "12px",
+                height: "12px",
+                borderRadius: "2px",
+                background: "#374151",
+              }}></span>
+            <span
+              className="legend-text"
+              style={{
+                fontSize: "14px",
+                fontWeight: "bold",
+                color: "#ffffff",
+              }}>
+              Total: {formatNumber(total)} bitácoras
+            </span>
+          </div>
+
           {eventCategoriesStats.map((category, index) => {
             const percentage = total > 0 ? ((category.count / total) * 100).toFixed(1) : 0;
+            const labelMap = {
+              ENA: "Estadia no autorizada",
+              FM: "Falla mecánica",
+              ONC: "Operador no responde",
+              DR: "Desvío de ruta",
+            };
+            const displayLabel = labelMap[category.categoria] || category.categoria;
             return (
               <div
                 key={index}
@@ -748,7 +702,7 @@ const DashboardPage = () => {
                     fontSize: "12px",
                     color: "#ffffff",
                   }}>
-                  {category.categoria} - {percentage}%
+                  {displayLabel} - {formatNumber(category.count)} ({percentage}%)
                 </span>
               </div>
             );
@@ -759,11 +713,11 @@ const DashboardPage = () => {
   };
 
   const renderOncBarChart = () => {
-    if (processedOncEvents.length === 0) {
+    if (oncEventsData.length === 0) {
       return <div className="text-center text-muted">No hay datos de eventos ONC disponibles</div>;
     }
 
-    const maxCount = Math.max(...processedOncEvents.map((event) => event.count));
+    const maxCount = Math.max(...oncEventsData.map((event) => event.count));
     const maxHeight = 200; // Altura máxima de las barras en píxeles
 
     return (
@@ -777,7 +731,7 @@ const DashboardPage = () => {
             height: "250px",
             padding: "15px 0 35px 0",
           }}>
-          {processedOncEvents.map((event, index) => {
+          {oncEventsData.map((event, index) => {
             const barHeight = maxCount > 0 ? (event.count / maxCount) * maxHeight : 0;
             return (
               <div
@@ -817,7 +771,7 @@ const DashboardPage = () => {
                       color: event.color,
                       whiteSpace: "nowrap",
                     }}>
-                    {event.count}
+                    {formatNumber(event.count)}
                   </span>
                 </div>
                 <div
@@ -847,7 +801,7 @@ const DashboardPage = () => {
             );
           })}
         </div>
-        <div
+        {/* <div
           className="chart-summary"
           style={{
             marginTop: "20px",
@@ -864,7 +818,7 @@ const DashboardPage = () => {
             <span
               className="summary-value"
               style={{fontSize: "12px", fontWeight: "bold", color: "#374151"}}>
-              {processedOncEvents.reduce((sum, event) => sum + event.count, 0)} eventos
+              {formatNumber(oncEventsData.reduce((sum, event) => sum + event.count, 0))} eventos
             </span>
           </div>
           <div className="summary-item" style={{display: "flex", justifyContent: "space-between"}}>
@@ -874,7 +828,89 @@ const DashboardPage = () => {
             <span
               className="summary-value"
               style={{fontSize: "12px", fontWeight: "bold", color: "#374151"}}>
-              {processedOncEvents.length} tipos
+              {oncEventsData.length} tipos
+            </span>
+          </div>
+        </div> */}
+      </div>
+    );
+  };
+
+  const renderOncListView = () => {
+    if (oncEventsData.length === 0) {
+      return <div className="text-center text-muted">No hay datos de eventos ONC disponibles</div>;
+    }
+
+    const totalEvents = oncEventsData.reduce((sum, event) => sum + event.count, 0);
+
+    return (
+      <div className="list-view-container">
+        <div className="table-responsive" style={{maxHeight: "300px", overflowY: "auto"}}>
+          <table className="table table-hover table-sm">
+            <thead className="sticky-top" style={{backgroundColor: "#f8f9fa"}}>
+              <tr>
+                <th className="small">Evento</th>
+                <th className="small text-center">Cantidad</th>
+                <th className="small text-center">Porcentaje</th>
+              </tr>
+            </thead>
+            <tbody>
+              {oncEventsData.map((event, index) => {
+                const percentage =
+                  totalEvents > 0 ? ((event.count / totalEvents) * 100).toFixed(1) : 0;
+                return (
+                  <tr key={index}>
+                    <td className="small">
+                      <div className="d-flex align-items-center gap-2">
+                        <span
+                          className="badge"
+                          style={{
+                            backgroundColor: event.color,
+                            color: "#fff",
+                            fontSize: "0.7rem",
+                            width: "12px",
+                            height: "12px",
+                            borderRadius: "50%",
+                          }}></span>
+                        {event.eventName}
+                      </div>
+                    </td>
+                    <td className="small text-center fw-bold">{formatNumber(event.count)}</td>
+                    <td className="small text-center">{percentage}%</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+        <div
+          className="list-summary"
+          style={{
+            marginTop: "15px",
+            padding: "10px",
+            backgroundColor: "#f9fafb",
+            borderRadius: "8px",
+          }}>
+          <div
+            className="summary-item"
+            style={{display: "flex", justifyContent: "space-between", marginBottom: "5px"}}>
+            <span className="summary-label" style={{fontSize: "12px", color: "#6b7280"}}>
+              Total eventos ONC:
+            </span>
+            <span
+              className="summary-value"
+              style={{fontSize: "12px", fontWeight: "bold", color: "#374151"}}>
+              {formatNumber(totalEvents)} eventos
+            </span>
+          </div>
+          <div className="summary-item" style={{display: "flex", justifyContent: "space-between"}}>
+            <span className="summary-label" style={{fontSize: "12px", color: "#6b7280"}}>
+              Tipos de eventos:
+            </span>
+            <span
+              className="summary-value"
+              style={{fontSize: "12px", fontWeight: "bold", color: "#374151"}}>
+              {oncEventsData.length} tipos
             </span>
           </div>
         </div>
@@ -885,16 +921,16 @@ const DashboardPage = () => {
   const renderTopClients = () => {
     const {topClients} = dashboardStats;
     return (
-      <div className="top-performers">
+      <div className="top-performers" style={{maxHeight: "300px", overflowY: "auto"}}>
         {topClients && topClients.length > 0 ? (
-          topClients.slice(0, 5).map((client, index) => (
+          topClients.map((client, index) => (
             <div key={index} className="performer-item">
               <div className="performer-rank small">#{index + 1}</div>
               <div className="performer-info">
                 <div className="performer-name small">{client.nombre}</div>
-                <div className="performer-stats small">{client.count} bitácoras</div>
+                <div className="performer-stats small">{formatNumber(client.count)} bitácoras</div>
               </div>
-              <div className="performer-score small">{client.count}</div>
+              <div className="performer-score small">{formatNumber(client.count)}</div>
             </div>
           ))
         ) : (
@@ -907,21 +943,172 @@ const DashboardPage = () => {
   const renderTopOperadores = () => {
     const {topOperadores} = dashboardStats;
     return (
-      <div className="top-performers">
+      <div className="top-performers" style={{maxHeight: "300px", overflowY: "auto"}}>
         {topOperadores && topOperadores.length > 0 ? (
-          topOperadores.slice(0, 5).map((operador, index) => (
+          topOperadores.map((operador, index) => (
             <div key={index} className="performer-item">
               <div className="performer-rank small">#{index + 1}</div>
               <div className="performer-info">
                 <div className="performer-name small">{operador.name}</div>
-                <div className="performer-stats small">{operador.count} bitácoras</div>
+                <div className="performer-stats small">
+                  {formatNumber(operador.count)} bitácoras
+                </div>
               </div>
-              <div className="performer-score small">{operador.count}</div>
+              <div className="performer-score small">{formatNumber(operador.count)}</div>
             </div>
           ))
         ) : (
           <div className="text-center text-muted small">No hay datos disponibles</div>
         )}
+      </div>
+    );
+  };
+
+  const renderTopLineasTransporte = () => {
+    const {topLineasTransporte} = dashboardStats;
+    return (
+      <div className="top-performers" style={{maxHeight: "300px", overflowY: "auto"}}>
+        {topLineasTransporte && topLineasTransporte.length > 0 ? (
+          topLineasTransporte.map((linea, index) => (
+            <div key={index} className="performer-item">
+              <div className="performer-rank small">#{index + 1}</div>
+              <div className="performer-info">
+                <div className="performer-name small">{linea.nombre}</div>
+                <div className="performer-stats small">{formatNumber(linea.count)} bitácoras</div>
+              </div>
+              <div className="performer-score small">{formatNumber(linea.count)}</div>
+            </div>
+          ))
+        ) : (
+          <div className="text-center text-muted small">No hay datos disponibles</div>
+        )}
+      </div>
+    );
+  };
+
+  const renderLineasTransporteBarChart = () => {
+    const {topLineasTransporte} = dashboardStats;
+
+    if (topLineasTransporte.length === 0) {
+      return (
+        <div className="text-center text-muted">
+          No hay datos de líneas de transporte disponibles
+        </div>
+      );
+    }
+
+    const maxCount = Math.max(...topLineasTransporte.map((linea) => linea.count));
+    const maxWidth = 200; // Maximum width of bars in pixels
+
+    return (
+      <div
+        className="horizontal-bar-chart-container"
+        style={{maxHeight: "300px", overflowY: "auto"}}>
+        {topLineasTransporte.map((linea, index) => {
+          const barWidth = maxCount > 0 ? (linea.count / maxCount) * maxWidth : 0;
+          const colors = [
+            "#3b82f6",
+            "#10b981",
+            "#f59e0b",
+            "#ef4444",
+            "#8b5cf6",
+            "#06b6d4",
+            "#84cc16",
+            "#f97316",
+            "#ec4899",
+            "#6366f1",
+          ];
+          const color = colors[index % colors.length];
+
+          return (
+            <div
+              key={index}
+              className="horizontal-bar-item"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                marginBottom: "12px",
+                padding: "8px 0",
+              }}>
+              <div
+                className="bar-label"
+                style={{
+                  width: "120px",
+                  fontSize: "12px",
+                  fontWeight: "500",
+                  color: "#6b7280",
+                  marginRight: "12px",
+                  textAlign: "right",
+                }}>
+                {linea.nombre}
+              </div>
+              <div
+                className="bar-container"
+                style={{
+                  flex: 1,
+                  height: "20px",
+                  backgroundColor: "#f3f4f6",
+                  borderRadius: "10px",
+                  position: "relative",
+                  marginRight: "12px",
+                }}>
+                <div
+                  className="bar-fill"
+                  style={{
+                    width: `${barWidth}px`,
+                    height: "100%",
+                    backgroundColor: color,
+                    borderRadius: "10px",
+                    transition: "width 0.3s ease",
+                    minWidth: linea.count > 0 ? "4px" : "0px",
+                  }}></div>
+              </div>
+              <div
+                className="bar-value"
+                style={{
+                  fontSize: "11px",
+                  fontWeight: "bold",
+                  color: color,
+                  minWidth: "40px",
+                  textAlign: "right",
+                }}>
+                {formatNumber(linea.count)}
+              </div>
+            </div>
+          );
+        })}
+        <div
+          className="chart-summary"
+          style={{
+            marginTop: "15px",
+            padding: "10px",
+            backgroundColor: "#f9fafb",
+            borderRadius: "8px",
+          }}>
+          <div
+            className="summary-item"
+            style={{display: "flex", justifyContent: "space-between", marginBottom: "5px"}}>
+            <span className="summary-label" style={{fontSize: "12px", color: "#6b7280"}}>
+              Total líneas de transporte:
+            </span>
+            <span
+              className="summary-value"
+              style={{fontSize: "12px", fontWeight: "bold", color: "#374151"}}>
+              {formatNumber(topLineasTransporte.reduce((sum, linea) => sum + linea.count, 0))}{" "}
+              bitácoras
+            </span>
+          </div>
+          <div className="summary-item" style={{display: "flex", justifyContent: "space-between"}}>
+            <span className="summary-label" style={{fontSize: "12px", color: "#6b7280"}}>
+              Número de líneas:
+            </span>
+            <span
+              className="summary-value"
+              style={{fontSize: "12px", fontWeight: "bold", color: "#374151"}}>
+              {topLineasTransporte.length} líneas
+            </span>
+          </div>
+        </div>
       </div>
     );
   };
@@ -951,33 +1138,39 @@ const DashboardPage = () => {
           <table className="table table-hover table-sm">
             <thead className="sticky-top" style={{backgroundColor: "#f8f9fa"}}>
               <tr>
-                <th className="small">Cliente</th>
-                <th className="small">No. Bitácora</th>
-                <th className="small">Línea Transporte</th>
-                <th className="small">Operador</th>
-                <th className="small">Origen</th>
-                <th className="small">Destino</th>
-                <th className="small">Estado</th>
-                <th className="small">Anomalías</th>
+                <th className="small text-center">No. Bitácora</th>
+                <th className="small text-center">Cliente</th>
+                <th className="small text-center">Línea Transporte</th>
+                <th className="small text-center">Operador</th>
+                <th className="small text-center">Origen</th>
+                <th className="small text-center">Destino</th>
+                <th className="small text-center">Estado</th>
+                <th className="small text-center">Anomalías</th>
               </tr>
             </thead>
             <tbody>
               {bitacorasAnomalias.map((bitacora, index) => (
                 <tr key={bitacora._id || index}>
+                  <td className="small text-center">{bitacora.bitacora_id || "N/A"}</td>
                   <td className="small">{bitacora.cliente || "N/A"}</td>
-                  <td className="small">{bitacora.bitacora_id || "N/A"}</td>
                   <td className="small">{bitacora.linea_transporte || "N/A"}</td>
                   <td className="small">{bitacora.operador || "N/A"}</td>
                   <td className="small">{bitacora.origen || "N/A"}</td>
                   <td className="small">{bitacora.destino || "N/A"}</td>
-                  <td className="small">
+                  <td className="small text-center">
                     <span
                       className={`badge ${
                         bitacora.status === "cerrada"
                           ? "bg-success"
                           : bitacora.status === "nueva"
                           ? "bg-warning"
-                          : "bg-info"
+                          : bitacora.status === "iniciada"
+                          ? "bg-primary"
+                          : bitacora.status === "validada"
+                          ? "bg-info"
+                          : bitacora.status === "finalizada"
+                          ? "bg-secondary"
+                          : "bg-light text-dark"
                       }`}>
                       {bitacora.status || "N/A"}
                     </span>
@@ -1003,29 +1196,6 @@ const DashboardPage = () => {
       </div>
     );
   };
-
-  // Verificar autenticación antes de renderizar
-  if (!user || !user.role) {
-    return (
-      <section id="dashboard">
-        <div className="w-100 d-flex h-100 mt-0">
-          <div className="sidebar-wrapper">
-            <Sidebar />
-          </div>
-          <div className={`content-wrapper ${isSidebarCollapsed ? "sidebar-collapsed" : ""}`}>
-            <div
-              className="d-flex justify-content-center align-items-center"
-              style={{height: "100vh"}}>
-              <div className="text-center">
-                <i className="fa fa-spinner fa-spin fa-2x text-primary mb-3"></i>
-                <p className="text-muted">Verificando autenticación...</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-    );
-  }
 
   if (loading) {
     return (
@@ -1072,10 +1242,10 @@ const DashboardPage = () => {
                     </div>
                     <div className="welcome-text">
                       <h4 className="fs-5 fs-md-4">
-                        Bienvenido, {user?.firstName} {user?.lastName}
+                        Hola, {user?.firstName} {user?.lastName}
                       </h4>
                       <p className="mb-0 d-none d-md-block">
-                        Panel de control del sistema de monitoreo Intacsep
+                        Tablero de control del sistema de monitoreo Intacsep
                       </p>
                     </div>
                   </div>
@@ -1233,7 +1403,9 @@ const DashboardPage = () => {
                     <i className="fa fa-book"></i>
                   </div>
                   <div className="stat-content">
-                    <div className="stat-value fs-4 fs-md-3">{dashboardStats.totalBitacoras}</div>
+                    <div className="stat-value fs-4 fs-md-3">
+                      {formatNumber(dashboardStats.totalBitacoras)}
+                    </div>
                     <div className="stat-label small">Total Bitácoras</div>
                   </div>
                 </div>
@@ -1245,7 +1417,9 @@ const DashboardPage = () => {
                     <i className="fa fa-plus-circle"></i>
                   </div>
                   <div className="stat-content">
-                    <div className="stat-value fs-4 fs-md-3">{dashboardStats.nuevasBitacoras}</div>
+                    <div className="stat-value fs-4 fs-md-3">
+                      {formatNumber(dashboardStats.nuevasBitacoras)}
+                    </div>
                     <div className="stat-label small">Nuevas</div>
                   </div>
                 </div>
@@ -1253,12 +1427,12 @@ const DashboardPage = () => {
 
               <div className="col-6 col-md-3 mb-2 mb-md-0">
                 <div className="stat-card h-100">
-                  <div className="stat-icon pending">
+                  <div className="stat-icon completed">
                     <i className="fa fa-clock"></i>
                   </div>
                   <div className="stat-content">
                     <div className="stat-value fs-4 fs-md-3">
-                      {dashboardStats.enProcesoBitacoras}
+                      {formatNumber(dashboardStats.enProcesoBitacoras)}
                     </div>
                     <div className="stat-label small">En proceso</div>
                   </div>
@@ -1267,12 +1441,12 @@ const DashboardPage = () => {
 
               <div className="col-6 col-md-3 mb-2 mb-md-0">
                 <div className="stat-card h-100">
-                  <div className="stat-icon completed">
+                  <div className="stat-icon" style={{backgroundColor: "#3b82f6", color: "#fff"}}>
                     <i className="fa fa-lock"></i>
                   </div>
                   <div className="stat-content">
                     <div className="stat-value fs-4 fs-md-3">
-                      {dashboardStats.cerradasBitacoras}
+                      {formatNumber(dashboardStats.cerradasBitacoras)}
                     </div>
                     <div className="stat-label small">Cerradas</div>
                   </div>
@@ -1342,7 +1516,7 @@ const DashboardPage = () => {
                           )
                         : 0,
                       "Cerradas",
-                      "warning"
+                      "gray"
                     )}
                   </div>
                 </div>
@@ -1352,11 +1526,20 @@ const DashboardPage = () => {
                 <div className="progress-card h-100">
                   <div className="progress-content">
                     {renderProgressCircle(
-                      dashboardStats.totalBitacoras > 0 && dashboardStats.totalUsers > 0
-                        ? Math.round(dashboardStats.totalBitacoras / dashboardStats.totalUsers)
+                      dashboardStats.totalBitacoras > 0 &&
+                        dashboardStats.eventCategoriesStats &&
+                        dashboardStats.eventCategoriesStats.length > 0
+                        ? Math.round(
+                            (dashboardStats.eventCategoriesStats.reduce(
+                              (sum, category) => sum + category.count,
+                              0
+                            ) /
+                              dashboardStats.totalBitacoras) *
+                              100
+                          )
                         : 0,
                       "Con Anomalias",
-                      "primary"
+                      "warning"
                     )}
                   </div>
                 </div>
@@ -1385,10 +1568,32 @@ const DashboardPage = () => {
                       {/* Operador No Responde - Gráfico de Barras */}
                       <div className="col-12 col-lg-6">
                         <div className="chart-card">
-                          <div className="chart-header">
+                          <div className="chart-header d-flex justify-content-between align-items-center">
                             <h6 className="mb-0">Operador No Responde</h6>
+                            <div className="btn-group btn-group-sm" role="group">
+                              <button
+                                type="button"
+                                className={`btn ${
+                                  oncViewMode === "chart" ? "btn-primary" : "btn-outline-primary"
+                                }`}
+                                onClick={() => setOncViewMode("chart")}
+                                title="Vista de gráfico">
+                                <i className="fa fa-bar-chart"></i>
+                              </button>
+                              <button
+                                type="button"
+                                className={`btn ${
+                                  oncViewMode === "list" ? "btn-primary" : "btn-outline-primary"
+                                }`}
+                                onClick={() => setOncViewMode("list")}
+                                title="Vista de lista">
+                                <i className="fa fa-list"></i>
+                              </button>
+                            </div>
                           </div>
-                          <div className="chart-body">{renderOncBarChart()}</div>
+                          <div className="chart-body">
+                            {oncViewMode === "chart" ? renderOncBarChart() : renderOncListView()}
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -1435,10 +1640,46 @@ const DashboardPage = () => {
               <div className="col-12">
                 <div className="chart-card">
                   <div className="chart-header">
-                    <h6 className="mb-0">Lista Descendente de Clientes</h6>
+                    <h6 className="mb-0">Lista de Clientes</h6>
                   </div>
                   <div className="chart-body">
                     <div className="overflow-auto">{renderTopClients()}</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Líneas de Transporte */}
+            <div className="row mb-3 mb-md-4">
+              <div className="col-12">
+                <div className="chart-card">
+                  <div className="chart-header d-flex justify-content-between align-items-center">
+                    <h6 className="mb-0">Lista de Líneas de Transporte</h6>
+                    <div className="btn-group btn-group-sm" role="group">
+                      <button
+                        type="button"
+                        className={`btn ${
+                          lineasViewMode === "chart" ? "btn-primary" : "btn-outline-primary"
+                        }`}
+                        onClick={() => setLineasViewMode("chart")}
+                        title="Vista de gráfico">
+                        <i className="fa fa-bar-chart"></i>
+                      </button>
+                      <button
+                        type="button"
+                        className={`btn ${
+                          lineasViewMode === "list" ? "btn-primary" : "btn-outline-primary"
+                        }`}
+                        onClick={() => setLineasViewMode("list")}
+                        title="Vista de lista">
+                        <i className="fa fa-list"></i>
+                      </button>
+                    </div>
+                  </div>
+                  <div className="chart-body">
+                    {lineasViewMode === "chart"
+                      ? renderLineasTransporteBarChart()
+                      : renderTopLineasTransporte()}
                   </div>
                 </div>
               </div>
@@ -1449,7 +1690,7 @@ const DashboardPage = () => {
               <div className="col-12">
                 <div className="chart-card">
                   <div className="chart-header">
-                    <h6 className="mb-0">Top Operadores</h6>
+                    <h6 className="mb-0">Lista de Operadores</h6>
                   </div>
                   <div className="chart-body">
                     <div className="overflow-auto">{renderTopOperadores()}</div>
@@ -1472,22 +1713,8 @@ const DashboardPage = () => {
               </div>
             </div>
 
-            {/* Actividad reciente */}
-            <div className="row mb-3 mb-md-4">
-              <div className="col-12">
-                <div className="chart-card">
-                  <div className="chart-header">
-                    <h6 className="mb-0">Actividad Reciente</h6>
-                  </div>
-                  <div className="chart-body">
-                    <div className="overflow-auto">{renderActivityTimeline()}</div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
             {/* Acciones rápidas */}
-            <div className="row mb-3 mb-md-4">
+            {/* <div className="row mb-3 mb-md-4">
               <div className="col-12">
                 <div className="chart-card">
                   <div className="chart-header">
@@ -1546,7 +1773,7 @@ const DashboardPage = () => {
                   </div>
                 </div>
               </div>
-            </div>
+            </div> */}
           </div>
         </div>
       </div>
