@@ -6,9 +6,9 @@ const Footer = () => {
         target="_blank"
         rel="noopener noreferrer"
         className="opacity-25 text-white mb-0 p-0">
-        Powered by © Spotynet 2024 on AWS
+        Powered by © Spotynet 2025 on AWS
       </a>
-      <p className="opacity-25 text-white mb-0 footer p-0">V 1.4.2</p>
+      <p className="opacity-25 text-white mb-0 footer p-0">v 2.0.1</p>
     </footer>
   );
 };

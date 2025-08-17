@@ -240,9 +240,6 @@ const RolePage = () => {
   };
 
   const disabledPermissions = {
-    bitacoras: {
-      delete: true, // Disable delete for bitacoras
-    },
     bit_detalles: {
       create: true,
       delete: true,

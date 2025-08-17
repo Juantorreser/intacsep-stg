@@ -371,6 +371,7 @@ const DestinoPage = () => {
                   <table className="table">
                     <thead>
                       <tr>
+                        <th style={{width: "60px"}}>ID</th>
                         <th>Nombre</th>
                         <th>Estado</th>
                         <th>Cliente</th>
@@ -378,8 +379,11 @@ const DestinoPage = () => {
                       </tr>
                     </thead>
                     <tbody>
-                      {getPaginatedDestinos().map((destino) => (
+                      {getPaginatedDestinos().map((destino, index) => (
                         <tr key={destino._id}>
+                          <td className="text-center fw-bold">
+                            {(currentPage - 1) * itemsPerPage + index + 1}
+                          </td>
                           <td>{destino.nombre}</td>
                           <td>{destino.estado}</td>
                           <td>{destino.municipio}</td>
@@ -407,11 +411,13 @@ const DestinoPage = () => {
                     </tbody>
                   </table>
                   {filteredDestinos.length === 0 && (
-                    <div className="text-center py-4">
-                      <p className="text-muted">
-                        No se encontraron destinos que coincidan con los filtros.
-                      </p>
-                    </div>
+                    <tr>
+                      <td colSpan="5" className="text-center py-4">
+                        <p className="text-muted">
+                          No se encontraron destinos que coincidan con los filtros.
+                        </p>
+                      </td>
+                    </tr>
                   )}
                 </div>
               </div>

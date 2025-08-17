@@ -371,6 +371,7 @@ const OrigenPage = () => {
                   <table className="table">
                     <thead>
                       <tr>
+                        <th style={{width: "60px"}}>ID</th>
                         <th>Nombre</th>
                         <th>Estado</th>
                         <th>Cliente</th>
@@ -378,8 +379,11 @@ const OrigenPage = () => {
                       </tr>
                     </thead>
                     <tbody>
-                      {getPaginatedOrigenes().map((origen) => (
+                      {getPaginatedOrigenes().map((origen, index) => (
                         <tr key={origen._id}>
+                          <td className="text-center fw-bold">
+                            {(currentPage - 1) * itemsPerPage + index + 1}
+                          </td>
                           <td>{origen.nombre}</td>
                           <td>{origen.estado}</td>
                           <td>{origen.municipio}</td>
@@ -407,11 +411,13 @@ const OrigenPage = () => {
                     </tbody>
                   </table>
                   {filteredOrigenes.length === 0 && (
-                    <div className="text-center py-4">
-                      <p className="text-muted">
-                        No se encontraron orígenes que coincidan con los filtros.
-                      </p>
-                    </div>
+                    <tr>
+                      <td colSpan="5" className="text-center py-4">
+                        <p className="text-muted">
+                          No se encontraron orígenes que coincidan con los filtros.
+                        </p>
+                      </td>
+                    </tr>
                   )}
                 </div>
               </div>
