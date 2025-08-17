@@ -105,6 +105,8 @@ const BitacorasPage = () => {
   const [showFrecuenciaModal, setShowFrecuenciaModal] = useState(false);
   const [selectedFrecuenciaBitacora, setSelectedFrecuenciaBitacora] = useState(null);
   const [formData, setFormData] = useState(defaultFormData);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [bitacoraToDelete, setBitacoraToDelete] = useState(null);
 
   useEffect(() => {
     const initialize = async () => {
@@ -498,6 +500,39 @@ const BitacorasPage = () => {
     return closedIds.length > 0;
   };
 
+  // Delete handlers
+  const handleDeleteClick = (bitacora) => {
+    setBitacoraToDelete(bitacora);
+    setShowDeleteModal(true);
+  };
+
+  const handleCloseDeleteModal = () => {
+    setShowDeleteModal(false);
+    setBitacoraToDelete(null);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!bitacoraToDelete) return;
+
+    try {
+      const response = await fetch(`${baseUrl}/bitacora/${bitacoraToDelete._id}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+
+      if (response.ok) {
+        // Remove the deleted bitacora from the list
+        setBitacoras(bitacoras.filter((b) => b._id !== bitacoraToDelete._id));
+        setShowDeleteModal(false);
+        setBitacoraToDelete(null);
+      } else {
+        console.error("Failed to delete bitácora:", response.statusText);
+      }
+    } catch (e) {
+      console.error("Error deleting bitácora:", e);
+    }
+  };
+
   const handleSortChange = (field) => {
     const order = field === sortField && sortOrder === "asc" ? "desc" : "asc";
     setSortField(field);
@@ -735,6 +770,9 @@ const BitacorasPage = () => {
                         <th className="text-center" style={{width: "80px"}}>
                           <i className="fa fa-download text-muted"></i>
                         </th>
+                        <th className="text-center" style={{width: "80px"}}>
+                          <i className="fa fa-trash text-muted"></i>
+                        </th>
                       </tr>
 
                       {/* Filter Row */}
@@ -818,12 +856,15 @@ const BitacorasPage = () => {
                         <th className="filter-cell" style={{width: "80px"}}>
                           <div className="filter-placeholder"></div>
                         </th>
+                        <th className="filter-cell" style={{width: "80px"}}>
+                          <div className="filter-placeholder"></div>
+                        </th>
                       </tr>
                     </thead>
                     <tbody className="table-body">
                       {loadingBitacoras ? (
                         <tr>
-                          <td colSpan="9" className="text-center py-5">
+                          <td colSpan="10" className="text-center py-5">
                             <div className="loading-container">
                               <i className="fa fa-spinner fa-spin text-primary me-2"></i>
                               <span className="text-muted">Cargando bitácoras...</span>
@@ -903,6 +944,16 @@ const BitacorasPage = () => {
                                 title="Descargar PDF">
                                 <i className="fa fa-file-pdf"></i>
                               </button>
+                            </td>
+                            <td className="table-cell text-center" style={{width: "80px"}}>
+                              {roleData?.bitacoras?.delete && (
+                                <button
+                                  className="action-btn btn-danger"
+                                  onClick={() => handleDeleteClick(bitacora)}
+                                  title="Eliminar bitácora">
+                                  <i className="fa fa-trash"></i>
+                                </button>
+                              )}
                             </td>
                           </tr>
                         ))
@@ -1265,6 +1316,29 @@ const BitacorasPage = () => {
           origenes={origenes}
           destinos={destinos}
         />
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && bitacoraToDelete && (
+        <ModalTemplate
+          show={showDeleteModal}
+          title="Confirmar Eliminación"
+          onClose={handleCloseDeleteModal}
+          onSubmit={(e) => {
+            e.preventDefault();
+            handleConfirmDelete();
+          }}
+          submitClass="btn btn-danger"
+          submitText="Eliminar">
+          <p>
+            ¿Está seguro de que desea eliminar la bitácora{" "}
+            <strong>{bitacoraToDelete.bitacora_id}</strong>?
+          </p>
+          <p className="text-muted small">
+            Esta acción no se puede deshacer y eliminará permanentemente la bitácora y todos sus
+            datos asociados.
+          </p>
+        </ModalTemplate>
       )}
     </section>
   );
