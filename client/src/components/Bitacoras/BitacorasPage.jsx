@@ -26,8 +26,8 @@ const defaultFormData = {
   bitacora_id: "",
   folio_servicio: "",
   linea_transporte: ".",
-  destino: {nombre: "", estado: "", municipio: ""},
-  origen: {nombre: "", estado: "", municipio: ""},
+  destino: {nombre: "", estado: "", cliente: ""},
+  origen: {nombre: "", estado: "", cliente: ""},
   monitoreo: "",
   cliente: "",
   enlace: ".",
@@ -1197,13 +1197,13 @@ const BitacorasPage = () => {
                 <option value="">Seleccionar</option>
                 {origenes
                   .sort((a, b) =>
-                    `${a.nombre}, ${a.municipio}, ${a.estado}`.localeCompare(
-                      `${b.nombre}, ${b.municipio}, ${b.estado}`
+                    `${a.nombre}, ${a.cliente}, ${a.estado}`.localeCompare(
+                      `${b.nombre}, ${b.cliente}, ${b.estado}`
                     )
                   )
                   .map((origen) => (
                     <option key={origen._id} value={origen._id}>
-                      {`${origen.nombre}, ${origen.municipio}, ${origen.estado}`}
+                      {`${origen.nombre}, ${origen.cliente}, ${origen.estado}`}
                     </option>
                   ))}
               </select>
@@ -1223,13 +1223,13 @@ const BitacorasPage = () => {
                 <option value="">Seleccionar</option>
                 {destinos
                   .sort((a, b) =>
-                    `${a.nombre}, ${a.municipio}, ${a.estado}`.localeCompare(
-                      `${b.nombre}, ${b.municipio}, ${b.estado}`
+                    `${a.nombre}, ${a.cliente}, ${a.estado}`.localeCompare(
+                      `${b.nombre}, ${b.cliente}, ${b.estado}`
                     )
                   )
                   .map((destino) => (
                     <option key={destino._id} value={destino._id}>
-                      {`${destino.nombre}, ${destino.municipio}, ${destino.estado}`}
+                      {`${destino.nombre}, ${destino.cliente}, ${destino.estado}`}
                     </option>
                   ))}
               </select>
@@ -1357,8 +1357,8 @@ const BitacorasPage = () => {
             <strong>{bitacoraToDelete.bitacora_id}</strong>?
           </p>
           <p className="text-muted small">
-            Esta acción no se puede deshacer y eliminará permanentemente la bitácora y todos sus
-            datos asociados.
+            La bitácora será marcada como eliminada y no aparecerá en las búsquedas, pero se
+            mantendrá en la base de datos para auditoría.
           </p>
         </ModalTemplate>
       )}

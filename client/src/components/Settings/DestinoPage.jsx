@@ -148,7 +148,7 @@ const DestinoPage = () => {
     const filtered = destinos.filter((destino) => {
       const nombreMatch = destino.nombre.toLowerCase().includes(filters.nombre.toLowerCase());
       const estadoMatch = destino.estado.toLowerCase().includes(filters.estado.toLowerCase());
-      const clienteMatch = destino.municipio.toLowerCase().includes(filters.cliente.toLowerCase());
+      const clienteMatch = destino.cliente.toLowerCase().includes(filters.cliente.toLowerCase());
 
       return nombreMatch && estadoMatch && clienteMatch;
     });
@@ -273,7 +273,7 @@ const DestinoPage = () => {
     setCurrentDestino(destino);
     setFormData({
       estado: destino.estado,
-      municipio: destino.municipio,
+      municipio: destino.cliente,
       nombre: destino.nombre,
     });
     setModalType("edit");
@@ -386,7 +386,7 @@ const DestinoPage = () => {
                           </td>
                           <td>{destino.nombre}</td>
                           <td>{destino.estado}</td>
-                          <td>{destino.municipio}</td>
+                          <td>{destino.cliente}</td>
                           <td className="text-end">
                             <div className="action-buttons">
                               {roleData?.destinos?.update && (

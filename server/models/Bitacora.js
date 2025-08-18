@@ -92,6 +92,9 @@ const BitSchema = new mongoose.Schema(
     eventos: [EventoSchema],
     edited: { type: Boolean, required: true, default: false },
     edited_bitacora: Object, // Reference to Bitacora model
+    deleted: { type: Boolean, default: false },
+    deleted_at: { type: Date },
+    deleted_by: { type: String }
   },
   { timestamps: true }
 );

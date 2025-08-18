@@ -451,6 +451,9 @@ app.get("/bitacoras", async (req, res) => {
 
     const query = {};
 
+    // Exclude soft deleted bitacoras
+    query.deleted = { $ne: true };
+
     // Build query based on filters
     if (operador) query.operador = operador;
     if (statusFilter) query.status = statusFilter;
@@ -554,10 +557,42 @@ app.post("/bitacora", async (req, res) => {
   }
 });
 
+// Get deleted bitacoras (for admin purposes)
+app.get("/bitacoras/deleted", async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 25;
+    const skip = (page - 1) * limit;
+
+    // Only show deleted bitacoras
+    const query = { deleted: true };
+
+    // Build sort object
+    const sortObj = { deleted_at: -1 }; // Most recently deleted first
+
+    const totalItems = await Bitacora.countDocuments(query);
+    const deletedBitacoras = await Bitacora.find(query)
+      .sort(sortObj)
+      .skip(skip)
+      .limit(limit);
+
+    res.status(200).json({
+      bitacoras: deletedBitacoras,
+      totalItems,
+      totalPages: Math.ceil(totalItems / limit),
+    });
+  } catch (e) {
+    console.error("Error fetching deleted bitacoras:", e);
+    res.status(500).json({ error: "An error occurred while fetching deleted bitacoras." });
+  }
+});
 
 app.get("/bitacora/:id", async (req, res) => {
   try {
-    const bitacora = await Bitacora.findById(req.params.id);
+    const bitacora = await Bitacora.findOne({
+      _id: req.params.id,
+      deleted: { $ne: true }
+    });
     if (!bitacora) {
       return res.status(404).json({ message: "Bitacora not found" });
     }
@@ -574,8 +609,11 @@ app.patch("/bitacora/:id/event", async (req, res) => {
   console.log(transportes);
 
   try {
-    // Find the bitacora by its ID
-    const bitacora = await Bitacora.findById(id);
+    // Find the bitacora by its ID (exclude deleted)
+    const bitacora = await Bitacora.findOne({
+      _id: id,
+      deleted: { $ne: true }
+    });
     if (!bitacora) {
       return res.status(404).json({ message: "Bitacora not found" });
     }
@@ -622,7 +660,10 @@ app.patch("/bitacora/:id", async (req, res) => {
   console.log(updatedData);
 
   try {
-    const bitacora = await Bitacora.findById(id);
+    const bitacora = await Bitacora.findOne({
+      _id: id,
+      deleted: { $ne: true }
+    });
     if (!bitacora) {
       return res.status(404).json({ message: "Bitacora not found" });
     }
@@ -645,8 +686,11 @@ app.post("/bitacoras/:id/transportes", async (req, res) => {
     const bitacoraId = req.params.id;
     const { id, tracto, remolque, operador, lineaTransporte, telefono } = req.body;
 
-    // Find the bitacora by ID
-    const bitacora = await Bitacora.findOne({ _id: bitacoraId });
+    // Find the bitacora by ID (exclude deleted)
+    const bitacora = await Bitacora.findOne({
+      _id: bitacoraId,
+      deleted: { $ne: true }
+    });
     if (!bitacora) {
       return res.status(404).json({ message: "Bitacora not found" });
     }
@@ -678,7 +722,10 @@ app.post("/bitacoras/:id/transportes", async (req, res) => {
 // Endpoint to start a bitacora
 app.patch("/bitacora/:id/start", async (req, res) => {
   try {
-    const bitacora = await Bitacora.findById(req.params.id);
+    const bitacora = await Bitacora.findOne({
+      _id: req.params.id,
+      deleted: { $ne: true }
+    });
     if (!bitacora) {
       return res.status(404).json({ message: "Bitacora not found" });
     }
@@ -697,7 +744,10 @@ app.patch("/bitacora/:id/start", async (req, res) => {
 // Endpoint to finish a bitacora
 app.patch("/bitacora/:id/finish", async (req, res) => {
   try {
-    const bitacora = await Bitacora.findById(req.params.id);
+    const bitacora = await Bitacora.findOne({
+      _id: req.params.id,
+      deleted: { $ne: true }
+    });
     if (!bitacora) {
       return res.status(404).json({ message: "Bitacora not found" });
     }
@@ -717,7 +767,10 @@ app.patch("/bitacora/:id/status", async (req, res) => {
     const { id } = req.params;
     const { status } = req.body;
 
-    const bitacora = await Bitacora.findById(id);
+    const bitacora = await Bitacora.findOne({
+      _id: id,
+      deleted: { $ne: true }
+    });
     if (!bitacora) return res.status(404).json({ message: "Bitacora not found" });
 
     bitacora.status = status;
@@ -734,7 +787,10 @@ app.patch("/bitacora/:id/edited", async (req, res) => {
     const { id } = req.params;
     const { edited } = req.body;
 
-    const bitacora = await Bitacora.findById(id);
+    const bitacora = await Bitacora.findOne({
+      _id: id,
+      deleted: { $ne: true }
+    });
     if (!bitacora) return res.status(404).json({ message: "Bitacora not found" });
 
     bitacora.edited = edited;
@@ -743,6 +799,103 @@ app.patch("/bitacora/:id/edited", async (req, res) => {
     res.json(bitacora);
   } catch (error) {
     res.status(500).json({ message: error.message });
+  }
+});
+
+// Soft delete bitacora - mark as deleted instead of removing
+app.delete("/bitacora/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const user = req.session.user;
+
+    const bitacora = await Bitacora.findById(id);
+    if (!bitacora) {
+      return res.status(404).json({ message: "Bitacora not found" });
+    }
+
+    if (bitacora.deleted) {
+      return res.status(400).json({ message: "Bitacora already deleted" });
+    }
+
+    // Store the original data for audit
+    const oldData = bitacora.toObject();
+
+    // Mark as deleted instead of removing
+    bitacora.deleted = true;
+    bitacora.deleted_at = new Date();
+    bitacora.deleted_by = user ? `${user.firstName} ${user.lastName}` : 'Unknown';
+
+    await bitacora.save();
+
+    // Create audit record for deletion
+    await auditDeletion({
+      oldData,
+      modelId: id,
+      user: user || {},
+      seccion: "Bitacora"
+    });
+
+    res.status(200).json({
+      message: "Bitacora marked as deleted successfully",
+      bitacora: {
+        _id: bitacora._id,
+        bitacora_id: bitacora.bitacora_id,
+        deleted: bitacora.deleted,
+        deleted_at: bitacora.deleted_at,
+        deleted_by: bitacora.deleted_by
+      }
+    });
+  } catch (error) {
+    console.error("Error soft deleting bitacora:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+});
+
+// Restore a soft deleted bitacora
+app.patch("/bitacora/:id/restore", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const user = req.session.user;
+
+    const bitacora = await Bitacora.findOne({
+      _id: id,
+      deleted: true
+    });
+
+    if (!bitacora) {
+      return res.status(404).json({ message: "Deleted bitacora not found" });
+    }
+
+    // Store the data before restoration for audit
+    const oldData = bitacora.toObject();
+
+    // Restore the bitacora
+    bitacora.deleted = false;
+    bitacora.deleted_at = undefined;
+    bitacora.deleted_by = undefined;
+
+    await bitacora.save();
+
+    // Create audit record for restoration
+    await auditUpdate({
+      oldData,
+      newData: { deleted: false },
+      modelId: id,
+      user: user || {},
+      seccion: "Bitacora"
+    });
+
+    res.status(200).json({
+      message: "Bitacora restored successfully",
+      bitacora: {
+        _id: bitacora._id,
+        bitacora_id: bitacora.bitacora_id,
+        deleted: bitacora.deleted
+      }
+    });
+  } catch (error) {
+    console.error("Error restoring bitacora:", error);
+    res.status(500).json({ message: "Internal server error" });
   }
 });
 
@@ -1118,8 +1271,8 @@ app.get("/origenes", async (req, res) => {
 // Create a new origen
 app.post("/origenes", async (req, res) => {
   try {
-    const { estado, municipio, nombre } = req.body;
-    const newOrigen = new Origen({ estado, municipio, nombre });
+    const { estado, municipio: cliente, nombre } = req.body;
+    const newOrigen = new Origen({ estado, cliente, nombre });
     const savedOrigen = await newOrigen.save();
     await auditCreation({ newData: savedOrigen.toObject(), modelId: savedOrigen._id, user: req.session.user || {}, seccion: "Origen" });
     res.status(201).json(savedOrigen);
@@ -1135,13 +1288,13 @@ app.put("/origenes/:id", async (req, res) => {
     const prevOrigen = await Origen.findById(req.params.id);
     if (!prevOrigen) return res.status(404).json({ message: "Origen not found" });
     const oldData = prevOrigen.toObject();
-    const { estado, municipio, nombre } = req.body;
+    const { estado, municipio: cliente, nombre } = req.body;
     const updatedOrigen = await Origen.findByIdAndUpdate(
       req.params.id,
-      { estado, municipio, nombre },
+      { estado, cliente, nombre },
       { new: true }
     );
-    await auditUpdate({ oldData, newData: { estado, municipio, nombre }, modelId: req.params.id, user: req.session.user || {}, seccion: "Origen" });
+    await auditUpdate({ oldData, newData: { estado, cliente, nombre }, modelId: req.params.id, user: req.session.user || {}, seccion: "Origen" });
     res.json(updatedOrigen);
   } catch (e) {
     res.status(500).json({ message: "Failed to edit origen", error: e.message });
@@ -1174,8 +1327,8 @@ app.get("/destinos", async (req, res) => {
 // Create a new destino
 app.post("/destinos", async (req, res) => {
   try {
-    const { estado, municipio, nombre } = req.body;
-    const newDestino = new Destino({ estado, municipio, nombre });
+    const { estado, municipio: cliente, nombre } = req.body;
+    const newDestino = new Destino({ estado, cliente, nombre });
     const savedDestino = await newDestino.save();
     await auditCreation({ newData: savedDestino.toObject(), modelId: savedDestino._id, user: req.session.user || {}, seccion: "Destino" });
     res.status(201).json(savedDestino);
@@ -1191,13 +1344,13 @@ app.put("/destinos/:id", async (req, res) => {
     const prevDestino = await Destino.findById(req.params.id);
     if (!prevDestino) return res.status(404).json({ message: "Destino not found" });
     const oldData = prevDestino.toObject();
-    const { estado, municipio, nombre } = req.body;
+    const { estado, municipio: cliente, nombre } = req.body;
     const updatedDestino = await Destino.findByIdAndUpdate(
       req.params.id,
-      { estado, municipio, nombre },
+      { estado, cliente, nombre },
       { new: true }
     );
-    await auditUpdate({ oldData, newData: { estado, municipio, nombre }, modelId: req.params.id, user: req.session.user || {}, seccion: "Destino" });
+    await auditUpdate({ oldData, newData: { estado, cliente, nombre }, modelId: req.params.id, user: req.session.user || {}, seccion: "Destino" });
     res.status(200).json(updatedDestino);
   } catch (e) {
     res.status(500).json({ message: "Error updating destino", error: e.message });

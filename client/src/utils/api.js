@@ -124,6 +124,6 @@ export const getLocationText = (field, list) => {
 
   const found = list.find((l) => l._id === field);
   return found
-    ? `${found.nombre}, ${found.municipio}, ${found.estado}`
+    ? `${found.nombre}, ${found.estado}`
     : "Ubicación no encontrada";
 };

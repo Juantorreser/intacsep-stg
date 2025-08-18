@@ -148,7 +148,7 @@ const OrigenPage = () => {
     const filtered = origenes.filter((origen) => {
       const nombreMatch = origen.nombre.toLowerCase().includes(filters.nombre.toLowerCase());
       const estadoMatch = origen.estado.toLowerCase().includes(filters.estado.toLowerCase());
-      const clienteMatch = origen.municipio.toLowerCase().includes(filters.cliente.toLowerCase());
+      const clienteMatch = origen.cliente.toLowerCase().includes(filters.cliente.toLowerCase());
 
       return nombreMatch && estadoMatch && clienteMatch;
     });
@@ -273,7 +273,7 @@ const OrigenPage = () => {
     setCurrentOrigen(origen);
     setFormData({
       estado: origen.estado,
-      municipio: origen.municipio,
+      municipio: origen.cliente,
       nombre: origen.nombre,
     });
     setModalType("edit");
@@ -386,7 +386,7 @@ const OrigenPage = () => {
                           </td>
                           <td>{origen.nombre}</td>
                           <td>{origen.estado}</td>
-                          <td>{origen.municipio}</td>
+                          <td>{origen.cliente}</td>
                           <td className="text-end">
                             <div className="action-buttons">
                               {roleData?.origenes?.update && (

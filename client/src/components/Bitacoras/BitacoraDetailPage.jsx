@@ -828,27 +828,60 @@ const BitacoraDetailPage = ({edited}) => {
     return string.charAt(0).toUpperCase() + string.slice(1);
   }
 
+  // Helper function to get the correct value for origen/destino dropdown
+  const getLocationValue = (location, locationList) => {
+    if (!location || !locationList || locationList.length === 0) {
+      return "";
+    }
+
+    // If location is already an object with _id, stringify it
+    if (typeof location === "object" && location._id) {
+      // Ensure the location exists in the filtered list (same client)
+      const existsInList = locationList.find((item) => item._id === location._id);
+      if (existsInList) {
+        return JSON.stringify(location);
+      }
+    }
+
+    // If location is a string (ID), find the full object
+    if (typeof location === "string") {
+      const foundLocation = locationList.find((item) => item._id === location);
+      if (foundLocation) {
+        return JSON.stringify(foundLocation);
+      }
+    }
+
+    return "";
+  };
+
   const handleEditChange = (e) => {
     const {name, value, type} = e.target;
 
     setBitacora((prev) => {
+      let updates = {};
+
       if (type === "select-one") {
-        return {...prev, [name]: value};
+        updates[name] = value;
+
+        // If client changes, clear origen and destino to avoid invalid selections
+        if (name === "cliente") {
+          updates.origen = null;
+          updates.destino = null;
+        }
       } else {
         const [mainKey, subKey] = name.split(".");
 
         if (subKey) {
-          return {
-            ...prev,
-            [mainKey]: {
-              ...prev[mainKey], // Asegurar que mainKey no sea undefined
-              [subKey]: value,
-            },
+          updates[mainKey] = {
+            ...prev[mainKey], // Asegurar que mainKey no sea undefined
+            [subKey]: value,
           };
         } else {
-          return {...prev, [name]: value};
+          updates[name] = value;
         }
       }
+
+      return {...prev, ...updates};
     });
   };
 
@@ -1451,110 +1484,125 @@ const BitacoraDetailPage = ({edited}) => {
         }}
       />
 
-      {editModalVisible && (
-        <ModalTemplate
-          show={editModalVisible}
-          title="Editar Bitácora"
-          onClose={() => setEditModalVisible(false)}
-          onSubmit={handleEditSubmit}>
-          <Form.Group className="mb-3">
-            <Form.Label htmlFor="folio_servicio">Folio de servicio</Form.Label>
-            <Form.Control
-              type="text"
-              id="folio_servicio"
-              name="folio_servicio"
-              value={bitacora.folio_servicio}
-              onChange={handleEditChange}
-            />
-          </Form.Group>
+      {editModalVisible &&
+        bitacora &&
+        clients.length > 0 &&
+        monitoreos.length > 0 &&
+        origenes.length > 0 &&
+        destinos.length > 0 && (
+          <ModalTemplate
+            show={editModalVisible}
+            title="Editar Bitácora"
+            onClose={() => setEditModalVisible(false)}
+            onSubmit={handleEditSubmit}>
+            <Form.Group className="mb-3">
+              <Form.Label htmlFor="folio_servicio">Folio de servicio</Form.Label>
+              <Form.Control
+                type="text"
+                id="folio_servicio"
+                name="folio_servicio"
+                value={bitacora.folio_servicio}
+                onChange={handleEditChange}
+              />
+            </Form.Group>
 
-          <Form.Group className="mb-3">
-            <Form.Label htmlFor="bitacora_id">No. Bitácora</Form.Label>
-            <Form.Control
-              type="text"
-              id="bitacora_id"
-              name="bitacora_id"
-              value={bitacora.bitacora_id}
-              onChange={handleEditChange}
-              disabled
-            />
-          </Form.Group>
+            <Form.Group className="mb-3">
+              <Form.Label htmlFor="bitacora_id">No. Bitácora</Form.Label>
+              <Form.Control
+                type="text"
+                id="bitacora_id"
+                name="bitacora_id"
+                value={bitacora.bitacora_id}
+                onChange={handleEditChange}
+                disabled
+              />
+            </Form.Group>
 
-          <Form.Group className="mb-3">
-            <Form.Label>Cliente</Form.Label>
-            <Form.Select
-              name="cliente"
-              value={bitacora.cliente}
-              onChange={handleEditChange}
-              required>
-              <option value="">Selecciona una opción</option>
-              {clients.map((cliente) => (
-                <option key={cliente._id} value={cliente.razon_social}>
-                  {cliente.razon_social}
-                </option>
-              ))}
-            </Form.Select>
-          </Form.Group>
+            <Form.Group className="mb-3">
+              <Form.Label>Cliente</Form.Label>
+              <Form.Select
+                name="cliente"
+                value={bitacora.cliente || ""}
+                onChange={handleEditChange}
+                required>
+                <option value="">Selecciona una opción</option>
+                {clients.map((cliente) => (
+                  <option key={cliente._id} value={cliente.razon_social}>
+                    {cliente.razon_social}
+                  </option>
+                ))}
+              </Form.Select>
+            </Form.Group>
 
-          <Form.Group className="mb-3">
-            <Form.Label>Tipo de Monitoreo</Form.Label>
-            <Form.Select
-              name="monitoreo"
-              value={bitacora.monitoreo}
-              onChange={handleEditChange}
-              required>
-              <option value="">Selecciona una opción</option>
-              {monitoreos.map((monitoreo) => (
-                <option key={monitoreo._id} value={monitoreo.tipoMonitoreo}>
-                  {monitoreo.tipoMonitoreo}
-                </option>
-              ))}
-            </Form.Select>
-          </Form.Group>
+            <Form.Group className="mb-3">
+              <Form.Label>Tipo de Monitoreo</Form.Label>
+              <Form.Select
+                name="monitoreo"
+                value={bitacora.monitoreo || ""}
+                onChange={handleEditChange}
+                required>
+                <option value="">Selecciona una opción</option>
+                {monitoreos.map((monitoreo) => (
+                  <option key={monitoreo._id} value={monitoreo.tipoMonitoreo}>
+                    {monitoreo.tipoMonitoreo}
+                  </option>
+                ))}
+              </Form.Select>
+            </Form.Group>
 
-          <Form.Group className="mb-3">
-            <Form.Label>Origen</Form.Label>
-            <Form.Select
-              name="origen"
-              value={JSON.stringify(bitacora.origen)}
-              onChange={(e) =>
-                setBitacora((prev) => ({
-                  ...prev,
-                  origen: JSON.parse(e.target.value),
-                }))
-              }
-              required>
-              <option value="">Selecciona una opción</option>
-              {origenes.map((origen) => (
-                <option key={origen._id} value={JSON.stringify(origen)}>
-                  {`${origen.nombre} (${origen.municipio}, ${origen.estado})`}
-                </option>
-              ))}
-            </Form.Select>
-          </Form.Group>
+            <Form.Group className="mb-3">
+              <Form.Label>Origen</Form.Label>
+              <Form.Select
+                name="origen"
+                value={getLocationValue(
+                  bitacora.origen,
+                  origenes.filter((origen) => origen.cliente === bitacora?.cliente)
+                )}
+                onChange={(e) =>
+                  setBitacora((prev) => ({
+                    ...prev,
+                    origen: e.target.value ? JSON.parse(e.target.value) : null,
+                  }))
+                }
+                required>
+                <option value="">Selecciona una opción</option>
+                {origenes
+                  .filter((origen) => origen.cliente === bitacora?.cliente)
+                  .map((origen) => (
+                    <option key={origen._id} value={JSON.stringify(origen)}>
+                      {`${origen.nombre}, ${origen.estado}`}
+                    </option>
+                  ))}
+              </Form.Select>
+            </Form.Group>
 
-          <Form.Group className="mb-3">
-            <Form.Label>Destino</Form.Label>
-            <Form.Select
-              name="destino"
-              value={JSON.stringify(bitacora.destino)}
-              onChange={(e) =>
-                setBitacora((prev) => ({
-                  ...prev,
-                  destino: JSON.parse(e.target.value),
-                }))
-              }
-              required>
-              <option value="">Selecciona una opción</option>
-              {destinos.map((destino) => (
-                <option key={destino._id} value={JSON.stringify(destino)}>
-                  {`${destino.nombre} (${destino.municipio}, ${destino.estado})`}
-                </option>
-              ))}
-            </Form.Select>
-          </Form.Group>
-        </ModalTemplate>
-      )}
+            <Form.Group className="mb-3">
+              <Form.Label>Destino</Form.Label>
+              <Form.Select
+                name="destino"
+                value={getLocationValue(
+                  bitacora.destino,
+                  destinos.filter((destino) => destino.cliente === bitacora?.cliente)
+                )}
+                onChange={(e) =>
+                  setBitacora((prev) => ({
+                    ...prev,
+                    destino: e.target.value ? JSON.parse(e.target.value) : null,
+                  }))
+                }
+                required>
+                <option value="">Selecciona una opción</option>
+                {destinos
+                  .filter((destino) => destino.cliente === bitacora?.cliente)
+                  .map((destino) => (
+                    <option key={destino._id} value={JSON.stringify(destino)}>
+                      {`${destino.nombre}, ${destino.estado}`}
+                    </option>
+                  ))}
+              </Form.Select>
+            </Form.Group>
+          </ModalTemplate>
+        )}
 
       {/* EDIT TRANSPORTES */}
       {isEditTransporteModalVisible && editedTransporte && (
