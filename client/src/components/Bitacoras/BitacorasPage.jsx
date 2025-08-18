@@ -795,11 +795,13 @@ const BitacorasPage = () => {
                             value={clienteFilter}
                             onChange={(e) => handleClienteFilterChange(e.target.value)}>
                             <option value="">Todos los clientes</option>
-                            {clients.map((client, id) => (
-                              <option key={id} value={client.razon_social}>
-                                {client.razon_social}
-                              </option>
-                            ))}
+                            {clients
+                              .sort((a, b) => a.razon_social.localeCompare(b.razon_social))
+                              .map((client, id) => (
+                                <option key={id} value={client.razon_social}>
+                                  {client.razon_social}
+                                </option>
+                              ))}
                           </select>
                         </th>
                         <th className="filter-cell d-none d-md-table-cell" style={{width: "120px"}}>
@@ -808,11 +810,13 @@ const BitacorasPage = () => {
                             value={monitoreoFilter}
                             onChange={(e) => handleMonitoreoFilterChange(e.target.value)}>
                             <option value="">Todos los tipos</option>
-                            {monitoreos.map((monitreo, id) => (
-                              <option key={id} value={monitreo.tipoMonitoreo}>
-                                {monitreo.tipoMonitoreo}
-                              </option>
-                            ))}
+                            {monitoreos
+                              .sort((a, b) => a.tipoMonitoreo.localeCompare(b.tipoMonitoreo))
+                              .map((monitreo, id) => (
+                                <option key={id} value={monitreo.tipoMonitoreo}>
+                                  {monitreo.tipoMonitoreo}
+                                </option>
+                              ))}
                           </select>
                         </th>
                         <th className="filter-cell d-none d-lg-table-cell" style={{width: "140px"}}>
@@ -821,11 +825,13 @@ const BitacorasPage = () => {
                             value={operadorFilter}
                             onChange={(e) => handleOperadorFilterChange(e.target.value)}>
                             <option value="">Todos los operadores</option>
-                            {operadores.map((operador, id) => (
-                              <option key={id} value={operador.name}>
-                                {operador.name}
-                              </option>
-                            ))}
+                            {operadores
+                              .sort((a, b) => a.name.localeCompare(b.name))
+                              .map((operador, id) => (
+                                <option key={id} value={operador.name}>
+                                  {operador.name}
+                                </option>
+                              ))}
                           </select>
                         </th>
                         <th className="filter-cell d-none d-md-table-cell" style={{width: "110px"}}>
@@ -1133,11 +1139,13 @@ const BitacorasPage = () => {
                 onChange={handleChange}
                 required>
                 <option value="">Selecciona una opción</option>
-                {monitoreos.map((monitoreo) => (
-                  <option key={monitoreo._id} value={monitoreo.tipoMonitoreo}>
-                    {monitoreo.tipoMonitoreo}
-                  </option>
-                ))}
+                {monitoreos
+                  .sort((a, b) => a.tipoMonitoreo.localeCompare(b.tipoMonitoreo))
+                  .map((monitoreo) => (
+                    <option key={monitoreo._id} value={monitoreo.tipoMonitoreo}>
+                      {monitoreo.tipoMonitoreo}
+                    </option>
+                  ))}
               </select>
             </div>
 
@@ -1153,11 +1161,13 @@ const BitacorasPage = () => {
                 onChange={handleChange}
                 required>
                 <option value="">Selecciona una opción</option>
-                {clients.map((client) => (
-                  <option key={client._id} value={client.razon_social}>
-                    {client.razon_social}
-                  </option>
-                ))}
+                {clients
+                  .sort((a, b) => a.razon_social.localeCompare(b.razon_social))
+                  .map((client) => (
+                    <option key={client._id} value={client.razon_social}>
+                      {client.razon_social}
+                    </option>
+                  ))}
               </select>
             </div>
 
@@ -1185,11 +1195,17 @@ const BitacorasPage = () => {
                 onChange={handleChange}
                 required>
                 <option value="">Seleccionar</option>
-                {origenes.map((origen) => (
-                  <option key={origen._id} value={origen._id}>
-                    {`${origen.nombre}, ${origen.municipio}, ${origen.estado}`}
-                  </option>
-                ))}
+                {origenes
+                  .sort((a, b) =>
+                    `${a.nombre}, ${a.municipio}, ${a.estado}`.localeCompare(
+                      `${b.nombre}, ${b.municipio}, ${b.estado}`
+                    )
+                  )
+                  .map((origen) => (
+                    <option key={origen._id} value={origen._id}>
+                      {`${origen.nombre}, ${origen.municipio}, ${origen.estado}`}
+                    </option>
+                  ))}
               </select>
             </div>
 
@@ -1205,11 +1221,17 @@ const BitacorasPage = () => {
                 onChange={handleChange}
                 required>
                 <option value="">Seleccionar</option>
-                {destinos.map((destino) => (
-                  <option key={destino._id} value={destino._id}>
-                    {`${destino.nombre}, ${destino.municipio}, ${destino.estado}`}
-                  </option>
-                ))}
+                {destinos
+                  .sort((a, b) =>
+                    `${a.nombre}, ${a.municipio}, ${a.estado}`.localeCompare(
+                      `${b.nombre}, ${b.municipio}, ${b.estado}`
+                    )
+                  )
+                  .map((destino) => (
+                    <option key={destino._id} value={destino._id}>
+                      {`${destino.nombre}, ${destino.municipio}, ${destino.estado}`}
+                    </option>
+                  ))}
               </select>
             </div>
             {formData.monitoreo === "Custodia fisica" && (
