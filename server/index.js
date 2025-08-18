@@ -1873,19 +1873,59 @@ app.get('/dashboard/stats', async (req, res) => {
     const months = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
 
     try {
-      // Para el gráfico mensual, usar el mismo filtro base que las tarjetas
-      // pero sin el filtro de tiempo (createdAt) ya que lo controlamos específicamente por mes
       let monthlyFilter = { ...bitacoraFilter };
-      delete monthlyFilter.createdAt; // Removemos createdAt para controlarlo específicamente
 
       console.log('Monthly filter vs Tarjetas filter:', {
         monthlyFilter: JSON.stringify(monthlyFilter, null, 2),
-        bitacoraFilter: JSON.stringify(bitacoraFilter, null, 2)
+        bitacoraFilter: JSON.stringify(bitacoraFilter, null, 2),
+        dateFilters: { fechaDesde, fechaHasta }
       });
 
-      if (yearFilter && yearFilter !== 'all') {
+      // Check if date range filters are applied
+      if (fechaDesde && fechaHasta && fechaDesde.trim() !== '' && fechaHasta.trim() !== '') {
+        const startDate = new Date(fechaDesde);
+        const endDate = new Date(fechaHasta + 'T23:59:59.999Z');
+
+        if (!isNaN(startDate) && !isNaN(endDate)) {
+          // Generate monthly data only for the date range specified
+          console.log('Generating monthly data for date range:', { startDate, endDate });
+
+          let currentDate = new Date(startDate.getFullYear(), startDate.getMonth(), 1);
+          const endDateMonth = new Date(endDate.getFullYear(), endDate.getMonth(), 1);
+
+          // Remove the general date filter since we'll control it month by month
+          delete monthlyFilter.createdAt;
+
+          while (currentDate <= endDateMonth) {
+            const startOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
+            const endOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
+
+            // Make sure we don't go beyond the specified range
+            const monthStart = startOfMonth < startDate ? startDate : startOfMonth;
+            const monthEnd = endOfMonth > endDate ? endDate : endOfMonth;
+
+            const monthCount = await Bitacora.countDocuments({
+              ...monthlyFilter,
+              createdAt: { $gte: monthStart, $lte: monthEnd }
+            });
+
+            monthlyData.push({
+              month: months[currentDate.getMonth()],
+              value: monthCount
+            });
+
+            console.log(`Month ${months[currentDate.getMonth()]} (${monthStart.toISOString().split('T')[0]} to ${monthEnd.toISOString().split('T')[0]}): ${monthCount} bitácoras`);
+
+            // Move to next month
+            currentDate.setMonth(currentDate.getMonth() + 1);
+          }
+        }
+      } else if (yearFilter && yearFilter !== 'all') {
         // Si hay un año específico seleccionado, mostrar los 12 meses de ese año
         const selectedYear = parseInt(yearFilter);
+        // Remove createdAt for year-only filtering since we control it month by month
+        delete monthlyFilter.createdAt;
+
         for (let i = 0; i < 12; i++) {
           const startOfMonth = new Date(selectedYear, i, 1);
           const endOfMonth = new Date(selectedYear, i + 1, 0);
@@ -1902,6 +1942,9 @@ app.get('/dashboard/stats', async (req, res) => {
         }
       } else {
         // Si no hay año específico, mostrar los últimos 12 meses
+        // Remove createdAt for default 12-month view since we control it month by month
+        delete monthlyFilter.createdAt;
+
         for (let i = 11; i >= 0; i--) {
           const date = new Date();
           date.setMonth(date.getMonth() - i);
@@ -2123,7 +2166,7 @@ app.get('/dashboard/stats', async (req, res) => {
           { $limit: 10 },
           {
             $lookup: {
-              from: 'origenes',
+              from: 'origens',
               localField: '_id',
               foreignField: 'nombre',
               as: 'originInfo'
@@ -3118,54 +3161,233 @@ app.get('/dashboard/bitacoras-anomalias', async (req, res) => {
     }
 
     // Obtener bitácoras que tengan al menos un evento de categoría diferente a "General"
-    const bitacorasConAnomalias = await Bitacora.aggregate([
-      { $match: bitacoraFilter },
-      { $unwind: '$eventos' },
-      {
-        $lookup: {
-          from: 'eventtypes',
-          localField: 'eventos.nombre',
-          foreignField: 'evento',
-          as: 'eventTypeInfo'
-        }
-      },
-      {
-        $match: {
-          'eventTypeInfo.categoria': { $ne: 'General' }
-        }
-      },
-      {
-        $group: {
-          _id: '$_id',
-          bitacora_id: { $first: '$bitacora_id' },
-          cliente: { $first: '$cliente' },
-          linea_transporte: { $first: '$linea_transporte' },
-          operador: { $first: '$operador' },
-          origen: { $first: '$origen' },
-          destino: { $first: '$destino' },
-          status: { $first: '$status' },
-          createdAt: { $first: '$createdAt' },
-          eventos: { $push: '$eventos' },
-          eventTypes: { $push: '$eventTypeInfo' }
-        }
-      },
-      { $sort: { createdAt: -1 } }
-    ]);
+    console.log('Starting aggregation for bitacoras con anomalias...');
+    let bitacorasConAnomalias;
+    try {
+      bitacorasConAnomalias = await Bitacora.aggregate([
+        { $match: bitacoraFilter },
+        { $unwind: '$eventos' },
+        {
+          $lookup: {
+            from: 'eventtypes',
+            localField: 'eventos.nombre',
+            foreignField: 'evento',
+            as: 'eventTypeInfo'
+          }
+        },
+        {
+          $match: {
+            'eventTypeInfo.categoria': { $ne: 'General' }
+          }
+        },
+        {
+          $group: {
+            _id: '$_id',
+            bitacora_id: { $first: '$bitacora_id' },
+            cliente: { $first: '$cliente' },
+            linea_transporte: { $first: '$linea_transporte' },
+            operador: { $first: '$operador' },
+            origen: { $first: '$origen' },
+            destino: { $first: '$destino' },
+            status: { $first: '$status' },
+            createdAt: { $first: '$createdAt' },
+            eventos: { $push: '$eventos' },
+            eventTypes: { $push: '$eventTypeInfo' }
+          }
+        },
+        // Add fields to handle ObjectId conversion for lookups
+        {
+          $addFields: {
+            origenForLookup: {
+              $cond: {
+                if: {
+                  $and: [
+                    { $eq: [{ $type: '$origen' }, 'string'] },
+                    { $regexMatch: { input: '$origen', regex: '^[0-9a-fA-F]{24}$' } }
+                  ]
+                },
+                then: { $toObjectId: '$origen' },
+                else: '$origen'
+              }
+            },
+            destinoForLookup: {
+              $cond: {
+                if: {
+                  $and: [
+                    { $eq: [{ $type: '$destino' }, 'string'] },
+                    { $regexMatch: { input: '$destino', regex: '^[0-9a-fA-F]{24}$' } }
+                  ]
+                },
+                then: { $toObjectId: '$destino' },
+                else: '$destino'
+              }
+            }
+          }
+        },
+        // Lookups with ObjectId conversion
+        {
+          $lookup: {
+            from: 'origens',
+            localField: 'origenForLookup',
+            foreignField: '_id',
+            as: 'origenInfoById'
+          }
+        },
+        {
+          $lookup: {
+            from: 'origens',
+            localField: 'origen',
+            foreignField: 'nombre',
+            as: 'origenInfoByName'
+          }
+        },
+        {
+          $lookup: {
+            from: 'destinos',
+            localField: 'destinoForLookup',
+            foreignField: '_id',
+            as: 'destinoInfoById'
+          }
+        },
+        {
+          $lookup: {
+            from: 'destinos',
+            localField: 'destino',
+            foreignField: 'nombre',
+            as: 'destinoInfoByName'
+          }
+        },
+        // Combine results - prefer _id match over nombre match
+        {
+          $addFields: {
+            origenInfo: {
+              $cond: {
+                if: { $gt: [{ $size: '$origenInfoById' }, 0] },
+                then: '$origenInfoById',
+                else: '$origenInfoByName'
+              }
+            },
+            destinoInfo: {
+              $cond: {
+                if: { $gt: [{ $size: '$destinoInfoById' }, 0] },
+                then: '$destinoInfoById',
+                else: '$destinoInfoByName'
+              }
+            }
+          }
+        },
+        { $sort: { createdAt: -1 } }
+      ]);
+      console.log(`Aggregation completed. Found ${bitacorasConAnomalias.length} bitacoras with anomalies.`);
+    } catch (aggregationError) {
+      console.error('Error in aggregation pipeline:', aggregationError);
+      throw new Error(`Aggregation failed: ${aggregationError.message}`);
+    }
+
+    // Helper function to extract location name using lookup data
+    const getLocationName = (locationField, lookupInfo, debugContext = '') => {
+      console.log(`getLocationName called for ${debugContext}:`, {
+        locationField,
+        locationFieldType: typeof locationField,
+        isObjectId: typeof locationField === 'string' && /^[0-9a-f]{24}$/i.test(locationField),
+        lookupInfoLength: lookupInfo ? lookupInfo.length : 0,
+        lookupData: lookupInfo && lookupInfo.length > 0 ? lookupInfo[0] : null
+      });
+      // First, try to use lookup data if available
+      if (lookupInfo && lookupInfo.length > 0) {
+        const locationData = lookupInfo[0];
+        const result = `${locationData.nombre}, ${locationData.estado || ''}`.trim().replace(/,$/, '');
+        console.log(`${debugContext} resolved via lookup:`, result);
+        return result;
+      }
+
+      // Fallback to original field processing
+      if (!locationField) {
+        console.log(`${debugContext} is null/undefined, returning N/A`);
+        return 'N/A';
+      }
+
+      // If it's an object with nombre and estado properties
+      if (typeof locationField === 'object' && locationField.nombre) {
+        const result = `${locationField.nombre}, ${locationField.estado || ''}`.trim().replace(/,$/, '');
+        console.log(`${debugContext} resolved as object:`, result);
+        return result;
+      }
+
+      // If it's a plain string and not an ObjectId
+      if (typeof locationField === 'string' && !locationField.match(/^[0-9a-f]{24}$/i)) {
+        console.log(`${debugContext} is plain string:`, locationField);
+        return locationField;
+      }
+
+      // If it's an ObjectId string and no lookup data found
+      console.log(`${debugContext} is ObjectId but no lookup found. ObjectId:`, locationField);
+      return `ObjectId no resuelto: ${locationField}`;
+    };
+
+    // Helper function to extract safe field value (handles objects and ObjectIds)
+    const getSafeFieldValue = (field) => {
+      if (!field) return 'N/A';
+
+      // If it's an object, try to extract a meaningful value
+      if (typeof field === 'object') {
+        // If it has a 'nombre' property, use that
+        if (field.nombre) return field.nombre;
+        // If it has a 'razon_social' property (for clients), use that
+        if (field.razon_social) return field.razon_social;
+        // Otherwise, convert to string
+        return String(field);
+      }
+
+      // If it's already a string, return as is
+      return field;
+    };
 
     // Formatear los datos para la respuesta
     const formattedBitacoras = bitacorasConAnomalias.map(bitacora => {
       // Obtener las categorías únicas de eventos para esta bitácora
       const categorias = [...new Set(bitacora.eventTypes.flat().map(et => et.categoria).filter(cat => cat && cat !== 'General'))];
 
+      // Debug log for first few records to see data types and lookup results
+      if (bitacorasConAnomalias.indexOf(bitacora) < 3) {
+        console.log(`\n=== FULL BITACORA ${bitacora.bitacora_id} STRUCTURE ===`);
+        console.log('Complete bitacora object:', JSON.stringify(bitacora, null, 2));
+        console.log('=== END FULL STRUCTURE ===\n');
+        console.log(`\n=== Bitacora ${bitacora.bitacora_id} Debug Info ===`);
+        console.log('Raw field values:', {
+          origenRaw: bitacora.origen,
+          origenType: typeof bitacora.origen,
+          origenIsObjectId: typeof bitacora.origen === 'string' && /^[0-9a-fA-F]{24}$/.test(bitacora.origen),
+          destinoRaw: bitacora.destino,
+          destinoType: typeof bitacora.destino,
+          destinoIsObjectId: typeof bitacora.destino === 'string' && /^[0-9a-fA-F]{24}$/.test(bitacora.destino),
+        });
+        console.log('Individual lookup results:');
+        console.log('- origenInfoById:', bitacora.origenInfoById ? bitacora.origenInfoById.length : 0, 'items');
+        console.log('- origenInfoByName:', bitacora.origenInfoByName ? bitacora.origenInfoByName.length : 0, 'items');
+        console.log('- destinoInfoById:', bitacora.destinoInfoById ? bitacora.destinoInfoById.length : 0, 'items');
+        console.log('- destinoInfoByName:', bitacora.destinoInfoByName ? bitacora.destinoInfoByName.length : 0, 'items');
+        console.log('Combined lookup results:');
+        console.log('- origenInfo final:', bitacora.origenInfo ? bitacora.origenInfo.length : 0, 'items');
+        console.log('- destinoInfo final:', bitacora.destinoInfo ? bitacora.destinoInfo.length : 0, 'items');
+        if (bitacora.origenInfo && bitacora.origenInfo.length > 0) {
+          console.log('- origenInfo data:', bitacora.origenInfo[0]);
+        }
+        if (bitacora.destinoInfo && bitacora.destinoInfo.length > 0) {
+          console.log('- destinoInfo data:', bitacora.destinoInfo[0]);
+        }
+        console.log('=== End Debug Info ===\n');
+      }
+
       return {
         _id: bitacora._id,
         bitacora_id: bitacora.bitacora_id,
-        cliente: bitacora.cliente,
-        linea_transporte: bitacora.linea_transporte,
-        operador: bitacora.operador,
-        origen: bitacora.origen,
-        destino: bitacora.destino,
-        status: bitacora.status,
+        cliente: getSafeFieldValue(bitacora.cliente),
+        linea_transporte: getSafeFieldValue(bitacora.linea_transporte),
+        operador: getSafeFieldValue(bitacora.operador),
+        origen: getLocationName(bitacora.origen, bitacora.origenInfo, 'ORIGEN'),
+        destino: getLocationName(bitacora.destino, bitacora.destinoInfo, 'DESTINO'),
+        status: getSafeFieldValue(bitacora.status),
         createdAt: bitacora.createdAt,
         categorias: categorias,
         totalEventos: bitacora.eventos.length

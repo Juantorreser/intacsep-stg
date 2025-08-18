@@ -61,7 +61,7 @@ const DashboardPage = () => {
   const [anomaliasFilters, setAnomaliasFilters] = useState({
     bitacora_id: "",
     cliente: "",
-    anomalias: "",
+    anomalias: [], // Changed to array for multiple selection
     linea_transporte: "",
     operador: "",
     origen: "",
@@ -272,11 +272,9 @@ const DashboardPage = () => {
         (bitacora.cliente || "").toLowerCase().includes(anomaliasFilters.cliente.toLowerCase());
 
       const matchesAnomalias =
-        !anomaliasFilters.anomalias ||
+        anomaliasFilters.anomalias.length === 0 ||
         (bitacora.categorias &&
-          bitacora.categorias.some((cat) =>
-            cat.toLowerCase().includes(anomaliasFilters.anomalias.toLowerCase())
-          ));
+          bitacora.categorias.some((cat) => anomaliasFilters.anomalias.includes(cat)));
 
       const matchesLineaTransporte =
         !anomaliasFilters.linea_transporte ||
@@ -314,6 +312,21 @@ const DashboardPage = () => {
 
     setFilteredAnomaliasData(filteredData);
   }, [bitacorasAnomalias, anomaliasFilters]);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      const dropdown = document.getElementById("anomalias-dropdown");
+      const container = event.target.closest(".anomalias-dropdown-container");
+
+      if (dropdown && !container && dropdown.style.display === "block") {
+        dropdown.style.display = "none";
+      }
+    };
+
+    document.addEventListener("click", handleClickOutside);
+    return () => document.removeEventListener("click", handleClickOutside);
+  }, []);
 
   // Chart rendering functions
   const renderTiposMonitoreoChart = () => {
@@ -367,6 +380,13 @@ const DashboardPage = () => {
     const monthlyData = dashboardStats.monthlyData || [];
 
     console.log("Monthly data in frontend:", monthlyData);
+    console.log("Current filters:", {
+      fechaDesde,
+      fechaHasta,
+      clientFilter,
+      lineaTransporteFilter,
+      operadorFilter,
+    });
 
     // Si no hay datos, mostrar mensaje
     if (monthlyData.length === 0) {
@@ -379,6 +399,11 @@ const DashboardPage = () => {
 
     const maxValue = Math.max(...monthlyData.map((d) => d.value));
 
+    // Calculate dynamic spacing based on number of months
+    const gapSize = monthlyData.length <= 3 ? "20px" : monthlyData.length <= 6 ? "12px" : "8px";
+    const minBarWidth =
+      monthlyData.length <= 3 ? "60px" : monthlyData.length <= 6 ? "45px" : "35px";
+
     return (
       <div className="trend-chart">
         <div
@@ -387,10 +412,12 @@ const DashboardPage = () => {
             height: "250px",
             display: "flex",
             alignItems: "flex-end",
-            gap: "8px",
+            gap: gapSize,
             padding: "15px 0 35px 0",
             position: "relative",
-            minWidth: "600px", // Ensure minimum width for mobile scrolling
+            minWidth:
+              monthlyData.length <= 3 ? "300px" : monthlyData.length <= 6 ? "450px" : "600px",
+            justifyContent: monthlyData.length <= 3 ? "center" : "flex-start",
           }}>
           {monthlyData.map((item, index) => {
             const barHeight = maxValue > 0 ? (item.value / maxValue) * 100 : 0;
@@ -406,7 +433,7 @@ const DashboardPage = () => {
                   height: "100%",
                   position: "relative",
                   justifyContent: "flex-end",
-                  minWidth: "40px", // Ensure minimum bar width
+                  minWidth: monthlyData.length <= 3 ? "60px" : "40px", // Dynamic minimum bar width
                 }}>
                 <div
                   className="bar"
@@ -415,7 +442,7 @@ const DashboardPage = () => {
                     backgroundColor: "#3b82f6",
                     minHeight: item.value > 0 ? "4px" : "0px",
                     width: "100%",
-                    maxWidth: "35px",
+                    maxWidth: minBarWidth,
                     borderRadius: "4px 4px 0 0",
                     transition: "height 0.3s ease",
                     marginBottom: "40px",
@@ -459,19 +486,25 @@ const DashboardPage = () => {
           <div className="summary-item">
             <span className="summary-label">Total del período:</span>
             <span className="summary-value">
-              {formatNumber(dashboardStats.totalBitacoras)} bitácoras
+              {formatNumber(monthlyData.reduce((sum, item) => sum + item.value, 0))} bitácoras
             </span>
           </div>
           <div className="summary-item">
             <span className="summary-label">Promedio mensual:</span>
             <span className="summary-value">
-              {formatNumber(
-                Math.round(
-                  monthlyData.reduce((sum, item) => sum + item.value, 0) /
-                    Math.max(monthlyData.length, 1)
-                )
-              )}{" "}
+              {(() => {
+                const monthsWithData = monthlyData.filter((item) => item.value > 0).length;
+                const totalValue = monthlyData.reduce((sum, item) => sum + item.value, 0);
+                const average = monthsWithData > 0 ? Math.round(totalValue / monthsWithData) : 0;
+                return formatNumber(average);
+              })()}{" "}
               bitácoras
+            </span>
+          </div>
+          <div className="summary-item">
+            <span className="summary-label">Meses con datos:</span>
+            <span className="summary-value">
+              {monthlyData.filter((item) => item.value > 0).length} de {monthlyData.length}
             </span>
           </div>
         </div>
@@ -1224,11 +1257,9 @@ const DashboardPage = () => {
         (bitacora.cliente || "").toLowerCase().includes(anomaliasFilters.cliente.toLowerCase());
 
       const matchesAnomalias =
-        !anomaliasFilters.anomalias ||
+        anomaliasFilters.anomalias.length === 0 ||
         (bitacora.categorias &&
-          bitacora.categorias.some((cat) =>
-            cat.toLowerCase().includes(anomaliasFilters.anomalias.toLowerCase())
-          ));
+          bitacora.categorias.some((cat) => anomaliasFilters.anomalias.includes(cat)));
 
       const matchesLineaTransporte =
         !anomaliasFilters.linea_transporte ||
@@ -1271,11 +1302,18 @@ const DashboardPage = () => {
       }));
     };
 
+    const handleAnomaliasFilterChange = (selectedOptions) => {
+      setAnomaliasFilters((prev) => ({
+        ...prev,
+        anomalias: selectedOptions,
+      }));
+    };
+
     const clearFilters = () => {
       setAnomaliasFilters({
         bitacora_id: "",
         cliente: "",
-        anomalias: "",
+        anomalias: [],
         linea_transporte: "",
         operador: "",
         origen: "",
@@ -1290,13 +1328,48 @@ const DashboardPage = () => {
         <div className="mb-3">
           <div className="row g-2">
             <div className="col-12 d-flex justify-content-between align-items-center mb-2">
-              <small className="text-muted">
-                Mostrando {filteredData.length} de {bitacorasAnomalias.length} registros
-              </small>
+              <div className="d-flex align-items-center gap-2">
+                <small className="text-muted">
+                  Mostrando {filteredData.length} de {bitacorasAnomalias.length} registros
+                </small>
+                {anomaliasFilters.anomalias.length > 0 && (
+                  <div className="d-flex align-items-center gap-1">
+                    <span className="badge bg-primary" style={{fontSize: "10px"}}>
+                      <i className="fa fa-filter me-1"></i>
+                      Anomalías: {anomaliasFilters.anomalias.length}
+                    </span>
+                    <div className="d-flex gap-1">
+                      {anomaliasFilters.anomalias.map((anomalia) => {
+                        const colors = {
+                          ENA: "#f59e0b",
+                          FM: "#ef4444",
+                          ONC: "#06b6d4",
+                          DR: "#10b981",
+                        };
+                        return (
+                          <span
+                            key={anomalia}
+                            className="badge"
+                            style={{
+                              backgroundColor: colors[anomalia],
+                              color: "white",
+                              fontSize: "8px",
+                              padding: "2px 4px",
+                            }}>
+                            {anomalia}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
               <button
                 className="btn btn-sm btn-outline-secondary"
                 onClick={clearFilters}
-                disabled={Object.values(anomaliasFilters).every((filter) => !filter)}>
+                disabled={Object.entries(anomaliasFilters).every(([key, value]) =>
+                  key === "anomalias" ? value.length === 0 : !value
+                )}>
                 <i className="fa fa-times me-1"></i>
                 Limpiar filtros
               </button>
@@ -1332,14 +1405,165 @@ const DashboardPage = () => {
                 </th>
                 <th className="small text-center" style={{minWidth: "120px"}}>
                   <div>Anomalías</div>
-                  <input
-                    type="text"
-                    className="form-control form-control-sm mt-1"
-                    placeholder="Filtrar..."
-                    value={anomaliasFilters.anomalias}
-                    onChange={(e) => handleFilterChange("anomalias", e.target.value)}
-                    style={{fontSize: "10px"}}
-                  />
+                  <div className="anomalias-dropdown-container mt-1" style={{position: "relative"}}>
+                    <button
+                      type="button"
+                      className="form-control form-control-sm d-flex align-items-center justify-content-between"
+                      onClick={() => {
+                        const dropdown = document.getElementById("anomalias-dropdown");
+                        dropdown.style.display =
+                          dropdown.style.display === "block" ? "none" : "block";
+                      }}
+                      style={{
+                        fontSize: "10px",
+                        height: "32px",
+                        border:
+                          anomaliasFilters.anomalias.length > 0
+                            ? "2px solid #0d6efd"
+                            : "1px solid #ced4da",
+                        backgroundColor:
+                          anomaliasFilters.anomalias.length > 0 ? "#e7f3ff" : "white",
+                        cursor: "pointer",
+                      }}>
+                      <div className="d-flex align-items-center gap-1">
+                        {anomaliasFilters.anomalias.length === 0 ? (
+                          <span className="text-muted">Filtrar...</span>
+                        ) : (
+                          <div className="d-flex gap-1 flex-wrap">
+                            {anomaliasFilters.anomalias.slice(0, 2).map((anomalia) => {
+                              const colors = {
+                                ENA: "#f59e0b",
+                                FM: "#ef4444",
+                                ONC: "#06b6d4",
+                                DR: "#10b981",
+                              };
+                              return (
+                                <span
+                                  key={anomalia}
+                                  className="badge"
+                                  style={{
+                                    backgroundColor: colors[anomalia],
+                                    color: "white",
+                                    fontSize: "7px",
+                                    padding: "1px 3px",
+                                  }}>
+                                  {anomalia}
+                                </span>
+                              );
+                            })}
+                            {anomaliasFilters.anomalias.length > 2 && (
+                              <span
+                                className="badge bg-secondary"
+                                style={{fontSize: "7px", padding: "1px 3px"}}>
+                                +{anomaliasFilters.anomalias.length - 2}
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                      <i className="fa fa-chevron-down" style={{fontSize: "8px"}}></i>
+                    </button>
+
+                    <div
+                      id="anomalias-dropdown"
+                      className="anomalias-dropdown-menu"
+                      style={{
+                        display: "none",
+                        position: "absolute",
+                        top: "100%",
+                        left: "0",
+                        right: "0",
+                        backgroundColor: "white",
+                        border: "1px solid #ced4da",
+                        borderRadius: "4px",
+                        boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+                        zIndex: 1000,
+                        fontSize: "10px",
+                        padding: "8px",
+                      }}>
+                      <div className="d-flex justify-content-between align-items-center mb-2">
+                        <small className="text-muted fw-bold">Seleccionar anomalías:</small>
+                        <div className="d-flex gap-1">
+                          <button
+                            type="button"
+                            className="btn btn-link btn-sm p-0"
+                            onClick={() => handleAnomaliasFilterChange(["ENA", "FM", "ONC", "DR"])}
+                            style={{fontSize: "8px", textDecoration: "none"}}
+                            title="Seleccionar todas">
+                            Todas
+                          </button>
+                          <span style={{fontSize: "8px"}}>|</span>
+                          <button
+                            type="button"
+                            className="btn btn-link btn-sm p-0"
+                            onClick={() => handleAnomaliasFilterChange([])}
+                            style={{fontSize: "8px", textDecoration: "none"}}
+                            title="Deseleccionar todas">
+                            Limpiar
+                          </button>
+                        </div>
+                      </div>
+
+                      {[
+                        {
+                          value: "ENA",
+                          label: "ENA",
+                          color: "#f59e0b",
+                          desc: "Estadia no autorizada",
+                        },
+                        {value: "FM", label: "FM", color: "#ef4444", desc: "Falla mecánica"},
+                        {
+                          value: "ONC",
+                          label: "ONC",
+                          color: "#06b6d4",
+                          desc: "Operador no responde",
+                        },
+                        {value: "DR", label: "DR", color: "#10b981", desc: "Desvío de ruta"},
+                      ].map((anomalia) => (
+                        <label
+                          key={anomalia.value}
+                          className="d-flex align-items-center gap-2 py-1 px-1"
+                          style={{
+                            cursor: "pointer",
+                            borderRadius: "3px",
+                            transition: "background-color 0.2s",
+                          }}
+                          onMouseEnter={(e) => (e.target.style.backgroundColor = "#f8f9fa")}
+                          onMouseLeave={(e) => (e.target.style.backgroundColor = "transparent")}>
+                          <input
+                            type="checkbox"
+                            checked={anomaliasFilters.anomalias.includes(anomalia.value)}
+                            onChange={(e) => {
+                              const currentSelection = [...anomaliasFilters.anomalias];
+                              if (e.target.checked) {
+                                currentSelection.push(anomalia.value);
+                              } else {
+                                const index = currentSelection.indexOf(anomalia.value);
+                                if (index > -1) {
+                                  currentSelection.splice(index, 1);
+                                }
+                              }
+                              handleAnomaliasFilterChange(currentSelection);
+                            }}
+                            style={{margin: "0", accentColor: anomalia.color}}
+                          />
+                          <span
+                            className="badge"
+                            style={{
+                              backgroundColor: anomalia.color,
+                              color: "white",
+                              fontSize: "8px",
+                              padding: "2px 4px",
+                              minWidth: "25px",
+                              textAlign: "center",
+                            }}>
+                            {anomalia.label}
+                          </span>
+                          <span style={{fontSize: "9px", color: "#6c757d"}}>{anomalia.desc}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
                 </th>
                 <th className="small text-center" style={{minWidth: "150px"}}>
                   <div>Línea Transporte</div>
