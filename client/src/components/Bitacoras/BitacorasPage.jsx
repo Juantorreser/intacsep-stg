@@ -719,7 +719,7 @@ const BitacorasPage = () => {
                           onClick={() => handleSortChange("operador")}
                           style={{cursor: "pointer", width: "140px"}}>
                           <div className="header-content">
-                            <span className="header-text">Operador</span>
+                            <span className="header-text">Usuario</span>
                             {sortField === "operador" && (
                               <i
                                 className={`fa fa-sort-${
