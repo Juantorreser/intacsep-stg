@@ -43,7 +43,7 @@ const DashboardPage = () => {
   const [availableClients, setAvailableClients] = useState([]);
   const [geoType, setGeoType] = useState("origen");
 
-  // Nuevos filtros para anomalías
+  // Filtros pendientes (que se pueden cambiar sin aplicar)
   const [fechaDesde, setFechaDesde] = useState("");
   const [fechaHasta, setFechaHasta] = useState(() => {
     // Set default value to today's date in YYYY-MM-DD format
@@ -52,6 +52,18 @@ const DashboardPage = () => {
   });
   const [lineaTransporteFilter, setLineaTransporteFilter] = useState("all");
   const [operadorFilter, setOperadorFilter] = useState("all");
+
+  // Filtros aplicados (que realmente se usan en las consultas)
+  const [appliedClientFilter, setAppliedClientFilter] = useState("all");
+  const [appliedFechaDesde, setAppliedFechaDesde] = useState("");
+  const [appliedFechaHasta, setAppliedFechaHasta] = useState(() => {
+    const today = new Date();
+    return today.toISOString().split("T")[0];
+  });
+  const [appliedLineaTransporteFilter, setAppliedLineaTransporteFilter] = useState("all");
+  const [appliedOperadorFilter, setAppliedOperadorFilter] = useState("all");
+  const [appliedGeoType, setAppliedGeoType] = useState("origen");
+
   const [availableLineasTransporte, setAvailableLineasTransporte] = useState([]);
   const [availableOperadores, setAvailableOperadores] = useState([]);
   const [applyFiltersTrigger, setApplyFiltersTrigger] = useState(0);
@@ -74,6 +86,28 @@ const DashboardPage = () => {
   });
 
   const baseUrl = import.meta.env.VITE_BASE_URL;
+
+  // Function to apply filters when check button is pressed
+  const applyFilters = () => {
+    setAppliedClientFilter(clientFilter);
+    setAppliedGeoType(geoType);
+    setAppliedFechaDesde(fechaDesde);
+    setAppliedFechaHasta(fechaHasta);
+    setAppliedLineaTransporteFilter(lineaTransporteFilter);
+    setAppliedOperadorFilter(operadorFilter);
+    setApplyFiltersTrigger((prev) => prev + 1);
+  };
+
+  // Function to reset filters
+  const resetFilters = () => {
+    const today = new Date().toISOString().split("T")[0];
+    setClientFilter("all");
+    setGeoType("origen");
+    setFechaDesde("");
+    setFechaHasta(today);
+    setLineaTransporteFilter("all");
+    setOperadorFilter("all");
+  };
 
   // Helper function to format numbers with thousands separator
   const formatNumber = (num) => {
@@ -173,12 +207,12 @@ const DashboardPage = () => {
       // Fetch dashboard statistics with filters
       const statsResponse = await fetch(
         `${baseUrl}/dashboard/stats?clientFilter=${encodeURIComponent(
-          clientFilter
-        )}&geoType=${encodeURIComponent(geoType)}&fechaDesde=${encodeURIComponent(
-          fechaDesde
-        )}&fechaHasta=${encodeURIComponent(fechaHasta)}&lineaTransporte=${encodeURIComponent(
-          lineaTransporteFilter
-        )}&operador=${encodeURIComponent(operadorFilter)}`,
+          appliedClientFilter
+        )}&geoType=${encodeURIComponent(appliedGeoType)}&fechaDesde=${encodeURIComponent(
+          appliedFechaDesde
+        )}&fechaHasta=${encodeURIComponent(appliedFechaHasta)}&lineaTransporte=${encodeURIComponent(
+          appliedLineaTransporteFilter
+        )}&operador=${encodeURIComponent(appliedOperadorFilter)}`,
         {
           method: "GET",
           credentials: "include",
@@ -193,12 +227,12 @@ const DashboardPage = () => {
       // Fetch ONC events data for bar chart
       const oncResponse = await fetch(
         `${baseUrl}/dashboard/onc-events?clientFilter=${encodeURIComponent(
-          clientFilter
-        )}&fechaDesde=${encodeURIComponent(fechaDesde)}&fechaHasta=${encodeURIComponent(
-          fechaHasta
+          appliedClientFilter
+        )}&fechaDesde=${encodeURIComponent(appliedFechaDesde)}&fechaHasta=${encodeURIComponent(
+          appliedFechaHasta
         )}&lineaTransporte=${encodeURIComponent(
-          lineaTransporteFilter
-        )}&operador=${encodeURIComponent(operadorFilter)}`,
+          appliedLineaTransporteFilter
+        )}&operador=${encodeURIComponent(appliedOperadorFilter)}`,
         {
           method: "GET",
           credentials: "include",
@@ -213,12 +247,12 @@ const DashboardPage = () => {
       // Fetch bitácoras con anomalías
       const anomaliasResponse = await fetch(
         `${baseUrl}/dashboard/bitacoras-anomalias?clientFilter=${encodeURIComponent(
-          clientFilter
-        )}&fechaDesde=${encodeURIComponent(fechaDesde)}&fechaHasta=${encodeURIComponent(
-          fechaHasta
+          appliedClientFilter
+        )}&fechaDesde=${encodeURIComponent(appliedFechaDesde)}&fechaHasta=${encodeURIComponent(
+          appliedFechaHasta
         )}&lineaTransporte=${encodeURIComponent(
-          lineaTransporteFilter
-        )}&operador=${encodeURIComponent(operadorFilter)}`,
+          appliedLineaTransporteFilter
+        )}&operador=${encodeURIComponent(appliedOperadorFilter)}`,
         {
           method: "GET",
           credentials: "include",
@@ -236,12 +270,12 @@ const DashboardPage = () => {
     }
   }, [
     baseUrl,
-    clientFilter,
-    geoType,
-    fechaDesde,
-    fechaHasta,
-    lineaTransporteFilter,
-    operadorFilter,
+    appliedClientFilter,
+    appliedGeoType,
+    appliedFechaDesde,
+    appliedFechaHasta,
+    appliedLineaTransporteFilter,
+    appliedOperadorFilter,
   ]);
 
   useEffect(() => {
@@ -714,43 +748,6 @@ const DashboardPage = () => {
     );
   };
 
-  const renderProgressCircle = (percentage, label, color = "primary") => {
-    // Handle NaN, undefined, or invalid percentage values
-    const validPercentage =
-      isNaN(percentage) || percentage === undefined || percentage === null
-        ? 0
-        : Math.max(0, Math.min(100, percentage));
-
-    const radius = 35; // Smaller radius for mobile
-    const circumference = 2 * Math.PI * radius;
-    const strokeDasharray = circumference;
-    const strokeDashoffset = circumference - (validPercentage / 100) * circumference;
-
-    return (
-      <div className="progress-circle">
-        <svg width="80" height="80" viewBox="0 0 80 80">
-          <circle cx="40" cy="40" r={radius} fill="none" stroke="#1e293b" strokeWidth="6" />
-          <circle
-            cx="40"
-            cy="40"
-            r={radius}
-            fill="none"
-            stroke={`var(--bs-${color})`}
-            strokeWidth="6"
-            strokeDasharray={strokeDasharray}
-            strokeDashoffset={strokeDashoffset}
-            strokeLinecap="round"
-            transform="rotate(-90 40 40)"
-          />
-        </svg>
-        <div className="progress-text">
-          <div className="progress-percentage small">{validPercentage}%</div>
-          <div className="progress-label small">{label}</div>
-        </div>
-      </div>
-    );
-  };
-
   // --- NUEVAS FUNCIONES DE RENDER ---
   const renderAnomaliasPieChart = () => {
     const eventCategoriesStats = dashboardStats.eventCategoriesStats || [];
@@ -1141,19 +1138,30 @@ const DashboardPage = () => {
 
   const renderTopClients = () => {
     const {topClients} = dashboardStats;
+    const totalClients =
+      topClients && topClients.length > 0
+        ? topClients.reduce((sum, client) => sum + client.count, 0)
+        : 0;
+
     return (
       <div className="top-performers" style={{maxHeight: "300px", overflowY: "auto"}}>
         {topClients && topClients.length > 0 ? (
-          topClients.map((client, index) => (
-            <div key={index} className="performer-item">
-              <div className="performer-rank small">#{index + 1}</div>
-              <div className="performer-info">
-                <div className="performer-name small">{client.nombre}</div>
-                <div className="performer-stats small">{formatNumber(client.count)} bitácoras</div>
+          topClients.map((client, index) => {
+            const percentage =
+              totalClients > 0 ? Math.round((client.count / totalClients) * 100) : 0;
+            return (
+              <div key={index} className="performer-item">
+                <div className="performer-rank small">#{index + 1}</div>
+                <div className="performer-info">
+                  <div className="performer-name small">{client.nombre}</div>
+                  <div className="performer-stats small">
+                    {formatNumber(client.count)} bitácoras
+                  </div>
+                </div>
+                <div className="performer-score small">{percentage}%</div>
               </div>
-              <div className="performer-score small">{formatNumber(client.count)}</div>
-            </div>
-          ))
+            );
+          })
         ) : (
           <div className="text-center text-muted small">No hay datos disponibles</div>
         )}
@@ -1163,21 +1171,30 @@ const DashboardPage = () => {
 
   const renderTopOperadores = () => {
     const {topOperadores} = dashboardStats;
+    const totalOperadores =
+      topOperadores && topOperadores.length > 0
+        ? topOperadores.reduce((sum, operador) => sum + operador.count, 0)
+        : 0;
+
     return (
       <div className="top-performers" style={{maxHeight: "300px", overflowY: "auto"}}>
         {topOperadores && topOperadores.length > 0 ? (
-          topOperadores.map((operador, index) => (
-            <div key={index} className="performer-item">
-              <div className="performer-rank small">#{index + 1}</div>
-              <div className="performer-info">
-                <div className="performer-name small">{operador.name}</div>
-                <div className="performer-stats small">
-                  {formatNumber(operador.count)} bitácoras
+          topOperadores.map((operador, index) => {
+            const percentage =
+              totalOperadores > 0 ? Math.round((operador.count / totalOperadores) * 100) : 0;
+            return (
+              <div key={index} className="performer-item">
+                <div className="performer-rank small">#{index + 1}</div>
+                <div className="performer-info">
+                  <div className="performer-name small">{operador.name}</div>
+                  <div className="performer-stats small">
+                    {formatNumber(operador.count)} bitácoras
+                  </div>
                 </div>
+                <div className="performer-score small">{percentage}%</div>
               </div>
-              <div className="performer-score small">{formatNumber(operador.count)}</div>
-            </div>
-          ))
+            );
+          })
         ) : (
           <div className="text-center text-muted small">No hay datos disponibles</div>
         )}
@@ -1310,19 +1327,29 @@ const DashboardPage = () => {
 
   const renderTopLineasTransporte = () => {
     const {topLineasTransporte} = dashboardStats;
+    const totalLineas =
+      topLineasTransporte && topLineasTransporte.length > 0
+        ? topLineasTransporte.reduce((sum, linea) => sum + linea.count, 0)
+        : 0;
+
     return (
       <div className="top-performers" style={{maxHeight: "300px", overflowY: "auto"}}>
         {topLineasTransporte && topLineasTransporte.length > 0 ? (
-          topLineasTransporte.map((linea, index) => (
-            <div key={index} className="performer-item">
-              <div className="performer-rank small">#{index + 1}</div>
-              <div className="performer-info">
-                <div className="performer-name small">{linea.nombre}</div>
-                <div className="performer-stats small">{formatNumber(linea.count)} transportes</div>
+          topLineasTransporte.map((linea, index) => {
+            const percentage = totalLineas > 0 ? Math.round((linea.count / totalLineas) * 100) : 0;
+            return (
+              <div key={index} className="performer-item">
+                <div className="performer-rank small">#{index + 1}</div>
+                <div className="performer-info">
+                  <div className="performer-name small">{linea.nombre}</div>
+                  <div className="performer-stats small">
+                    {formatNumber(linea.count)} transportes
+                  </div>
+                </div>
+                <div className="performer-score small">{percentage}%</div>
               </div>
-              <div className="performer-score small">{formatNumber(linea.count)}</div>
-            </div>
-          ))
+            );
+          })
         ) : (
           <div className="text-center text-muted small">No hay datos disponibles</div>
         )}
@@ -1332,21 +1359,32 @@ const DashboardPage = () => {
 
   const renderTopOperadoresTransportes = () => {
     const {topOperadoresTransportes} = dashboardStats;
+    const totalOperadoresTransportes =
+      topOperadoresTransportes && topOperadoresTransportes.length > 0
+        ? topOperadoresTransportes.reduce((sum, operador) => sum + operador.count, 0)
+        : 0;
+
     return (
       <div className="top-performers" style={{maxHeight: "300px", overflowY: "auto"}}>
         {topOperadoresTransportes && topOperadoresTransportes.length > 0 ? (
-          topOperadoresTransportes.map((operador, index) => (
-            <div key={index} className="performer-item">
-              <div className="performer-rank small">#{index + 1}</div>
-              <div className="performer-info">
-                <div className="performer-name small">{operador.nombre}</div>
-                <div className="performer-stats small">
-                  {formatNumber(operador.count)} transportes
+          topOperadoresTransportes.map((operador, index) => {
+            const percentage =
+              totalOperadoresTransportes > 0
+                ? Math.round((operador.count / totalOperadoresTransportes) * 100)
+                : 0;
+            return (
+              <div key={index} className="performer-item">
+                <div className="performer-rank small">#{index + 1}</div>
+                <div className="performer-info">
+                  <div className="performer-name small">{operador.nombre}</div>
+                  <div className="performer-stats small">
+                    {formatNumber(operador.count)} transportes
+                  </div>
                 </div>
+                <div className="performer-score small">{percentage}%</div>
               </div>
-              <div className="performer-score small">{formatNumber(operador.count)}</div>
-            </div>
-          ))
+            );
+          })
         ) : (
           <div className="text-center text-muted small">No hay datos disponibles</div>
         )}
@@ -2124,11 +2162,11 @@ const DashboardPage = () => {
                           Cargando...
                         </span>
                       )}
-                      {(fechaDesde ||
-                        fechaHasta ||
-                        clientFilter !== "all" ||
-                        lineaTransporteFilter !== "all" ||
-                        operadorFilter !== "all") && (
+                      {(appliedFechaDesde ||
+                        appliedFechaHasta !== new Date().toISOString().split("T")[0] ||
+                        appliedClientFilter !== "all" ||
+                        appliedLineaTransporteFilter !== "all" ||
+                        appliedOperadorFilter !== "all") && (
                         <span className="badge bg-primary">
                           <i className="fa fa-filter me-1"></i>
                           Filtros Activos
@@ -2209,12 +2247,12 @@ const DashboardPage = () => {
                       </div>
                       <div className="col-12 col-sm-6 col-lg-2">
                         <div className="filter-section">
-                          <label className="form-label small mb-1">Usuario:</label>
+                          <label className="form-label small mb-1">Operador:</label>
                           <select
                             value={operadorFilter}
                             onChange={(e) => setOperadorFilter(e.target.value)}
                             className="filter-select form-select form-select-sm">
-                            <option value="all">Todos los usuarios</option>
+                            <option value="all">Todos los operadores</option>
                             {availableOperadores && availableOperadores.length > 0
                               ? availableOperadores
                                   .filter((operador) => operador && operador.nombre)
@@ -2232,18 +2270,12 @@ const DashboardPage = () => {
                         <div className="filter-actions d-flex justify-content-end gap-2">
                           <button
                             className="filter-btn btn btn-outline-primary btn-sm"
-                            onClick={() => setApplyFiltersTrigger((prev) => prev + 1)}>
+                            onClick={applyFilters}>
                             <i className="fa fa-check me-1"></i>
                           </button>
                           <button
                             className="filter-btn btn btn-outline-secondary btn-sm"
-                            onClick={() => {
-                              setClientFilter("all");
-                              setFechaDesde("");
-                              setFechaHasta(new Date().toISOString().split("T")[0]);
-                              setLineaTransporteFilter("all");
-                              setOperadorFilter("all");
-                            }}>
+                            onClick={resetFilters}>
                             <i className="fa fa-refresh me-1"></i>
                           </button>
                         </div>
@@ -2332,7 +2364,7 @@ const DashboardPage = () => {
               {/* Cerradas */}
               <div className="col-6 col-lg mb-2 mb-lg-0">
                 <div className="stat-card h-100">
-                  <div className="stat-icon" style={{backgroundColor: "#3b82f6", color: "#fff"}}>
+                  <div className="stat-icon" style={{backgroundColor: "#6b7280", color: "#fff"}}>
                     <i className="fa fa-lock"></i>
                   </div>
                   <div className="stat-content">
@@ -2342,7 +2374,7 @@ const DashboardPage = () => {
                     <div className="stat-label small">Cerradas</div>
                     <div
                       className="stat-percentage small"
-                      style={{color: "#3b82f6", fontWeight: "600"}}>
+                      style={{color: "#6b7280", fontWeight: "600"}}>
                       {dashboardStats.totalBitacoras > 0 &&
                       dashboardStats.cerradasBitacoras !== undefined
                         ? Math.round(
@@ -2358,7 +2390,9 @@ const DashboardPage = () => {
               {/* Anomalías - Primera tarjeta */}
               <div className="col-6 col-lg mb-2 mb-lg-0">
                 <div className="stat-card h-100">
-                  <div className="stat-icon" style={{backgroundColor: "#f59e0b", color: "#fff"}}>
+                  <div
+                    className="stat-icon"
+                    style={{backgroundColor: "#f59e0b !important", color: "#fff"}}>
                     <i className="fa fa-exclamation-triangle"></i>
                   </div>
                   <div className="stat-content">
