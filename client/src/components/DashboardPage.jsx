@@ -205,22 +205,43 @@ const DashboardPage = () => {
       }
 
       // Fetch dashboard statistics with filters
-      const statsResponse = await fetch(
-        `${baseUrl}/dashboard/stats?clientFilter=${encodeURIComponent(
-          appliedClientFilter
-        )}&geoType=${encodeURIComponent(appliedGeoType)}&fechaDesde=${encodeURIComponent(
-          appliedFechaDesde
-        )}&fechaHasta=${encodeURIComponent(appliedFechaHasta)}&lineaTransporte=${encodeURIComponent(
-          appliedLineaTransporteFilter
-        )}&operador=${encodeURIComponent(appliedOperadorFilter)}`,
-        {
-          method: "GET",
-          credentials: "include",
-        }
-      );
+      const statsUrl = `${baseUrl}/dashboard/stats?clientFilter=${encodeURIComponent(
+        appliedClientFilter
+      )}&geoType=${encodeURIComponent(appliedGeoType)}&fechaDesde=${encodeURIComponent(
+        appliedFechaDesde
+      )}&fechaHasta=${encodeURIComponent(appliedFechaHasta)}&lineaTransporte=${encodeURIComponent(
+        appliedLineaTransporteFilter
+      )}&operador=${encodeURIComponent(appliedOperadorFilter)}`;
+
+      console.log("🔍 Dashboard Stats URL:", statsUrl);
+      console.log("🔍 Applied Filters:", {
+        clientFilter: appliedClientFilter,
+        geoType: appliedGeoType,
+        fechaDesde: appliedFechaDesde,
+        fechaHasta: appliedFechaHasta,
+        lineaTransporte: appliedLineaTransporteFilter,
+        operador: appliedOperadorFilter,
+      });
+
+      const statsResponse = await fetch(statsUrl, {
+        method: "GET",
+        credentials: "include",
+      });
 
       if (statsResponse.ok) {
         const statsData = await statsResponse.json();
+        console.log("📊 Dashboard Stats Response:", {
+          totalBitacoras: statsData.totalBitacoras || 0,
+          nuevasBitacoras: statsData.nuevasBitacoras || 0,
+          monthlyData: statsData.monthlyData?.length || 0,
+          topClients: statsData.topClients?.length || 0,
+          topLineasTransporte: statsData.topLineasTransporte?.length || 0,
+          topOperadores: statsData.topOperadores?.length || 0,
+          topOperadoresTransportes: statsData.topOperadoresTransportes?.length || 0,
+          geographicData: statsData.geographicData?.length || 0,
+        });
+        console.log("📋 Monthly Data Sample:", statsData.monthlyData?.slice(0, 3));
+        console.log("👥 Top Clients Sample:", statsData.topClients?.slice(0, 3));
         setDashboardStats(statsData);
       }
 
@@ -608,8 +629,6 @@ const DashboardPage = () => {
       return <div className="text-center text-muted">No hay datos geográficos disponibles</div>;
     }
 
-    const totalLocations = geographicData.reduce((sum, location) => sum + location.count, 0);
-
     return (
       <div className="geographic-bar-chart">
         <div className="d-flex align-items-center justify-content-between mb-3">
@@ -648,10 +667,15 @@ const DashboardPage = () => {
 
         <div
           className="horizontal-bar-chart-container"
-          style={{maxHeight: "300px", overflowY: "auto"}}>
+          style={{
+            maxHeight: "300px",
+            overflowY: "auto",
+            paddingRight: "8px", // Espacio para evitar que se corten los números
+            marginRight: "-8px", // Compensar el padding
+          }}>
           {geographicData.map((location, index) => {
             const maxCount = Math.max(...geographicData.map((loc) => loc.count));
-            const barWidth = maxCount > 0 ? (location.count / maxCount) * 200 : 0;
+            const barWidth = maxCount > 0 ? (location.count / maxCount) * 180 : 0; // Reducido de 200 a 180
             const color = geoType === "origen" ? "#10b981" : "#f59e0b";
 
             return (
@@ -662,7 +686,8 @@ const DashboardPage = () => {
                   display: "flex",
                   alignItems: "center",
                   marginBottom: "12px",
-                  padding: "8px 0",
+                  padding: "8px 12px 8px 0", // Más padding a la derecha
+                  backgroundColor: "transparent", // Quitar fondo blanco
                 }}>
                 <div
                   className="bar-label"
@@ -673,6 +698,7 @@ const DashboardPage = () => {
                     color: "#6b7280",
                     marginRight: "12px",
                     textAlign: "right",
+                    flexShrink: 0, // No permitir que se encoja
                   }}>
                   {location.name}
                 </div>
@@ -681,10 +707,11 @@ const DashboardPage = () => {
                   style={{
                     flex: 1,
                     height: "20px",
-                    backgroundColor: "#f3f4f6",
+                    backgroundColor: "rgba(59, 130, 246, 0.08)", // Azul muy opaco
                     borderRadius: "10px",
                     position: "relative",
                     marginRight: "12px",
+                    minWidth: "100px", // Ancho mínimo para evitar colapso
                   }}>
                   <div
                     className="bar-fill"
@@ -703,46 +730,16 @@ const DashboardPage = () => {
                     fontSize: "11px",
                     fontWeight: "bold",
                     color: color,
-                    minWidth: "40px",
+                    minWidth: "50px", // Aumentado de 40px a 50px
                     textAlign: "right",
+                    flexShrink: 0, // No permitir que se encoja
+                    paddingLeft: "8px", // Espacio adicional
                   }}>
                   {formatNumber(location.count)}
                 </div>
               </div>
             );
           })}
-        </div>
-
-        <div
-          className="chart-summary"
-          style={{
-            marginTop: "15px",
-            padding: "10px",
-            backgroundColor: "#f9fafb",
-            borderRadius: "8px",
-          }}>
-          <div
-            className="summary-item"
-            style={{display: "flex", justifyContent: "space-between", marginBottom: "5px"}}>
-            <span className="summary-label" style={{fontSize: "12px", color: "#6b7280"}}>
-              Total {geoType === "origen" ? "orígenes" : "destinos"}:
-            </span>
-            <span
-              className="summary-value"
-              style={{fontSize: "12px", fontWeight: "bold", color: "#374151"}}>
-              {formatNumber(totalLocations)} bitácoras
-            </span>
-          </div>
-          <div className="summary-item" style={{display: "flex", justifyContent: "space-between"}}>
-            <span className="summary-label" style={{fontSize: "12px", color: "#6b7280"}}>
-              Número de ubicaciones:
-            </span>
-            <span
-              className="summary-value"
-              style={{fontSize: "12px", fontWeight: "bold", color: "#374151"}}>
-              {geographicData.length} ubicaciones
-            </span>
-          </div>
         </div>
       </div>
     );
@@ -753,7 +750,23 @@ const DashboardPage = () => {
     const eventCategoriesStats = dashboardStats.eventCategoriesStats || [];
 
     if (eventCategoriesStats.length === 0) {
-      return <div className="text-center text-muted">No hay datos de anomalías disponibles</div>;
+      return (
+        <div className="text-center py-5">
+          <div className="mb-3">
+            <i
+              className="fa fa-check-circle"
+              style={{
+                fontSize: "3rem",
+                color: "#10b981",
+                opacity: 0.3,
+              }}></i>
+          </div>
+          <h6 className="text-muted mb-2">Sin Anomalías Detectadas</h6>
+          <p className="text-muted small mb-0">
+            No se encontraron bitácoras con anomalías en el período seleccionado
+          </p>
+        </div>
+      );
     }
 
     // Calculate total for percentages
@@ -932,7 +945,23 @@ const DashboardPage = () => {
 
   const renderOncBarChart = () => {
     if (oncEventsData.length === 0) {
-      return <div className="text-center text-muted">No hay datos de eventos ONC disponibles</div>;
+      return (
+        <div className="text-center py-5">
+          <div className="mb-3">
+            <i
+              className="fa fa-user-times"
+              style={{
+                fontSize: "3rem",
+                color: "#06b6d4",
+                opacity: 0.3,
+              }}></i>
+          </div>
+          <h6 className="text-muted mb-2">Sin Eventos ONC</h6>
+          <p className="text-muted small mb-0">
+            No hay eventos de &quot;Usuario No Responde&quot; registrados
+          </p>
+        </div>
+      );
     }
 
     const maxCount = Math.max(...oncEventsData.map((event) => event.count));
@@ -1056,7 +1085,23 @@ const DashboardPage = () => {
 
   const renderOncListView = () => {
     if (oncEventsData.length === 0) {
-      return <div className="text-center text-muted">No hay datos de eventos ONC disponibles</div>;
+      return (
+        <div className="text-center py-5">
+          <div className="mb-3">
+            <i
+              className="fa fa-user-times"
+              style={{
+                fontSize: "3rem",
+                color: "#06b6d4",
+                opacity: 0.3,
+              }}></i>
+          </div>
+          <h6 className="text-muted mb-2">Sin Eventos ONC</h6>
+          <p className="text-muted small mb-0">
+            No hay eventos de &quot;Usuario No Responde&quot; registrados
+          </p>
+        </div>
+      );
     }
 
     const totalEvents = oncEventsData.reduce((sum, event) => sum + event.count, 0);
@@ -1100,37 +1145,6 @@ const DashboardPage = () => {
               })}
             </tbody>
           </table>
-        </div>
-        <div
-          className="list-summary"
-          style={{
-            marginTop: "15px",
-            padding: "10px",
-            backgroundColor: "#f9fafb",
-            borderRadius: "8px",
-          }}>
-          <div
-            className="summary-item"
-            style={{display: "flex", justifyContent: "space-between", marginBottom: "5px"}}>
-            <span className="summary-label" style={{fontSize: "12px", color: "#6b7280"}}>
-              Total eventos ONC:
-            </span>
-            <span
-              className="summary-value"
-              style={{fontSize: "12px", fontWeight: "bold", color: "#374151"}}>
-              {formatNumber(totalEvents)} eventos
-            </span>
-          </div>
-          <div className="summary-item" style={{display: "flex", justifyContent: "space-between"}}>
-            <span className="summary-label" style={{fontSize: "12px", color: "#6b7280"}}>
-              Tipos de eventos:
-            </span>
-            <span
-              className="summary-value"
-              style={{fontSize: "12px", fontWeight: "bold", color: "#374151"}}>
-              {oncEventsData.length} tipos
-            </span>
-          </div>
         </div>
       </div>
     );
@@ -1210,14 +1224,18 @@ const DashboardPage = () => {
     }
 
     const maxCount = Math.max(...topOperadores.map((operador) => operador.count));
-    const maxWidth = 200; // Maximum width of bars in pixels
 
     return (
       <div
         className="horizontal-bar-chart-container"
-        style={{maxHeight: "300px", overflowY: "auto"}}>
+        style={{
+          maxHeight: "300px",
+          overflowY: "auto",
+          paddingRight: "8px", // Espacio para evitar que se corten los números
+          marginRight: "-8px", // Compensar el padding
+        }}>
         {topOperadores.map((operador, index) => {
-          const barWidth = maxCount > 0 ? (operador.count / maxCount) * maxWidth : 0;
+          const barWidth = maxCount > 0 ? (operador.count / maxCount) * 180 : 0; // Reducido de 200 a 180
           const colors = [
             "#3b82f6",
             "#10b981",
@@ -1240,7 +1258,8 @@ const DashboardPage = () => {
                 display: "flex",
                 alignItems: "center",
                 marginBottom: "12px",
-                padding: "8px 0",
+                padding: "8px 12px 8px 0", // Más padding a la derecha
+                backgroundColor: "transparent", // Quitar fondo blanco
               }}>
               <div
                 className="bar-label"
@@ -1251,6 +1270,7 @@ const DashboardPage = () => {
                   color: "#6b7280",
                   marginRight: "12px",
                   textAlign: "right",
+                  flexShrink: 0, // No permitir que se encoja
                 }}>
                 {operador.name}
               </div>
@@ -1259,10 +1279,11 @@ const DashboardPage = () => {
                 style={{
                   flex: 1,
                   height: "20px",
-                  backgroundColor: "#f3f4f6",
+                  backgroundColor: "rgba(59, 130, 246, 0.08)", // Azul muy opaco
                   borderRadius: "10px",
                   position: "relative",
                   marginRight: "12px",
+                  minWidth: "100px", // Ancho mínimo para evitar colapso
                 }}>
                 <div
                   className="bar-fill"
@@ -1281,46 +1302,16 @@ const DashboardPage = () => {
                   fontSize: "11px",
                   fontWeight: "bold",
                   color: color,
-                  minWidth: "40px",
+                  minWidth: "50px", // Aumentado de 40px a 50px
                   textAlign: "right",
+                  flexShrink: 0, // No permitir que se encoja
+                  paddingLeft: "8px", // Espacio adicional
                 }}>
                 {formatNumber(operador.count)}
               </div>
             </div>
           );
         })}
-        <div
-          className="chart-summary"
-          style={{
-            marginTop: "15px",
-            padding: "10px",
-            backgroundColor: "#f9fafb",
-            borderRadius: "8px",
-          }}>
-          <div
-            className="summary-item"
-            style={{display: "flex", justifyContent: "space-between", marginBottom: "5px"}}>
-            <span className="summary-label" style={{fontSize: "12px", color: "#6b7280"}}>
-              Total usuarios:
-            </span>
-            <span
-              className="summary-value"
-              style={{fontSize: "12px", fontWeight: "bold", color: "#374151"}}>
-              {formatNumber(topOperadores.reduce((sum, operador) => sum + operador.count, 0))}{" "}
-              bitácoras
-            </span>
-          </div>
-          <div className="summary-item" style={{display: "flex", justifyContent: "space-between"}}>
-            <span className="summary-label" style={{fontSize: "12px", color: "#6b7280"}}>
-              Número de usuarios:
-            </span>
-            <span
-              className="summary-value"
-              style={{fontSize: "12px", fontWeight: "bold", color: "#374151"}}>
-              {topOperadores.length} usuarios
-            </span>
-          </div>
-        </div>
       </div>
     );
   };
@@ -1404,14 +1395,18 @@ const DashboardPage = () => {
     }
 
     const maxCount = Math.max(...topLineasTransporte.map((linea) => linea.count));
-    const maxWidth = 200; // Maximum width of bars in pixels
 
     return (
       <div
         className="horizontal-bar-chart-container"
-        style={{maxHeight: "300px", overflowY: "auto"}}>
+        style={{
+          maxHeight: "300px",
+          overflowY: "auto",
+          paddingRight: "8px", // Espacio para evitar que se corten los números
+          marginRight: "-8px", // Compensar el padding
+        }}>
         {topLineasTransporte.map((linea, index) => {
-          const barWidth = maxCount > 0 ? (linea.count / maxCount) * maxWidth : 0;
+          const barWidth = maxCount > 0 ? (linea.count / maxCount) * 180 : 0; // Reducido de 200 a 180
           const colors = [
             "#3b82f6",
             "#10b981",
@@ -1434,7 +1429,8 @@ const DashboardPage = () => {
                 display: "flex",
                 alignItems: "center",
                 marginBottom: "12px",
-                padding: "8px 0",
+                padding: "8px 12px 8px 0", // Más padding a la derecha
+                backgroundColor: "transparent", // Quitar fondo blanco
               }}>
               <div
                 className="bar-label"
@@ -1445,6 +1441,7 @@ const DashboardPage = () => {
                   color: "#6b7280",
                   marginRight: "12px",
                   textAlign: "right",
+                  flexShrink: 0, // No permitir que se encoja
                 }}>
                 {linea.nombre}
               </div>
@@ -1453,10 +1450,11 @@ const DashboardPage = () => {
                 style={{
                   flex: 1,
                   height: "20px",
-                  backgroundColor: "#f3f4f6",
+                  backgroundColor: "rgba(59, 130, 246, 0.08)", // Azul muy opaco
                   borderRadius: "10px",
                   position: "relative",
                   marginRight: "12px",
+                  minWidth: "100px", // Ancho mínimo para evitar colapso
                 }}>
                 <div
                   className="bar-fill"
@@ -1475,46 +1473,16 @@ const DashboardPage = () => {
                   fontSize: "11px",
                   fontWeight: "bold",
                   color: color,
-                  minWidth: "40px",
+                  minWidth: "50px", // Aumentado de 40px a 50px
                   textAlign: "right",
+                  flexShrink: 0, // No permitir que se encoja
+                  paddingLeft: "8px", // Espacio adicional
                 }}>
                 {formatNumber(linea.count)}
               </div>
             </div>
           );
         })}
-        <div
-          className="chart-summary"
-          style={{
-            marginTop: "15px",
-            padding: "10px",
-            backgroundColor: "#f9fafb",
-            borderRadius: "8px",
-          }}>
-          <div
-            className="summary-item"
-            style={{display: "flex", justifyContent: "space-between", marginBottom: "5px"}}>
-            <span className="summary-label" style={{fontSize: "12px", color: "#6b7280"}}>
-              Total líneas de transporte:
-            </span>
-            <span
-              className="summary-value"
-              style={{fontSize: "12px", fontWeight: "bold", color: "#374151"}}>
-              {formatNumber(topLineasTransporte.reduce((sum, linea) => sum + linea.count, 0))}{" "}
-              transportes
-            </span>
-          </div>
-          <div className="summary-item" style={{display: "flex", justifyContent: "space-between"}}>
-            <span className="summary-label" style={{fontSize: "12px", color: "#6b7280"}}>
-              Número de líneas:
-            </span>
-            <span
-              className="summary-value"
-              style={{fontSize: "12px", fontWeight: "bold", color: "#374151"}}>
-              {topLineasTransporte.length} líneas
-            </span>
-          </div>
-        </div>
       </div>
     );
   };
@@ -1531,14 +1499,18 @@ const DashboardPage = () => {
     }
 
     const maxCount = Math.max(...topOperadoresTransportes.map((operador) => operador.count));
-    const maxWidth = 200; // Maximum width of bars in pixels
 
     return (
       <div
         className="horizontal-bar-chart-container"
-        style={{maxHeight: "300px", overflowY: "auto"}}>
+        style={{
+          maxHeight: "300px",
+          overflowY: "auto",
+          paddingRight: "8px", // Espacio para evitar que se corten los números
+          marginRight: "-8px", // Compensar el padding
+        }}>
         {topOperadoresTransportes.map((operador, index) => {
-          const barWidth = maxCount > 0 ? (operador.count / maxCount) * maxWidth : 0;
+          const barWidth = maxCount > 0 ? (operador.count / maxCount) * 180 : 0; // Reducido de 200 a 180
           const colors = [
             "#3b82f6",
             "#10b981",
@@ -1561,7 +1533,8 @@ const DashboardPage = () => {
                 display: "flex",
                 alignItems: "center",
                 marginBottom: "12px",
-                padding: "8px 0",
+                padding: "8px 12px 8px 0", // Más padding a la derecha
+                backgroundColor: "transparent", // Quitar fondo blanco
               }}>
               <div
                 className="bar-label"
@@ -1572,6 +1545,7 @@ const DashboardPage = () => {
                   color: "#6b7280",
                   marginRight: "12px",
                   textAlign: "right",
+                  flexShrink: 0, // No permitir que se encoja
                 }}>
                 {operador.nombre}
               </div>
@@ -1580,10 +1554,11 @@ const DashboardPage = () => {
                 style={{
                   flex: 1,
                   height: "20px",
-                  backgroundColor: "#f3f4f6",
+                  backgroundColor: "rgba(59, 130, 246, 0.08)", // Azul muy opaco
                   borderRadius: "10px",
                   position: "relative",
                   marginRight: "12px",
+                  minWidth: "100px", // Ancho mínimo para evitar colapso
                 }}>
                 <div
                   className="bar-fill"
@@ -1602,48 +1577,16 @@ const DashboardPage = () => {
                   fontSize: "11px",
                   fontWeight: "bold",
                   color: color,
-                  minWidth: "40px",
+                  minWidth: "50px", // Aumentado de 40px a 50px
                   textAlign: "right",
+                  flexShrink: 0, // No permitir que se encoja
+                  paddingLeft: "8px", // Espacio adicional
                 }}>
                 {formatNumber(operador.count)}
               </div>
             </div>
           );
         })}
-        <div
-          className="chart-summary"
-          style={{
-            marginTop: "15px",
-            padding: "10px",
-            backgroundColor: "#f9fafb",
-            borderRadius: "8px",
-          }}>
-          <div
-            className="summary-item"
-            style={{display: "flex", justifyContent: "space-between", marginBottom: "5px"}}>
-            <span className="summary-label" style={{fontSize: "12px", color: "#6b7280"}}>
-              Total operadores de transportes:
-            </span>
-            <span
-              className="summary-value"
-              style={{fontSize: "12px", fontWeight: "bold", color: "#374151"}}>
-              {formatNumber(
-                topOperadoresTransportes.reduce((sum, operador) => sum + operador.count, 0)
-              )}{" "}
-              transportes
-            </span>
-          </div>
-          <div className="summary-item" style={{display: "flex", justifyContent: "space-between"}}>
-            <span className="summary-label" style={{fontSize: "12px", color: "#6b7280"}}>
-              Número de operadores:
-            </span>
-            <span
-              className="summary-value"
-              style={{fontSize: "12px", fontWeight: "bold", color: "#374151"}}>
-              {topOperadoresTransportes.length} operadores
-            </span>
-          </div>
-        </div>
       </div>
     );
   };
@@ -1651,8 +1594,20 @@ const DashboardPage = () => {
   const renderBitacorasAnomalias = () => {
     if (bitacorasAnomalias.length === 0) {
       return (
-        <div className="text-center text-muted">
-          No hay bitácoras con anomalías en el período seleccionado
+        <div className="text-center py-5">
+          <div className="mb-3">
+            <i
+              className="fa fa-clipboard-check"
+              style={{
+                fontSize: "3rem",
+                color: "#10b981",
+                opacity: 0.3,
+              }}></i>
+          </div>
+          <h6 className="text-muted mb-2">Sin Anomalías Registradas</h6>
+          <p className="text-muted small mb-0">
+            No hay bitácoras con anomalías en el período seleccionado
+          </p>
         </div>
       );
     }
@@ -2288,6 +2243,25 @@ const DashboardPage = () => {
 
             {/* Estadísticas principales con totales y porcentajes integrados */}
             <div className="row mb-3 mb-md-4 g-2 g-md-3">
+              {(appliedClientFilter !== "all" ||
+                appliedLineaTransporteFilter !== "all" ||
+                appliedOperadorFilter !== "all" ||
+                appliedFechaDesde ||
+                appliedFechaHasta !== new Date().toISOString().split("T")[0]) && (
+                <div className="col-12 mb-2">
+                  <div className="alert alert-info py-2" style={{fontSize: "12px"}}>
+                    <i className="fa fa-info-circle me-2"></i>
+                    <strong>Estadísticas filtradas:</strong>{" "}
+                    {appliedClientFilter !== "all" && `Cliente: ${appliedClientFilter} | `}
+                    {appliedLineaTransporteFilter !== "all" &&
+                      `Línea: ${appliedLineaTransporteFilter} | `}
+                    {appliedOperadorFilter !== "all" && `Operador: ${appliedOperadorFilter} | `}
+                    {appliedFechaDesde && `Desde: ${appliedFechaDesde} | `}
+                    {appliedFechaHasta !== new Date().toISOString().split("T")[0] &&
+                      `Hasta: ${appliedFechaHasta}`}
+                  </div>
+                </div>
+              )}
               {/* Total Bitácoras */}
               <div className="col-6 col-lg mb-2 mb-lg-0">
                 <div className="stat-card h-100">
@@ -2391,7 +2365,7 @@ const DashboardPage = () => {
               <div className="col-6 col-lg mb-2 mb-lg-0">
                 <div className="stat-card h-100">
                   <div
-                    className="stat-icon"
+                    className="stat-icon warning"
                     style={{backgroundColor: "#f59e0b !important", color: "#fff"}}>
                     <i className="fa fa-exclamation-triangle"></i>
                   </div>
@@ -2434,10 +2408,39 @@ const DashboardPage = () => {
             <div className="row mb-3 mb-md-4">
               <div className="col-12">
                 <div className="chart-card">
-                  <div className="chart-header">
-                    <h6 className="mb-0">Tendencia Mensual</h6>
+                  <div className="chart-header d-flex justify-content-between align-items-center">
+                    <div className="d-flex align-items-center gap-2">
+                      <h6 className="mb-0">Tendencia Mensual</h6>
+                      {(appliedClientFilter !== "all" ||
+                        appliedLineaTransporteFilter !== "all" ||
+                        appliedOperadorFilter !== "all" ||
+                        appliedFechaDesde ||
+                        appliedFechaHasta !== new Date().toISOString().split("T")[0]) && (
+                        <span className="badge bg-info" style={{fontSize: "10px"}}>
+                          <i className="fa fa-filter me-1"></i>
+                          Filtrado
+                        </span>
+                      )}
+                    </div>
                   </div>
                   <div className="chart-body">
+                    {(appliedClientFilter !== "all" ||
+                      appliedLineaTransporteFilter !== "all" ||
+                      appliedOperadorFilter !== "all" ||
+                      appliedFechaDesde ||
+                      appliedFechaHasta !== new Date().toISOString().split("T")[0]) && (
+                      <div className="alert alert-info py-2 mb-3" style={{fontSize: "12px"}}>
+                        <i className="fa fa-info-circle me-2"></i>
+                        <strong>Filtros activos:</strong>{" "}
+                        {appliedClientFilter !== "all" && `Cliente: ${appliedClientFilter} | `}
+                        {appliedLineaTransporteFilter !== "all" &&
+                          `Línea: ${appliedLineaTransporteFilter} | `}
+                        {appliedOperadorFilter !== "all" && `Operador: ${appliedOperadorFilter} | `}
+                        {appliedFechaDesde && `Desde: ${appliedFechaDesde} | `}
+                        {appliedFechaHasta !== new Date().toISOString().split("T")[0] &&
+                          `Hasta: ${appliedFechaHasta}`}
+                      </div>
+                    )}
                     <div className="overflow-auto">{renderMonthlyTrendChart()}</div>
                   </div>
                 </div>
@@ -2448,10 +2451,39 @@ const DashboardPage = () => {
             <div className="row mb-3 mb-md-4">
               <div className="col-12">
                 <div className="chart-card">
-                  <div className="chart-header">
-                    <h6 className="mb-0">Lista de Clientes</h6>
+                  <div className="chart-header d-flex justify-content-between align-items-center">
+                    <div className="d-flex align-items-center gap-2">
+                      <h6 className="mb-0">Lista de Clientes</h6>
+                      {(appliedClientFilter !== "all" ||
+                        appliedLineaTransporteFilter !== "all" ||
+                        appliedOperadorFilter !== "all" ||
+                        appliedFechaDesde ||
+                        appliedFechaHasta !== new Date().toISOString().split("T")[0]) && (
+                        <span className="badge bg-info" style={{fontSize: "10px"}}>
+                          <i className="fa fa-filter me-1"></i>
+                          Filtrado
+                        </span>
+                      )}
+                    </div>
                   </div>
                   <div className="chart-body">
+                    {(appliedClientFilter !== "all" ||
+                      appliedLineaTransporteFilter !== "all" ||
+                      appliedOperadorFilter !== "all" ||
+                      appliedFechaDesde ||
+                      appliedFechaHasta !== new Date().toISOString().split("T")[0]) && (
+                      <div className="alert alert-info py-2 mb-3" style={{fontSize: "12px"}}>
+                        <i className="fa fa-info-circle me-2"></i>
+                        <strong>Filtros activos:</strong>{" "}
+                        {appliedClientFilter !== "all" && `Cliente: ${appliedClientFilter} | `}
+                        {appliedLineaTransporteFilter !== "all" &&
+                          `Línea: ${appliedLineaTransporteFilter} | `}
+                        {appliedOperadorFilter !== "all" && `Operador: ${appliedOperadorFilter} | `}
+                        {appliedFechaDesde && `Desde: ${appliedFechaDesde} | `}
+                        {appliedFechaHasta !== new Date().toISOString().split("T")[0] &&
+                          `Hasta: ${appliedFechaHasta}`}
+                      </div>
+                    )}
                     <div className="overflow-auto">{renderTopClients()}</div>
                   </div>
                 </div>
@@ -2552,7 +2584,19 @@ const DashboardPage = () => {
               <div className="col-12">
                 <div className="chart-card">
                   <div className="chart-header d-flex justify-content-between align-items-center">
-                    <h6 className="mb-0">Lista de Líneas de Transporte</h6>
+                    <div className="d-flex align-items-center gap-2">
+                      <h6 className="mb-0">Lista de Líneas de Transporte</h6>
+                      {(appliedClientFilter !== "all" ||
+                        appliedLineaTransporteFilter !== "all" ||
+                        appliedOperadorFilter !== "all" ||
+                        appliedFechaDesde ||
+                        appliedFechaHasta !== new Date().toISOString().split("T")[0]) && (
+                        <span className="badge bg-info" style={{fontSize: "10px"}}>
+                          <i className="fa fa-filter me-1"></i>
+                          Filtrado
+                        </span>
+                      )}
+                    </div>
                     <div className="btn-group btn-group-sm" role="group">
                       <button
                         type="button"
@@ -2575,6 +2619,23 @@ const DashboardPage = () => {
                     </div>
                   </div>
                   <div className="chart-body">
+                    {(appliedClientFilter !== "all" ||
+                      appliedLineaTransporteFilter !== "all" ||
+                      appliedOperadorFilter !== "all" ||
+                      appliedFechaDesde ||
+                      appliedFechaHasta !== new Date().toISOString().split("T")[0]) && (
+                      <div className="alert alert-info py-2 mb-3" style={{fontSize: "12px"}}>
+                        <i className="fa fa-info-circle me-2"></i>
+                        <strong>Filtros activos:</strong>{" "}
+                        {appliedClientFilter !== "all" && `Cliente: ${appliedClientFilter} | `}
+                        {appliedLineaTransporteFilter !== "all" &&
+                          `Línea: ${appliedLineaTransporteFilter} | `}
+                        {appliedOperadorFilter !== "all" && `Operador: ${appliedOperadorFilter} | `}
+                        {appliedFechaDesde && `Desde: ${appliedFechaDesde} | `}
+                        {appliedFechaHasta !== new Date().toISOString().split("T")[0] &&
+                          `Hasta: ${appliedFechaHasta}`}
+                      </div>
+                    )}
                     {lineasViewMode === "chart"
                       ? renderLineasTransporteBarChart()
                       : renderTopLineasTransporte()}
@@ -2588,7 +2649,19 @@ const DashboardPage = () => {
               <div className="col-12">
                 <div className="chart-card">
                   <div className="chart-header d-flex justify-content-between align-items-center">
-                    <h6 className="mb-0">Lista de Operadores</h6>
+                    <div className="d-flex align-items-center gap-2">
+                      <h6 className="mb-0">Lista de Operadores</h6>
+                      {(appliedClientFilter !== "all" ||
+                        appliedLineaTransporteFilter !== "all" ||
+                        appliedOperadorFilter !== "all" ||
+                        appliedFechaDesde ||
+                        appliedFechaHasta !== new Date().toISOString().split("T")[0]) && (
+                        <span className="badge bg-info" style={{fontSize: "10px"}}>
+                          <i className="fa fa-filter me-1"></i>
+                          Filtrado
+                        </span>
+                      )}
+                    </div>
                     <div className="btn-group btn-group-sm" role="group">
                       <button
                         type="button"
@@ -2615,45 +2688,26 @@ const DashboardPage = () => {
                     </div>
                   </div>
                   <div className="chart-body">
+                    {(appliedClientFilter !== "all" ||
+                      appliedLineaTransporteFilter !== "all" ||
+                      appliedOperadorFilter !== "all" ||
+                      appliedFechaDesde ||
+                      appliedFechaHasta !== new Date().toISOString().split("T")[0]) && (
+                      <div className="alert alert-info py-2 mb-3" style={{fontSize: "12px"}}>
+                        <i className="fa fa-info-circle me-2"></i>
+                        <strong>Filtros activos:</strong>{" "}
+                        {appliedClientFilter !== "all" && `Cliente: ${appliedClientFilter} | `}
+                        {appliedLineaTransporteFilter !== "all" &&
+                          `Línea: ${appliedLineaTransporteFilter} | `}
+                        {appliedOperadorFilter !== "all" && `Operador: ${appliedOperadorFilter} | `}
+                        {appliedFechaDesde && `Desde: ${appliedFechaDesde} | `}
+                        {appliedFechaHasta !== new Date().toISOString().split("T")[0] &&
+                          `Hasta: ${appliedFechaHasta}`}
+                      </div>
+                    )}
                     {operadoresTransportesViewMode === "chart"
                       ? renderOperadoresTransportesBarChart()
                       : renderTopOperadoresTransportes()}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Lista de Usuarios */}
-            <div className="row mb-3 mb-md-4">
-              <div className="col-12">
-                <div className="chart-card">
-                  <div className="chart-header d-flex justify-content-between align-items-center">
-                    <h6 className="mb-0">Lista de Usuarios</h6>
-                    <div className="btn-group btn-group-sm" role="group">
-                      <button
-                        type="button"
-                        className={`btn ${
-                          usuariosViewMode === "chart" ? "btn-primary" : "btn-outline-primary"
-                        }`}
-                        onClick={() => setUsuariosViewMode("chart")}
-                        title="Vista de gráfico">
-                        <i className="fa fa-bar-chart"></i>
-                      </button>
-                      <button
-                        type="button"
-                        className={`btn ${
-                          usuariosViewMode === "list" ? "btn-primary" : "btn-outline-primary"
-                        }`}
-                        onClick={() => setUsuariosViewMode("list")}
-                        title="Vista de lista">
-                        <i className="fa fa-list"></i>
-                      </button>
-                    </div>
-                  </div>
-                  <div className="chart-body">
-                    {usuariosViewMode === "chart"
-                      ? renderUsuariosBarChart()
-                      : renderTopOperadores()}
                   </div>
                 </div>
               </div>
@@ -2664,7 +2718,19 @@ const DashboardPage = () => {
               <div className="col-12">
                 <div className="chart-card">
                   <div className="chart-header d-flex justify-content-between align-items-center">
-                    <h6 className="mb-0">Análisis Geográfico</h6>
+                    <div className="d-flex align-items-center gap-2">
+                      <h6 className="mb-0">Análisis Geográfico</h6>
+                      {(appliedClientFilter !== "all" ||
+                        appliedLineaTransporteFilter !== "all" ||
+                        appliedOperadorFilter !== "all" ||
+                        appliedFechaDesde ||
+                        appliedFechaHasta !== new Date().toISOString().split("T")[0]) && (
+                        <span className="badge bg-info" style={{fontSize: "10px"}}>
+                          <i className="fa fa-filter me-1"></i>
+                          Filtrado
+                        </span>
+                      )}
+                    </div>
                     <div className="btn-group btn-group-sm" role="group">
                       <button
                         type="button"
@@ -2687,11 +2753,93 @@ const DashboardPage = () => {
                     </div>
                   </div>
                   <div className="chart-body">
+                    {(appliedClientFilter !== "all" ||
+                      appliedLineaTransporteFilter !== "all" ||
+                      appliedOperadorFilter !== "all" ||
+                      appliedFechaDesde ||
+                      appliedFechaHasta !== new Date().toISOString().split("T")[0]) && (
+                      <div className="alert alert-info py-2 mb-3" style={{fontSize: "12px"}}>
+                        <i className="fa fa-info-circle me-2"></i>
+                        <strong>Filtros activos:</strong>{" "}
+                        {appliedClientFilter !== "all" && `Cliente: ${appliedClientFilter} | `}
+                        {appliedLineaTransporteFilter !== "all" &&
+                          `Línea: ${appliedLineaTransporteFilter} | `}
+                        {appliedOperadorFilter !== "all" && `Operador: ${appliedOperadorFilter} | `}
+                        {appliedFechaDesde && `Desde: ${appliedFechaDesde} | `}
+                        {appliedFechaHasta !== new Date().toISOString().split("T")[0] &&
+                          `Hasta: ${appliedFechaHasta}`}
+                      </div>
+                    )}
                     <div className="overflow-auto">
                       {geograficoViewMode === "chart"
                         ? renderGeographicChart()
                         : renderGeographicBarChart()}
                     </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Lista de Usuarios */}
+            <div className="row mb-3 mb-md-4">
+              <div className="col-12">
+                <div className="chart-card">
+                  <div className="chart-header d-flex justify-content-between align-items-center">
+                    <div className="d-flex align-items-center gap-2">
+                      <h6 className="mb-0">Lista de Usuarios</h6>
+                      {(appliedClientFilter !== "all" ||
+                        appliedLineaTransporteFilter !== "all" ||
+                        appliedOperadorFilter !== "all" ||
+                        appliedFechaDesde ||
+                        appliedFechaHasta !== new Date().toISOString().split("T")[0]) && (
+                        <span className="badge bg-info" style={{fontSize: "10px"}}>
+                          <i className="fa fa-filter me-1"></i>
+                          Filtrado
+                        </span>
+                      )}
+                    </div>
+                    <div className="btn-group btn-group-sm" role="group">
+                      <button
+                        type="button"
+                        className={`btn ${
+                          usuariosViewMode === "chart" ? "btn-primary" : "btn-outline-primary"
+                        }`}
+                        onClick={() => setUsuariosViewMode("chart")}
+                        title="Vista de gráfico">
+                        <i className="fa fa-bar-chart"></i>
+                      </button>
+                      <button
+                        type="button"
+                        className={`btn ${
+                          usuariosViewMode === "list" ? "btn-primary" : "btn-outline-primary"
+                        }`}
+                        onClick={() => setUsuariosViewMode("list")}
+                        title="Vista de lista">
+                        <i className="fa fa-list"></i>
+                      </button>
+                    </div>
+                  </div>
+                  <div className="chart-body">
+                    {(appliedClientFilter !== "all" ||
+                      appliedLineaTransporteFilter !== "all" ||
+                      appliedOperadorFilter !== "all" ||
+                      appliedFechaDesde ||
+                      appliedFechaHasta !== new Date().toISOString().split("T")[0]) && (
+                      <div className="alert alert-info py-2 mb-3" style={{fontSize: "12px"}}>
+                        <i className="fa fa-info-circle me-2"></i>
+                        <strong>Filtros activos:</strong>{" "}
+                        {appliedClientFilter !== "all" && `Cliente: ${appliedClientFilter} | `}
+                        {appliedLineaTransporteFilter !== "all" &&
+                          `Línea: ${appliedLineaTransporteFilter} | `}
+                        {appliedOperadorFilter !== "all" && `Operador: ${appliedOperadorFilter} | `}
+                        {appliedFechaDesde && `Desde: ${appliedFechaDesde} | `}
+                        {appliedFechaHasta !== new Date().toISOString().split("T")[0] &&
+                          `Hasta: ${appliedFechaHasta}`}
+                      </div>
+                    )}
+                    {usuariosViewMode === "chart"
+                      ? renderUsuariosBarChart()
+                      : renderTopOperadores()}
                   </div>
                 </div>
               </div>
