@@ -695,7 +695,7 @@ const DashboardPage = () => {
                     width: "120px",
                     fontSize: "12px",
                     fontWeight: "500",
-                    color: "#6b7280",
+                    color: "#ffffff",
                     marginRight: "12px",
                     textAlign: "right",
                     flexShrink: 0, // No permitir que se encoja
@@ -1053,7 +1053,7 @@ const DashboardPage = () => {
           style={{
             marginTop: "20px",
             padding: "10px",
-            backgroundColor: "#f9fafb",
+            backgroundColor: "#ffffff",
             borderRadius: "8px",
           }}>
           <div
@@ -1110,7 +1110,7 @@ const DashboardPage = () => {
       <div className="list-view-container">
         <div className="table-responsive" style={{maxHeight: "300px", overflowY: "auto"}}>
           <table className="table table-hover table-sm">
-            <thead className="sticky-top" style={{backgroundColor: "#f8f9fa"}}>
+            <thead className="sticky-top" style={{backgroundColor: "#ffffff"}}>
               <tr>
                 <th className="small">Evento</th>
                 <th className="small text-center">Cantidad</th>
@@ -1267,7 +1267,7 @@ const DashboardPage = () => {
                   width: "120px",
                   fontSize: "12px",
                   fontWeight: "500",
-                  color: "#6b7280",
+                  color: "#ffffff",
                   marginRight: "12px",
                   textAlign: "right",
                   flexShrink: 0, // No permitir que se encoja
@@ -1438,7 +1438,7 @@ const DashboardPage = () => {
                   width: "120px",
                   fontSize: "12px",
                   fontWeight: "500",
-                  color: "#6b7280",
+                  color: "#ffffff",
                   marginRight: "12px",
                   textAlign: "right",
                   flexShrink: 0, // No permitir que se encoja
@@ -1542,7 +1542,7 @@ const DashboardPage = () => {
                   width: "120px",
                   fontSize: "12px",
                   fontWeight: "500",
-                  color: "#6b7280",
+                  color: "#ffffff",
                   marginRight: "12px",
                   textAlign: "right",
                   flexShrink: 0, // No permitir que se encoja
@@ -1757,7 +1757,7 @@ const DashboardPage = () => {
 
         <div className="table-responsive" style={{maxHeight: "400px", overflowY: "auto"}}>
           <table className="table table-hover table-sm">
-            <thead className="sticky-top" style={{backgroundColor: "#f8f9fa"}}>
+            <thead className="sticky-top" style={{backgroundColor: "#ffffff"}}>
               <tr>
                 <th className="small text-center" style={{minWidth: "120px"}}>
                   <div>No. Bitácora</div>
@@ -1906,7 +1906,7 @@ const DashboardPage = () => {
                             borderRadius: "3px",
                             transition: "background-color 0.2s",
                           }}
-                          onMouseEnter={(e) => (e.target.style.backgroundColor = "#f8f9fa")}
+                          onMouseEnter={(e) => (e.target.style.backgroundColor = "#ffffff")}
                           onMouseLeave={(e) => (e.target.style.backgroundColor = "transparent")}>
                           <input
                             type="checkbox"
@@ -2265,7 +2265,9 @@ const DashboardPage = () => {
               {/* Total Bitácoras */}
               <div className="col-6 col-lg mb-2 mb-lg-0">
                 <div className="stat-card h-100">
-                  <div className="stat-icon">
+                  <div
+                    className="stat-icon"
+                    style={{backgroundColor: "#6b7280 !important", color: "#fff"}}>
                     <i className="fa fa-book"></i>
                   </div>
                   <div className="stat-content">
@@ -2285,7 +2287,7 @@ const DashboardPage = () => {
               {/* Nuevas */}
               <div className="col-6 col-lg mb-2 mb-lg-0">
                 <div className="stat-card h-100">
-                  <div className="stat-icon active">
+                  <div className="stat-icon new">
                     <i className="fa fa-plus-circle"></i>
                   </div>
                   <div className="stat-content">
@@ -2311,7 +2313,7 @@ const DashboardPage = () => {
               {/* En Proceso */}
               <div className="col-6 col-lg mb-2 mb-lg-0">
                 <div className="stat-card h-100">
-                  <div className="stat-icon completed">
+                  <div className="stat-icon pending">
                     <i className="fa fa-clock"></i>
                   </div>
                   <div className="stat-content">
@@ -2338,7 +2340,7 @@ const DashboardPage = () => {
               {/* Cerradas */}
               <div className="col-6 col-lg mb-2 mb-lg-0">
                 <div className="stat-card h-100">
-                  <div className="stat-icon" style={{backgroundColor: "#6b7280", color: "#fff"}}>
+                  <div className="stat-icon closed">
                     <i className="fa fa-lock"></i>
                   </div>
                   <div className="stat-content">
@@ -2348,7 +2350,7 @@ const DashboardPage = () => {
                     <div className="stat-label small">Cerradas</div>
                     <div
                       className="stat-percentage small"
-                      style={{color: "#6b7280", fontWeight: "600"}}>
+                      style={{color: "#ef4444", fontWeight: "600"}}>
                       {dashboardStats.totalBitacoras > 0 &&
                       dashboardStats.cerradasBitacoras !== undefined
                         ? Math.round(
@@ -2364,9 +2366,7 @@ const DashboardPage = () => {
               {/* Anomalías - Primera tarjeta */}
               <div className="col-6 col-lg mb-2 mb-lg-0">
                 <div className="stat-card h-100">
-                  <div
-                    className="stat-icon warning"
-                    style={{backgroundColor: "#f59e0b !important", color: "#fff"}}>
+                  <div className="stat-icon anomalia">
                     <i className="fa fa-exclamation-triangle"></i>
                   </div>
                   <div className="stat-content">

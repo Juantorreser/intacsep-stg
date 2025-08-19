@@ -2354,15 +2354,19 @@ $gray: #223b53;
       font-size: 1.25rem;
       color: white;
 
-      &.active {
+      &.new {
         background: linear-gradient(135deg, #10b981 0%, #059669 100%);
       }
 
-      &.completed {
+      &.pending {
         background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
       }
 
-      &.pending {
+      &.closed {
+        background: linear-gradient(135deg, #f50b0b 0%, #d90606 100%);
+      }
+
+      &.anomalia {
         background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
       }
     }
