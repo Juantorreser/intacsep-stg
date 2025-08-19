@@ -130,7 +130,7 @@ const DashboardPage = () => {
           ? bitacora.categorias.join(", ")
           : "N/A",
       "Línea Transporte": bitacora.linea_transporte || "N/A",
-      Usuario: bitacora.operador || "N/A",
+      Operador: bitacora.operador || "N/A",
       Origen: bitacora.origen || "N/A",
       Destino: bitacora.destino || "N/A",
       Estado: bitacora.status || "N/A",
@@ -146,7 +146,7 @@ const DashboardPage = () => {
       {wch: 20}, // Cliente
       {wch: 30}, // Anomalías
       {wch: 20}, // Línea Transporte
-      {wch: 20}, // Usuario
+      {wch: 20}, // Operador
       {wch: 25}, // Origen
       {wch: 25}, // Destino
       {wch: 12}, // Estado
@@ -2000,7 +2000,7 @@ const DashboardPage = () => {
                   />
                 </th>
                 <th className="small text-center" style={{minWidth: "120px"}}>
-                  <div>Usuario</div>
+                  <div>Operador</div>
                   <input
                     type="text"
                     className="form-control form-control-sm mt-1"
@@ -2071,7 +2071,7 @@ const DashboardPage = () => {
                     <span
                       className={`badge ${
                         bitacora.status === "cerrada"
-                          ? "bg-success"
+                          ? "bg-danger"
                           : bitacora.status === "nueva"
                           ? "bg-warning"
                           : bitacora.status === "iniciada"

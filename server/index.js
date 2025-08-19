@@ -3411,6 +3411,25 @@ app.get('/dashboard/bitacoras-anomalias', async (req, res) => {
       return lines.length > 0 ? lines.join(', ') : 'N/A';
     };
 
+    // Helper function to get transport operators from transportes array
+    const getTransportOperators = (transportes) => {
+      if (!transportes || !Array.isArray(transportes) || transportes.length === 0) {
+        return 'N/A';
+      }
+
+      const operators = transportes
+        .map(transporte => {
+          // Convert null, undefined, or empty string to 'N/A'
+          if (!transporte.operador || transporte.operador.trim() === '') {
+            return 'N/A';
+          }
+          return transporte.operador;
+        })
+        .filter((operator, index, array) => array.indexOf(operator) === index); // Remove duplicates
+
+      return operators.length > 0 ? operators.join(', ') : 'N/A';
+    };
+
     // Formatear los datos para la respuesta
     const formattedBitacoras = bitacorasConAnomalias.map(bitacora => {
       // Obtener las categorías únicas de eventos para esta bitácora
@@ -3423,7 +3442,7 @@ app.get('/dashboard/bitacoras-anomalias', async (req, res) => {
         bitacora_id: bitacora.bitacora_id,
         cliente: getSafeFieldValue(bitacora.cliente),
         linea_transporte: getTransportLines(bitacora.transportes),
-        operador: getSafeFieldValue(bitacora.operador),
+        operador: getTransportOperators(bitacora.transportes),
         origen: getLocationName(bitacora.origen, bitacora.origenInfo, 'ORIGEN'),
         destino: getLocationName(bitacora.destino, bitacora.destinoInfo, 'DESTINO'),
         status: getSafeFieldValue(bitacora.status),
