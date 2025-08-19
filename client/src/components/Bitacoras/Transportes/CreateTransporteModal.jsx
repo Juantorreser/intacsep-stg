@@ -3,7 +3,14 @@ import {Form, Tabs, Tab} from "react-bootstrap";
 import {useAuth} from "../../../context/AuthContext";
 import ModalTemplate from "../../../components/ModalTemplate"; // adjust path if needed
 
-const CreateTransporteModal = ({show, handleClose, addTransporte, transportes, bitacora, units}) => {
+const CreateTransporteModal = ({
+  show,
+  handleClose,
+  addTransporte,
+  transportes,
+  bitacora,
+  units,
+}) => {
   const [transporteData, setTransporteData] = useState({
     tracto: {
       eco: "",
@@ -34,6 +41,7 @@ const CreateTransporteModal = ({show, handleClose, addTransporte, transportes, b
   // const [units, setUnits] = useState([]);
 
   const [roleData, setRoleData] = useState(null);
+  const [phoneError, setPhoneError] = useState("");
 
   const {user, verifyToken, setUser} = useAuth();
   const token = import.meta.env.VITE_WIALON_TOKEN;
@@ -126,9 +134,30 @@ const CreateTransporteModal = ({show, handleClose, addTransporte, transportes, b
   //   });
   // };
 
+  const validatePhoneNumber = (phone) => {
+    // Regex para validar número de teléfono mexicano de exactamente 10 dígitos seguidos
+    // Solo acepta formato: 1234567890 (sin espacios, guiones o paréntesis)
+    const phoneRegex = /^\d{10}$/;
+
+    // Debe ser exactamente 10 dígitos seguidos
+    return phoneRegex.test(phone);
+  };
+
   const handleChange = (e) => {
     const {name, value} = e.target;
     const [section, field] = name.split(".");
+
+    // Validar teléfono si el campo es 'telefono'
+    if (name === "telefono") {
+      if (value && !validatePhoneNumber(value)) {
+        setPhoneError(
+          "El número de teléfono debe tener exactamente 10 dígitos seguidos (ej: 1234567890)"
+        );
+      } else {
+        setPhoneError("");
+      }
+    }
+
     if (section && field) {
       setTransporteData((prev) => ({
         ...prev,
@@ -147,6 +176,12 @@ const CreateTransporteModal = ({show, handleClose, addTransporte, transportes, b
 
   const handleSubmitTransporte = (e) => {
     e.preventDefault();
+
+    // Validar teléfono antes de enviar
+    if (transporteData.telefono && !validatePhoneNumber(transporteData.telefono)) {
+      setPhoneError("El número de teléfono debe tener exactamente 10 dígitos seguidos");
+      return;
+    }
 
     let newId;
     if (idMethod === "wialon") {
@@ -336,7 +371,14 @@ const CreateTransporteModal = ({show, handleClose, addTransporte, transportes, b
                 value={transporteData.telefono}
                 onChange={handleChange}
                 required={!!roleData?.operador?.create}
+                isInvalid={!!phoneError}
               />
+              {phoneError && (
+                <Form.Control.Feedback type="invalid">{phoneError}</Form.Control.Feedback>
+              )}
+              <Form.Text className="text-muted">
+                Formato: 1234567890 (exactamente 10 dígitos seguidos)
+              </Form.Text>
             </Form.Group>
           </Tab>
         )}

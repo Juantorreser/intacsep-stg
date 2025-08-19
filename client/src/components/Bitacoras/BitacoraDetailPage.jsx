@@ -50,6 +50,16 @@ const BitacoraDetailPage = ({edited}) => {
   );
   const [modalOpen, setModalOpen] = useState(false);
   const {isSidebarCollapsed} = useSidebar();
+  const [phoneError, setPhoneError] = useState("");
+
+  const validatePhoneNumber = (phone) => {
+    // Regex para validar número de teléfono mexicano de exactamente 10 dígitos seguidos
+    // Solo acepta formato: 1234567890 (sin espacios, guiones o paréntesis)
+    const phoneRegex = /^\d{10}$/;
+
+    // Debe ser exactamente 10 dígitos seguidos
+    return phoneRegex.test(phone);
+  };
 
   const handleEditTransporte = () => {
     const selected = selectedTransporte;
@@ -79,6 +89,12 @@ const BitacoraDetailPage = ({edited}) => {
     e.preventDefault();
 
     if (!editedTransporte) return;
+
+    // Validar teléfono antes de enviar
+    if (editedTransporte.telefono && !validatePhoneNumber(editedTransporte.telefono)) {
+      setPhoneError("El número de teléfono debe tener exactamente 10 dígitos seguidos");
+      return;
+    }
 
     // Ensure ID is properly updated before saving
     let updatedId = editedTransporte.id;
@@ -1793,10 +1809,24 @@ const BitacoraDetailPage = ({edited}) => {
                   <Form.Control
                     type="text"
                     value={editedTransporte.telefono || ""}
-                    onChange={(e) =>
-                      setEditedTransporte((prev) => ({...prev, telefono: e.target.value}))
-                    }
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      // Validar teléfono en tiempo real
+                      if (value && !validatePhoneNumber(value)) {
+                        setPhoneError(
+                          "El número de teléfono debe tener exactamente 10 dígitos seguidos (ej: 1234567890)"
+                        );
+                      } else {
+                        setPhoneError("");
+                      }
+                      setEditedTransporte((prev) => ({...prev, telefono: value}));
+                    }}
+                    isInvalid={!!phoneError}
                   />
+                  {phoneError && (
+                    <Form.Control.Feedback type="invalid">{phoneError}</Form.Control.Feedback>
+                  )}
+                  <Form.Text className="text-muted">Formato: 1234567890</Form.Text>
                 </Form.Group>
               </Tab>
             )}
