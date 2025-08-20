@@ -74,6 +74,20 @@ const DashboardPage = () => {
   const [clientPagination, setClientPagination] = useState({}); // {clienteId: paginationInfo}
   const [loadingClientDownload, setLoadingClientDownload] = useState({}); // {clienteId: boolean}
 
+  // Estado para los dropdowns de usuarios
+  const [expandedUsers, setExpandedUsers] = useState({}); // {userName: boolean}
+  const [userBitacoras, setUserBitacoras] = useState({}); // {userName: [bitacoras]}
+  const [loadingUserBitacoras, setLoadingUserBitacoras] = useState({}); // {userName: boolean}
+  const [userPagination, setUserPagination] = useState({}); // {userName: paginationInfo}
+  const [loadingUserDownload, setLoadingUserDownload] = useState({}); // {userName: boolean}
+
+  // Estado para los dropdowns de ubicaciones geográficas
+  const [expandedLocations, setExpandedLocations] = useState({}); // {locationName: boolean}
+  const [locationBitacoras, setLocationBitacoras] = useState({}); // {locationName: [bitacoras]}
+  const [loadingLocationBitacoras, setLoadingLocationBitacoras] = useState({}); // {locationName: boolean}
+  const [locationPagination, setLocationPagination] = useState({}); // {locationName: paginationInfo}
+  const [loadingLocationDownload, setLoadingLocationDownload] = useState({}); // {locationName: boolean}
+
   const baseUrl = import.meta.env.VITE_BASE_URL;
 
   // Function to apply filters when check button is pressed
@@ -92,6 +106,20 @@ const DashboardPage = () => {
     setLoadingClientBitacoras({});
     setClientPagination({});
     setLoadingClientDownload({});
+
+    // Limpiar estados de dropdowns de usuarios cuando cambien los filtros
+    setExpandedUsers({});
+    setUserBitacoras({});
+    setLoadingUserBitacoras({});
+    setUserPagination({});
+    setLoadingUserDownload({});
+
+    // Limpiar estados de dropdowns de ubicaciones cuando cambien los filtros
+    setExpandedLocations({});
+    setLocationBitacoras({});
+    setLoadingLocationBitacoras({});
+    setLocationPagination({});
+    setLoadingLocationDownload({});
   };
 
   // Function to reset filters
@@ -110,6 +138,20 @@ const DashboardPage = () => {
     setLoadingClientBitacoras({});
     setClientPagination({});
     setLoadingClientDownload({});
+
+    // Limpiar estados de dropdowns de usuarios cuando se reseteen los filtros
+    setExpandedUsers({});
+    setUserBitacoras({});
+    setLoadingUserBitacoras({});
+    setUserPagination({});
+    setLoadingUserDownload({});
+
+    // Limpiar estados de dropdowns de ubicaciones cuando se reseteen los filtros
+    setExpandedLocations({});
+    setLocationBitacoras({});
+    setLoadingLocationBitacoras({});
+    setLocationPagination({});
+    setLoadingLocationDownload({});
   };
 
   // Helper function to format numbers with thousands separator
@@ -276,6 +318,331 @@ const DashboardPage = () => {
       alert("Error al descargar las bitácoras");
     } finally {
       setLoadingClientDownload((prev) => ({...prev, [clienteNombre]: false}));
+    }
+  };
+
+  // Función para cargar las bitácoras de un usuario específico con paginación
+  const fetchUserBitacoras = async (userName, page = 1) => {
+    try {
+      setLoadingUserBitacoras((prev) => ({...prev, [userName]: true}));
+
+      const url = `${baseUrl}/bitacoras/by-user/${encodeURIComponent(
+        userName
+      )}?fechaDesde=${encodeURIComponent(appliedFechaDesde)}&fechaHasta=${encodeURIComponent(
+        appliedFechaHasta
+      )}&lineaTransporte=${encodeURIComponent(
+        appliedLineaTransporteFilter
+      )}&operador=${encodeURIComponent(appliedOperadorFilter)}&page=${page}&limit=10`;
+
+      const response = await fetch(url, {
+        method: "GET",
+        credentials: "include",
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setUserBitacoras((prev) => ({
+          ...prev,
+          [userName]: data.bitacoras,
+        }));
+        setUserPagination((prev) => ({
+          ...prev,
+          [userName]: data.pagination,
+        }));
+      } else {
+        console.error("Error fetching user bitacoras:", response.statusText);
+        setUserBitacoras((prev) => ({
+          ...prev,
+          [userName]: [],
+        }));
+        setUserPagination((prev) => ({
+          ...prev,
+          [userName]: null,
+        }));
+      }
+    } catch (error) {
+      console.error("Error fetching user bitacoras:", error);
+      setUserBitacoras((prev) => ({
+        ...prev,
+        [userName]: [],
+      }));
+      setUserPagination((prev) => ({
+        ...prev,
+        [userName]: null,
+      }));
+    } finally {
+      setLoadingUserBitacoras((prev) => ({...prev, [userName]: false}));
+    }
+  };
+
+  // Función para manejar el toggle del dropdown de usuario
+  const toggleUserDropdown = (userName) => {
+    const isCurrentlyExpanded = expandedUsers[userName];
+
+    setExpandedUsers((prev) => ({
+      ...prev,
+      [userName]: !isCurrentlyExpanded,
+    }));
+
+    // Si se está expandiendo y no tenemos las bitácoras, las cargamos
+    if (!isCurrentlyExpanded && !userBitacoras[userName]) {
+      fetchUserBitacoras(userName);
+    }
+  };
+
+  // Función para manejar la paginación de bitácoras de usuario
+  const handleUserPagination = (userName, page) => {
+    fetchUserBitacoras(userName, page);
+  };
+
+  // Función para descargar bitácoras de usuario en Excel
+  const downloadUserBitacorasExcel = async (userName) => {
+    try {
+      setLoadingUserDownload((prev) => ({...prev, [userName]: true}));
+
+      const url = `${baseUrl}/bitacoras/download-user/${encodeURIComponent(
+        userName
+      )}?fechaDesde=${encodeURIComponent(appliedFechaDesde)}&fechaHasta=${encodeURIComponent(
+        appliedFechaHasta
+      )}&lineaTransporte=${encodeURIComponent(
+        appliedLineaTransporteFilter
+      )}&operador=${encodeURIComponent(appliedOperadorFilter)}`;
+
+      const response = await fetch(url, {
+        method: "GET",
+        credentials: "include",
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+
+        if (data.bitacoras && data.bitacoras.length > 0) {
+          // Importar XLSX dinámicamente
+          const XLSX = await import("xlsx");
+
+          // Preparar datos para Excel
+          const excelData = data.bitacoras.map((bitacora, index) => ({
+            "#": index + 1,
+            "ID Bitácora": bitacora.bitacora_id,
+            "Fecha de Creación": new Date(bitacora.fechaCreacion).toLocaleDateString("es-ES"),
+            Cliente: bitacora.cliente,
+            "Tipo de Monitoreo": bitacora.tipoMonitoreo,
+            "Línea de Transporte": bitacora.lineaTransporte,
+            "Operador de Transporte": bitacora.operadorTransporte,
+            Origen: bitacora.origen,
+            Destino: bitacora.destino,
+            Estado: bitacora.estado,
+            Usuario: bitacora.usuario,
+          }));
+
+          // Crear libro de trabajo
+          const workbook = XLSX.utils.book_new();
+          const worksheet = XLSX.utils.json_to_sheet(excelData);
+
+          // Ajustar ancho de columnas
+          const colWidths = [
+            {wch: 5}, // #
+            {wch: 15}, // ID Bitácora
+            {wch: 18}, // Fecha de Creación
+            {wch: 25}, // Cliente
+            {wch: 20}, // Tipo de Monitoreo
+            {wch: 25}, // Línea de Transporte
+            {wch: 25}, // Operador de Transporte
+            {wch: 30}, // Origen
+            {wch: 30}, // Destino
+            {wch: 15}, // Estado
+            {wch: 20}, // Usuario
+          ];
+          worksheet["!cols"] = colWidths;
+
+          // Agregar hoja al libro
+          XLSX.utils.book_append_sheet(workbook, worksheet, "Bitácoras");
+
+          // Generar nombre de archivo
+          const fechaActual = new Date().toISOString().split("T")[0];
+          const filename = `Bitacoras_Usuario_${userName.replace(
+            /[^a-zA-Z0-9]/g,
+            "_"
+          )}_${fechaActual}.xlsx`;
+
+          // Descargar archivo
+          XLSX.writeFile(workbook, filename);
+        } else {
+          alert("No hay bitácoras disponibles para descargar");
+        }
+      } else {
+        console.error("Error downloading user bitacoras:", response.statusText);
+        alert("Error al descargar las bitácoras");
+      }
+    } catch (error) {
+      console.error("Error downloading user bitacoras:", error);
+      alert("Error al descargar las bitácoras");
+    } finally {
+      setLoadingUserDownload((prev) => ({...prev, [userName]: false}));
+    }
+  };
+
+  // Función para cargar las bitácoras de una ubicación específica con paginación
+  const fetchLocationBitacoras = async (locationName, page = 1) => {
+    try {
+      setLoadingLocationBitacoras((prev) => ({...prev, [locationName]: true}));
+
+      const url = `${baseUrl}/bitacoras/by-location/${encodeURIComponent(
+        locationName
+      )}?fechaDesde=${encodeURIComponent(appliedFechaDesde)}&fechaHasta=${encodeURIComponent(
+        appliedFechaHasta
+      )}&lineaTransporte=${encodeURIComponent(
+        appliedLineaTransporteFilter
+      )}&operador=${encodeURIComponent(appliedOperadorFilter)}&geoType=${encodeURIComponent(
+        appliedGeoType
+      )}&page=${page}&limit=10`;
+
+      const response = await fetch(url, {
+        method: "GET",
+        credentials: "include",
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setLocationBitacoras((prev) => ({
+          ...prev,
+          [locationName]: data.bitacoras,
+        }));
+        setLocationPagination((prev) => ({
+          ...prev,
+          [locationName]: data.pagination,
+        }));
+      } else {
+        console.error("Error fetching location bitacoras:", response.statusText);
+        setLocationBitacoras((prev) => ({
+          ...prev,
+          [locationName]: [],
+        }));
+        setLocationPagination((prev) => ({
+          ...prev,
+          [locationName]: null,
+        }));
+      }
+    } catch (error) {
+      console.error("Error fetching location bitacoras:", error);
+      setLocationBitacoras((prev) => ({
+        ...prev,
+        [locationName]: [],
+      }));
+      setLocationPagination((prev) => ({
+        ...prev,
+        [locationName]: null,
+      }));
+    } finally {
+      setLoadingLocationBitacoras((prev) => ({...prev, [locationName]: false}));
+    }
+  };
+
+  // Función para manejar el toggle del dropdown de ubicación
+  const toggleLocationDropdown = (locationName) => {
+    const isCurrentlyExpanded = expandedLocations[locationName];
+
+    setExpandedLocations((prev) => ({
+      ...prev,
+      [locationName]: !isCurrentlyExpanded,
+    }));
+
+    // Si se está expandiendo y no tenemos las bitácoras, las cargamos
+    if (!isCurrentlyExpanded && !locationBitacoras[locationName]) {
+      fetchLocationBitacoras(locationName);
+    }
+  };
+
+  // Función para manejar la paginación de bitácoras de ubicación
+  const handleLocationPagination = (locationName, page) => {
+    fetchLocationBitacoras(locationName, page);
+  };
+
+  // Función para descargar bitácoras de ubicación en Excel
+  const downloadLocationBitacorasExcel = async (locationName) => {
+    try {
+      setLoadingLocationDownload((prev) => ({...prev, [locationName]: true}));
+
+      const url = `${baseUrl}/bitacoras/download-location/${encodeURIComponent(
+        locationName
+      )}?fechaDesde=${encodeURIComponent(appliedFechaDesde)}&fechaHasta=${encodeURIComponent(
+        appliedFechaHasta
+      )}&lineaTransporte=${encodeURIComponent(
+        appliedLineaTransporteFilter
+      )}&operador=${encodeURIComponent(appliedOperadorFilter)}&geoType=${encodeURIComponent(
+        appliedGeoType
+      )}`;
+
+      const response = await fetch(url, {
+        method: "GET",
+        credentials: "include",
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+
+        if (data.bitacoras && data.bitacoras.length > 0) {
+          // Importar XLSX dinámicamente
+          const XLSX = await import("xlsx");
+
+          // Preparar datos para Excel
+          const excelData = data.bitacoras.map((bitacora, index) => ({
+            "#": index + 1,
+            "ID Bitácora": bitacora.bitacora_id,
+            "Fecha de Creación": new Date(bitacora.fechaCreacion).toLocaleDateString("es-ES"),
+            Cliente: bitacora.cliente,
+            "Tipo de Monitoreo": bitacora.tipoMonitoreo,
+            "Línea de Transporte": bitacora.lineaTransporte,
+            "Operador de Transporte": bitacora.operadorTransporte,
+            Origen: bitacora.origen,
+            Destino: bitacora.destino,
+            Estado: bitacora.estado,
+            Usuario: bitacora.usuario,
+          }));
+
+          // Crear libro de trabajo
+          const workbook = XLSX.utils.book_new();
+          const worksheet = XLSX.utils.json_to_sheet(excelData);
+
+          // Ajustar ancho de columnas
+          const colWidths = [
+            {wch: 5}, // #
+            {wch: 15}, // ID Bitácora
+            {wch: 18}, // Fecha de Creación
+            {wch: 25}, // Cliente
+            {wch: 20}, // Tipo de Monitoreo
+            {wch: 25}, // Línea de Transporte
+            {wch: 25}, // Operador de Transporte
+            {wch: 30}, // Origen
+            {wch: 30}, // Destino
+            {wch: 15}, // Estado
+            {wch: 20}, // Usuario
+          ];
+          worksheet["!cols"] = colWidths;
+
+          // Agregar hoja al libro
+          XLSX.utils.book_append_sheet(workbook, worksheet, "Bitácoras");
+
+          // Generar nombre de archivo
+          const fechaActual = new Date().toISOString().split("T")[0];
+          const filename = `Bitacoras_${
+            appliedGeoType === "origen" ? "Origen" : "Destino"
+          }_${locationName.replace(/[^a-zA-Z0-9]/g, "_")}_${fechaActual}.xlsx`;
+
+          // Descargar archivo
+          XLSX.writeFile(workbook, filename);
+        } else {
+          alert("No hay bitácoras disponibles para descargar");
+        }
+      } else {
+        console.error("Error downloading location bitacoras:", response.statusText);
+        alert("Error al descargar las bitácoras");
+      }
+    } catch (error) {
+      console.error("Error downloading location bitacoras:", error);
+      alert("Error al descargar las bitácoras");
+    } finally {
+      setLoadingLocationDownload((prev) => ({...prev, [locationName]: false}));
     }
   };
 
@@ -601,25 +968,491 @@ const DashboardPage = () => {
           </select>
         </div>
         <div className="geo-items">
-          {geographicData.map((location, index) => (
-            <div key={index} className="geo-item">
-              <div
-                className="geo-icon"
-                style={{background: geoType === "origen" ? "#10b981" : "#f59e0b"}}>
-                <i className="fa fa-map-marker-alt" style={{color: "#fff"}}></i>
-              </div>
-              <div className="geo-info">
-                <div className="geo-name small">{location.name}</div>
-                <div className="geo-count small">{formatNumber(location.count)} bitácoras</div>
-              </div>
-              <div className="geo-percentage small">
-                {Math.round(
-                  (location.count / geographicData.reduce((sum, loc) => sum + loc.count, 0)) * 100
+          {geographicData.map((location, index) => {
+            const percentage = Math.round(
+              (location.count / geographicData.reduce((sum, loc) => sum + loc.count, 0)) * 100
+            );
+            const isExpanded = expandedLocations[location.name];
+            const bitacoras = locationBitacoras[location.name] || [];
+            const isLoading = loadingLocationBitacoras[location.name];
+
+            return (
+              <div key={index} className="location-dropdown-item">
+                {/* Header de la ubicación - clickeable para expandir */}
+                <div
+                  className="geo-item"
+                  onClick={() => toggleLocationDropdown(location.name)}
+                  style={{cursor: "pointer", transition: "all 0.2s ease"}}>
+                  <div
+                    className="geo-icon"
+                    style={{background: geoType === "origen" ? "#10b981" : "#f59e0b"}}>
+                    <i className="fa fa-map-marker-alt" style={{color: "#fff"}}></i>
+                  </div>
+                  <div className="geo-info">
+                    <div className="geo-name small">{location.name}</div>
+                    <div className="geo-count small">{formatNumber(location.count)} bitácoras</div>
+                  </div>
+                  <div
+                    className="geo-percentage-container"
+                    style={{display: "flex", alignItems: "center", gap: "8px"}}>
+                    <div className="geo-percentage small">{percentage}%</div>
+                    {/* Botón de descarga */}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation(); // Evitar que se expanda/contraiga el dropdown
+                        downloadLocationBitacorasExcel(location.name);
+                      }}
+                      disabled={loadingLocationDownload[location.name]}
+                      style={{
+                        background: "linear-gradient(135deg, #10b981 0%, #059669 100%)",
+                        border: "none",
+                        borderRadius: "6px",
+                        width: "24px",
+                        height: "24px",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        cursor: loadingLocationDownload[location.name] ? "not-allowed" : "pointer",
+                        transition: "all 0.2s ease",
+                        opacity: loadingLocationDownload[location.name] ? 0.6 : 1,
+                      }}
+                      title="Descargar bitácoras en Excel">
+                      <i
+                        className={
+                          loadingLocationDownload[location.name]
+                            ? "fa fa-spinner fa-spin"
+                            : "fa fa-download"
+                        }
+                        style={{
+                          fontSize: "10px",
+                          color: "white",
+                        }}></i>
+                    </button>
+                    <div className="expand-icon">
+                      <i
+                        className={`fa fa-chevron-${isExpanded ? "up" : "down"}`}
+                        style={{
+                          fontSize: "12px",
+                          color: "#64748b",
+                          transition: "transform 0.2s ease",
+                        }}></i>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Contenido expandible con las bitácoras */}
+                {isExpanded && (
+                  <div
+                    className="location-bitacoras-list"
+                    style={{
+                      paddingLeft: "40px",
+                      paddingRight: "8px",
+                      paddingTop: "8px",
+                      paddingBottom: "8px",
+                      backgroundColor: "rgba(148, 163, 184, 0.05)",
+                      borderRadius: "8px",
+                      margin: "8px 0",
+                      animation: "slideDown 0.3s ease",
+                    }}>
+                    {isLoading ? (
+                      <div className="text-center py-2">
+                        <i className="fa fa-spinner fa-spin me-2" style={{fontSize: "12px"}}></i>
+                        <span style={{fontSize: "12px", color: "#94a3b8"}}>
+                          Cargando bitácoras...
+                        </span>
+                      </div>
+                    ) : bitacoras && bitacoras.length > 0 ? (
+                      <div>
+                        <div className="bitacoras-header" style={{marginBottom: "12px"}}>
+                          <span style={{fontSize: "11px", color: "#64748b", fontWeight: "600"}}>
+                            Bitácoras ({bitacoras.length}):
+                          </span>
+                        </div>
+                        <div
+                          className="bitacoras-table-container"
+                          style={{
+                            maxHeight: "400px",
+                            overflowY: "auto",
+                            overflowX: "auto",
+                            border: "1px solid rgba(148, 163, 184, 0.2)",
+                            borderRadius: "8px",
+                            backgroundColor: "#f8fafc",
+                          }}>
+                          <table
+                            style={{
+                              width: "100%",
+                              borderCollapse: "collapse",
+                              fontSize: "10px",
+                              minWidth: "800px",
+                            }}>
+                            <thead style={{backgroundColor: "#e2e8f0", position: "sticky", top: 0}}>
+                              <tr>
+                                <th
+                                  style={{
+                                    padding: "8px 6px",
+                                    borderBottom: "1px solid #cbd5e1",
+                                    fontWeight: "600",
+                                    color: "#374151",
+                                    textAlign: "left",
+                                  }}>
+                                  No. Bitácora
+                                </th>
+                                <th
+                                  style={{
+                                    padding: "8px 6px",
+                                    borderBottom: "1px solid #cbd5e1",
+                                    fontWeight: "600",
+                                    color: "#374151",
+                                    textAlign: "left",
+                                  }}>
+                                  Fecha de Creación
+                                </th>
+                                <th
+                                  style={{
+                                    padding: "8px 6px",
+                                    borderBottom: "1px solid #cbd5e1",
+                                    fontWeight: "600",
+                                    color: "#374151",
+                                    textAlign: "left",
+                                  }}>
+                                  Cliente
+                                </th>
+                                <th
+                                  style={{
+                                    padding: "8px 6px",
+                                    borderBottom: "1px solid #cbd5e1",
+                                    fontWeight: "600",
+                                    color: "#374151",
+                                    textAlign: "left",
+                                  }}>
+                                  Tipo Monitoreo
+                                </th>
+                                <th
+                                  style={{
+                                    padding: "8px 6px",
+                                    borderBottom: "1px solid #cbd5e1",
+                                    fontWeight: "600",
+                                    color: "#374151",
+                                    textAlign: "left",
+                                  }}>
+                                  Línea de transporte
+                                </th>
+                                <th
+                                  style={{
+                                    padding: "8px 6px",
+                                    borderBottom: "1px solid #cbd5e1",
+                                    fontWeight: "600",
+                                    color: "#374151",
+                                    textAlign: "left",
+                                  }}>
+                                  Operador
+                                </th>
+                                <th
+                                  style={{
+                                    padding: "8px 6px",
+                                    borderBottom: "1px solid #cbd5e1",
+                                    fontWeight: "600",
+                                    color: "#374151",
+                                    textAlign: "left",
+                                  }}>
+                                  Origen
+                                </th>
+                                <th
+                                  style={{
+                                    padding: "8px 6px",
+                                    borderBottom: "1px solid #cbd5e1",
+                                    fontWeight: "600",
+                                    color: "#374151",
+                                    textAlign: "left",
+                                  }}>
+                                  Destino
+                                </th>
+                                <th
+                                  style={{
+                                    padding: "8px 6px",
+                                    borderBottom: "1px solid #cbd5e1",
+                                    fontWeight: "600",
+                                    color: "#374151",
+                                    textAlign: "left",
+                                  }}>
+                                  Estado
+                                </th>
+                                <th
+                                  style={{
+                                    padding: "8px 6px",
+                                    borderBottom: "1px solid #cbd5e1",
+                                    fontWeight: "600",
+                                    color: "#374151",
+                                    textAlign: "left",
+                                  }}>
+                                  Usuario
+                                </th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {bitacoras.map((bitacora, bitIndex) => (
+                                <tr
+                                  key={bitIndex}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    navigate(`/bitacora/${bitacora._id}`);
+                                  }}
+                                  style={{
+                                    cursor: "pointer",
+                                    transition: "background-color 0.2s ease",
+                                  }}
+                                  onMouseEnter={(e) => {
+                                    e.currentTarget.style.backgroundColor = "#e0f2fe";
+                                  }}
+                                  onMouseLeave={(e) => {
+                                    e.currentTarget.style.backgroundColor = "transparent";
+                                  }}>
+                                  <td
+                                    style={{
+                                      padding: "8px 6px",
+                                      borderBottom: "1px solid #e5e7eb",
+                                      color: "#1f2937",
+                                      fontWeight: "600",
+                                    }}>
+                                    #{bitacora.bitacora_id}
+                                  </td>
+                                  <td
+                                    style={{
+                                      padding: "8px 6px",
+                                      borderBottom: "1px solid #e5e7eb",
+                                      color: "#374151",
+                                    }}>
+                                    {new Date(bitacora.fechaCreacion).toLocaleDateString("es-ES", {
+                                      day: "2-digit",
+                                      month: "2-digit",
+                                      year: "numeric",
+                                    })}
+                                  </td>
+                                  <td
+                                    style={{
+                                      padding: "8px 6px",
+                                      borderBottom: "1px solid #e5e7eb",
+                                      color: "#374151",
+                                    }}>
+                                    {bitacora.cliente}
+                                  </td>
+                                  <td
+                                    style={{
+                                      padding: "8px 6px",
+                                      borderBottom: "1px solid #e5e7eb",
+                                      color: "#374151",
+                                    }}>
+                                    {bitacora.tipoMonitoreo}
+                                  </td>
+                                  <td
+                                    style={{
+                                      padding: "8px 6px",
+                                      borderBottom: "1px solid #e5e7eb",
+                                      color: "#374151",
+                                      maxWidth: "120px",
+                                      overflow: "hidden",
+                                      textOverflow: "ellipsis",
+                                      whiteSpace: "nowrap",
+                                    }}>
+                                    {bitacora.lineaTransporte || "N/A"}
+                                  </td>
+                                  <td
+                                    style={{
+                                      padding: "8px 6px",
+                                      borderBottom: "1px solid #e5e7eb",
+                                      color: "#374151",
+                                      maxWidth: "120px",
+                                      overflow: "hidden",
+                                      textOverflow: "ellipsis",
+                                      whiteSpace: "nowrap",
+                                    }}>
+                                    {bitacora.operadorTransporte || "N/A"}
+                                  </td>
+                                  <td
+                                    style={{
+                                      padding: "8px 6px",
+                                      borderBottom: "1px solid #e5e7eb",
+                                      color: "#374151",
+                                      maxWidth: "150px",
+                                      overflow: "hidden",
+                                      textOverflow: "ellipsis",
+                                      whiteSpace: "nowrap",
+                                    }}>
+                                    {bitacora.origen || "N/A"}
+                                  </td>
+                                  <td
+                                    style={{
+                                      padding: "8px 6px",
+                                      borderBottom: "1px solid #e5e7eb",
+                                      color: "#374151",
+                                      maxWidth: "150px",
+                                      overflow: "hidden",
+                                      textOverflow: "ellipsis",
+                                      whiteSpace: "nowrap",
+                                    }}>
+                                    {bitacora.destino || "N/A"}
+                                  </td>
+                                  <td
+                                    style={{
+                                      padding: "8px 6px",
+                                      borderBottom: "1px solid #e5e7eb",
+                                    }}>
+                                    <span
+                                      style={{
+                                        padding: "2px 6px",
+                                        borderRadius: "12px",
+                                        fontSize: "9px",
+                                        fontWeight: "600",
+                                        textTransform: "uppercase",
+                                        backgroundColor:
+                                          bitacora.estado === "nueva"
+                                            ? "#dbeafe"
+                                            : bitacora.estado === "validada"
+                                            ? "#fef3c7"
+                                            : bitacora.estado === "iniciada"
+                                            ? "#d1fae5"
+                                            : bitacora.estado === "cerrada"
+                                            ? "#fee2e2"
+                                            : bitacora.estado === "finalizada"
+                                            ? "#e0e7ff"
+                                            : "#f3f4f6",
+                                        color:
+                                          bitacora.estado === "nueva"
+                                            ? "#1e40af"
+                                            : bitacora.estado === "validada"
+                                            ? "#d97706"
+                                            : bitacora.estado === "iniciada"
+                                            ? "#059669"
+                                            : bitacora.estado === "cerrada"
+                                            ? "#dc2626"
+                                            : bitacora.estado === "finalizada"
+                                            ? "#7c3aed"
+                                            : "#6b7280",
+                                      }}>
+                                      {bitacora.estado}
+                                    </span>
+                                  </td>
+                                  <td
+                                    style={{
+                                      padding: "8px 6px",
+                                      borderBottom: "1px solid #e5e7eb",
+                                      color: "#374151",
+                                      maxWidth: "100px",
+                                      overflow: "hidden",
+                                      textOverflow: "ellipsis",
+                                      whiteSpace: "nowrap",
+                                    }}>
+                                    {bitacora.usuario}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+
+                        {/* Controles de paginación */}
+                        {locationPagination[location.name] &&
+                          locationPagination[location.name].totalPages > 1 && (
+                            <div
+                              style={{
+                                display: "flex",
+                                justifyContent: "space-between",
+                                alignItems: "center",
+                                padding: "8px 12px",
+                                borderTop: "1px solid #e5e7eb",
+                                fontSize: "11px",
+                                backgroundColor: "#f9fafb",
+                              }}>
+                              <span style={{color: "#6b7280"}}>
+                                Página {locationPagination[location.name].currentPage} de{" "}
+                                {locationPagination[location.name].totalPages} (
+                                {locationPagination[location.name].totalCount} total)
+                              </span>
+                              <div style={{display: "flex", gap: "4px"}}>
+                                <button
+                                  onClick={() =>
+                                    handleLocationPagination(
+                                      location.name,
+                                      locationPagination[location.name].currentPage - 1
+                                    )
+                                  }
+                                  disabled={
+                                    !locationPagination[location.name].hasPrevPage || isLoading
+                                  }
+                                  style={{
+                                    background:
+                                      locationPagination[location.name].hasPrevPage && !isLoading
+                                        ? "#f3f4f6"
+                                        : "#e5e7eb",
+                                    border: "1px solid #d1d5db",
+                                    borderRadius: "4px",
+                                    width: "24px",
+                                    height: "24px",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    cursor:
+                                      locationPagination[location.name].hasPrevPage && !isLoading
+                                        ? "pointer"
+                                        : "not-allowed",
+                                    fontSize: "10px",
+                                    color:
+                                      locationPagination[location.name].hasPrevPage && !isLoading
+                                        ? "#374151"
+                                        : "#9ca3af",
+                                  }}>
+                                  <i className="fa fa-chevron-left"></i>
+                                </button>
+                                <button
+                                  onClick={() =>
+                                    handleLocationPagination(
+                                      location.name,
+                                      locationPagination[location.name].currentPage + 1
+                                    )
+                                  }
+                                  disabled={
+                                    !locationPagination[location.name].hasNextPage || isLoading
+                                  }
+                                  style={{
+                                    background:
+                                      locationPagination[location.name].hasNextPage && !isLoading
+                                        ? "#f3f4f6"
+                                        : "#e5e7eb",
+                                    border: "1px solid #d1d5db",
+                                    borderRadius: "4px",
+                                    width: "24px",
+                                    height: "24px",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    cursor:
+                                      locationPagination[location.name].hasNextPage && !isLoading
+                                        ? "pointer"
+                                        : "not-allowed",
+                                    fontSize: "10px",
+                                    color:
+                                      locationPagination[location.name].hasNextPage && !isLoading
+                                        ? "#374151"
+                                        : "#9ca3af",
+                                  }}>
+                                  <i className="fa fa-chevron-right"></i>
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                      </div>
+                    ) : (
+                      <div className="text-center py-2">
+                        <span style={{fontSize: "12px", color: "#94a3b8"}}>
+                          No hay bitácoras disponibles para esta ubicación
+                        </span>
+                      </div>
+                    )}
+                  </div>
                 )}
-                %
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     );
@@ -1255,21 +2088,483 @@ const DashboardPage = () => {
         : 0;
 
     return (
-      <div className="top-performers" style={{maxHeight: "300px", overflowY: "auto"}}>
+      <div className="top-performers" style={{maxHeight: "400px", overflowY: "auto"}}>
         {topOperadores && topOperadores.length > 0 ? (
           topOperadores.map((operador, index) => {
             const percentage =
               totalOperadores > 0 ? Math.round((operador.count / totalOperadores) * 100) : 0;
+            const isExpanded = expandedUsers[operador.name];
+            const bitacoras = userBitacoras[operador.name] || [];
+            const isLoading = loadingUserBitacoras[operador.name];
+
             return (
-              <div key={index} className="performer-item">
-                <div className="performer-rank small">#{index + 1}</div>
-                <div className="performer-info">
-                  <div className="performer-name small">{operador.name}</div>
-                  <div className="performer-stats small">
-                    {formatNumber(operador.count)} bitácoras
+              <div key={index} className="user-dropdown-item">
+                {/* Header del usuario - clickeable para expandir */}
+                <div
+                  className="performer-item"
+                  onClick={() => toggleUserDropdown(operador.name)}
+                  style={{cursor: "pointer", transition: "all 0.2s ease"}}>
+                  <div className="performer-rank small">#{index + 1}</div>
+                  <div className="performer-info">
+                    <div className="performer-name small">{operador.name}</div>
+                    <div className="performer-stats small">
+                      {formatNumber(operador.count)} bitácoras
+                    </div>
+                  </div>
+                  <div
+                    className="performer-score-container"
+                    style={{display: "flex", alignItems: "center", gap: "8px"}}>
+                    <div className="performer-score small">{percentage}%</div>
+                    {/* Botón de descarga */}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation(); // Evitar que se expanda/contraiga el dropdown
+                        downloadUserBitacorasExcel(operador.name);
+                      }}
+                      disabled={loadingUserDownload[operador.name]}
+                      style={{
+                        background: "linear-gradient(135deg, #10b981 0%, #059669 100%)",
+                        border: "none",
+                        borderRadius: "6px",
+                        width: "24px",
+                        height: "24px",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        cursor: loadingUserDownload[operador.name] ? "not-allowed" : "pointer",
+                        transition: "all 0.2s ease",
+                        opacity: loadingUserDownload[operador.name] ? 0.6 : 1,
+                      }}
+                      title="Descargar bitácoras en Excel">
+                      <i
+                        className={
+                          loadingUserDownload[operador.name]
+                            ? "fa fa-spinner fa-spin"
+                            : "fa fa-download"
+                        }
+                        style={{
+                          fontSize: "10px",
+                          color: "white",
+                        }}></i>
+                    </button>
+                    <div className="expand-icon">
+                      <i
+                        className={`fa fa-chevron-${isExpanded ? "up" : "down"}`}
+                        style={{
+                          fontSize: "12px",
+                          color: "#64748b",
+                          transition: "transform 0.2s ease",
+                        }}></i>
+                    </div>
                   </div>
                 </div>
-                <div className="performer-score small">{percentage}%</div>
+
+                {/* Contenido expandible con las bitácoras */}
+                {isExpanded && (
+                  <div
+                    className="user-bitacoras-list"
+                    style={{
+                      paddingLeft: "40px",
+                      paddingRight: "8px",
+                      paddingTop: "8px",
+                      paddingBottom: "8px",
+                      backgroundColor: "rgba(148, 163, 184, 0.05)",
+                      borderRadius: "8px",
+                      margin: "8px 0",
+                      animation: "slideDown 0.3s ease",
+                    }}>
+                    {isLoading ? (
+                      <div className="text-center py-2">
+                        <i className="fa fa-spinner fa-spin me-2" style={{fontSize: "12px"}}></i>
+                        <span style={{fontSize: "12px", color: "#94a3b8"}}>
+                          Cargando bitácoras...
+                        </span>
+                      </div>
+                    ) : bitacoras && bitacoras.length > 0 ? (
+                      <div>
+                        <div className="bitacoras-header" style={{marginBottom: "12px"}}>
+                          <span style={{fontSize: "11px", color: "#64748b", fontWeight: "600"}}>
+                            Bitácoras ({bitacoras.length}):
+                          </span>
+                        </div>
+                        <div
+                          className="bitacoras-table-container"
+                          style={{
+                            maxHeight: "400px",
+                            overflowY: "auto",
+                            overflowX: "auto",
+                            border: "1px solid rgba(148, 163, 184, 0.2)",
+                            borderRadius: "8px",
+                            backgroundColor: "#f8fafc",
+                          }}>
+                          <table
+                            style={{
+                              width: "100%",
+                              borderCollapse: "collapse",
+                              fontSize: "10px",
+                              minWidth: "800px",
+                            }}>
+                            <thead style={{backgroundColor: "#e2e8f0", position: "sticky", top: 0}}>
+                              <tr>
+                                <th
+                                  style={{
+                                    padding: "8px 6px",
+                                    borderBottom: "1px solid #cbd5e1",
+                                    fontWeight: "600",
+                                    color: "#374151",
+                                    textAlign: "left",
+                                  }}>
+                                  No. Bitácora
+                                </th>
+                                <th
+                                  style={{
+                                    padding: "8px 6px",
+                                    borderBottom: "1px solid #cbd5e1",
+                                    fontWeight: "600",
+                                    color: "#374151",
+                                    textAlign: "left",
+                                  }}>
+                                  Fecha de Creación
+                                </th>
+                                <th
+                                  style={{
+                                    padding: "8px 6px",
+                                    borderBottom: "1px solid #cbd5e1",
+                                    fontWeight: "600",
+                                    color: "#374151",
+                                    textAlign: "left",
+                                  }}>
+                                  Cliente
+                                </th>
+                                <th
+                                  style={{
+                                    padding: "8px 6px",
+                                    borderBottom: "1px solid #cbd5e1",
+                                    fontWeight: "600",
+                                    color: "#374151",
+                                    textAlign: "left",
+                                  }}>
+                                  Tipo Monitoreo
+                                </th>
+                                <th
+                                  style={{
+                                    padding: "8px 6px",
+                                    borderBottom: "1px solid #cbd5e1",
+                                    fontWeight: "600",
+                                    color: "#374151",
+                                    textAlign: "left",
+                                  }}>
+                                  Línea de transporte
+                                </th>
+                                <th
+                                  style={{
+                                    padding: "8px 6px",
+                                    borderBottom: "1px solid #cbd5e1",
+                                    fontWeight: "600",
+                                    color: "#374151",
+                                    textAlign: "left",
+                                  }}>
+                                  Operador
+                                </th>
+                                <th
+                                  style={{
+                                    padding: "8px 6px",
+                                    borderBottom: "1px solid #cbd5e1",
+                                    fontWeight: "600",
+                                    color: "#374151",
+                                    textAlign: "left",
+                                  }}>
+                                  Origen
+                                </th>
+                                <th
+                                  style={{
+                                    padding: "8px 6px",
+                                    borderBottom: "1px solid #cbd5e1",
+                                    fontWeight: "600",
+                                    color: "#374151",
+                                    textAlign: "left",
+                                  }}>
+                                  Destino
+                                </th>
+                                <th
+                                  style={{
+                                    padding: "8px 6px",
+                                    borderBottom: "1px solid #cbd5e1",
+                                    fontWeight: "600",
+                                    color: "#374151",
+                                    textAlign: "left",
+                                  }}>
+                                  Estado
+                                </th>
+                                <th
+                                  style={{
+                                    padding: "8px 6px",
+                                    borderBottom: "1px solid #cbd5e1",
+                                    fontWeight: "600",
+                                    color: "#374151",
+                                    textAlign: "left",
+                                  }}>
+                                  Usuario
+                                </th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {bitacoras.map((bitacora, bitIndex) => (
+                                <tr
+                                  key={bitIndex}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    navigate(`/bitacora/${bitacora._id}`);
+                                  }}
+                                  style={{
+                                    cursor: "pointer",
+                                    transition: "background-color 0.2s ease",
+                                  }}
+                                  onMouseEnter={(e) => {
+                                    e.currentTarget.style.backgroundColor = "#e0f2fe";
+                                  }}
+                                  onMouseLeave={(e) => {
+                                    e.currentTarget.style.backgroundColor = "transparent";
+                                  }}>
+                                  <td
+                                    style={{
+                                      padding: "8px 6px",
+                                      borderBottom: "1px solid #e5e7eb",
+                                      color: "#1f2937",
+                                      fontWeight: "600",
+                                    }}>
+                                    #{bitacora.bitacora_id}
+                                  </td>
+                                  <td
+                                    style={{
+                                      padding: "8px 6px",
+                                      borderBottom: "1px solid #e5e7eb",
+                                      color: "#374151",
+                                    }}>
+                                    {new Date(bitacora.fechaCreacion).toLocaleDateString("es-ES", {
+                                      day: "2-digit",
+                                      month: "2-digit",
+                                      year: "numeric",
+                                    })}
+                                  </td>
+                                  <td
+                                    style={{
+                                      padding: "8px 6px",
+                                      borderBottom: "1px solid #e5e7eb",
+                                      color: "#374151",
+                                    }}>
+                                    {bitacora.cliente}
+                                  </td>
+                                  <td
+                                    style={{
+                                      padding: "8px 6px",
+                                      borderBottom: "1px solid #e5e7eb",
+                                      color: "#374151",
+                                    }}>
+                                    {bitacora.tipoMonitoreo}
+                                  </td>
+                                  <td
+                                    style={{
+                                      padding: "8px 6px",
+                                      borderBottom: "1px solid #e5e7eb",
+                                      color: "#374151",
+                                      maxWidth: "120px",
+                                      overflow: "hidden",
+                                      textOverflow: "ellipsis",
+                                      whiteSpace: "nowrap",
+                                    }}>
+                                    {bitacora.lineaTransporte || "N/A"}
+                                  </td>
+                                  <td
+                                    style={{
+                                      padding: "8px 6px",
+                                      borderBottom: "1px solid #e5e7eb",
+                                      color: "#374151",
+                                      maxWidth: "120px",
+                                      overflow: "hidden",
+                                      textOverflow: "ellipsis",
+                                      whiteSpace: "nowrap",
+                                    }}>
+                                    {bitacora.operadorTransporte || "N/A"}
+                                  </td>
+                                  <td
+                                    style={{
+                                      padding: "8px 6px",
+                                      borderBottom: "1px solid #e5e7eb",
+                                      color: "#374151",
+                                      maxWidth: "150px",
+                                      overflow: "hidden",
+                                      textOverflow: "ellipsis",
+                                      whiteSpace: "nowrap",
+                                    }}>
+                                    {bitacora.origen || "N/A"}
+                                  </td>
+                                  <td
+                                    style={{
+                                      padding: "8px 6px",
+                                      borderBottom: "1px solid #e5e7eb",
+                                      color: "#374151",
+                                      maxWidth: "150px",
+                                      overflow: "hidden",
+                                      textOverflow: "ellipsis",
+                                      whiteSpace: "nowrap",
+                                    }}>
+                                    {bitacora.destino || "N/A"}
+                                  </td>
+                                  <td
+                                    style={{
+                                      padding: "8px 6px",
+                                      borderBottom: "1px solid #e5e7eb",
+                                    }}>
+                                    <span
+                                      style={{
+                                        padding: "2px 6px",
+                                        borderRadius: "12px",
+                                        fontSize: "9px",
+                                        fontWeight: "600",
+                                        textTransform: "uppercase",
+                                        backgroundColor:
+                                          bitacora.estado === "nueva"
+                                            ? "#dbeafe"
+                                            : bitacora.estado === "validada"
+                                            ? "#fef3c7"
+                                            : bitacora.estado === "iniciada"
+                                            ? "#d1fae5"
+                                            : bitacora.estado === "cerrada"
+                                            ? "#fee2e2"
+                                            : bitacora.estado === "finalizada"
+                                            ? "#e0e7ff"
+                                            : "#f3f4f6",
+                                        color:
+                                          bitacora.estado === "nueva"
+                                            ? "#1e40af"
+                                            : bitacora.estado === "validada"
+                                            ? "#d97706"
+                                            : bitacora.estado === "iniciada"
+                                            ? "#059669"
+                                            : bitacora.estado === "cerrada"
+                                            ? "#dc2626"
+                                            : bitacora.estado === "finalizada"
+                                            ? "#7c3aed"
+                                            : "#6b7280",
+                                      }}>
+                                      {bitacora.estado}
+                                    </span>
+                                  </td>
+                                  <td
+                                    style={{
+                                      padding: "8px 6px",
+                                      borderBottom: "1px solid #e5e7eb",
+                                      color: "#374151",
+                                      maxWidth: "100px",
+                                      overflow: "hidden",
+                                      textOverflow: "ellipsis",
+                                      whiteSpace: "nowrap",
+                                    }}>
+                                    {bitacora.usuario}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+
+                        {/* Controles de paginación */}
+                        {userPagination[operador.name] &&
+                          userPagination[operador.name].totalPages > 1 && (
+                            <div
+                              style={{
+                                display: "flex",
+                                justifyContent: "space-between",
+                                alignItems: "center",
+                                padding: "8px 12px",
+                                borderTop: "1px solid #e5e7eb",
+                                fontSize: "11px",
+                                backgroundColor: "#f9fafb",
+                              }}>
+                              <span style={{color: "#6b7280"}}>
+                                Página {userPagination[operador.name].currentPage} de{" "}
+                                {userPagination[operador.name].totalPages} (
+                                {userPagination[operador.name].totalCount} total)
+                              </span>
+                              <div style={{display: "flex", gap: "4px"}}>
+                                <button
+                                  onClick={() =>
+                                    handleUserPagination(
+                                      operador.name,
+                                      userPagination[operador.name].currentPage - 1
+                                    )
+                                  }
+                                  disabled={!userPagination[operador.name].hasPrevPage || isLoading}
+                                  style={{
+                                    background:
+                                      userPagination[operador.name].hasPrevPage && !isLoading
+                                        ? "#f3f4f6"
+                                        : "#e5e7eb",
+                                    border: "1px solid #d1d5db",
+                                    borderRadius: "4px",
+                                    width: "24px",
+                                    height: "24px",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    cursor:
+                                      userPagination[operador.name].hasPrevPage && !isLoading
+                                        ? "pointer"
+                                        : "not-allowed",
+                                    fontSize: "10px",
+                                    color:
+                                      userPagination[operador.name].hasPrevPage && !isLoading
+                                        ? "#374151"
+                                        : "#9ca3af",
+                                  }}>
+                                  <i className="fa fa-chevron-left"></i>
+                                </button>
+                                <button
+                                  onClick={() =>
+                                    handleUserPagination(
+                                      operador.name,
+                                      userPagination[operador.name].currentPage + 1
+                                    )
+                                  }
+                                  disabled={!userPagination[operador.name].hasNextPage || isLoading}
+                                  style={{
+                                    background:
+                                      userPagination[operador.name].hasNextPage && !isLoading
+                                        ? "#f3f4f6"
+                                        : "#e5e7eb",
+                                    border: "1px solid #d1d5db",
+                                    borderRadius: "4px",
+                                    width: "24px",
+                                    height: "24px",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    cursor:
+                                      userPagination[operador.name].hasNextPage && !isLoading
+                                        ? "pointer"
+                                        : "not-allowed",
+                                    fontSize: "10px",
+                                    color:
+                                      userPagination[operador.name].hasNextPage && !isLoading
+                                        ? "#374151"
+                                        : "#9ca3af",
+                                  }}>
+                                  <i className="fa fa-chevron-right"></i>
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                      </div>
+                    ) : (
+                      <div className="text-center py-2">
+                        <span style={{fontSize: "12px", color: "#94a3b8"}}>
+                          No hay bitácoras disponibles para este usuario
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             );
           })
