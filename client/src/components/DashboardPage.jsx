@@ -1,13 +1,8 @@
-import {useState, useEffect, useMemo, useCallback} from "react";
+import {useState, useEffect, useCallback} from "react";
 import {useAuth} from "../context/AuthContext";
 import {useSidebar} from "../context/SidebarContext";
 import {useNavigate} from "react-router-dom";
 import Sidebar from "./Sidebar";
-import {Chart as ChartJS, ArcElement, Tooltip, Legend} from "chart.js";
-import {Doughnut} from "react-chartjs-2";
-import * as XLSX from "xlsx";
-
-ChartJS.register(ArcElement, Tooltip, Legend);
 
 const DashboardPage = () => {
   const {user} = useAuth();
@@ -30,14 +25,13 @@ const DashboardPage = () => {
     topOperadoresTransportes: [],
     statusTrends: [],
     eventDistribution: [],
-    eventCategoriesStats: [],
+
     geographicData: [],
     operatorEfficiency: [],
     clientPerformance: [],
     tiposMonitoreo: [],
   });
-  const [oncEventsData, setOncEventsData] = useState([]);
-  const [bitacorasAnomalias, setBitacorasAnomalias] = useState([]);
+
   const [loading, setLoading] = useState(true);
   const [clientFilter, setClientFilter] = useState("all");
   const [availableClients, setAvailableClients] = useState([]);
@@ -67,23 +61,18 @@ const DashboardPage = () => {
   const [availableLineasTransporte, setAvailableLineasTransporte] = useState([]);
   const [availableOperadores, setAvailableOperadores] = useState([]);
   const [applyFiltersTrigger, setApplyFiltersTrigger] = useState(0);
-  const [oncViewMode, setOncViewMode] = useState("chart"); // 'chart' or 'list'
+
   const [lineasViewMode, setLineasViewMode] = useState("chart"); // 'chart' or 'list'
   const [operadoresTransportesViewMode, setOperadoresTransportesViewMode] = useState("chart"); // 'chart' or 'list'
   const [usuariosViewMode, setUsuariosViewMode] = useState("chart"); // 'chart' or 'list'
   const [geograficoViewMode, setGeograficoViewMode] = useState("chart"); // 'chart' or 'list'
 
-  // Filtros para la tabla de anomalías
-  const [anomaliasFilters, setAnomaliasFilters] = useState({
-    bitacora_id: "",
-    cliente: "",
-    anomalias: [], // Changed to array for multiple selection
-    linea_transporte: "",
-    operador: "",
-    origen: "",
-    destino: "",
-    status: "",
-  });
+  // Estado para los dropdowns de clientes
+  const [expandedClients, setExpandedClients] = useState({}); // {clienteId: boolean}
+  const [clientBitacoras, setClientBitacoras] = useState({}); // {clienteId: [bitacoras]}
+  const [loadingClientBitacoras, setLoadingClientBitacoras] = useState({}); // {clienteId: boolean}
+  const [clientPagination, setClientPagination] = useState({}); // {clienteId: paginationInfo}
+  const [loadingClientDownload, setLoadingClientDownload] = useState({}); // {clienteId: boolean}
 
   const baseUrl = import.meta.env.VITE_BASE_URL;
 
@@ -96,6 +85,13 @@ const DashboardPage = () => {
     setAppliedLineaTransporteFilter(lineaTransporteFilter);
     setAppliedOperadorFilter(operadorFilter);
     setApplyFiltersTrigger((prev) => prev + 1);
+
+    // Limpiar estados de dropdowns de clientes cuando cambien los filtros
+    setExpandedClients({});
+    setClientBitacoras({});
+    setLoadingClientBitacoras({});
+    setClientPagination({});
+    setLoadingClientDownload({});
   };
 
   // Function to reset filters
@@ -107,6 +103,13 @@ const DashboardPage = () => {
     setFechaHasta(today);
     setLineaTransporteFilter("all");
     setOperadorFilter("all");
+
+    // Limpiar estados de dropdowns de clientes cuando se reseteen los filtros
+    setExpandedClients({});
+    setClientBitacoras({});
+    setLoadingClientBitacoras({});
+    setClientPagination({});
+    setLoadingClientDownload({});
   };
 
   // Helper function to format numbers with thousands separator
@@ -115,53 +118,165 @@ const DashboardPage = () => {
     return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
   };
 
-  const downloadBitacorasAnomaliasExcel = (filteredData) => {
-    if (!filteredData || filteredData.length === 0) {
-      alert("No hay datos para exportar");
-      return;
-    }
+  // Función para cargar las bitácoras de un cliente específico con paginación
+  const fetchClientBitacoras = async (clienteNombre, page = 1) => {
+    try {
+      setLoadingClientBitacoras((prev) => ({...prev, [clienteNombre]: true}));
 
-    // Prepare data for Excel with new column order (Anomalías after Cliente)
-    const excelData = filteredData.map((bitacora) => ({
-      "No. Bitácora": bitacora.bitacora_id || "N/A",
-      Cliente: bitacora.cliente || "N/A",
-      Anomalías:
-        bitacora.categorias && bitacora.categorias.length > 0
-          ? bitacora.categorias.join(", ")
-          : "N/A",
-      "Línea Transporte": bitacora.linea_transporte || "N/A",
-      Operador: bitacora.operador || "N/A",
-      Origen: bitacora.origen || "N/A",
-      Destino: bitacora.destino || "N/A",
-      Estado: bitacora.status || "N/A",
+      const url = `${baseUrl}/bitacoras/by-client/${encodeURIComponent(
+        clienteNombre
+      )}?fechaDesde=${encodeURIComponent(appliedFechaDesde)}&fechaHasta=${encodeURIComponent(
+        appliedFechaHasta
+      )}&lineaTransporte=${encodeURIComponent(
+        appliedLineaTransporteFilter
+      )}&operador=${encodeURIComponent(appliedOperadorFilter)}&page=${page}&limit=10`;
+
+      const response = await fetch(url, {
+        method: "GET",
+        credentials: "include",
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setClientBitacoras((prev) => ({
+          ...prev,
+          [clienteNombre]: data.bitacoras,
+        }));
+        setClientPagination((prev) => ({
+          ...prev,
+          [clienteNombre]: data.pagination,
+        }));
+      } else {
+        console.error("Error fetching client bitacoras:", response.statusText);
+        setClientBitacoras((prev) => ({
+          ...prev,
+          [clienteNombre]: [],
+        }));
+        setClientPagination((prev) => ({
+          ...prev,
+          [clienteNombre]: null,
+        }));
+      }
+    } catch (error) {
+      console.error("Error fetching client bitacoras:", error);
+      setClientBitacoras((prev) => ({
+        ...prev,
+        [clienteNombre]: [],
+      }));
+      setClientPagination((prev) => ({
+        ...prev,
+        [clienteNombre]: null,
+      }));
+    } finally {
+      setLoadingClientBitacoras((prev) => ({...prev, [clienteNombre]: false}));
+    }
+  };
+
+  // Función para manejar el toggle del dropdown de cliente
+  const toggleClientDropdown = (clienteNombre) => {
+    const isCurrentlyExpanded = expandedClients[clienteNombre];
+
+    setExpandedClients((prev) => ({
+      ...prev,
+      [clienteNombre]: !isCurrentlyExpanded,
     }));
 
-    // Create workbook and worksheet
-    const workbook = XLSX.utils.book_new();
-    const worksheet = XLSX.utils.json_to_sheet(excelData);
+    // Si se está expandiendo y no tenemos las bitácoras, las cargamos
+    if (!isCurrentlyExpanded && !clientBitacoras[clienteNombre]) {
+      fetchClientBitacoras(clienteNombre);
+    }
+  };
 
-    // Set column widths with new order
-    const columnWidths = [
-      {wch: 15}, // No. Bitácora
-      {wch: 20}, // Cliente
-      {wch: 30}, // Anomalías
-      {wch: 20}, // Línea Transporte
-      {wch: 20}, // Operador
-      {wch: 25}, // Origen
-      {wch: 25}, // Destino
-      {wch: 12}, // Estado
-    ];
-    worksheet["!cols"] = columnWidths;
+  // Función para manejar la paginación de bitácoras de cliente
+  const handleClientPagination = (clienteNombre, page) => {
+    fetchClientBitacoras(clienteNombre, page);
+  };
 
-    // Add worksheet to workbook
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Bitácoras con Anomalías");
+  // Función para descargar bitácoras de cliente en Excel
+  const downloadClientBitacorasExcel = async (clienteNombre) => {
+    try {
+      setLoadingClientDownload((prev) => ({...prev, [clienteNombre]: true}));
 
-    // Generate filename with current date
-    const currentDate = new Date().toISOString().split("T")[0];
-    const filename = `Bitacoras_Anomalias_${currentDate}.xlsx`;
+      const url = `${baseUrl}/bitacoras/download/${encodeURIComponent(
+        clienteNombre
+      )}?fechaDesde=${encodeURIComponent(appliedFechaDesde)}&fechaHasta=${encodeURIComponent(
+        appliedFechaHasta
+      )}&lineaTransporte=${encodeURIComponent(
+        appliedLineaTransporteFilter
+      )}&operador=${encodeURIComponent(appliedOperadorFilter)}`;
 
-    // Save the file
-    XLSX.writeFile(workbook, filename);
+      const response = await fetch(url, {
+        method: "GET",
+        credentials: "include",
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+
+        if (data.bitacoras && data.bitacoras.length > 0) {
+          // Importar XLSX dinámicamente
+          const XLSX = await import("xlsx");
+
+          // Preparar datos para Excel
+          const excelData = data.bitacoras.map((bitacora, index) => ({
+            "#": index + 1,
+            "ID Bitácora": bitacora.bitacora_id,
+            "Fecha de Creación": new Date(bitacora.fechaCreacion).toLocaleDateString("es-ES"),
+            Cliente: bitacora.cliente,
+            "Tipo de Monitoreo": bitacora.tipoMonitoreo,
+            "Línea de Transporte": bitacora.lineaTransporte,
+            "Operador de Transporte": bitacora.operadorTransporte,
+            Origen: bitacora.origen,
+            Destino: bitacora.destino,
+            Estado: bitacora.estado,
+            Usuario: bitacora.usuario,
+          }));
+
+          // Crear libro de trabajo
+          const workbook = XLSX.utils.book_new();
+          const worksheet = XLSX.utils.json_to_sheet(excelData);
+
+          // Ajustar ancho de columnas
+          const colWidths = [
+            {wch: 5}, // #
+            {wch: 15}, // ID Bitácora
+            {wch: 18}, // Fecha de Creación
+            {wch: 25}, // Cliente
+            {wch: 20}, // Tipo de Monitoreo
+            {wch: 25}, // Línea de Transporte
+            {wch: 25}, // Operador de Transporte
+            {wch: 30}, // Origen
+            {wch: 30}, // Destino
+            {wch: 15}, // Estado
+            {wch: 20}, // Usuario
+          ];
+          worksheet["!cols"] = colWidths;
+
+          // Agregar hoja al libro
+          XLSX.utils.book_append_sheet(workbook, worksheet, "Bitácoras");
+
+          // Generar nombre de archivo
+          const fechaActual = new Date().toISOString().split("T")[0];
+          const filename = `Bitacoras_${clienteNombre.replace(
+            /[^a-zA-Z0-9]/g,
+            "_"
+          )}_${fechaActual}.xlsx`;
+
+          // Descargar archivo
+          XLSX.writeFile(workbook, filename);
+        } else {
+          alert("No hay bitácoras disponibles para descargar");
+        }
+      } else {
+        console.error("Error downloading client bitacoras:", response.statusText);
+        alert("Error al descargar las bitácoras");
+      }
+    } catch (error) {
+      console.error("Error downloading client bitacoras:", error);
+      alert("Error al descargar las bitácoras");
+    } finally {
+      setLoadingClientDownload((prev) => ({...prev, [clienteNombre]: false}));
+    }
   };
 
   const fetchDashboardData = useCallback(async () => {
@@ -244,46 +359,6 @@ const DashboardPage = () => {
         console.log("👥 Top Clients Sample:", statsData.topClients?.slice(0, 3));
         setDashboardStats(statsData);
       }
-
-      // Fetch ONC events data for bar chart
-      const oncResponse = await fetch(
-        `${baseUrl}/dashboard/onc-events?clientFilter=${encodeURIComponent(
-          appliedClientFilter
-        )}&fechaDesde=${encodeURIComponent(appliedFechaDesde)}&fechaHasta=${encodeURIComponent(
-          appliedFechaHasta
-        )}&lineaTransporte=${encodeURIComponent(
-          appliedLineaTransporteFilter
-        )}&operador=${encodeURIComponent(appliedOperadorFilter)}`,
-        {
-          method: "GET",
-          credentials: "include",
-        }
-      );
-
-      if (oncResponse.ok) {
-        const oncData = await oncResponse.json();
-        setOncEventsData(oncData);
-      }
-
-      // Fetch bitácoras con anomalías
-      const anomaliasResponse = await fetch(
-        `${baseUrl}/dashboard/bitacoras-anomalias?clientFilter=${encodeURIComponent(
-          appliedClientFilter
-        )}&fechaDesde=${encodeURIComponent(appliedFechaDesde)}&fechaHasta=${encodeURIComponent(
-          appliedFechaHasta
-        )}&lineaTransporte=${encodeURIComponent(
-          appliedLineaTransporteFilter
-        )}&operador=${encodeURIComponent(appliedOperadorFilter)}`,
-        {
-          method: "GET",
-          credentials: "include",
-        }
-      );
-
-      if (anomaliasResponse.ok) {
-        const anomaliasData = await anomaliasResponse.json();
-        setBitacorasAnomalias(anomaliasData);
-      }
     } catch (error) {
       console.error("Error fetching dashboard data:", error);
     } finally {
@@ -306,78 +381,6 @@ const DashboardPage = () => {
     }
     fetchDashboardData();
   }, [user, navigate, fetchDashboardData, applyFiltersTrigger]);
-
-  // Memoize filtered data calculation to avoid unnecessary recalculations
-  const filteredAnomaliasData = useMemo(() => {
-    if (bitacorasAnomalias.length === 0) {
-      return [];
-    }
-
-    return bitacorasAnomalias.filter((bitacora) => {
-      const matchesBitacoraId =
-        !anomaliasFilters.bitacora_id ||
-        (bitacora.bitacora_id || "")
-          .toLowerCase()
-          .includes(anomaliasFilters.bitacora_id.toLowerCase());
-
-      const matchesCliente =
-        !anomaliasFilters.cliente ||
-        (bitacora.cliente || "").toLowerCase().includes(anomaliasFilters.cliente.toLowerCase());
-
-      const matchesAnomalias =
-        anomaliasFilters.anomalias.length === 0 ||
-        (bitacora.categorias &&
-          bitacora.categorias.some((cat) => anomaliasFilters.anomalias.includes(cat)));
-
-      const matchesLineaTransporte =
-        !anomaliasFilters.linea_transporte ||
-        (bitacora.linea_transporte || "")
-          .toLowerCase()
-          .includes(anomaliasFilters.linea_transporte.toLowerCase());
-
-      const matchesUsuario =
-        !anomaliasFilters.operador ||
-        (bitacora.operador || "").toLowerCase().includes(anomaliasFilters.operador.toLowerCase());
-
-      const matchesOrigen =
-        !anomaliasFilters.origen ||
-        (bitacora.origen || "").toLowerCase().includes(anomaliasFilters.origen.toLowerCase());
-
-      const matchesDestino =
-        !anomaliasFilters.destino ||
-        (bitacora.destino || "").toLowerCase().includes(anomaliasFilters.destino.toLowerCase());
-
-      const matchesStatus =
-        !anomaliasFilters.status ||
-        (bitacora.status || "").toLowerCase().includes(anomaliasFilters.status.toLowerCase());
-
-      return (
-        matchesBitacoraId &&
-        matchesCliente &&
-        matchesAnomalias &&
-        matchesLineaTransporte &&
-        matchesUsuario &&
-        matchesOrigen &&
-        matchesDestino &&
-        matchesStatus
-      );
-    });
-  }, [bitacorasAnomalias, anomaliasFilters]);
-
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      const dropdown = document.getElementById("anomalias-dropdown");
-      const container = event.target.closest(".anomalias-dropdown-container");
-
-      if (dropdown && !container && dropdown.style.display === "block") {
-        dropdown.style.display = "none";
-      }
-    };
-
-    document.addEventListener("click", handleClickOutside);
-    return () => document.removeEventListener("click", handleClickOutside);
-  }, []);
 
   // Chart rendering functions
   const renderTiposMonitoreoChart = () => {
@@ -745,411 +748,6 @@ const DashboardPage = () => {
     );
   };
 
-  // --- NUEVAS FUNCIONES DE RENDER ---
-  const renderAnomaliasPieChart = () => {
-    const eventCategoriesStats = dashboardStats.eventCategoriesStats || [];
-
-    if (eventCategoriesStats.length === 0) {
-      return (
-        <div className="text-center py-5">
-          <div className="mb-3">
-            <i
-              className="fa fa-check-circle"
-              style={{
-                fontSize: "3rem",
-                color: "#10b981",
-                opacity: 0.3,
-              }}></i>
-          </div>
-          <h6 className="text-muted mb-2">Sin Anomalías Detectadas</h6>
-          <p className="text-muted small mb-0">
-            No se encontraron bitácoras con anomalías en el período seleccionado
-          </p>
-        </div>
-      );
-    }
-
-    // Calculate total for percentages
-    const total = eventCategoriesStats.reduce((sum, category) => sum + category.count, 0);
-
-    if (total === 0) {
-      return (
-        <div className="text-center text-muted">
-          No hay eventos registrados en las categorías especificadas
-        </div>
-      );
-    }
-
-    // Prepare data for Chart.js
-    const chartData = {
-      labels: eventCategoriesStats.map((category) => {
-        const labelMap = {
-          ENA: "Estadia no autorizada",
-          FM: "Falla mecánica",
-          ONC: "Usuario no responde",
-          DR: "Desvío de ruta",
-        };
-        return labelMap[category.categoria] || category.categoria;
-      }),
-      datasets: [
-        {
-          data: eventCategoriesStats.map((category) => category.count),
-          backgroundColor: eventCategoriesStats.map((category) => category.color),
-          borderWidth: 2,
-          borderColor: "#ffffff",
-          hoverBorderWidth: 3,
-        },
-      ],
-    };
-
-    const chartOptions = {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        legend: {
-          display: false, // We'll create our own legend
-        },
-        tooltip: {
-          position: "nearest",
-          yAlign: "top",
-          xAlign: "center",
-          callbacks: {
-            label: function (context) {
-              const label = context.label || "";
-              const value = context.parsed;
-              const percentage = ((value / total) * 100).toFixed(1);
-              return `${label}: ${value} (${percentage}%)`;
-            },
-          },
-        },
-      },
-      cutout: "60%", // This makes it a donut chart
-    };
-
-    return (
-      <div
-        className="pie-chart-container"
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: "20px",
-        }}>
-        <div
-          className="pie-chart"
-          style={{
-            position: "relative",
-            width: "200px",
-            height: "200px",
-          }}>
-          <Doughnut data={chartData} options={chartOptions} />
-          <div
-            style={{
-              position: "absolute",
-              top: "50%",
-              left: "50%",
-              transform: "translate(-50%, -50%)",
-              textAlign: "center",
-              pointerEvents: "none",
-            }}>
-            <div
-              style={{
-                fontSize: "14px",
-                fontWeight: "bold",
-                color: "#374151",
-                lineHeight: "1.2",
-              }}>
-              <div>{total}</div>
-              <div style={{fontSize: "10px", marginTop: "2px"}}>Bitácoras</div>
-            </div>
-          </div>
-        </div>
-        <div
-          className="pie-legend"
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            gap: "8px",
-          }}>
-          {/* Total at the top of legend */}
-          <div
-            className="legend-total"
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "8px",
-              marginBottom: "8px",
-              paddingBottom: "8px",
-              borderBottom: "1px solid rgba(255,255,255,0.2)",
-            }}>
-            <span
-              className="legend-color"
-              style={{
-                width: "12px",
-                height: "12px",
-                borderRadius: "2px",
-                background: "#374151",
-              }}></span>
-            <span
-              className="legend-text"
-              style={{
-                fontSize: "14px",
-                fontWeight: "bold",
-                color: "#ffffff",
-              }}>
-              Total: {formatNumber(total)} bitácoras
-            </span>
-          </div>
-
-          {eventCategoriesStats.map((category, index) => {
-            const percentage = total > 0 ? ((category.count / total) * 100).toFixed(1) : 0;
-            const labelMap = {
-              ENA: "Estadia no autorizada",
-              FM: "Falla mecánica",
-              ONC: "Usuario no responde",
-              DR: "Desvío de ruta",
-            };
-            const displayLabel = labelMap[category.categoria] || category.categoria;
-            return (
-              <div
-                key={index}
-                className="legend-item"
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "8px",
-                }}>
-                <span
-                  className="legend-color"
-                  style={{
-                    width: "12px",
-                    height: "12px",
-                    borderRadius: "2px",
-                    background: category.color,
-                  }}></span>
-                <span
-                  className="legend-text"
-                  style={{
-                    fontSize: "12px",
-                    color: "#ffffff",
-                  }}>
-                  {displayLabel} - {formatNumber(category.count)} ({percentage}%)
-                </span>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-    );
-  };
-
-  const renderOncBarChart = () => {
-    if (oncEventsData.length === 0) {
-      return (
-        <div className="text-center py-5">
-          <div className="mb-3">
-            <i
-              className="fa fa-user-times"
-              style={{
-                fontSize: "3rem",
-                color: "#06b6d4",
-                opacity: 0.3,
-              }}></i>
-          </div>
-          <h6 className="text-muted mb-2">Sin Eventos ONC</h6>
-          <p className="text-muted small mb-0">
-            No hay eventos de &quot;Usuario No Responde&quot; registrados
-          </p>
-        </div>
-      );
-    }
-
-    const maxCount = Math.max(...oncEventsData.map((event) => event.count));
-    const maxHeight = 200; // Altura máxima de las barras en píxeles
-
-    return (
-      <div className="bar-chart-container">
-        <div
-          className="bar-chart"
-          style={{
-            display: "flex",
-            alignItems: "flex-end",
-            gap: "8px",
-            height: "250px",
-            padding: "15px 0 35px 0",
-          }}>
-          {oncEventsData.map((event, index) => {
-            const barHeight = maxCount > 0 ? (event.count / maxCount) * maxHeight : 0;
-            return (
-              <div
-                key={index}
-                className="bar-item"
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  flex: 1,
-                  height: "100%",
-                  position: "relative",
-                  justifyContent: "flex-end",
-                }}>
-                <div
-                  className="bar"
-                  style={{
-                    height: `${barHeight}px`,
-                    backgroundColor: event.color,
-                    minHeight: event.count > 0 ? "4px" : "0px",
-                    width: "100%",
-                    maxWidth: "35px",
-                    borderRadius: "4px 4px 0 0",
-                    transition: "height 0.3s ease",
-                    marginBottom: "40px",
-                    position: "relative",
-                  }}>
-                  <span
-                    className="bar-value"
-                    style={{
-                      position: "absolute",
-                      top: "-25px",
-                      left: "50%",
-                      transform: "translateX(-50%)",
-                      fontSize: "10px",
-                      fontWeight: "bold",
-                      color: event.color,
-                      whiteSpace: "nowrap",
-                    }}>
-                    {formatNumber(event.count)}
-                  </span>
-                </div>
-                <div
-                  style={{
-                    position: "absolute",
-                    bottom: "-35px",
-                    left: "50%",
-                    transform: "translateX(-50%)",
-                    textAlign: "center",
-                    width: "100%",
-                  }}>
-                  <span
-                    className="bar-label"
-                    style={{
-                      fontSize: "11px",
-                      fontWeight: "500",
-                      color: "#6b7280",
-                      display: "block",
-                      cursor: "help",
-                      position: "relative",
-                    }}
-                    title={event.eventName}>
-                    {event.initials}
-                  </span>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-        {/* <div
-          className="chart-summary"
-          style={{
-            marginTop: "20px",
-            padding: "10px",
-            backgroundColor: "#ffffff",
-            borderRadius: "8px",
-          }}>
-          <div
-            className="summary-item"
-            style={{display: "flex", justifyContent: "space-between", marginBottom: "5px"}}>
-            <span className="summary-label" style={{fontSize: "12px", color: "#6b7280"}}>
-              Total eventos ONC:
-            </span>
-            <span
-              className="summary-value"
-              style={{fontSize: "12px", fontWeight: "bold", color: "#374151"}}>
-              {formatNumber(oncEventsData.reduce((sum, event) => sum + event.count, 0))} eventos
-            </span>
-          </div>
-          <div className="summary-item" style={{display: "flex", justifyContent: "space-between"}}>
-            <span className="summary-label" style={{fontSize: "12px", color: "#6b7280"}}>
-              Tipos de eventos:
-            </span>
-            <span
-              className="summary-value"
-              style={{fontSize: "12px", fontWeight: "bold", color: "#374151"}}>
-              {oncEventsData.length} tipos
-            </span>
-          </div>
-        </div> */}
-      </div>
-    );
-  };
-
-  const renderOncListView = () => {
-    if (oncEventsData.length === 0) {
-      return (
-        <div className="text-center py-5">
-          <div className="mb-3">
-            <i
-              className="fa fa-user-times"
-              style={{
-                fontSize: "3rem",
-                color: "#06b6d4",
-                opacity: 0.3,
-              }}></i>
-          </div>
-          <h6 className="text-muted mb-2">Sin Eventos ONC</h6>
-          <p className="text-muted small mb-0">
-            No hay eventos de &quot;Usuario No Responde&quot; registrados
-          </p>
-        </div>
-      );
-    }
-
-    const totalEvents = oncEventsData.reduce((sum, event) => sum + event.count, 0);
-
-    return (
-      <div className="list-view-container">
-        <div className="table-responsive" style={{maxHeight: "300px", overflowY: "auto"}}>
-          <table className="table table-hover table-sm">
-            <thead className="sticky-top" style={{backgroundColor: "#ffffff"}}>
-              <tr>
-                <th className="small">Evento</th>
-                <th className="small text-center">Cantidad</th>
-                <th className="small text-center">Porcentaje</th>
-              </tr>
-            </thead>
-            <tbody>
-              {oncEventsData.map((event, index) => {
-                const percentage =
-                  totalEvents > 0 ? ((event.count / totalEvents) * 100).toFixed(1) : 0;
-                return (
-                  <tr key={index}>
-                    <td className="small">
-                      <div className="d-flex align-items-center gap-2">
-                        <span
-                          className="badge"
-                          style={{
-                            backgroundColor: event.color,
-                            color: "#fff",
-                            fontSize: "0.7rem",
-                            width: "12px",
-                            height: "12px",
-                            borderRadius: "50%",
-                          }}></span>
-                        {event.eventName}
-                      </div>
-                    </td>
-                    <td className="small text-center fw-bold">{formatNumber(event.count)}</td>
-                    <td className="small text-center">{percentage}%</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    );
-  };
-
   const renderTopClients = () => {
     const {topClients} = dashboardStats;
     const totalClients =
@@ -1158,21 +756,487 @@ const DashboardPage = () => {
         : 0;
 
     return (
-      <div className="top-performers" style={{maxHeight: "300px", overflowY: "auto"}}>
+      <div className="top-performers" style={{maxHeight: "400px", overflowY: "auto"}}>
         {topClients && topClients.length > 0 ? (
           topClients.map((client, index) => {
             const percentage =
               totalClients > 0 ? Math.round((client.count / totalClients) * 100) : 0;
+            const isExpanded = expandedClients[client.nombre];
+            const bitacoras = clientBitacoras[client.nombre] || [];
+            const isLoading = loadingClientBitacoras[client.nombre];
+
             return (
-              <div key={index} className="performer-item">
-                <div className="performer-rank small">#{index + 1}</div>
-                <div className="performer-info">
-                  <div className="performer-name small">{client.nombre}</div>
-                  <div className="performer-stats small">
-                    {formatNumber(client.count)} bitácoras
+              <div key={index} className="client-dropdown-item">
+                {/* Header del cliente - clickeable para expandir */}
+                <div
+                  className="performer-item"
+                  onClick={() => toggleClientDropdown(client.nombre)}
+                  style={{cursor: "pointer", transition: "all 0.2s ease"}}>
+                  <div className="performer-rank small">#{index + 1}</div>
+                  <div className="performer-info">
+                    <div className="performer-name small">{client.nombre}</div>
+                    <div className="performer-stats small">
+                      {formatNumber(client.count)} bitácoras
+                    </div>
+                  </div>
+                  <div
+                    className="performer-score-container"
+                    style={{display: "flex", alignItems: "center", gap: "8px"}}>
+                    <div className="performer-score small">{percentage}%</div>
+                    {/* Botón de descarga */}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation(); // Evitar que se expanda/contraiga el dropdown
+                        downloadClientBitacorasExcel(client.nombre);
+                      }}
+                      disabled={loadingClientDownload[client.nombre]}
+                      style={{
+                        background: "linear-gradient(135deg, #10b981 0%, #059669 100%)",
+                        border: "none",
+                        borderRadius: "6px",
+                        width: "24px",
+                        height: "24px",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        cursor: loadingClientDownload[client.nombre] ? "not-allowed" : "pointer",
+                        transition: "all 0.2s ease",
+                        opacity: loadingClientDownload[client.nombre] ? 0.6 : 1,
+                      }}
+                      title="Descargar bitácoras en Excel">
+                      <i
+                        className={
+                          loadingClientDownload[client.nombre]
+                            ? "fa fa-spinner fa-spin"
+                            : "fa fa-download"
+                        }
+                        style={{
+                          fontSize: "10px",
+                          color: "white",
+                        }}></i>
+                    </button>
+                    <div className="expand-icon">
+                      <i
+                        className={`fa fa-chevron-${isExpanded ? "up" : "down"}`}
+                        style={{
+                          fontSize: "12px",
+                          color: "#64748b",
+                          transition: "transform 0.2s ease",
+                        }}></i>
+                    </div>
                   </div>
                 </div>
-                <div className="performer-score small">{percentage}%</div>
+
+                {/* Contenido expandible con las bitácoras */}
+                {isExpanded && (
+                  <div
+                    className="client-bitacoras-list"
+                    style={{
+                      paddingLeft: "40px",
+                      paddingRight: "8px",
+                      paddingTop: "8px",
+                      paddingBottom: "8px",
+                      backgroundColor: "rgba(148, 163, 184, 0.05)",
+                      borderRadius: "8px",
+                      margin: "8px 0",
+                      animation: "slideDown 0.3s ease",
+                    }}>
+                    {isLoading ? (
+                      <div className="text-center py-2">
+                        <i className="fa fa-spinner fa-spin me-2" style={{fontSize: "12px"}}></i>
+                        <span style={{fontSize: "12px", color: "#94a3b8"}}>
+                          Cargando bitácoras...
+                        </span>
+                      </div>
+                    ) : bitacoras && bitacoras.length > 0 ? (
+                      <div>
+                        <div className="bitacoras-header" style={{marginBottom: "12px"}}>
+                          <span style={{fontSize: "11px", color: "#64748b", fontWeight: "600"}}>
+                            Bitácoras ({bitacoras.length}):
+                          </span>
+                        </div>
+                        <div
+                          className="bitacoras-table-container"
+                          style={{
+                            maxHeight: "400px",
+                            overflowY: "auto",
+                            overflowX: "auto",
+                            border: "1px solid rgba(148, 163, 184, 0.2)",
+                            borderRadius: "8px",
+                            backgroundColor: "#f8fafc",
+                          }}>
+                          <table
+                            style={{
+                              width: "100%",
+                              borderCollapse: "collapse",
+                              fontSize: "10px",
+                              minWidth: "800px",
+                            }}>
+                            <thead style={{backgroundColor: "#e2e8f0", position: "sticky", top: 0}}>
+                              <tr>
+                                <th
+                                  style={{
+                                    padding: "8px 6px",
+                                    borderBottom: "1px solid #cbd5e1",
+                                    fontWeight: "600",
+                                    color: "#374151",
+                                    textAlign: "left",
+                                  }}>
+                                  No. Bitácora
+                                </th>
+                                <th
+                                  style={{
+                                    padding: "8px 6px",
+                                    borderBottom: "1px solid #cbd5e1",
+                                    fontWeight: "600",
+                                    color: "#374151",
+                                    textAlign: "left",
+                                  }}>
+                                  Fecha de Creación
+                                </th>
+                                <th
+                                  style={{
+                                    padding: "8px 6px",
+                                    borderBottom: "1px solid #cbd5e1",
+                                    fontWeight: "600",
+                                    color: "#374151",
+                                    textAlign: "left",
+                                  }}>
+                                  Cliente
+                                </th>
+                                <th
+                                  style={{
+                                    padding: "8px 6px",
+                                    borderBottom: "1px solid #cbd5e1",
+                                    fontWeight: "600",
+                                    color: "#374151",
+                                    textAlign: "left",
+                                  }}>
+                                  Tipo Monitoreo
+                                </th>
+                                <th
+                                  style={{
+                                    padding: "8px 6px",
+                                    borderBottom: "1px solid #cbd5e1",
+                                    fontWeight: "600",
+                                    color: "#374151",
+                                    textAlign: "left",
+                                  }}>
+                                  Línea de transporte
+                                </th>
+                                <th
+                                  style={{
+                                    padding: "8px 6px",
+                                    borderBottom: "1px solid #cbd5e1",
+                                    fontWeight: "600",
+                                    color: "#374151",
+                                    textAlign: "left",
+                                  }}>
+                                  Operador
+                                </th>
+                                <th
+                                  style={{
+                                    padding: "8px 6px",
+                                    borderBottom: "1px solid #cbd5e1",
+                                    fontWeight: "600",
+                                    color: "#374151",
+                                    textAlign: "left",
+                                  }}>
+                                  Origen
+                                </th>
+                                <th
+                                  style={{
+                                    padding: "8px 6px",
+                                    borderBottom: "1px solid #cbd5e1",
+                                    fontWeight: "600",
+                                    color: "#374151",
+                                    textAlign: "left",
+                                  }}>
+                                  Destino
+                                </th>
+                                <th
+                                  style={{
+                                    padding: "8px 6px",
+                                    borderBottom: "1px solid #cbd5e1",
+                                    fontWeight: "600",
+                                    color: "#374151",
+                                    textAlign: "left",
+                                  }}>
+                                  Estado
+                                </th>
+                                <th
+                                  style={{
+                                    padding: "8px 6px",
+                                    borderBottom: "1px solid #cbd5e1",
+                                    fontWeight: "600",
+                                    color: "#374151",
+                                    textAlign: "left",
+                                  }}>
+                                  Usuario
+                                </th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {bitacoras.map((bitacora, bitIndex) => (
+                                <tr
+                                  key={bitIndex}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    navigate(`/bitacora/${bitacora._id}`);
+                                  }}
+                                  style={{
+                                    cursor: "pointer",
+                                    transition: "background-color 0.2s ease",
+                                  }}
+                                  onMouseEnter={(e) => {
+                                    e.currentTarget.style.backgroundColor = "#e0f2fe";
+                                  }}
+                                  onMouseLeave={(e) => {
+                                    e.currentTarget.style.backgroundColor = "transparent";
+                                  }}>
+                                  <td
+                                    style={{
+                                      padding: "8px 6px",
+                                      borderBottom: "1px solid #e5e7eb",
+                                      color: "#1f2937",
+                                      fontWeight: "600",
+                                    }}>
+                                    #{bitacora.bitacora_id}
+                                  </td>
+                                  <td
+                                    style={{
+                                      padding: "8px 6px",
+                                      borderBottom: "1px solid #e5e7eb",
+                                      color: "#374151",
+                                    }}>
+                                    {new Date(bitacora.fechaCreacion).toLocaleDateString("es-ES", {
+                                      day: "2-digit",
+                                      month: "2-digit",
+                                      year: "numeric",
+                                    })}
+                                  </td>
+                                  <td
+                                    style={{
+                                      padding: "8px 6px",
+                                      borderBottom: "1px solid #e5e7eb",
+                                      color: "#374151",
+                                    }}>
+                                    {bitacora.cliente}
+                                  </td>
+                                  <td
+                                    style={{
+                                      padding: "8px 6px",
+                                      borderBottom: "1px solid #e5e7eb",
+                                      color: "#374151",
+                                    }}>
+                                    {bitacora.tipoMonitoreo}
+                                  </td>
+                                  <td
+                                    style={{
+                                      padding: "8px 6px",
+                                      borderBottom: "1px solid #e5e7eb",
+                                      color: "#374151",
+                                      maxWidth: "120px",
+                                      overflow: "hidden",
+                                      textOverflow: "ellipsis",
+                                      whiteSpace: "nowrap",
+                                    }}>
+                                    {bitacora.lineaTransporte || "N/A"}
+                                  </td>
+                                  <td
+                                    style={{
+                                      padding: "8px 6px",
+                                      borderBottom: "1px solid #e5e7eb",
+                                      color: "#374151",
+                                      maxWidth: "120px",
+                                      overflow: "hidden",
+                                      textOverflow: "ellipsis",
+                                      whiteSpace: "nowrap",
+                                    }}>
+                                    {bitacora.operadorTransporte || "N/A"}
+                                  </td>
+                                  <td
+                                    style={{
+                                      padding: "8px 6px",
+                                      borderBottom: "1px solid #e5e7eb",
+                                      color: "#374151",
+                                      maxWidth: "150px",
+                                      overflow: "hidden",
+                                      textOverflow: "ellipsis",
+                                      whiteSpace: "nowrap",
+                                    }}>
+                                    {bitacora.origen || "N/A"}
+                                  </td>
+                                  <td
+                                    style={{
+                                      padding: "8px 6px",
+                                      borderBottom: "1px solid #e5e7eb",
+                                      color: "#374151",
+                                      maxWidth: "150px",
+                                      overflow: "hidden",
+                                      textOverflow: "ellipsis",
+                                      whiteSpace: "nowrap",
+                                    }}>
+                                    {bitacora.destino || "N/A"}
+                                  </td>
+                                  <td
+                                    style={{
+                                      padding: "8px 6px",
+                                      borderBottom: "1px solid #e5e7eb",
+                                    }}>
+                                    <span
+                                      style={{
+                                        padding: "2px 6px",
+                                        borderRadius: "12px",
+                                        fontSize: "9px",
+                                        fontWeight: "600",
+                                        textTransform: "uppercase",
+                                        backgroundColor:
+                                          bitacora.estado === "nueva"
+                                            ? "#dbeafe"
+                                            : bitacora.estado === "validada"
+                                            ? "#fef3c7"
+                                            : bitacora.estado === "iniciada"
+                                            ? "#d1fae5"
+                                            : bitacora.estado === "cerrada"
+                                            ? "#fee2e2"
+                                            : bitacora.estado === "finalizada"
+                                            ? "#e0e7ff"
+                                            : "#f3f4f6",
+                                        color:
+                                          bitacora.estado === "nueva"
+                                            ? "#1e40af"
+                                            : bitacora.estado === "validada"
+                                            ? "#d97706"
+                                            : bitacora.estado === "iniciada"
+                                            ? "#059669"
+                                            : bitacora.estado === "cerrada"
+                                            ? "#dc2626"
+                                            : bitacora.estado === "finalizada"
+                                            ? "#7c3aed"
+                                            : "#6b7280",
+                                      }}>
+                                      {bitacora.estado}
+                                    </span>
+                                  </td>
+                                  <td
+                                    style={{
+                                      padding: "8px 6px",
+                                      borderBottom: "1px solid #e5e7eb",
+                                      color: "#374151",
+                                      maxWidth: "100px",
+                                      overflow: "hidden",
+                                      textOverflow: "ellipsis",
+                                      whiteSpace: "nowrap",
+                                    }}>
+                                    {bitacora.usuario}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+
+                        {/* Controles de paginación */}
+                        {clientPagination[client.nombre] &&
+                          clientPagination[client.nombre].totalPages > 1 && (
+                            <div
+                              style={{
+                                display: "flex",
+                                justifyContent: "space-between",
+                                alignItems: "center",
+                                padding: "8px 12px",
+                                borderTop: "1px solid #e5e7eb",
+                                fontSize: "11px",
+                                backgroundColor: "#f9fafb",
+                              }}>
+                              <span style={{color: "#6b7280"}}>
+                                Página {clientPagination[client.nombre].currentPage} de{" "}
+                                {clientPagination[client.nombre].totalPages} (
+                                {clientPagination[client.nombre].totalCount} total)
+                              </span>
+                              <div style={{display: "flex", gap: "4px"}}>
+                                <button
+                                  onClick={() =>
+                                    handleClientPagination(
+                                      client.nombre,
+                                      clientPagination[client.nombre].currentPage - 1
+                                    )
+                                  }
+                                  disabled={
+                                    !clientPagination[client.nombre].hasPrevPage || isLoading
+                                  }
+                                  style={{
+                                    background:
+                                      clientPagination[client.nombre].hasPrevPage && !isLoading
+                                        ? "#f3f4f6"
+                                        : "#e5e7eb",
+                                    border: "1px solid #d1d5db",
+                                    borderRadius: "4px",
+                                    width: "24px",
+                                    height: "24px",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    cursor:
+                                      clientPagination[client.nombre].hasPrevPage && !isLoading
+                                        ? "pointer"
+                                        : "not-allowed",
+                                    fontSize: "10px",
+                                    color:
+                                      clientPagination[client.nombre].hasPrevPage && !isLoading
+                                        ? "#374151"
+                                        : "#9ca3af",
+                                  }}>
+                                  <i className="fa fa-chevron-left"></i>
+                                </button>
+                                <button
+                                  onClick={() =>
+                                    handleClientPagination(
+                                      client.nombre,
+                                      clientPagination[client.nombre].currentPage + 1
+                                    )
+                                  }
+                                  disabled={
+                                    !clientPagination[client.nombre].hasNextPage || isLoading
+                                  }
+                                  style={{
+                                    background:
+                                      clientPagination[client.nombre].hasNextPage && !isLoading
+                                        ? "#f3f4f6"
+                                        : "#e5e7eb",
+                                    border: "1px solid #d1d5db",
+                                    borderRadius: "4px",
+                                    width: "24px",
+                                    height: "24px",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    cursor:
+                                      clientPagination[client.nombre].hasNextPage && !isLoading
+                                        ? "pointer"
+                                        : "not-allowed",
+                                    fontSize: "10px",
+                                    color:
+                                      clientPagination[client.nombre].hasNextPage && !isLoading
+                                        ? "#374151"
+                                        : "#9ca3af",
+                                  }}>
+                                  <i className="fa fa-chevron-right"></i>
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                      </div>
+                    ) : (
+                      <div className="text-center py-2">
+                        <span style={{fontSize: "12px", color: "#94a3b8"}}>
+                          No hay bitácoras disponibles para este cliente
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             );
           })
@@ -1587,464 +1651,6 @@ const DashboardPage = () => {
             </div>
           );
         })}
-      </div>
-    );
-  };
-
-  const renderBitacorasAnomalias = () => {
-    if (bitacorasAnomalias.length === 0) {
-      return (
-        <div className="text-center py-5">
-          <div className="mb-3">
-            <i
-              className="fa fa-clipboard-check"
-              style={{
-                fontSize: "3rem",
-                color: "#10b981",
-                opacity: 0.3,
-              }}></i>
-          </div>
-          <h6 className="text-muted mb-2">Sin Anomalías Registradas</h6>
-          <p className="text-muted small mb-0">
-            No hay bitácoras con anomalías en el período seleccionado
-          </p>
-        </div>
-      );
-    }
-
-    const getBadgeColor = (categoria) => {
-      const colorMap = {
-        ENA: "bg-warning",
-        ONC: "bg-info",
-        FM: "bg-danger",
-        DR: "bg-success",
-      };
-      return colorMap[categoria] || "bg-secondary";
-    };
-
-    // Filter function
-    const filteredData = bitacorasAnomalias.filter((bitacora) => {
-      const matchesBitacoraId =
-        !anomaliasFilters.bitacora_id ||
-        (bitacora.bitacora_id || "")
-          .toLowerCase()
-          .includes(anomaliasFilters.bitacora_id.toLowerCase());
-
-      const matchesCliente =
-        !anomaliasFilters.cliente ||
-        (bitacora.cliente || "").toLowerCase().includes(anomaliasFilters.cliente.toLowerCase());
-
-      const matchesAnomalias =
-        anomaliasFilters.anomalias.length === 0 ||
-        (bitacora.categorias &&
-          bitacora.categorias.some((cat) => anomaliasFilters.anomalias.includes(cat)));
-
-      const matchesLineaTransporte =
-        !anomaliasFilters.linea_transporte ||
-        (bitacora.linea_transporte || "")
-          .toLowerCase()
-          .includes(anomaliasFilters.linea_transporte.toLowerCase());
-
-      const matchesUsuario =
-        !anomaliasFilters.operador ||
-        (bitacora.operador || "").toLowerCase().includes(anomaliasFilters.operador.toLowerCase());
-
-      const matchesOrigen =
-        !anomaliasFilters.origen ||
-        (bitacora.origen || "").toLowerCase().includes(anomaliasFilters.origen.toLowerCase());
-
-      const matchesDestino =
-        !anomaliasFilters.destino ||
-        (bitacora.destino || "").toLowerCase().includes(anomaliasFilters.destino.toLowerCase());
-
-      const matchesStatus =
-        !anomaliasFilters.status ||
-        (bitacora.status || "").toLowerCase().includes(anomaliasFilters.status.toLowerCase());
-
-      return (
-        matchesBitacoraId &&
-        matchesCliente &&
-        matchesAnomalias &&
-        matchesLineaTransporte &&
-        matchesUsuario &&
-        matchesOrigen &&
-        matchesDestino &&
-        matchesStatus
-      );
-    });
-
-    const handleFilterChange = (field, value) => {
-      setAnomaliasFilters((prev) => ({
-        ...prev,
-        [field]: value,
-      }));
-    };
-
-    const handleAnomaliasFilterChange = (selectedOptions) => {
-      setAnomaliasFilters((prev) => ({
-        ...prev,
-        anomalias: selectedOptions,
-      }));
-    };
-
-    const clearFilters = () => {
-      setAnomaliasFilters({
-        bitacora_id: "",
-        cliente: "",
-        anomalias: [],
-        linea_transporte: "",
-        operador: "",
-        origen: "",
-        destino: "",
-        status: "",
-      });
-    };
-
-    return (
-      <div>
-        {/* Filter Controls */}
-        <div className="mb-3">
-          <div className="row g-2">
-            <div className="col-12 d-flex justify-content-between align-items-center mb-2">
-              <div className="d-flex align-items-center gap-2">
-                <small className="text-muted">
-                  Mostrando {filteredData.length} de {bitacorasAnomalias.length} registros
-                </small>
-                {anomaliasFilters.anomalias.length > 0 && (
-                  <div className="d-flex align-items-center gap-1">
-                    <span className="badge bg-primary" style={{fontSize: "10px"}}>
-                      <i className="fa fa-filter me-1"></i>
-                      Anomalías: {anomaliasFilters.anomalias.length}
-                    </span>
-                    <div className="d-flex gap-1">
-                      {anomaliasFilters.anomalias.map((anomalia) => {
-                        const colors = {
-                          ENA: "#f59e0b",
-                          FM: "#ef4444",
-                          ONC: "#06b6d4",
-                          DR: "#10b981",
-                        };
-                        return (
-                          <span
-                            key={anomalia}
-                            className="badge"
-                            style={{
-                              backgroundColor: colors[anomalia],
-                              color: "white",
-                              fontSize: "8px",
-                              padding: "2px 4px",
-                            }}>
-                            {anomalia}
-                          </span>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-              </div>
-              <button
-                className="btn btn-sm btn-outline-secondary"
-                onClick={clearFilters}
-                disabled={Object.entries(anomaliasFilters).every(([key, value]) =>
-                  key === "anomalias" ? value.length === 0 : !value
-                )}>
-                <i className="fa fa-times me-1"></i>
-                Limpiar filtros
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <div className="table-responsive" style={{maxHeight: "400px", overflowY: "auto"}}>
-          <table className="table table-hover table-sm">
-            <thead className="sticky-top" style={{backgroundColor: "#ffffff"}}>
-              <tr>
-                <th className="small text-center" style={{minWidth: "120px"}}>
-                  <div>No. Bitácora</div>
-                  <input
-                    type="text"
-                    className="form-control form-control-sm mt-1"
-                    placeholder="Filtrar..."
-                    value={anomaliasFilters.bitacora_id}
-                    onChange={(e) => handleFilterChange("bitacora_id", e.target.value)}
-                    style={{fontSize: "10px"}}
-                  />
-                </th>
-                <th className="small text-center" style={{minWidth: "120px"}}>
-                  <div>Cliente</div>
-                  <input
-                    type="text"
-                    className="form-control form-control-sm mt-1"
-                    placeholder="Filtrar..."
-                    value={anomaliasFilters.cliente}
-                    onChange={(e) => handleFilterChange("cliente", e.target.value)}
-                    style={{fontSize: "10px"}}
-                  />
-                </th>
-                <th className="small text-center" style={{minWidth: "120px"}}>
-                  <div>Anomalías</div>
-                  <div className="anomalias-dropdown-container mt-1" style={{position: "relative"}}>
-                    <button
-                      type="button"
-                      className="form-control form-control-sm d-flex align-items-center justify-content-between"
-                      onClick={() => {
-                        const dropdown = document.getElementById("anomalias-dropdown");
-                        dropdown.style.display =
-                          dropdown.style.display === "block" ? "none" : "block";
-                      }}
-                      style={{
-                        fontSize: "10px",
-                        height: "32px",
-                        border:
-                          anomaliasFilters.anomalias.length > 0
-                            ? "2px solid #0d6efd"
-                            : "1px solid #ced4da",
-                        backgroundColor:
-                          anomaliasFilters.anomalias.length > 0 ? "#e7f3ff" : "white",
-                        cursor: "pointer",
-                      }}>
-                      <div className="d-flex align-items-center gap-1">
-                        {anomaliasFilters.anomalias.length === 0 ? (
-                          <span className="text-muted">Filtrar...</span>
-                        ) : (
-                          <div className="d-flex gap-1 flex-wrap">
-                            {anomaliasFilters.anomalias.slice(0, 2).map((anomalia) => {
-                              const colors = {
-                                ENA: "#f59e0b",
-                                FM: "#ef4444",
-                                ONC: "#06b6d4",
-                                DR: "#10b981",
-                              };
-                              return (
-                                <span
-                                  key={anomalia}
-                                  className="badge"
-                                  style={{
-                                    backgroundColor: colors[anomalia],
-                                    color: "white",
-                                    fontSize: "7px",
-                                    padding: "1px 3px",
-                                  }}>
-                                  {anomalia}
-                                </span>
-                              );
-                            })}
-                            {anomaliasFilters.anomalias.length > 2 && (
-                              <span
-                                className="badge bg-secondary"
-                                style={{fontSize: "7px", padding: "1px 3px"}}>
-                                +{anomaliasFilters.anomalias.length - 2}
-                              </span>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                      <i className="fa fa-chevron-down" style={{fontSize: "8px"}}></i>
-                    </button>
-
-                    <div
-                      id="anomalias-dropdown"
-                      className="anomalias-dropdown-menu"
-                      style={{
-                        display: "none",
-                        position: "absolute",
-                        top: "100%",
-                        left: "0",
-                        right: "0",
-                        backgroundColor: "white",
-                        border: "1px solid #ced4da",
-                        borderRadius: "4px",
-                        boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
-                        zIndex: 1000,
-                        fontSize: "10px",
-                        padding: "8px",
-                      }}>
-                      <div className="d-flex justify-content-between align-items-center mb-2">
-                        <small className="text-muted fw-bold">Seleccionar anomalías:</small>
-                        <div className="d-flex gap-1">
-                          <button
-                            type="button"
-                            className="btn btn-link btn-sm p-0"
-                            onClick={() => handleAnomaliasFilterChange(["ENA", "FM", "ONC", "DR"])}
-                            style={{fontSize: "8px", textDecoration: "none"}}
-                            title="Seleccionar todas">
-                            Todas
-                          </button>
-                          <span style={{fontSize: "8px"}}>|</span>
-                          <button
-                            type="button"
-                            className="btn btn-link btn-sm p-0"
-                            onClick={() => handleAnomaliasFilterChange([])}
-                            style={{fontSize: "8px", textDecoration: "none"}}
-                            title="Deseleccionar todas">
-                            Limpiar
-                          </button>
-                        </div>
-                      </div>
-
-                      {[
-                        {
-                          value: "ENA",
-                          label: "ENA",
-                          color: "#f59e0b",
-                          desc: "Estadia no autorizada",
-                        },
-                        {value: "FM", label: "FM", color: "#ef4444", desc: "Falla mecánica"},
-                        {
-                          value: "ONC",
-                          label: "ONC",
-                          color: "#06b6d4",
-                          desc: "Usuario no responde",
-                        },
-                        {value: "DR", label: "DR", color: "#10b981", desc: "Desvío de ruta"},
-                      ].map((anomalia) => (
-                        <label
-                          key={anomalia.value}
-                          className="d-flex align-items-center gap-2 py-1 px-1"
-                          style={{
-                            cursor: "pointer",
-                            borderRadius: "3px",
-                            transition: "background-color 0.2s",
-                          }}
-                          onMouseEnter={(e) => (e.target.style.backgroundColor = "#ffffff")}
-                          onMouseLeave={(e) => (e.target.style.backgroundColor = "transparent")}>
-                          <input
-                            type="checkbox"
-                            checked={anomaliasFilters.anomalias.includes(anomalia.value)}
-                            onChange={(e) => {
-                              const currentSelection = [...anomaliasFilters.anomalias];
-                              if (e.target.checked) {
-                                currentSelection.push(anomalia.value);
-                              } else {
-                                const index = currentSelection.indexOf(anomalia.value);
-                                if (index > -1) {
-                                  currentSelection.splice(index, 1);
-                                }
-                              }
-                              handleAnomaliasFilterChange(currentSelection);
-                            }}
-                            style={{margin: "0", accentColor: anomalia.color}}
-                          />
-                          <span
-                            className="badge"
-                            style={{
-                              backgroundColor: anomalia.color,
-                              color: "white",
-                              fontSize: "8px",
-                              padding: "2px 4px",
-                              minWidth: "25px",
-                              textAlign: "center",
-                            }}>
-                            {anomalia.label}
-                          </span>
-                          <span style={{fontSize: "9px", color: "#6c757d"}}>{anomalia.desc}</span>
-                        </label>
-                      ))}
-                    </div>
-                  </div>
-                </th>
-                <th className="small text-center" style={{minWidth: "150px"}}>
-                  <div>Línea Transporte</div>
-                  <input
-                    type="text"
-                    className="form-control form-control-sm mt-1"
-                    placeholder="Filtrar..."
-                    value={anomaliasFilters.linea_transporte}
-                    onChange={(e) => handleFilterChange("linea_transporte", e.target.value)}
-                    style={{fontSize: "10px"}}
-                  />
-                </th>
-                <th className="small text-center" style={{minWidth: "120px"}}>
-                  <div>Operador</div>
-                  <input
-                    type="text"
-                    className="form-control form-control-sm mt-1"
-                    placeholder="Filtrar..."
-                    value={anomaliasFilters.operador}
-                    onChange={(e) => handleFilterChange("operador", e.target.value)}
-                    style={{fontSize: "10px"}}
-                  />
-                </th>
-                <th className="small text-center" style={{minWidth: "120px"}}>
-                  <div>Origen</div>
-                  <input
-                    type="text"
-                    className="form-control form-control-sm mt-1"
-                    placeholder="Filtrar..."
-                    value={anomaliasFilters.origen}
-                    onChange={(e) => handleFilterChange("origen", e.target.value)}
-                    style={{fontSize: "10px"}}
-                  />
-                </th>
-                <th className="small text-center" style={{minWidth: "120px"}}>
-                  <div>Destino</div>
-                  <input
-                    type="text"
-                    className="form-control form-control-sm mt-1"
-                    placeholder="Filtrar..."
-                    value={anomaliasFilters.destino}
-                    onChange={(e) => handleFilterChange("destino", e.target.value)}
-                    style={{fontSize: "10px"}}
-                  />
-                </th>
-                <th className="small text-center" style={{minWidth: "100px"}}>
-                  <div>Estado</div>
-                  <input
-                    type="text"
-                    className="form-control form-control-sm mt-1"
-                    placeholder="Filtrar..."
-                    value={anomaliasFilters.status}
-                    onChange={(e) => handleFilterChange("status", e.target.value)}
-                    style={{fontSize: "10px"}}
-                  />
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredData.map((bitacora, index) => (
-                <tr key={bitacora._id || index}>
-                  <td className="small text-center">{bitacora.bitacora_id || "N/A"}</td>
-                  <td className="small">{bitacora.cliente || "N/A"}</td>
-                  <td className="small">
-                    <div className="d-flex flex-wrap gap-1">
-                      {bitacora.categorias && bitacora.categorias.length > 0 ? (
-                        bitacora.categorias.map((categoria, catIndex) => (
-                          <span key={catIndex} className={`badge ${getBadgeColor(categoria)}`}>
-                            {categoria}
-                          </span>
-                        ))
-                      ) : (
-                        <span className="badge bg-secondary">N/A</span>
-                      )}
-                    </div>
-                  </td>
-                  <td className="small">{bitacora.linea_transporte || "N/A"}</td>
-                  <td className="small">{bitacora.operador || "N/A"}</td>
-                  <td className="small">{bitacora.origen || "N/A"}</td>
-                  <td className="small">{bitacora.destino || "N/A"}</td>
-                  <td className="small text-center">
-                    <span
-                      className={`badge ${
-                        bitacora.status === "cerrada"
-                          ? "bg-danger"
-                          : bitacora.status === "nueva"
-                          ? "bg-warning"
-                          : bitacora.status === "iniciada"
-                          ? "bg-primary"
-                          : bitacora.status === "validada"
-                          ? "bg-info"
-                          : bitacora.status === "finalizada"
-                          ? "bg-secondary"
-                          : "bg-light text-dark"
-                      }`}>
-                      {bitacora.status || "N/A"}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
       </div>
     );
   };
@@ -2500,81 +2106,6 @@ const DashboardPage = () => {
                   <div className="chart-body">
                     <div className="overflow-auto">{renderTiposMonitoreoChart()}</div>
                   </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Análisis de anomalías */}
-            <div className="row mb-3 mb-md-4">
-              <div className="col-12">
-                <div className="chart-card">
-                  <div className="chart-header">
-                    <h6 className="mb-0">Análisis de Anomalías</h6>
-                  </div>
-                  <div className="chart-body">
-                    <div className="row g-3">
-                      {/* Anomalías Aceptadas - Gráfico de Pie */}
-                      <div className="col-12 col-lg-6">
-                        <div className="chart-card">
-                          <div className="chart-header">
-                            <h6 className="mb-0">Anomalías Aceptadas</h6>
-                          </div>
-                          <div className="chart-body">{renderAnomaliasPieChart()}</div>
-                        </div>
-                      </div>
-
-                      {/* Usuario No Responde - Gráfico de Barras */}
-                      <div className="col-12 col-lg-6">
-                        <div className="chart-card">
-                          <div className="chart-header d-flex justify-content-between align-items-center">
-                            <h6 className="mb-0">Usuario No Responde</h6>
-                            <div className="btn-group btn-group-sm" role="group">
-                              <button
-                                type="button"
-                                className={`btn ${
-                                  oncViewMode === "chart" ? "btn-primary" : "btn-outline-primary"
-                                }`}
-                                onClick={() => setOncViewMode("chart")}
-                                title="Vista de gráfico">
-                                <i className="fa fa-bar-chart"></i>
-                              </button>
-                              <button
-                                type="button"
-                                className={`btn ${
-                                  oncViewMode === "list" ? "btn-primary" : "btn-outline-primary"
-                                }`}
-                                onClick={() => setOncViewMode("list")}
-                                title="Vista de lista">
-                                <i className="fa fa-list"></i>
-                              </button>
-                            </div>
-                          </div>
-                          <div className="chart-body">
-                            {oncViewMode === "chart" ? renderOncBarChart() : renderOncListView()}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Lista de bitácoras con anomalías */}
-            <div className="row mb-3 mb-md-4">
-              <div className="col-12">
-                <div className="chart-card">
-                  <div className="chart-header d-flex justify-content-between align-items-center">
-                    <h6 className="mb-0">Lista de Bitácoras con Anomalías</h6>
-                    <button
-                      className="btn btn-sm btn-outline-success"
-                      onClick={() => downloadBitacorasAnomaliasExcel(filteredAnomaliasData)}
-                      disabled={filteredAnomaliasData.length === 0}>
-                      <i className="fa fa-file-excel me-1"></i>
-                      Excel
-                    </button>
-                  </div>
-                  <div className="chart-body">{renderBitacorasAnomalias()}</div>
                 </div>
               </div>
             </div>

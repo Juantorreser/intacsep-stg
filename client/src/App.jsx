@@ -7,6 +7,7 @@ import {SidebarProvider} from "./context/SidebarContext";
 import Login from "./components/LoginPage";
 import Home from "./components/Home";
 import DashboardPage from "./components/DashboardPage";
+import AnomaliasDashboardPage from "./components/AnomaliasDashboardPage";
 import TiposMonitoreo from "./components/Settings/TiposMonitoreo";
 import UsersPage from "./components/Settings/UsersPage";
 import UserRolePage from "./components/Settings/RolePage";
@@ -30,7 +31,8 @@ function App() {
         <Route path="/" element={<Login />}></Route>
         <Route path="/login" element={<Login />}></Route>
         <Route path="/inicio" element={<Home />}></Route>
-        <Route path="/dashboard" element={<DashboardPage />}></Route>
+        <Route path="/dashboard/general" element={<DashboardPage />}></Route>
+        <Route path="/dashboard/anomalias" element={<AnomaliasDashboardPage />}></Route>
         <Route path="/bitacoras" element={<BitacorasPage />}></Route>
         <Route path="/bitacora/:id" element={<BitacoraRouter edited={false} />} />
         <Route path="/bitacoras/:id/editada" element={<BitacoraRouter edited={true} />} />

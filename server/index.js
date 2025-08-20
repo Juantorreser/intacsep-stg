@@ -486,7 +486,482 @@ app.get("/bitacoras", async (req, res) => {
   }
 });
 
+// Endpoint para descargar todas las bitácoras de un cliente específico (sin paginación)
+app.get("/bitacoras/download/:clienteName", async (req, res) => {
+  try {
+    const { clienteName } = req.params;
+    const { fechaDesde, fechaHasta, lineaTransporte, operador } = req.query;
 
+    // Build query filters (same as pagination endpoint)
+    let query = {
+      cliente: decodeURIComponent(clienteName),
+      deleted: { $ne: true }
+    };
+
+    // Add date range filter if provided
+    if (fechaDesde && fechaHasta && fechaDesde.trim() !== '' && fechaHasta.trim() !== '') {
+      const startDate = new Date(fechaDesde);
+      const endDate = new Date(fechaHasta + 'T23:59:59.999Z');
+
+      if (!isNaN(startDate) && !isNaN(endDate)) {
+        query.createdAt = {
+          $gte: startDate,
+          $lte: endDate
+        };
+      }
+    }
+
+    // Add transport line filter if provided
+    if (lineaTransporte && lineaTransporte !== 'all') {
+      query.$and = query.$and || [];
+      query.$and.push({
+        $or: [
+          { 'transportes.lineaTransporte': lineaTransporte }
+        ]
+      });
+    }
+
+    // Add operator filter if provided
+    if (operador && operador !== 'all') {
+      query.$and = query.$and || [];
+      query.$and.push({
+        $or: [
+          { 'transportes.operador': operador }
+        ]
+      });
+    }
+
+    // Get ALL bitacoras for this client (no pagination for download) using aggregation
+    const bitacoras = await Bitacora.aggregate([
+      { $match: query },
+      { $sort: { createdAt: -1 } },
+      // Add fields to handle ObjectId conversion for lookups
+      {
+        $addFields: {
+          origenForLookup: {
+            $cond: {
+              if: {
+                $and: [
+                  { $eq: [{ $type: '$origen' }, 'string'] },
+                  { $regexMatch: { input: '$origen', regex: '^[0-9a-fA-F]{24}$' } }
+                ]
+              },
+              then: { $toObjectId: '$origen' },
+              else: '$origen'
+            }
+          },
+          destinoForLookup: {
+            $cond: {
+              if: {
+                $and: [
+                  { $eq: [{ $type: '$destino' }, 'string'] },
+                  { $regexMatch: { input: '$destino', regex: '^[0-9a-fA-F]{24}$' } }
+                ]
+              },
+              then: { $toObjectId: '$destino' },
+              else: '$destino'
+            }
+          }
+        }
+      },
+      // Lookups with ObjectId conversion
+      {
+        $lookup: {
+          from: 'origens',
+          localField: 'origenForLookup',
+          foreignField: '_id',
+          as: 'origenInfoById'
+        }
+      },
+      {
+        $lookup: {
+          from: 'origens',
+          localField: 'origen',
+          foreignField: 'nombre',
+          as: 'origenInfoByName'
+        }
+      },
+      {
+        $lookup: {
+          from: 'destinos',
+          localField: 'destinoForLookup',
+          foreignField: '_id',
+          as: 'destinoInfoById'
+        }
+      },
+      {
+        $lookup: {
+          from: 'destinos',
+          localField: 'destino',
+          foreignField: 'nombre',
+          as: 'destinoInfoByName'
+        }
+      },
+      // Combine results - prefer _id match over nombre match
+      {
+        $addFields: {
+          origenInfo: {
+            $cond: {
+              if: { $gt: [{ $size: '$origenInfoById' }, 0] },
+              then: '$origenInfoById',
+              else: '$origenInfoByName'
+            }
+          },
+          destinoInfo: {
+            $cond: {
+              if: { $gt: [{ $size: '$destinoInfoById' }, 0] },
+              then: '$destinoInfoById',
+              else: '$destinoInfoByName'
+            }
+          }
+        }
+      }
+    ]);
+
+    // Helper functions (same as in anomalias endpoint)
+    const getTransportLines = (transportes) => {
+      if (!transportes || !Array.isArray(transportes) || transportes.length === 0) {
+        return 'N/A';
+      }
+
+      const lines = transportes
+        .map(transporte => {
+          // Convert null, undefined, or empty string to 'N/A'
+          if (!transporte.lineaTransporte || transporte.lineaTransporte.trim() === '') {
+            return 'N/A';
+          }
+          return transporte.lineaTransporte;
+        })
+        .filter((line, index, array) => array.indexOf(line) === index); // Remove duplicates
+
+      return lines.length > 0 ? lines.join(', ') : 'N/A';
+    };
+
+    const getTransportOperators = (transportes) => {
+      if (!transportes || !Array.isArray(transportes) || transportes.length === 0) {
+        return 'N/A';
+      }
+
+      const operators = transportes
+        .map(transporte => {
+          // Convert null, undefined, or empty string to 'N/A'
+          if (!transporte.operador || transporte.operador.trim() === '') {
+            return 'N/A';
+          }
+          return transporte.operador;
+        })
+        .filter((operator, index, array) => array.indexOf(operator) === index); // Remove duplicates
+
+      return operators.length > 0 ? operators.join(', ') : 'N/A';
+    };
+
+    const getLocationName = (locationField, lookupInfo = null, debugContext = '') => {
+      // First, try to use lookup data if available
+      if (lookupInfo && lookupInfo.length > 0) {
+        const locationData = lookupInfo[0];
+        const result = `${locationData.nombre}, ${locationData.estado || ''}`.trim().replace(/,$/, '');
+        return result;
+      }
+
+      // Fallback to original field processing
+      if (!locationField) {
+        return 'N/A';
+      }
+
+      // If it's an object with nombre and estado properties
+      if (typeof locationField === 'object' && locationField.nombre) {
+        const result = `${locationField.nombre}, ${locationField.estado || ''}`.trim().replace(/,$/, '');
+        return result;
+      }
+
+      // If it's a plain string and not an ObjectId
+      if (typeof locationField === 'string' && !locationField.match(/^[0-9a-f]{24}$/i)) {
+        return locationField;
+      }
+
+      // If it's an ObjectId string and no lookup data found
+      return `ObjectId no resuelto: ${locationField}`;
+    };
+
+    // Format the data using the same helper functions as anomalias endpoint
+    const formattedBitacoras = bitacoras.map(bitacora => {
+      return {
+        _id: bitacora._id,
+        bitacora_id: bitacora.bitacora_id,
+        fechaCreacion: bitacora.createdAt,
+        cliente: bitacora.cliente,
+        tipoMonitoreo: bitacora.monitoreo,
+        lineaTransporte: getTransportLines(bitacora.transportes),
+        operadorTransporte: getTransportOperators(bitacora.transportes),
+        origen: getLocationName(bitacora.origen, bitacora.origenInfo, 'ORIGEN'),
+        destino: getLocationName(bitacora.destino, bitacora.destinoInfo, 'DESTINO'),
+        estado: bitacora.status,
+        usuario: bitacora.operador || 'N/A'
+      };
+    });
+
+    res.status(200).json({
+      bitacoras: formattedBitacoras,
+      totalCount: formattedBitacoras.length,
+      cliente: decodeURIComponent(clienteName)
+    });
+  } catch (error) {
+    console.error("Error fetching all bitacoras for download:", error);
+    res.status(500).json({ error: "Failed to fetch bitacoras for download" });
+  }
+});
+
+// Endpoint para obtener bitácoras por cliente específico
+app.get("/bitacoras/by-client/:clienteName", async (req, res) => {
+  try {
+    const { clienteName } = req.params;
+    const { fechaDesde, fechaHasta, lineaTransporte, operador } = req.query;
+
+    // Build query filters
+    let query = {
+      cliente: decodeURIComponent(clienteName),
+      deleted: { $ne: true } // Exclude soft deleted bitacoras
+    };
+
+    // Add date range filter if provided
+    if (fechaDesde && fechaHasta && fechaDesde.trim() !== '' && fechaHasta.trim() !== '') {
+      const startDate = new Date(fechaDesde);
+      const endDate = new Date(fechaHasta + 'T23:59:59.999Z');
+
+      if (!isNaN(startDate) && !isNaN(endDate)) {
+        query.createdAt = {
+          $gte: startDate,
+          $lte: endDate
+        };
+      }
+    }
+
+    // Add transport line filter
+    if (lineaTransporte && lineaTransporte !== 'all') {
+      query.$or = [
+        { linea_transporte: lineaTransporte },
+        { 'transportes.lineaTransporte': lineaTransporte }
+      ];
+    }
+
+    // Add operator filter
+    if (operador && operador !== 'all') {
+      // If there's already an $or filter, we need to combine with $and
+      if (query.$or) {
+        query.$and = [
+          { $or: query.$or },
+          {
+            $or: [
+              { operador: operador },
+              { 'transportes.operador': operador }
+            ]
+          }
+        ];
+        delete query.$or;
+      } else {
+        query.$or = [
+          { operador: operador },
+          { 'transportes.operador': operador }
+        ];
+      }
+    }
+
+    // Pagination parameters
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const skip = (page - 1) * limit;
+
+    // Get total count for pagination
+    const totalCount = await Bitacora.countDocuments(query);
+    const totalPages = Math.ceil(totalCount / limit);
+
+    // Get bitacoras for this client with detailed information using aggregation
+    const bitacoras = await Bitacora.aggregate([
+      { $match: query },
+      { $sort: { createdAt: -1 } },
+      { $skip: skip },
+      { $limit: limit },
+      // Add fields to handle ObjectId conversion for lookups
+      {
+        $addFields: {
+          origenForLookup: {
+            $cond: {
+              if: {
+                $and: [
+                  { $eq: [{ $type: '$origen' }, 'string'] },
+                  { $regexMatch: { input: '$origen', regex: '^[0-9a-fA-F]{24}$' } }
+                ]
+              },
+              then: { $toObjectId: '$origen' },
+              else: '$origen'
+            }
+          },
+          destinoForLookup: {
+            $cond: {
+              if: {
+                $and: [
+                  { $eq: [{ $type: '$destino' }, 'string'] },
+                  { $regexMatch: { input: '$destino', regex: '^[0-9a-fA-F]{24}$' } }
+                ]
+              },
+              then: { $toObjectId: '$destino' },
+              else: '$destino'
+            }
+          }
+        }
+      },
+      // Lookups with ObjectId conversion
+      {
+        $lookup: {
+          from: 'origens',
+          localField: 'origenForLookup',
+          foreignField: '_id',
+          as: 'origenInfoById'
+        }
+      },
+      {
+        $lookup: {
+          from: 'origens',
+          localField: 'origen',
+          foreignField: 'nombre',
+          as: 'origenInfoByName'
+        }
+      },
+      {
+        $lookup: {
+          from: 'destinos',
+          localField: 'destinoForLookup',
+          foreignField: '_id',
+          as: 'destinoInfoById'
+        }
+      },
+      {
+        $lookup: {
+          from: 'destinos',
+          localField: 'destino',
+          foreignField: 'nombre',
+          as: 'destinoInfoByName'
+        }
+      },
+      // Combine results - prefer _id match over nombre match
+      {
+        $addFields: {
+          origenInfo: {
+            $cond: {
+              if: { $gt: [{ $size: '$origenInfoById' }, 0] },
+              then: '$origenInfoById',
+              else: '$origenInfoByName'
+            }
+          },
+          destinoInfo: {
+            $cond: {
+              if: { $gt: [{ $size: '$destinoInfoById' }, 0] },
+              then: '$destinoInfoById',
+              else: '$destinoInfoByName'
+            }
+          }
+        }
+      }
+    ]);
+
+    // Helper functions (same as in anomalias endpoint)
+    const getTransportLines = (transportes) => {
+      if (!transportes || !Array.isArray(transportes) || transportes.length === 0) {
+        return 'N/A';
+      }
+
+      const lines = transportes
+        .map(transporte => {
+          // Convert null, undefined, or empty string to 'N/A'
+          if (!transporte.lineaTransporte || transporte.lineaTransporte.trim() === '') {
+            return 'N/A';
+          }
+          return transporte.lineaTransporte;
+        })
+        .filter((line, index, array) => array.indexOf(line) === index); // Remove duplicates
+
+      return lines.length > 0 ? lines.join(', ') : 'N/A';
+    };
+
+    const getTransportOperators = (transportes) => {
+      if (!transportes || !Array.isArray(transportes) || transportes.length === 0) {
+        return 'N/A';
+      }
+
+      const operators = transportes
+        .map(transporte => {
+          // Convert null, undefined, or empty string to 'N/A'
+          if (!transporte.operador || transporte.operador.trim() === '') {
+            return 'N/A';
+          }
+          return transporte.operador;
+        })
+        .filter((operator, index, array) => array.indexOf(operator) === index); // Remove duplicates
+
+      return operators.length > 0 ? operators.join(', ') : 'N/A';
+    };
+
+    const getLocationName = (locationField, lookupInfo = null, debugContext = '') => {
+      // First, try to use lookup data if available
+      if (lookupInfo && lookupInfo.length > 0) {
+        const locationData = lookupInfo[0];
+        const result = `${locationData.nombre}, ${locationData.estado || ''}`.trim().replace(/,$/, '');
+        return result;
+      }
+
+      // Fallback to original field processing
+      if (!locationField) {
+        return 'N/A';
+      }
+
+      // If it's an object with nombre and estado properties
+      if (typeof locationField === 'object' && locationField.nombre) {
+        const result = `${locationField.nombre}, ${locationField.estado || ''}`.trim().replace(/,$/, '');
+        return result;
+      }
+
+      // If it's a plain string and not an ObjectId
+      if (typeof locationField === 'string' && !locationField.match(/^[0-9a-f]{24}$/i)) {
+        return locationField;
+      }
+
+      // If it's an ObjectId string and no lookup data found
+      return `ObjectId no resuelto: ${locationField}`;
+    };
+
+    // Format the data using the same helper functions as anomalias endpoint
+    const formattedBitacoras = bitacoras.map(bitacora => {
+      return {
+        _id: bitacora._id,
+        bitacora_id: bitacora.bitacora_id,
+        fechaCreacion: bitacora.createdAt,
+        cliente: bitacora.cliente,
+        tipoMonitoreo: bitacora.monitoreo,
+        lineaTransporte: getTransportLines(bitacora.transportes),
+        operadorTransporte: getTransportOperators(bitacora.transportes),
+        origen: getLocationName(bitacora.origen, bitacora.origenInfo, 'ORIGEN'),
+        destino: getLocationName(bitacora.destino, bitacora.destinoInfo, 'DESTINO'),
+        estado: bitacora.status,
+        usuario: bitacora.operador || 'N/A'
+      };
+    });
+
+    res.status(200).json({
+      bitacoras: formattedBitacoras,
+      pagination: {
+        currentPage: page,
+        totalPages,
+        totalCount,
+        limit,
+        hasNextPage: page < totalPages,
+        hasPrevPage: page > 1
+      }
+    });
+  } catch (error) {
+    console.error("Error fetching bitacoras by client:", error);
+    res.status(500).json({ error: "Failed to fetch bitacoras for client" });
+  }
+});
 
 app.post("/bitacora", async (req, res) => {
   const data = req.body;

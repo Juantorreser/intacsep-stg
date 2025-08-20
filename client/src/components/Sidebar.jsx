@@ -174,13 +174,35 @@ const Sidebar = () => {
               {/* Dashboard */}
               <li className="nav-item">
                 <div
-                  className="nav-link"
-                  onClick={() => handleIconClick(() => navigate("/dashboard"))}>
+                  className="nav-link has-submenu"
+                  onClick={() =>
+                    handleIconClick(() => toggleCollapse("dashboardCollapse"), "dashboardCollapse")
+                  }>
                   <div className="nav-link-content">
                     <i className="fa fa-tachometer-alt"></i>
                     {!isSidebarCollapsed && <span>Dashboard</span>}
                   </div>
+                  {!isSidebarCollapsed && (
+                    <i
+                      className={`fa fa-chevron-${
+                        collapsedItems.dashboardCollapse ? "up" : "down"
+                      }`}
+                    />
+                  )}
                 </div>
+
+                {collapsedItems.dashboardCollapse && !isSidebarCollapsed && (
+                  <ul className="submenu">
+                    <li onClick={() => navigate("/dashboard/general")}>
+                      <i className="fa fa-chart-bar"></i>
+                      <span>General</span>
+                    </li>
+                    <li onClick={() => navigate("/dashboard/anomalias")}>
+                      <i className="fa fa-exclamation-triangle"></i>
+                      <span>Anomalías</span>
+                    </li>
+                  </ul>
+                )}
               </li>
 
               {/* Monitoreo */}
