@@ -73,6 +73,7 @@ const DashboardPage = () => {
   const [loadingClientBitacoras, setLoadingClientBitacoras] = useState({}); // {clienteId: boolean}
   const [clientPagination, setClientPagination] = useState({}); // {clienteId: paginationInfo}
   const [loadingClientDownload, setLoadingClientDownload] = useState({}); // {clienteId: boolean}
+  const [clientPageLimits, setClientPageLimits] = useState({}); // {clienteId: limit}
 
   // Estado para los dropdowns de usuarios
   const [expandedUsers, setExpandedUsers] = useState({}); // {userName: boolean}
@@ -80,6 +81,7 @@ const DashboardPage = () => {
   const [loadingUserBitacoras, setLoadingUserBitacoras] = useState({}); // {userName: boolean}
   const [userPagination, setUserPagination] = useState({}); // {userName: paginationInfo}
   const [loadingUserDownload, setLoadingUserDownload] = useState({}); // {userName: boolean}
+  const [userPageLimits, setUserPageLimits] = useState({}); // {userName: limit}
 
   // Estado para los dropdowns de ubicaciones geográficas
   const [expandedLocations, setExpandedLocations] = useState({}); // {locationName: boolean}
@@ -87,6 +89,7 @@ const DashboardPage = () => {
   const [loadingLocationBitacoras, setLoadingLocationBitacoras] = useState({}); // {locationName: boolean}
   const [locationPagination, setLocationPagination] = useState({}); // {locationName: paginationInfo}
   const [loadingLocationDownload, setLoadingLocationDownload] = useState({}); // {locationName: boolean}
+  const [locationPageLimits, setLocationPageLimits] = useState({}); // {locationName: limit}
 
   const baseUrl = import.meta.env.VITE_BASE_URL;
 
@@ -161,17 +164,18 @@ const DashboardPage = () => {
   };
 
   // Función para cargar las bitácoras de un cliente específico con paginación
-  const fetchClientBitacoras = async (clienteNombre, page = 1) => {
+  const fetchClientBitacoras = async (clienteNombre, page = 1, customLimit = null) => {
     try {
       setLoadingClientBitacoras((prev) => ({...prev, [clienteNombre]: true}));
 
+      const limit = customLimit || clientPageLimits[clienteNombre] || 10;
       const url = `${baseUrl}/bitacoras/by-client/${encodeURIComponent(
         clienteNombre
       )}?fechaDesde=${encodeURIComponent(appliedFechaDesde)}&fechaHasta=${encodeURIComponent(
         appliedFechaHasta
       )}&lineaTransporte=${encodeURIComponent(
         appliedLineaTransporteFilter
-      )}&operador=${encodeURIComponent(appliedOperadorFilter)}&page=${page}&limit=10`;
+      )}&operador=${encodeURIComponent(appliedOperadorFilter)}&page=${page}&limit=${limit}`;
 
       const response = await fetch(url, {
         method: "GET",
@@ -225,13 +229,21 @@ const DashboardPage = () => {
 
     // Si se está expandiendo y no tenemos las bitácoras, las cargamos
     if (!isCurrentlyExpanded && !clientBitacoras[clienteNombre]) {
-      fetchClientBitacoras(clienteNombre);
+      const currentLimit = clientPageLimits[clienteNombre] || 10;
+      fetchClientBitacoras(clienteNombre, 1, currentLimit);
     }
   };
 
   // Función para manejar la paginación de bitácoras de cliente
   const handleClientPagination = (clienteNombre, page) => {
-    fetchClientBitacoras(clienteNombre, page);
+    const currentLimit = clientPageLimits[clienteNombre] || 10;
+    fetchClientBitacoras(clienteNombre, page, currentLimit);
+  };
+
+  // Función para manejar el cambio de límite de página para clientes
+  const handleClientPageLimitChange = (clienteNombre, newLimit) => {
+    setClientPageLimits((prev) => ({...prev, [clienteNombre]: newLimit}));
+    fetchClientBitacoras(clienteNombre, 1, newLimit); // Reset to first page when changing limit
   };
 
   // Función para descargar bitácoras de cliente en Excel
@@ -322,17 +334,18 @@ const DashboardPage = () => {
   };
 
   // Función para cargar las bitácoras de un usuario específico con paginación
-  const fetchUserBitacoras = async (userName, page = 1) => {
+  const fetchUserBitacoras = async (userName, page = 1, customLimit = null) => {
     try {
       setLoadingUserBitacoras((prev) => ({...prev, [userName]: true}));
 
+      const limit = customLimit || userPageLimits[userName] || 10;
       const url = `${baseUrl}/bitacoras/by-user/${encodeURIComponent(
         userName
       )}?fechaDesde=${encodeURIComponent(appliedFechaDesde)}&fechaHasta=${encodeURIComponent(
         appliedFechaHasta
       )}&lineaTransporte=${encodeURIComponent(
         appliedLineaTransporteFilter
-      )}&operador=${encodeURIComponent(appliedOperadorFilter)}&page=${page}&limit=10`;
+      )}&operador=${encodeURIComponent(appliedOperadorFilter)}&page=${page}&limit=${limit}`;
 
       const response = await fetch(url, {
         method: "GET",
@@ -386,13 +399,21 @@ const DashboardPage = () => {
 
     // Si se está expandiendo y no tenemos las bitácoras, las cargamos
     if (!isCurrentlyExpanded && !userBitacoras[userName]) {
-      fetchUserBitacoras(userName);
+      const currentLimit = userPageLimits[userName] || 10;
+      fetchUserBitacoras(userName, 1, currentLimit);
     }
   };
 
   // Función para manejar la paginación de bitácoras de usuario
   const handleUserPagination = (userName, page) => {
-    fetchUserBitacoras(userName, page);
+    const currentLimit = userPageLimits[userName] || 10;
+    fetchUserBitacoras(userName, page, currentLimit);
+  };
+
+  // Función para manejar el cambio de límite de página para usuarios
+  const handleUserPageLimitChange = (userName, newLimit) => {
+    setUserPageLimits((prev) => ({...prev, [userName]: newLimit}));
+    fetchUserBitacoras(userName, 1, newLimit); // Reset to first page when changing limit
   };
 
   // Función para descargar bitácoras de usuario en Excel
@@ -483,10 +504,11 @@ const DashboardPage = () => {
   };
 
   // Función para cargar las bitácoras de una ubicación específica con paginación
-  const fetchLocationBitacoras = async (locationName, page = 1) => {
+  const fetchLocationBitacoras = async (locationName, page = 1, customLimit = null) => {
     try {
       setLoadingLocationBitacoras((prev) => ({...prev, [locationName]: true}));
 
+      const limit = customLimit || locationPageLimits[locationName] || 10;
       const url = `${baseUrl}/bitacoras/by-location/${encodeURIComponent(
         locationName
       )}?fechaDesde=${encodeURIComponent(appliedFechaDesde)}&fechaHasta=${encodeURIComponent(
@@ -495,7 +517,7 @@ const DashboardPage = () => {
         appliedLineaTransporteFilter
       )}&operador=${encodeURIComponent(appliedOperadorFilter)}&geoType=${encodeURIComponent(
         appliedGeoType
-      )}&page=${page}&limit=10`;
+      )}&page=${page}&limit=${limit}`;
 
       const response = await fetch(url, {
         method: "GET",
@@ -549,13 +571,21 @@ const DashboardPage = () => {
 
     // Si se está expandiendo y no tenemos las bitácoras, las cargamos
     if (!isCurrentlyExpanded && !locationBitacoras[locationName]) {
-      fetchLocationBitacoras(locationName);
+      const currentLimit = locationPageLimits[locationName] || 10;
+      fetchLocationBitacoras(locationName, 1, currentLimit);
     }
   };
 
   // Función para manejar la paginación de bitácoras de ubicación
   const handleLocationPagination = (locationName, page) => {
-    fetchLocationBitacoras(locationName, page);
+    const currentLimit = locationPageLimits[locationName] || 10;
+    fetchLocationBitacoras(locationName, page, currentLimit);
+  };
+
+  // Función para manejar el cambio de límite de página para ubicaciones
+  const handleLocationPageLimitChange = (locationName, newLimit) => {
+    setLocationPageLimits((prev) => ({...prev, [locationName]: newLimit}));
+    fetchLocationBitacoras(locationName, 1, newLimit); // Reset to first page when changing limit
   };
 
   // Función para descargar bitácoras de ubicación en Excel
@@ -1363,11 +1393,36 @@ const DashboardPage = () => {
                                 fontSize: "11px",
                                 backgroundColor: "#f9fafb",
                               }}>
-                              <span style={{color: "#6b7280"}}>
-                                Página {locationPagination[location.name].currentPage} de{" "}
-                                {locationPagination[location.name].totalPages} (
-                                {locationPagination[location.name].totalCount} total)
-                              </span>
+                              <div style={{display: "flex", alignItems: "center", gap: "12px"}}>
+                                <span style={{color: "#6b7280"}}>
+                                  Página {locationPagination[location.name].currentPage} de{" "}
+                                  {locationPagination[location.name].totalPages} (
+                                  {locationPagination[location.name].totalCount} total)
+                                </span>
+                                <div style={{display: "flex", alignItems: "center", gap: "4px"}}>
+                                  <span style={{color: "#6b7280", fontSize: "10px"}}>Mostrar:</span>
+                                  <select
+                                    value={locationPageLimits[location.name] || 10}
+                                    onChange={(e) =>
+                                      handleLocationPageLimitChange(
+                                        location.name,
+                                        parseInt(e.target.value)
+                                      )
+                                    }
+                                    style={{
+                                      fontSize: "10px",
+                                      padding: "2px 4px",
+                                      border: "1px solid #d1d5db",
+                                      borderRadius: "3px",
+                                      backgroundColor: "#fff",
+                                      color: "#374151",
+                                    }}>
+                                    <option value={10}>10</option>
+                                    <option value={25}>25</option>
+                                    <option value={50}>50</option>
+                                  </select>
+                                </div>
+                              </div>
                               <div style={{display: "flex", gap: "4px"}}>
                                 <button
                                   onClick={() =>
@@ -1983,11 +2038,36 @@ const DashboardPage = () => {
                                 fontSize: "11px",
                                 backgroundColor: "#f9fafb",
                               }}>
-                              <span style={{color: "#6b7280"}}>
-                                Página {clientPagination[client.nombre].currentPage} de{" "}
-                                {clientPagination[client.nombre].totalPages} (
-                                {clientPagination[client.nombre].totalCount} total)
-                              </span>
+                              <div style={{display: "flex", alignItems: "center", gap: "12px"}}>
+                                <span style={{color: "#6b7280"}}>
+                                  Página {clientPagination[client.nombre].currentPage} de{" "}
+                                  {clientPagination[client.nombre].totalPages} (
+                                  {clientPagination[client.nombre].totalCount} total)
+                                </span>
+                                <div style={{display: "flex", alignItems: "center", gap: "4px"}}>
+                                  <span style={{color: "#6b7280", fontSize: "10px"}}>Mostrar:</span>
+                                  <select
+                                    value={clientPageLimits[client.nombre] || 10}
+                                    onChange={(e) =>
+                                      handleClientPageLimitChange(
+                                        client.nombre,
+                                        parseInt(e.target.value)
+                                      )
+                                    }
+                                    style={{
+                                      fontSize: "10px",
+                                      padding: "2px 4px",
+                                      border: "1px solid #d1d5db",
+                                      borderRadius: "3px",
+                                      backgroundColor: "#fff",
+                                      color: "#374151",
+                                    }}>
+                                    <option value={10}>10</option>
+                                    <option value={25}>25</option>
+                                    <option value={50}>50</option>
+                                  </select>
+                                </div>
+                              </div>
                               <div style={{display: "flex", gap: "4px"}}>
                                 <button
                                   onClick={() =>
@@ -2482,11 +2562,36 @@ const DashboardPage = () => {
                                 fontSize: "11px",
                                 backgroundColor: "#f9fafb",
                               }}>
-                              <span style={{color: "#6b7280"}}>
-                                Página {userPagination[operador.name].currentPage} de{" "}
-                                {userPagination[operador.name].totalPages} (
-                                {userPagination[operador.name].totalCount} total)
-                              </span>
+                              <div style={{display: "flex", alignItems: "center", gap: "12px"}}>
+                                <span style={{color: "#6b7280"}}>
+                                  Página {userPagination[operador.name].currentPage} de{" "}
+                                  {userPagination[operador.name].totalPages} (
+                                  {userPagination[operador.name].totalCount} total)
+                                </span>
+                                <div style={{display: "flex", alignItems: "center", gap: "4px"}}>
+                                  <span style={{color: "#6b7280", fontSize: "10px"}}>Mostrar:</span>
+                                  <select
+                                    value={userPageLimits[operador.name] || 10}
+                                    onChange={(e) =>
+                                      handleUserPageLimitChange(
+                                        operador.name,
+                                        parseInt(e.target.value)
+                                      )
+                                    }
+                                    style={{
+                                      fontSize: "10px",
+                                      padding: "2px 4px",
+                                      border: "1px solid #d1d5db",
+                                      borderRadius: "3px",
+                                      backgroundColor: "#fff",
+                                      color: "#374151",
+                                    }}>
+                                    <option value={10}>10</option>
+                                    <option value={25}>25</option>
+                                    <option value={50}>50</option>
+                                  </select>
+                                </div>
+                              </div>
                               <div style={{display: "flex", gap: "4px"}}>
                                 <button
                                   onClick={() =>
@@ -2981,7 +3086,7 @@ const DashboardPage = () => {
         <div className={`content-wrapper ${isSidebarCollapsed ? "sidebar-collapsed" : ""}`}>
           {/* Título */}
           <div className="page-header">
-            <h1 className="fs-3 fw-semibold text-black m-0">Dashboard</h1>
+            <h1 className="fs-3 fw-semibold text-black m-0">Dashboard General</h1>
           </div>
 
           <div className="container-fluid px-3 px-md-4">

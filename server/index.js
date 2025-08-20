@@ -970,7 +970,7 @@ app.get("/bitacoras/by-user/:userName", async (req, res) => {
     const { fechaDesde, fechaHasta, lineaTransporte, operador, page = 1, limit = 20 } = req.query;
 
     // Construir query base
-    let query = {};
+    let query = { deleted: { $ne: true } }; // Exclude deleted bitacoras
 
     // Filtro por usuario
     if (userName && userName !== 'all') {
@@ -1204,7 +1204,7 @@ app.get("/bitacoras/download-user/:userName", async (req, res) => {
     const { fechaDesde, fechaHasta, lineaTransporte, operador } = req.query;
 
     // Construir query base
-    let query = {};
+    let query = { deleted: { $ne: true } }; // Exclude deleted bitacoras
 
     // Filtro por usuario
     if (userName && userName !== 'all') {
@@ -2311,6 +2311,7 @@ app.get("/operadores", async (req, res) => {
 app.get("/operadores-bitacoras", async (req, res) => {
   try {
     const operadores = await Bitacora.aggregate([
+      { $match: { deleted: { $ne: true } } }, // Exclude deleted bitacoras
       // Solo obtener operadores del campo principal bitacora.operador
       {
         $group: {
@@ -2342,6 +2343,7 @@ app.get("/operadores-bitacoras", async (req, res) => {
 app.get("/lineas-transporte-bitacoras", async (req, res) => {
   try {
     const lineasTransporte = await Bitacora.aggregate([
+      { $match: { deleted: { $ne: true } } }, // Exclude deleted bitacoras
       // Solo obtener líneas de transporte del array transportes
       { $unwind: '$transportes' },
       {
@@ -2479,7 +2481,7 @@ app.get("/bitacoras/by-location/:locationName", async (req, res) => {
     const { fechaDesde, fechaHasta, lineaTransporte, operador, geoType, page = 1, limit = 20 } = req.query;
 
     // Construir query base
-    let query = {};
+    let query = { deleted: { $ne: true } }; // Exclude deleted bitacoras
 
     // Filtro por ubicación (origen o destino)
     if (locationName && locationName !== 'all') {
@@ -2721,7 +2723,7 @@ app.get("/bitacoras/download-location/:locationName", async (req, res) => {
     const { fechaDesde, fechaHasta, lineaTransporte, operador, geoType } = req.query;
 
     // Construir query base
-    let query = {};
+    let query = { deleted: { $ne: true } }; // Exclude deleted bitacoras
 
     // Filtro por ubicación (origen o destino)
     if (locationName && locationName !== 'all') {
@@ -2996,7 +2998,7 @@ app.get('/dashboard/stats', async (req, res) => {
     }
 
     // Build filters based on user permissions
-    let bitacoraFilter = {};
+    let bitacoraFilter = { deleted: { $ne: true } }; // Exclude deleted bitacoras
 
     // Add client filter
     if (clientFilter !== 'all') {
@@ -3164,7 +3166,7 @@ app.get('/dashboard/stats', async (req, res) => {
 
 
     // Get bitacora statistics
-    const totalBitacoras = await Bitacora.countDocuments(bitacoraFilter);
+    let totalBitacoras = await Bitacora.countDocuments(bitacoraFilter);
     const nuevasBitacoras = await Bitacora.countDocuments({ ...bitacoraFilter, status: 'nueva' });
     const enProcesoBitacoras = await Bitacora.countDocuments({ ...bitacoraFilter, status: { $in: ['validada', 'iniciada'] } });
     const cerradasBitacoras = await Bitacora.countDocuments({ ...bitacoraFilter, status: { $in: ['cerrada', 'finalizada'] } });
@@ -3205,9 +3207,13 @@ app.get('/dashboard/stats', async (req, res) => {
     const months = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
 
     try {
+      // Create a base filter that excludes date filters (we'll apply them month by month)
       let monthlyFilter = { ...bitacoraFilter };
 
-
+      // Remove date filters from monthly filter since we'll apply them month by month
+      if (monthlyFilter.createdAt) {
+        delete monthlyFilter.createdAt;
+      }
 
       // Check if date range filters are applied
       if (fechaDesde && fechaHasta && fechaDesde.trim() !== '' && fechaHasta.trim() !== '') {
@@ -3216,17 +3222,12 @@ app.get('/dashboard/stats', async (req, res) => {
 
         if (!isNaN(startDate) && !isNaN(endDate)) {
           // Generate monthly data only for the date range specified
-
-
           let currentDate = new Date(startDate.getFullYear(), startDate.getMonth(), 1);
           const endDateMonth = new Date(endDate.getFullYear(), endDate.getMonth(), 1);
 
-          // Remove the general date filter since we'll control it month by month
-          delete monthlyFilter.createdAt;
-
           while (currentDate <= endDateMonth) {
             const startOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
-            const endOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
+            const endOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0, 23, 59, 59, 999);
 
             // Make sure we don't go beyond the specified range
             const monthStart = startOfMonth < startDate ? startDate : startOfMonth;
@@ -3242,8 +3243,6 @@ app.get('/dashboard/stats', async (req, res) => {
               value: monthCount
             });
 
-
-
             // Move to next month
             currentDate.setMonth(currentDate.getMonth() + 1);
           }
@@ -3251,12 +3250,10 @@ app.get('/dashboard/stats', async (req, res) => {
       } else if (yearFilter && yearFilter !== 'all') {
         // Si hay un año específico seleccionado, mostrar los 12 meses de ese año
         const selectedYear = parseInt(yearFilter);
-        // Remove createdAt for year-only filtering since we control it month by month
-        delete monthlyFilter.createdAt;
 
         for (let i = 0; i < 12; i++) {
           const startOfMonth = new Date(selectedYear, i, 1);
-          const endOfMonth = new Date(selectedYear, i + 1, 0);
+          const endOfMonth = new Date(selectedYear, i + 1, 0, 23, 59, 59, 999);
 
           const monthCount = await Bitacora.countDocuments({
             ...monthlyFilter,
@@ -3270,14 +3267,11 @@ app.get('/dashboard/stats', async (req, res) => {
         }
       } else {
         // Si no hay año específico, mostrar los últimos 12 meses
-        // Remove createdAt for default 12-month view since we control it month by month
-        delete monthlyFilter.createdAt;
-
         for (let i = 11; i >= 0; i--) {
           const date = new Date();
           date.setMonth(date.getMonth() - i);
           const startOfMonth = new Date(date.getFullYear(), date.getMonth(), 1);
-          const endOfMonth = new Date(date.getFullYear(), date.getMonth() + 1, 0);
+          const endOfMonth = new Date(date.getFullYear(), date.getMonth() + 1, 0, 23, 59, 59, 999);
 
           const monthCount = await Bitacora.countDocuments({
             ...monthlyFilter,
@@ -3294,6 +3288,17 @@ app.get('/dashboard/stats', async (req, res) => {
     } catch (error) {
       console.error('Error generating monthly data:', error);
       monthlyData = [];
+    }
+
+    // Ensure consistency between totalBitacoras and monthly data sum
+    // When date filters are applied, the total should match the sum of monthly data
+    if (fechaDesde && fechaHasta && fechaDesde.trim() !== '' && fechaHasta.trim() !== '') {
+      const monthlySum = monthlyData.reduce((sum, month) => sum + month.value, 0);
+      if (monthlySum !== totalBitacoras) {
+        console.log(`⚠️ Inconsistency detected: totalBitacoras=${totalBitacoras}, monthlySum=${monthlySum}`);
+        // Use the monthly sum as the source of truth for totalBitacoras when date filters are applied
+        totalBitacoras = monthlySum;
+      }
     }
 
     // Get status trends data

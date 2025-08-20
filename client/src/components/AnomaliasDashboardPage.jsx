@@ -1140,7 +1140,7 @@ const AnomaliasDashboardPage = () => {
         <div className={`content-wrapper ${isSidebarCollapsed ? "sidebar-collapsed" : ""}`}>
           {/* Título */}
           <div className="page-header">
-            <h1 className="fs-3 fw-semibold text-black m-0">Dashboard</h1>
+            <h1 className="fs-3 fw-semibold text-black m-0">Dashboard de anomalías</h1>
           </div>
 
           <div className="container-fluid px-3 px-md-4">
