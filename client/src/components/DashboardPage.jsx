@@ -968,17 +968,21 @@ const DashboardPage = () => {
             <span
               className="badge"
               style={{
-                backgroundColor: geoType === "origen" ? "#10b981" : "#f59e0b",
+                backgroundColor: appliedGeoType === "origen" ? "#10b981" : "#f59e0b",
                 color: "#fff",
                 fontSize: "0.75rem",
                 marginLeft: 8,
               }}>
-              {geoType === "origen" ? "Origen" : "Destino"}
+              {appliedGeoType === "origen" ? "Origen" : "Destino"}
             </span>
           </div>
           <select
             value={geoType}
-            onChange={(e) => setGeoType(e.target.value)}
+            onChange={(e) => {
+              setGeoType(e.target.value);
+              setAppliedGeoType(e.target.value);
+              setApplyFiltersTrigger((prev) => prev + 1);
+            }}
             className={`filter-select geo-type-select ${geoType} form-select form-select-sm`}
             style={{
               width: 120,
@@ -1015,7 +1019,7 @@ const DashboardPage = () => {
                   style={{cursor: "pointer", transition: "all 0.2s ease"}}>
                   <div
                     className="geo-icon"
-                    style={{background: geoType === "origen" ? "#10b981" : "#f59e0b"}}>
+                    style={{background: appliedGeoType === "origen" ? "#10b981" : "#f59e0b"}}>
                     <i className="fa fa-map-marker-alt" style={{color: "#fff"}}></i>
                   </div>
                   <div className="geo-info">
@@ -1527,16 +1531,20 @@ const DashboardPage = () => {
             <span
               className="badge"
               style={{
-                backgroundColor: geoType === "origen" ? "#10b981" : "#f59e0b",
+                backgroundColor: appliedGeoType === "origen" ? "#10b981" : "#f59e0b",
                 color: "#fff",
                 fontSize: "0.75rem",
               }}>
-              {geoType === "origen" ? "Origen" : "Destino"}
+              {appliedGeoType === "origen" ? "Origen" : "Destino"}
             </span>
           </div>
           <select
             value={geoType}
-            onChange={(e) => setGeoType(e.target.value)}
+            onChange={(e) => {
+              setGeoType(e.target.value);
+              setAppliedGeoType(e.target.value);
+              setApplyFiltersTrigger((prev) => prev + 1);
+            }}
             className={`filter-select geo-type-select ${geoType} form-select form-select-sm`}
             style={{
               width: 120,
@@ -1567,7 +1575,7 @@ const DashboardPage = () => {
           {geographicData.map((location, index) => {
             const maxCount = Math.max(...geographicData.map((loc) => loc.count));
             const barWidth = maxCount > 0 ? (location.count / maxCount) * 180 : 0; // Reducido de 200 a 180
-            const color = geoType === "origen" ? "#10b981" : "#f59e0b";
+            const color = appliedGeoType === "origen" ? "#10b981" : "#f59e0b";
 
             return (
               <div
