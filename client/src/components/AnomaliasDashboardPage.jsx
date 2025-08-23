@@ -3,11 +3,57 @@ import {useAuth} from "../context/AuthContext";
 import {useSidebar} from "../context/SidebarContext";
 import {useNavigate} from "react-router-dom";
 import Sidebar from "./Sidebar";
-import {Chart as ChartJS, ArcElement, Tooltip, Legend} from "chart.js";
-import {Doughnut} from "react-chartjs-2";
+import {
+  PieChart,
+  Pie,
+  Cell,
+  ResponsiveContainer,
+  Tooltip,
+  Legend,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+} from "recharts";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  Typography,
+  Box,
+  Chip,
+  Button,
+  IconButton,
+  TextField,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
+  Grid,
+  Paper,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  TablePagination,
+  CircularProgress,
+  Tooltip as MuiTooltip,
+} from "@mui/material";
+import {
+  FilterList,
+  Refresh,
+  Download,
+  PieChart as PieChartIcon,
+  BarChart as BarChartIcon,
+  List as ListIcon,
+  Warning,
+  CheckCircle,
+  Person,
+} from "@mui/icons-material";
 import * as XLSX from "xlsx";
-
-ChartJS.register(ArcElement, Tooltip, Legend);
 
 const AnomaliasDashboardPage = () => {
   const {user} = useAuth();
@@ -16,28 +62,31 @@ const AnomaliasDashboardPage = () => {
 
   const [dashboardStats, setDashboardStats] = useState({
     eventCategoriesStats: [],
+    clientAnomaliasStats: [],
+    totalAnomalias: 0,
+    totalBitacoras: 0,
   });
   const [oncEventsData, setOncEventsData] = useState([]);
   const [bitacorasAnomalias, setBitacorasAnomalias] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [filterLoading, setFilterLoading] = useState(false);
   const [availableClients, setAvailableClients] = useState([]);
   const [availableLineasTransporte, setAvailableLineasTransporte] = useState([]);
   const [availableOperadores, setAvailableOperadores] = useState([]);
-  const [oncViewMode, setOncViewMode] = useState("chart"); // 'chart' or 'list'
+  const [oncViewMode, setOncViewMode] = useState("chart");
   const [applyFiltersTrigger, setApplyFiltersTrigger] = useState(0);
 
-  // Filtros pendientes (que se pueden cambiar sin aplicar)
+  // Filtros pendientes
   const [clientFilter, setClientFilter] = useState("all");
   const [fechaDesde, setFechaDesde] = useState("");
   const [fechaHasta, setFechaHasta] = useState(() => {
-    // Set default value to today's date in YYYY-MM-DD format
     const today = new Date();
     return today.toISOString().split("T")[0];
   });
   const [lineaTransporteFilter, setLineaTransporteFilter] = useState("all");
   const [operadorFilter, setOperadorFilter] = useState("all");
 
-  // Filtros aplicados (que realmente se usan en las consultas)
+  // Filtros aplicados
   const [appliedClientFilter, setAppliedClientFilter] = useState("all");
   const [appliedFechaDesde, setAppliedFechaDesde] = useState("");
   const [appliedFechaHasta, setAppliedFechaHasta] = useState(() => {
@@ -51,13 +100,17 @@ const AnomaliasDashboardPage = () => {
   const [anomaliasFilters, setAnomaliasFilters] = useState({
     bitacora_id: "",
     cliente: "",
-    anomalias: [], // Changed to array for multiple selection
+    anomalias: [],
     linea_transporte: "",
     operador: "",
     origen: "",
     destino: "",
     status: "",
   });
+
+  // Pagination for anomalies table
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
 
   const baseUrl = import.meta.env.VITE_BASE_URL;
 
@@ -69,6 +122,7 @@ const AnomaliasDashboardPage = () => {
     setAppliedLineaTransporteFilter(lineaTransporteFilter);
     setAppliedOperadorFilter(operadorFilter);
     setApplyFiltersTrigger((prev) => prev + 1);
+    setPage(0); // Reset pagination
   };
 
   // Function to reset filters
@@ -81,10 +135,53 @@ const AnomaliasDashboardPage = () => {
     setOperadorFilter("all");
   };
 
+  // Function to handle client selection from pie chart
+  const handleClientClick = (data) => {
+    if (data && data.cliente) {
+      setClientFilter(data.cliente);
+      setAppliedClientFilter(data.cliente);
+      setApplyFiltersTrigger((prev) => prev + 1);
+    }
+  };
+
   // Helper function to format numbers with thousands separator
   const formatNumber = (num) => {
     if (num === null || num === undefined) return "0";
     return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  };
+
+  // Helper function to render loading overlay for stat cards
+  const renderLoadingOverlay = () => {
+    if (!filterLoading) return null;
+    return (
+      <div
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: "rgba(0,0,0,0.1)",
+          borderRadius: "16px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          zIndex: 1,
+        }}>
+        <CircularProgress size={20} sx={{color: "white"}} />
+      </div>
+    );
+  };
+
+  // Helper function to get anomaly color (matching dashboard colors)
+  const getAnomaliaColor = (categoria) => {
+    const colorMap = {
+      ENA: "#3b82f6", // Blue (same as dashboard)
+      FM: "#10b981", // Green (same as dashboard)
+      ONC: "#f59e0b", // Orange (same as dashboard)
+      DR: "#ef4444", // Red (same as dashboard)
+    };
+    return colorMap[categoria] || "#6b7280";
   };
 
   const downloadBitacorasAnomaliasExcel = (filteredData) => {
@@ -93,7 +190,6 @@ const AnomaliasDashboardPage = () => {
       return;
     }
 
-    // Prepare data for Excel with new column order (Anomalías after Cliente)
     const excelData = filteredData.map((bitacora) => ({
       "No. Bitácora": bitacora.bitacora_id || "N/A",
       Cliente: bitacora.cliente || "N/A",
@@ -108,161 +204,206 @@ const AnomaliasDashboardPage = () => {
       Estado: bitacora.status || "N/A",
     }));
 
-    // Create workbook and worksheet
     const workbook = XLSX.utils.book_new();
     const worksheet = XLSX.utils.json_to_sheet(excelData);
 
-    // Set column widths with new order
     const columnWidths = [
-      {wch: 15}, // No. Bitácora
-      {wch: 20}, // Cliente
-      {wch: 30}, // Anomalías
-      {wch: 20}, // Línea Transporte
-      {wch: 20}, // Operador
-      {wch: 25}, // Origen
-      {wch: 25}, // Destino
-      {wch: 12}, // Estado
+      {wch: 15},
+      {wch: 20},
+      {wch: 30},
+      {wch: 20},
+      {wch: 20},
+      {wch: 25},
+      {wch: 25},
+      {wch: 12},
     ];
     worksheet["!cols"] = columnWidths;
 
-    // Add worksheet to workbook
     XLSX.utils.book_append_sheet(workbook, worksheet, "Bitácoras con Anomalías");
 
-    // Generate filename with current date
     const currentDate = new Date().toISOString().split("T")[0];
     const filename = `Bitacoras_Anomalias_${currentDate}.xlsx`;
 
-    // Save the file
     XLSX.writeFile(workbook, filename);
   };
 
-  const fetchDashboardData = useCallback(async () => {
-    try {
-      setLoading(true);
+  const fetchDashboardData = useCallback(
+    async (isInitialLoad = true) => {
+      try {
+        if (isInitialLoad) {
+          setLoading(true);
+        } else {
+          setFilterLoading(true);
+        }
 
-      // Fetch available clients for filter
-      const clientsResponse = await fetch(`${baseUrl}/clients`, {
-        method: "GET",
-        credentials: "include",
-      });
-      if (clientsResponse.ok) {
-        const clientsData = await clientsResponse.json();
-        setAvailableClients(clientsData);
-      }
+        // Fetch available clients for filter (only on initial load)
+        if (isInitialLoad) {
+          const clientsResponse = await fetch(`${baseUrl}/clients`, {
+            method: "GET",
+            credentials: "include",
+          });
+          if (clientsResponse.ok) {
+            const clientsData = await clientsResponse.json();
+            setAvailableClients(clientsData);
+          }
 
-      // Fetch available transport lines for filter from bitacoras
-      const lineasResponse = await fetch(`${baseUrl}/lineas-transporte-bitacoras`, {
-        method: "GET",
-        credentials: "include",
-      });
-      if (lineasResponse.ok) {
-        const lineasData = await lineasResponse.json();
-        setAvailableLineasTransporte(lineasData);
-      } else {
-        console.warn("Transport lines endpoint not available:", lineasResponse.status);
-        setAvailableLineasTransporte([]);
-      }
+          // Fetch available transport lines for filter from bitacoras
+          const lineasResponse = await fetch(`${baseUrl}/lineas-transporte-bitacoras`, {
+            method: "GET",
+            credentials: "include",
+          });
+          if (lineasResponse.ok) {
+            const lineasData = await lineasResponse.json();
+            setAvailableLineasTransporte(lineasData);
+          } else {
+            console.warn("Transport lines endpoint not available:", lineasResponse.status);
+            setAvailableLineasTransporte([]);
+          }
 
-      // Fetch available operators for filter from bitacoras
-      const operadoresResponse = await fetch(`${baseUrl}/operadores-bitacoras`, {
-        method: "GET",
-        credentials: "include",
-      });
-      if (operadoresResponse.ok) {
-        const operadoresData = await operadoresResponse.json();
-        setAvailableOperadores(operadoresData);
-      } else {
-        console.warn("Operators endpoint not available:", operadoresResponse.status);
-        setAvailableOperadores([]);
-      }
+          // Fetch available operators for filter from bitacoras
+          const operadoresResponse = await fetch(`${baseUrl}/operadores-bitacoras`, {
+            method: "GET",
+            credentials: "include",
+          });
+          if (operadoresResponse.ok) {
+            const operadoresData = await operadoresResponse.json();
+            setAvailableOperadores(operadoresData);
+          } else {
+            console.warn("Operators endpoint not available:", operadoresResponse.status);
+            setAvailableOperadores([]);
+          }
+        }
 
-      // Fetch dashboard statistics with filters for anomalías
-      const statsUrl = `${baseUrl}/dashboard/stats?clientFilter=${encodeURIComponent(
-        appliedClientFilter
-      )}&fechaDesde=${encodeURIComponent(appliedFechaDesde)}&fechaHasta=${encodeURIComponent(
-        appliedFechaHasta
-      )}&lineaTransporte=${encodeURIComponent(
-        appliedLineaTransporteFilter
-      )}&operador=${encodeURIComponent(appliedOperadorFilter)}`;
-
-      const statsResponse = await fetch(statsUrl, {
-        method: "GET",
-        credentials: "include",
-      });
-
-      if (statsResponse.ok) {
-        const statsData = await statsResponse.json();
-        setDashboardStats(statsData);
-      }
-
-      // Fetch ONC events data for bar chart
-      const oncResponse = await fetch(
-        `${baseUrl}/dashboard/onc-events?clientFilter=${encodeURIComponent(
+        // Fetch dashboard statistics with filters for anomalías
+        const statsUrl = `${baseUrl}/dashboard/stats?clientFilter=${encodeURIComponent(
           appliedClientFilter
         )}&fechaDesde=${encodeURIComponent(appliedFechaDesde)}&fechaHasta=${encodeURIComponent(
           appliedFechaHasta
         )}&lineaTransporte=${encodeURIComponent(
           appliedLineaTransporteFilter
-        )}&operador=${encodeURIComponent(appliedOperadorFilter)}`,
-        {
+        )}&operador=${encodeURIComponent(appliedOperadorFilter)}`;
+
+        const statsResponse = await fetch(statsUrl, {
           method: "GET",
           credentials: "include",
+        });
+
+        if (statsResponse.ok) {
+          const statsData = await statsResponse.json();
+          setDashboardStats(statsData);
         }
-      );
 
-      if (oncResponse.ok) {
-        const oncData = await oncResponse.json();
-        setOncEventsData(oncData);
-      }
-
-      // Fetch bitácoras con anomalías
-      const anomaliasResponse = await fetch(
-        `${baseUrl}/dashboard/bitacoras-anomalias?clientFilter=${encodeURIComponent(
+        // Fetch client anomalies statistics
+        const clientStatsUrl = `${baseUrl}/dashboard/client-anomalias-stats?clientFilter=${encodeURIComponent(
           appliedClientFilter
         )}&fechaDesde=${encodeURIComponent(appliedFechaDesde)}&fechaHasta=${encodeURIComponent(
           appliedFechaHasta
         )}&lineaTransporte=${encodeURIComponent(
           appliedLineaTransporteFilter
-        )}&operador=${encodeURIComponent(appliedOperadorFilter)}`,
-        {
+        )}&operador=${encodeURIComponent(appliedOperadorFilter)}`;
+
+        const clientStatsResponse = await fetch(clientStatsUrl, {
           method: "GET",
           credentials: "include",
-        }
-      );
+        });
 
-      if (anomaliasResponse.ok) {
-        const anomaliasData = await anomaliasResponse.json();
-        setBitacorasAnomalias(anomaliasData);
+        if (clientStatsResponse.ok) {
+          const clientStatsData = await clientStatsResponse.json();
+          setDashboardStats((prev) => ({
+            ...prev,
+            clientAnomaliasStats: clientStatsData,
+          }));
+        }
+
+        // Fetch ONC events data for bar chart
+        const oncResponse = await fetch(
+          `${baseUrl}/dashboard/onc-events?clientFilter=${encodeURIComponent(
+            appliedClientFilter
+          )}&fechaDesde=${encodeURIComponent(appliedFechaDesde)}&fechaHasta=${encodeURIComponent(
+            appliedFechaHasta
+          )}&lineaTransporte=${encodeURIComponent(
+            appliedLineaTransporteFilter
+          )}&operador=${encodeURIComponent(appliedOperadorFilter)}`,
+          {
+            method: "GET",
+            credentials: "include",
+          }
+        );
+
+        if (oncResponse.ok) {
+          const oncData = await oncResponse.json();
+          setOncEventsData(oncData);
+        }
+
+        // Fetch bitácoras con anomalías
+        const anomaliasResponse = await fetch(
+          `${baseUrl}/dashboard/bitacoras-anomalias?clientFilter=${encodeURIComponent(
+            appliedClientFilter
+          )}&fechaDesde=${encodeURIComponent(appliedFechaDesde)}&fechaHasta=${encodeURIComponent(
+            appliedFechaHasta
+          )}&lineaTransporte=${encodeURIComponent(
+            appliedLineaTransporteFilter
+          )}&operador=${encodeURIComponent(appliedOperadorFilter)}`,
+          {
+            method: "GET",
+            credentials: "include",
+          }
+        );
+
+        if (anomaliasResponse.ok) {
+          const anomaliasData = await anomaliasResponse.json();
+          setBitacorasAnomalias(anomaliasData);
+        }
+      } catch (error) {
+        console.error("Error fetching dashboard data:", error);
+      } finally {
+        if (isInitialLoad) {
+          setLoading(false);
+        } else {
+          setFilterLoading(false);
+        }
       }
-    } catch (error) {
-      console.error("Error fetching dashboard data:", error);
-    } finally {
-      setLoading(false);
-    }
-  }, [
-    baseUrl,
-    appliedClientFilter,
-    appliedFechaDesde,
-    appliedFechaHasta,
-    appliedLineaTransporteFilter,
-    appliedOperadorFilter,
-  ]);
+    },
+    [
+      baseUrl,
+      appliedClientFilter,
+      appliedFechaDesde,
+      appliedFechaHasta,
+      appliedLineaTransporteFilter,
+      appliedOperadorFilter,
+    ]
+  );
 
   useEffect(() => {
     if (!user) {
       navigate("/login");
       return;
     }
-    fetchDashboardData();
+    // Initial load
+    if (applyFiltersTrigger === 0) {
+      fetchDashboardData(true);
+    } else {
+      // Filter updates
+      fetchDashboardData(false);
+    }
   }, [user, navigate, fetchDashboardData, applyFiltersTrigger]);
 
-  // Memoize filtered data calculation to avoid unnecessary recalculations
+  // Memoize filtered data calculation
   const filteredAnomaliasData = useMemo(() => {
     if (bitacorasAnomalias.length === 0) {
       return [];
     }
 
     return bitacorasAnomalias.filter((bitacora) => {
+      // First, check if the bitacora matches the applied client filter
+      const matchesAppliedClientFilter =
+        appliedClientFilter === "all" ||
+        (bitacora.cliente && bitacora.cliente === appliedClientFilter);
+
+      if (!matchesAppliedClientFilter) {
+        return false;
+      }
+
       const matchesBitacoraId =
         !anomaliasFilters.bitacora_id ||
         (bitacora.bitacora_id || "")
@@ -311,801 +452,429 @@ const AnomaliasDashboardPage = () => {
         matchesStatus
       );
     });
-  }, [bitacorasAnomalias, anomaliasFilters]);
+  }, [bitacorasAnomalias, anomaliasFilters, appliedClientFilter]);
 
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      const dropdown = document.getElementById("anomalias-dropdown");
-      const container = event.target.closest(".anomalias-dropdown-container");
+  // Pagination for filtered data
+  const paginatedData = useMemo(() => {
+    const startIndex = page * rowsPerPage;
+    return filteredAnomaliasData.slice(startIndex, startIndex + rowsPerPage);
+  }, [filteredAnomaliasData, page, rowsPerPage]);
 
-      if (dropdown && !container && dropdown.style.display === "block") {
-        dropdown.style.display = "none";
-      }
-    };
+  // Custom tooltip for pie charts
+  const CustomTooltip = ({active, payload, label}) => {
+    if (active && payload && payload.length) {
+      const totalAnomalias =
+        dashboardStats.clientAnomaliasStats?.reduce((sum, stat) => sum + stat.anomalias, 0) || 0;
+      return (
+        <Paper
+          elevation={3}
+          sx={{
+            p: 2,
+            backgroundColor: "rgba(255, 255, 255, 0.95)",
+            border: "1px solid #ddd",
+          }}>
+          <Typography variant="body2" color="textSecondary">
+            {label}
+          </Typography>
+          <Typography variant="h6" color="primary">
+            {formatNumber(payload[0].value)} anomalías
+          </Typography>
+          <Typography variant="body2" color="textSecondary">
+            {totalAnomalias > 0 ? ((payload[0].value / totalAnomalias) * 100).toFixed(1) : 0}% del
+            total
+          </Typography>
+        </Paper>
+      );
+    }
+    return null;
+  };
 
-    document.addEventListener("click", handleClickOutside);
-    return () => document.removeEventListener("click", handleClickOutside);
-  }, []);
+  // Render client anomalies pie chart
+  const renderClientAnomaliasPieChart = () => {
+    const clientStats = dashboardStats.clientAnomaliasStats || [];
 
-  // Chart rendering functions
-  const renderAnomaliasPieChart = () => {
+    if (clientStats.length === 0) {
+      return (
+        <Box
+          display="flex"
+          flexDirection="column"
+          alignItems="center"
+          justifyContent="center"
+          height={300}
+          color="white">
+          <CheckCircle sx={{fontSize: 60, mb: 2, opacity: 0.3}} />
+          <Typography variant="h6" gutterBottom>
+            Sin Anomalías Detectadas
+          </Typography>
+          <Typography variant="body2" textAlign="center">
+            No se encontraron bitácoras con anomalías en el período seleccionado
+          </Typography>
+        </Box>
+      );
+    }
+
+    // Transform data for Recharts format
+    const chartData = clientStats.map((stat) => ({
+      name: stat.cliente,
+      value: stat.anomalias,
+      color: stat.color,
+      cliente: stat.cliente, // Keep original data for click handler
+    }));
+
+    return (
+      <ResponsiveContainer width="100%" height={400}>
+        <PieChart>
+          <Pie
+            data={chartData}
+            cx="50%"
+            cy="50%"
+            labelLine={false}
+            label={({name, percent}) => `${name} ${(percent * 100).toFixed(0)}%`}
+            outerRadius={120}
+            fill="#8884d8"
+            dataKey="value"
+            onClick={handleClientClick}
+            style={{cursor: "pointer"}}>
+            {chartData.map((entry, index) => (
+              <Cell key={`cell-${index}`} fill={entry.color} />
+            ))}
+          </Pie>
+          <Tooltip content={<CustomTooltip />} />
+          <Legend />
+        </PieChart>
+      </ResponsiveContainer>
+    );
+  };
+
+  // Render event categories pie chart
+  const renderEventCategoriesPieChart = () => {
     const eventCategoriesStats = dashboardStats.eventCategoriesStats || [];
 
     if (eventCategoriesStats.length === 0) {
       return (
-        <div className="text-center py-5">
-          <div className="mb-3">
-            <i
-              className="fa fa-check-circle"
-              style={{
-                fontSize: "3rem",
-                color: "#10b981",
-                opacity: 0.3,
-              }}></i>
-          </div>
-          <h6 className="text-muted mb-2">Sin Anomalías Detectadas</h6>
-          <p className="text-muted small mb-0">
-            No se encontraron bitácoras con anomalías en el período seleccionado
-          </p>
-        </div>
+        <Box
+          display="flex"
+          flexDirection="column"
+          alignItems="center"
+          justifyContent="center"
+          height={300}
+          color="white">
+          <CheckCircle sx={{fontSize: 60, mb: 2, opacity: 0.3}} />
+          <Typography variant="h6" gutterBottom>
+            Sin Eventos Registrados
+          </Typography>
+          <Typography variant="body2" textAlign="center">
+            No hay eventos registrados en las categorías especificadas
+          </Typography>
+        </Box>
       );
     }
 
-    // Calculate total for percentages
-    const total = eventCategoriesStats.reduce((sum, category) => sum + category.count, 0);
-
-    if (total === 0) {
-      return (
-        <div className="text-center text-muted">
-          No hay eventos registrados en las categorías especificadas
-        </div>
-      );
-    }
-
-    // Prepare data for Chart.js
-    const chartData = {
-      labels: eventCategoriesStats.map((category) => {
-        const labelMap = {
-          ENA: "Estadia no autorizada",
-          FM: "Falla mecánica",
-          ONC: "Usuario no responde",
-          DR: "Desvío de ruta",
-        };
-        return labelMap[category.categoria] || category.categoria;
-      }),
-      datasets: [
-        {
-          data: eventCategoriesStats.map((category) => category.count),
-          backgroundColor: eventCategoriesStats.map((category) => category.color),
-          borderWidth: 2,
-          borderColor: "#ffffff",
-          hoverBorderWidth: 3,
-        },
-      ],
-    };
-
-    const chartOptions = {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        legend: {
-          display: false, // We'll create our own legend
-        },
-        tooltip: {
-          position: "nearest",
-          yAlign: "top",
-          xAlign: "center",
-          callbacks: {
-            label: function (context) {
-              const label = context.label || "";
-              const value = context.parsed;
-              const percentage = ((value / total) * 100).toFixed(1);
-              return `${label}: ${value} (${percentage}%)`;
-            },
-          },
-        },
-      },
-      cutout: "60%", // This makes it a donut chart
-    };
+    const chartData = eventCategoriesStats.map((category) => ({
+      name:
+        category.categoria === "ENA"
+          ? "Estadia no autorizada"
+          : category.categoria === "FM"
+          ? "Falla mecánica"
+          : category.categoria === "ONC"
+          ? "Usuario no responde"
+          : category.categoria === "DR"
+          ? "Desvío de ruta"
+          : category.categoria,
+      value: category.count,
+      color: category.color,
+    }));
 
     return (
-      <div
-        className="pie-chart-container"
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: "20px",
-        }}>
-        <div
-          className="pie-chart"
-          style={{
-            position: "relative",
-            width: "200px",
-            height: "200px",
-          }}>
-          <Doughnut data={chartData} options={chartOptions} />
-          <div
-            style={{
-              position: "absolute",
-              top: "50%",
-              left: "50%",
-              transform: "translate(-50%, -50%)",
-              textAlign: "center",
-              pointerEvents: "none",
-            }}>
-            <div
-              style={{
-                fontSize: "14px",
-                fontWeight: "bold",
-                color: "#374151",
-                lineHeight: "1.2",
-              }}>
-              <div>{total}</div>
-              <div style={{fontSize: "10px", marginTop: "2px"}}>Bitácoras</div>
-            </div>
-          </div>
-        </div>
-        <div
-          className="pie-legend"
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            gap: "8px",
-          }}>
-          {/* Total at the top of legend */}
-          <div
-            className="legend-total"
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "8px",
-              marginBottom: "8px",
-              paddingBottom: "8px",
-              borderBottom: "1px solid rgba(255,255,255,0.2)",
-            }}>
-            <span
-              className="legend-color"
-              style={{
-                width: "12px",
-                height: "12px",
-                borderRadius: "2px",
-                background: "#374151",
-              }}></span>
-            <span
-              className="legend-text"
-              style={{
-                fontSize: "14px",
-                fontWeight: "bold",
-                color: "#ffffff",
-              }}>
-              Total: {formatNumber(total)} bitácoras
-            </span>
-          </div>
-
-          {eventCategoriesStats.map((category, index) => {
-            const percentage = total > 0 ? ((category.count / total) * 100).toFixed(1) : 0;
-            const labelMap = {
-              ENA: "Estadia no autorizada",
-              FM: "Falla mecánica",
-              ONC: "Usuario no responde",
-              DR: "Desvío de ruta",
-            };
-            const displayLabel = labelMap[category.categoria] || category.categoria;
-            return (
-              <div
-                key={index}
-                className="legend-item"
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "8px",
-                }}>
-                <span
-                  className="legend-color"
-                  style={{
-                    width: "12px",
-                    height: "12px",
-                    borderRadius: "2px",
-                    background: category.color,
-                  }}></span>
-                <span
-                  className="legend-text"
-                  style={{
-                    fontSize: "12px",
-                    color: "#ffffff",
-                  }}>
-                  {displayLabel} - {formatNumber(category.count)} ({percentage}%)
-                </span>
-              </div>
-            );
-          })}
-        </div>
-      </div>
+      <ResponsiveContainer width="100%" height={300}>
+        <PieChart>
+          <Pie
+            data={chartData}
+            cx="50%"
+            cy="50%"
+            labelLine={false}
+            label={({name, percent}) => `${name} ${(percent * 100).toFixed(0)}%`}
+            outerRadius={80}
+            fill="#8884d8"
+            dataKey="value">
+            {chartData.map((entry, index) => (
+              <Cell key={`cell-${index}`} fill={entry.color} />
+            ))}
+          </Pie>
+          <Tooltip content={<CustomTooltip />} />
+          <Legend />
+        </PieChart>
+      </ResponsiveContainer>
     );
   };
 
+  // Render ONC events bar chart
   const renderOncBarChart = () => {
     if (oncEventsData.length === 0) {
       return (
-        <div className="text-center py-5">
-          <div className="mb-3">
-            <i
-              className="fa fa-user-times"
-              style={{
-                fontSize: "3rem",
-                color: "#06b6d4",
-                opacity: 0.3,
-              }}></i>
-          </div>
-          <h6 className="text-muted mb-2">Sin Eventos ONC</h6>
-          <p className="text-muted small mb-0">
-            No hay eventos de "Usuario No Responde" registrados
-          </p>
-        </div>
+        <Box
+          display="flex"
+          flexDirection="column"
+          alignItems="center"
+          justifyContent="center"
+          height={300}
+          color="white">
+          <Person sx={{fontSize: 60, mb: 2, opacity: 0.3}} />
+          <Typography variant="h6" gutterBottom>
+            Sin Eventos ONC
+          </Typography>
+          <Typography variant="body2" textAlign="center">
+            No hay eventos de &quot;Usuario No Responde&quot; registrados
+          </Typography>
+        </Box>
       );
     }
 
-    const maxCount = Math.max(...oncEventsData.map((event) => event.count));
-    const maxHeight = 200; // Altura máxima de las barras en píxeles
+    const chartData = oncEventsData.map((event) => ({
+      name: event.initials,
+      eventos: event.count,
+      color: event.color,
+      fullName: event.eventName,
+    }));
 
     return (
-      <div className="bar-chart-container">
-        <div
-          className="bar-chart"
-          style={{
-            display: "flex",
-            alignItems: "flex-end",
-            gap: "8px",
-            height: "250px",
-            padding: "15px 0 35px 0",
-          }}>
-          {oncEventsData.map((event, index) => {
-            const barHeight = maxCount > 0 ? (event.count / maxCount) * maxHeight : 0;
-            return (
-              <div
-                key={index}
-                className="bar-item"
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  flex: 1,
-                  height: "100%",
-                  position: "relative",
-                  justifyContent: "flex-end",
-                }}>
-                <div
-                  className="bar"
-                  style={{
-                    height: `${barHeight}px`,
-                    backgroundColor: event.color,
-                    minHeight: event.count > 0 ? "4px" : "0px",
-                    width: "100%",
-                    maxWidth: "35px",
-                    borderRadius: "4px 4px 0 0",
-                    transition: "height 0.3s ease",
-                    marginBottom: "40px",
-                    position: "relative",
-                  }}>
-                  <span
-                    className="bar-value"
-                    style={{
-                      position: "absolute",
-                      top: "-25px",
-                      left: "50%",
-                      transform: "translateX(-50%)",
-                      fontSize: "10px",
-                      fontWeight: "bold",
-                      color: event.color,
-                      whiteSpace: "nowrap",
-                    }}>
-                    {formatNumber(event.count)}
-                  </span>
-                </div>
-                <div
-                  style={{
-                    position: "absolute",
-                    bottom: "-35px",
-                    left: "50%",
-                    transform: "translateX(-50%)",
-                    textAlign: "center",
-                    width: "100%",
-                  }}>
-                  <span
-                    className="bar-label"
-                    style={{
-                      fontSize: "11px",
-                      fontWeight: "500",
-                      color: "#6b7280",
-                      display: "block",
-                      cursor: "help",
-                      position: "relative",
-                    }}
-                    title={event.eventName}>
-                    {event.initials}
-                  </span>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
+      <ResponsiveContainer width="100%" height={300}>
+        <BarChart data={chartData}>
+          <CartesianGrid strokeDasharray="3 3" />
+          <XAxis dataKey="name" />
+          <YAxis />
+          <Tooltip
+            formatter={(value, name, props) => {
+              const data = chartData.find((item) => item.name === props.payload.name);
+              return [`${formatNumber(value)} eventos`, data ? data.fullName : "Evento"];
+            }}
+            labelFormatter={(label) => {
+              const data = chartData.find((item) => item.name === label);
+              return data ? data.fullName : label;
+            }}
+          />
+          <Bar dataKey="eventos" fill="#8884d8">
+            {chartData.map((entry, index) => (
+              <Cell key={`cell-${index}`} fill={entry.color} />
+            ))}
+          </Bar>
+        </BarChart>
+      </ResponsiveContainer>
     );
   };
 
+  // Render ONC events list view
   const renderOncListView = () => {
     if (oncEventsData.length === 0) {
       return (
-        <div className="text-center py-5">
-          <div className="mb-3">
-            <i
-              className="fa fa-user-times"
-              style={{
-                fontSize: "3rem",
-                color: "#06b6d4",
-                opacity: 0.3,
-              }}></i>
-          </div>
-          <h6 className="text-muted mb-2">Sin Eventos ONC</h6>
-          <p className="text-muted small mb-0">
-            No hay eventos de "Usuario No Responde" registrados
-          </p>
-        </div>
+        <Box
+          display="flex"
+          flexDirection="column"
+          alignItems="center"
+          justifyContent="center"
+          height={300}
+          color="white">
+          <Person sx={{fontSize: 60, mb: 2, opacity: 0.3}} />
+          <Typography variant="h6" gutterBottom>
+            Sin Eventos ONC
+          </Typography>
+          <Typography variant="body2" textAlign="center">
+            No hay eventos de &quot;Usuario No Responde&quot; registrados
+          </Typography>
+        </Box>
       );
     }
 
     const totalEvents = oncEventsData.reduce((sum, event) => sum + event.count, 0);
 
     return (
-      <div className="list-view-container">
-        <div className="table-responsive" style={{maxHeight: "300px", overflowY: "auto"}}>
-          <table className="table table-hover table-sm">
-            <thead className="sticky-top" style={{backgroundColor: "#ffffff"}}>
-              <tr>
-                <th className="small">Evento</th>
-                <th className="small text-center">Cantidad</th>
-                <th className="small text-center">Porcentaje</th>
-              </tr>
-            </thead>
-            <tbody>
-              {oncEventsData.map((event, index) => {
-                const percentage =
-                  totalEvents > 0 ? ((event.count / totalEvents) * 100).toFixed(1) : 0;
-                return (
-                  <tr key={index}>
-                    <td className="small">
-                      <div className="d-flex align-items-center gap-2">
-                        <span
-                          className="badge"
-                          style={{
-                            backgroundColor: event.color,
-                            color: "#fff",
-                            fontSize: "0.7rem",
-                            width: "12px",
-                            height: "12px",
-                            borderRadius: "50%",
-                          }}></span>
-                        {event.eventName}
-                      </div>
-                    </td>
-                    <td className="small text-center fw-bold">{formatNumber(event.count)}</td>
-                    <td className="small text-center">{percentage}%</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      <TableContainer>
+        <Table size="small">
+          <TableHead>
+            <TableRow>
+              <TableCell>Evento</TableCell>
+              <TableCell align="center">Cantidad</TableCell>
+              <TableCell align="center">Porcentaje</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {oncEventsData.map((event, index) => {
+              const percentage =
+                totalEvents > 0 ? ((event.count / totalEvents) * 100).toFixed(1) : 0;
+              return (
+                <TableRow key={index}>
+                  <TableCell>
+                    <Box display="flex" alignItems="center" gap={1}>
+                      <Box
+                        width={12}
+                        height={12}
+                        borderRadius="50%"
+                        sx={{backgroundColor: event.color}}
+                      />
+                      {event.eventName}
+                    </Box>
+                  </TableCell>
+                  <TableCell align="center">
+                    <Typography variant="body2" fontWeight="bold">
+                      {formatNumber(event.count)}
+                    </Typography>
+                  </TableCell>
+                  <TableCell align="center">
+                    <Typography variant="body2">{percentage}%</Typography>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+      </TableContainer>
     );
   };
 
-  const renderBitacorasAnomalias = () => {
+  // Render anomalies table
+  const renderAnomaliasTable = () => {
     if (bitacorasAnomalias.length === 0) {
       return (
-        <div className="text-center py-5">
-          <div className="mb-3">
-            <i
-              className="fa fa-clipboard-check"
-              style={{
-                fontSize: "3rem",
-                color: "#10b981",
-                opacity: 0.3,
-              }}></i>
-          </div>
-          <h6 className="text-muted mb-2">Sin Anomalías Registradas</h6>
-          <p className="text-muted small mb-0">
+        <Box
+          display="flex"
+          flexDirection="column"
+          alignItems="center"
+          justifyContent="center"
+          height={400}
+          color="white">
+          <CheckCircle sx={{fontSize: 60, mb: 2, opacity: 0.3}} />
+          <Typography variant="h6" gutterBottom>
+            Sin Anomalías Registradas
+          </Typography>
+          <Typography variant="body2" textAlign="center">
             No hay bitácoras con anomalías en el período seleccionado
-          </p>
-        </div>
+          </Typography>
+        </Box>
       );
     }
 
-    const getBadgeColor = (categoria) => {
-      const colorMap = {
-        ENA: "bg-warning",
-        ONC: "bg-info",
-        FM: "bg-danger",
-        DR: "bg-success",
-      };
-      return colorMap[categoria] || "bg-secondary";
-    };
-
-    const handleFilterChange = (field, value) => {
-      setAnomaliasFilters((prev) => ({
-        ...prev,
-        [field]: value,
-      }));
-    };
-
-    const handleAnomaliasFilterChange = (selectedOptions) => {
-      setAnomaliasFilters((prev) => ({
-        ...prev,
-        anomalias: selectedOptions,
-      }));
-    };
-
-    const clearFilters = () => {
-      setAnomaliasFilters({
-        bitacora_id: "",
-        cliente: "",
-        anomalias: [],
-        linea_transporte: "",
-        operador: "",
-        origen: "",
-        destino: "",
-        status: "",
-      });
+    const getStatusColor = (status) => {
+      switch (status?.toLowerCase()) {
+        case "cerrada":
+          return "error";
+        case "nueva":
+          return "warning";
+        case "iniciada":
+          return "primary";
+        case "validada":
+          return "info";
+        case "finalizada":
+          return "default";
+        default:
+          return "default";
+      }
     };
 
     return (
-      <div>
-        {/* Filter Controls */}
-        <div className="mb-3">
-          <div className="row g-2">
-            <div className="col-12 d-flex justify-content-between align-items-center mb-2">
-              <div className="d-flex align-items-center gap-2">
-                <small className="text-muted">
-                  Mostrando {filteredAnomaliasData.length} de {bitacorasAnomalias.length} registros
-                </small>
-                {anomaliasFilters.anomalias.length > 0 && (
-                  <div className="d-flex align-items-center gap-1">
-                    <span className="badge bg-primary" style={{fontSize: "10px"}}>
-                      <i className="fa fa-filter me-1"></i>
-                      Anomalías: {anomaliasFilters.anomalias.length}
-                    </span>
-                    <div className="d-flex gap-1">
-                      {anomaliasFilters.anomalias.map((anomalia) => {
-                        const colors = {
-                          ENA: "#f59e0b",
-                          FM: "#ef4444",
-                          ONC: "#06b6d4",
-                          DR: "#10b981",
-                        };
-                        return (
-                          <span
-                            key={anomalia}
-                            className="badge"
-                            style={{
-                              backgroundColor: colors[anomalia],
-                              color: "white",
-                              fontSize: "8px",
-                              padding: "2px 4px",
-                            }}>
-                            {anomalia}
-                          </span>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-              </div>
-              <button
-                className="btn btn-sm btn-outline-secondary"
-                onClick={clearFilters}
-                disabled={Object.entries(anomaliasFilters).every(([key, value]) =>
-                  key === "anomalias" ? value.length === 0 : !value
-                )}>
-                <i className="fa fa-times me-1"></i>
-                Limpiar filtros
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <div className="table-responsive" style={{maxHeight: "400px", overflowY: "auto"}}>
-          <table className="table table-hover table-sm">
-            <thead className="sticky-top" style={{backgroundColor: "#ffffff"}}>
-              <tr>
-                <th className="small text-center" style={{minWidth: "120px"}}>
-                  <div>No. Bitácora</div>
-                  <input
-                    type="text"
-                    className="form-control form-control-sm mt-1"
-                    placeholder="Filtrar..."
-                    value={anomaliasFilters.bitacora_id}
-                    onChange={(e) => handleFilterChange("bitacora_id", e.target.value)}
-                    style={{fontSize: "10px"}}
-                  />
-                </th>
-                <th className="small text-center" style={{minWidth: "120px"}}>
-                  <div>Cliente</div>
-                  <input
-                    type="text"
-                    className="form-control form-control-sm mt-1"
-                    placeholder="Filtrar..."
-                    value={anomaliasFilters.cliente}
-                    onChange={(e) => handleFilterChange("cliente", e.target.value)}
-                    style={{fontSize: "10px"}}
-                  />
-                </th>
-                <th className="small text-center" style={{minWidth: "120px"}}>
-                  <div>Anomalías</div>
-                  <div className="anomalias-dropdown-container mt-1" style={{position: "relative"}}>
-                    <button
-                      type="button"
-                      className="form-control form-control-sm d-flex align-items-center justify-content-between"
-                      onClick={() => {
-                        const dropdown = document.getElementById("anomalias-dropdown");
-                        dropdown.style.display =
-                          dropdown.style.display === "block" ? "none" : "block";
-                      }}
-                      style={{
-                        fontSize: "10px",
-                        height: "32px",
-                        border:
-                          anomaliasFilters.anomalias.length > 0
-                            ? "2px solid #0d6efd"
-                            : "1px solid #ced4da",
-                        backgroundColor:
-                          anomaliasFilters.anomalias.length > 0 ? "#e7f3ff" : "white",
-                        cursor: "pointer",
-                      }}>
-                      <div className="d-flex align-items-center gap-1">
-                        {anomaliasFilters.anomalias.length === 0 ? (
-                          <span className="text-muted">Filtrar...</span>
-                        ) : (
-                          <div className="d-flex gap-1 flex-wrap">
-                            {anomaliasFilters.anomalias.slice(0, 2).map((anomalia) => {
-                              const colors = {
-                                ENA: "#f59e0b",
-                                FM: "#ef4444",
-                                ONC: "#06b6d4",
-                                DR: "#10b981",
-                              };
-                              return (
-                                <span
-                                  key={anomalia}
-                                  className="badge"
-                                  style={{
-                                    backgroundColor: colors[anomalia],
-                                    color: "white",
-                                    fontSize: "7px",
-                                    padding: "1px 3px",
-                                  }}>
-                                  {anomalia}
-                                </span>
-                              );
-                            })}
-                            {anomaliasFilters.anomalias.length > 2 && (
-                              <span
-                                className="badge bg-secondary"
-                                style={{fontSize: "7px", padding: "1px 3px"}}>
-                                +{anomaliasFilters.anomalias.length - 2}
-                              </span>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                      <i className="fa fa-chevron-down" style={{fontSize: "8px"}}></i>
-                    </button>
-
-                    <div
-                      id="anomalias-dropdown"
-                      className="anomalias-dropdown-menu"
-                      style={{
-                        display: "none",
-                        position: "absolute",
-                        top: "100%",
-                        left: "0",
-                        right: "0",
-                        backgroundColor: "white",
-                        border: "1px solid #ced4da",
-                        borderRadius: "4px",
-                        boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
-                        zIndex: 1000,
-                        fontSize: "10px",
-                        padding: "8px",
-                      }}>
-                      <div className="d-flex justify-content-between align-items-center mb-2">
-                        <small className="text-muted fw-bold">Seleccionar anomalías:</small>
-                        <div className="d-flex gap-1">
-                          <button
-                            type="button"
-                            className="btn btn-link btn-sm p-0"
-                            onClick={() => handleAnomaliasFilterChange(["ENA", "FM", "ONC", "DR"])}
-                            style={{fontSize: "8px", textDecoration: "none"}}
-                            title="Seleccionar todas">
-                            Todas
-                          </button>
-                          <span style={{fontSize: "8px"}}>|</span>
-                          <button
-                            type="button"
-                            className="btn btn-link btn-sm p-0"
-                            onClick={() => handleAnomaliasFilterChange([])}
-                            style={{fontSize: "8px", textDecoration: "none"}}
-                            title="Deseleccionar todas">
-                            Limpiar
-                          </button>
-                        </div>
-                      </div>
-
-                      {[
-                        {
-                          value: "ENA",
-                          label: "ENA",
-                          color: "#f59e0b",
-                          desc: "Estadia no autorizada",
-                        },
-                        {value: "FM", label: "FM", color: "#ef4444", desc: "Falla mecánica"},
-                        {
-                          value: "ONC",
-                          label: "ONC",
-                          color: "#06b6d4",
-                          desc: "Usuario no responde",
-                        },
-                        {value: "DR", label: "DR", color: "#10b981", desc: "Desvío de ruta"},
-                      ].map((anomalia) => (
-                        <label
-                          key={anomalia.value}
-                          className="d-flex align-items-center gap-2 py-1 px-1"
-                          style={{
-                            cursor: "pointer",
-                            borderRadius: "3px",
-                            transition: "background-color 0.2s",
-                          }}
-                          onMouseEnter={(e) => (e.target.style.backgroundColor = "#ffffff")}
-                          onMouseLeave={(e) => (e.target.style.backgroundColor = "transparent")}>
-                          <input
-                            type="checkbox"
-                            checked={anomaliasFilters.anomalias.includes(anomalia.value)}
-                            onChange={(e) => {
-                              const currentSelection = [...anomaliasFilters.anomalias];
-                              if (e.target.checked) {
-                                currentSelection.push(anomalia.value);
-                              } else {
-                                const index = currentSelection.indexOf(anomalia.value);
-                                if (index > -1) {
-                                  currentSelection.splice(index, 1);
-                                }
-                              }
-                              handleAnomaliasFilterChange(currentSelection);
-                            }}
-                            style={{margin: "0", accentColor: anomalia.color}}
-                          />
-                          <span
-                            className="badge"
-                            style={{
-                              backgroundColor: anomalia.color,
-                              color: "white",
-                              fontSize: "8px",
-                              padding: "2px 4px",
-                              minWidth: "25px",
-                              textAlign: "center",
-                            }}>
-                            {anomalia.label}
-                          </span>
-                          <span style={{fontSize: "9px", color: "#6c757d"}}>{anomalia.desc}</span>
-                        </label>
-                      ))}
-                    </div>
-                  </div>
-                </th>
-                <th className="small text-center" style={{minWidth: "150px"}}>
-                  <div>Línea Transporte</div>
-                  <input
-                    type="text"
-                    className="form-control form-control-sm mt-1"
-                    placeholder="Filtrar..."
-                    value={anomaliasFilters.linea_transporte}
-                    onChange={(e) => handleFilterChange("linea_transporte", e.target.value)}
-                    style={{fontSize: "10px"}}
-                  />
-                </th>
-                <th className="small text-center" style={{minWidth: "120px"}}>
-                  <div>Operador</div>
-                  <input
-                    type="text"
-                    className="form-control form-control-sm mt-1"
-                    placeholder="Filtrar..."
-                    value={anomaliasFilters.operador}
-                    onChange={(e) => handleFilterChange("operador", e.target.value)}
-                    style={{fontSize: "10px"}}
-                  />
-                </th>
-                <th className="small text-center" style={{minWidth: "120px"}}>
-                  <div>Origen</div>
-                  <input
-                    type="text"
-                    className="form-control form-control-sm mt-1"
-                    placeholder="Filtrar..."
-                    value={anomaliasFilters.origen}
-                    onChange={(e) => handleFilterChange("origen", e.target.value)}
-                    style={{fontSize: "10px"}}
-                  />
-                </th>
-                <th className="small text-center" style={{minWidth: "120px"}}>
-                  <div>Destino</div>
-                  <input
-                    type="text"
-                    className="form-control form-control-sm mt-1"
-                    placeholder="Filtrar..."
-                    value={anomaliasFilters.destino}
-                    onChange={(e) => handleFilterChange("destino", e.target.value)}
-                    style={{fontSize: "10px"}}
-                  />
-                </th>
-                <th className="small text-center" style={{minWidth: "100px"}}>
-                  <div>Estado</div>
-                  <input
-                    type="text"
-                    className="form-control form-control-sm mt-1"
-                    placeholder="Filtrar..."
-                    value={anomaliasFilters.status}
-                    onChange={(e) => handleFilterChange("status", e.target.value)}
-                    style={{fontSize: "10px"}}
-                  />
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredAnomaliasData.map((bitacora, index) => (
-                <tr key={bitacora._id || index}>
-                  <td className="small text-center">{bitacora.bitacora_id || "N/A"}</td>
-                  <td className="small">{bitacora.cliente || "N/A"}</td>
-                  <td className="small">
-                    <div className="d-flex flex-wrap gap-1">
+      <Box>
+        <TableContainer component={Paper} elevation={1}>
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell>No. Bitácora</TableCell>
+                <TableCell>Cliente</TableCell>
+                <TableCell>Anomalías</TableCell>
+                <TableCell>Línea Transporte</TableCell>
+                <TableCell>Operador</TableCell>
+                <TableCell>Origen</TableCell>
+                <TableCell>Destino</TableCell>
+                <TableCell align="center">Estado</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {paginatedData.map((bitacora, index) => (
+                <TableRow key={bitacora._id || index} hover>
+                  <TableCell>
+                    <Typography variant="body2" fontWeight="medium">
+                      {bitacora.bitacora_id || "N/A"}
+                    </Typography>
+                  </TableCell>
+                  <TableCell>
+                    <Typography variant="body2">{bitacora.cliente || "N/A"}</Typography>
+                  </TableCell>
+                  <TableCell>
+                    <Box display="flex" gap={0.5} flexWrap="wrap">
                       {bitacora.categorias && bitacora.categorias.length > 0 ? (
                         bitacora.categorias.map((categoria, catIndex) => (
-                          <span key={catIndex} className={`badge ${getBadgeColor(categoria)}`}>
-                            {categoria}
-                          </span>
+                          <Chip
+                            key={catIndex}
+                            label={categoria}
+                            size="small"
+                            sx={{
+                              backgroundColor: getAnomaliaColor(categoria),
+                              color: "white",
+                              fontSize: "0.7rem",
+                              height: 20,
+                            }}
+                          />
                         ))
                       ) : (
-                        <span className="badge bg-secondary">N/A</span>
+                        <Chip label="N/A" size="small" variant="outlined" />
                       )}
-                    </div>
-                  </td>
-                  <td className="small">{bitacora.linea_transporte || "N/A"}</td>
-                  <td className="small">{bitacora.operador || "N/A"}</td>
-                  <td className="small">{bitacora.origen || "N/A"}</td>
-                  <td className="small">{bitacora.destino || "N/A"}</td>
-                  <td className="small text-center">
-                    <span
-                      className={`badge ${
-                        bitacora.status === "cerrada"
-                          ? "bg-danger"
-                          : bitacora.status === "nueva"
-                          ? "bg-warning"
-                          : bitacora.status === "iniciada"
-                          ? "bg-primary"
-                          : bitacora.status === "validada"
-                          ? "bg-info"
-                          : bitacora.status === "finalizada"
-                          ? "bg-secondary"
-                          : "bg-light text-dark"
-                      }`}>
-                      {bitacora.status || "N/A"}
-                    </span>
-                  </td>
-                </tr>
+                    </Box>
+                  </TableCell>
+                  <TableCell>
+                    <Typography variant="body2">{bitacora.linea_transporte || "N/A"}</Typography>
+                  </TableCell>
+                  <TableCell>
+                    <Typography variant="body2">{bitacora.operador || "N/A"}</Typography>
+                  </TableCell>
+                  <TableCell>
+                    <Typography variant="body2">{bitacora.origen || "N/A"}</Typography>
+                  </TableCell>
+                  <TableCell>
+                    <Typography variant="body2">{bitacora.destino || "N/A"}</Typography>
+                  </TableCell>
+                  <TableCell align="center">
+                    <Chip
+                      label={bitacora.status || "N/A"}
+                      size="small"
+                      color={getStatusColor(bitacora.status)}
+                      variant="outlined"
+                    />
+                  </TableCell>
+                </TableRow>
               ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
+            </TableBody>
+          </Table>
+        </TableContainer>
+        <TablePagination
+          component="div"
+          count={filteredAnomaliasData.length}
+          page={page}
+          onPageChange={(event, newPage) => setPage(newPage)}
+          rowsPerPage={rowsPerPage}
+          onRowsPerPageChange={(event) => {
+            setRowsPerPage(parseInt(event.target.value, 10));
+            setPage(0);
+          }}
+          labelRowsPerPage="Filas por página:"
+          labelDisplayedRows={({from, to, count}) => `${from}-${to} de ${count}`}
+          sx={{
+            color: "white",
+            "& .MuiTablePagination-selectLabel": {
+              color: "white",
+            },
+            "& .MuiTablePagination-displayedRows": {
+              color: "white",
+            },
+            "& .MuiTablePagination-select": {
+              color: "white",
+            },
+            "& .MuiTablePagination-actions": {
+              color: "white",
+            },
+            "& .MuiIconButton-root": {
+              color: "white",
+            },
+          }}
+        />
+      </Box>
     );
   };
 
@@ -1117,14 +886,17 @@ const AnomaliasDashboardPage = () => {
             <Sidebar />
           </div>
           <div className={`content-wrapper ${isSidebarCollapsed ? "sidebar-collapsed" : ""}`}>
-            <div
-              className="d-flex justify-content-center align-items-center"
-              style={{height: "100vh"}}>
-              <div className="text-center">
-                <i className="fa fa-spinner fa-spin fa-2x text-primary mb-3"></i>
-                <p className="text-muted">Cargando dashboard de anomalías...</p>
-              </div>
-            </div>
+            <Box
+              display="flex"
+              justifyContent="center"
+              alignItems="center"
+              height="100vh"
+              flexDirection="column">
+              <CircularProgress size={60} />
+              <Typography variant="h6" sx={{mt: 2}}>
+                Cargando dashboard de anomalías...
+              </Typography>
+            </Box>
           </div>
         </div>
       </section>
@@ -1138,244 +910,596 @@ const AnomaliasDashboardPage = () => {
           <Sidebar />
         </div>
         <div className={`content-wrapper ${isSidebarCollapsed ? "sidebar-collapsed" : ""}`}>
-          {/* Título */}
-          <div className="page-header">
-            <h1 className="fs-3 fw-semibold text-black m-0">Dashboard de anomalías</h1>
-          </div>
+          {/* Header */}
+          <Box
+            sx={{
+              p: 3,
+              backgroundColor: "background.paper",
+              borderBottom: 1,
+              borderColor: "divider",
+            }}>
+            <Typography variant="h4" fontWeight="bold" color="primary" gutterBottom>
+              Dashboard de Anomalías
+            </Typography>
+            <Typography variant="body1" color="text.secondary">
+              Tablero de control de anomalías del sistema de monitoreo Intacsep
+            </Typography>
+          </Box>
 
-          <div className="container-fluid px-3 px-md-4">
-            {/* Welcome Section */}
-            <div className="row mb-3 mb-md-4">
-              <div className="col-12">
-                <div className="welcome-card">
-                  <div className="welcome-content">
-                    <div className="welcome-icon">
-                      <i className="fa fa-exclamation-triangle"></i>
-                    </div>
-                    <div className="welcome-text">
-                      <h4 className="fs-5 fs-md-4">
-                        Hola, {user?.firstName} {user?.lastName}
-                      </h4>
-                      <p className="mb-0 d-none d-md-block">
-                        Tablero de control de anomalías del sistema de monitoreo Intacsep
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
+          <Box sx={{p: 3}}>
+            {/* Welcome Card */}
+            <Card
+              sx={{
+                mb: 3,
+                background: "linear-gradient(135deg, #1e293b 0%, #0f172a 100%)",
+                color: "white",
+                border: "1px solid rgba(148, 163, 184, 0.1)",
+              }}>
+              <CardContent>
+                <Box display="flex" alignItems="center" gap={2}>
+                  <Box
+                    sx={{
+                      width: 60,
+                      height: 60,
+                      borderRadius: "50%",
+                      backgroundColor: "rgba(255,255,255,0.2)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}>
+                    <Warning sx={{fontSize: 30}} />
+                  </Box>
+                  <Box>
+                    <Typography variant="h5" fontWeight="bold" gutterBottom>
+                      Hola, {user?.firstName} {user?.lastName}
+                    </Typography>
+                    <Typography variant="body1" sx={{opacity: 0.9}}>
+                      Bienvenido al dashboard de anomalías. Aquí podrás monitorear y analizar todas
+                      las anomalías detectadas en el sistema.
+                    </Typography>
+                  </Box>
+                </Box>
+              </CardContent>
+            </Card>
 
-            {/* Filtros */}
-            <div className="row mb-3 mb-md-4">
-              <div className="col-12">
-                <div className="filter-card">
-                  <div className="filter-header d-flex justify-content-end align-items-center mb-2">
-                    <div className="d-flex align-items-center gap-2">
-                      {loading && (
-                        <span className="badge bg-warning">
-                          <i className="fa fa-spinner fa-spin me-1"></i>
-                          Cargando...
-                        </span>
-                      )}
-                      {(appliedFechaDesde ||
-                        appliedFechaHasta !== new Date().toISOString().split("T")[0] ||
-                        appliedClientFilter !== "all" ||
-                        appliedLineaTransporteFilter !== "all" ||
-                        appliedOperadorFilter !== "all") && (
-                        <span className="badge bg-primary">
-                          <i className="fa fa-filter me-1"></i>
-                          Filtros Activos
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  <div className="filter-content">
-                    <div className="row g-2 g-md-3 align-items-end">
-                      {/* Filtros de fecha primero */}
-                      <div className="col-12 col-sm-6 col-lg-2">
-                        <div className="filter-section">
-                          <label className="form-label small mb-1">Fecha Desde:</label>
-                          <input
-                            type="date"
-                            value={fechaDesde}
-                            onChange={(e) => setFechaDesde(e.target.value)}
-                            className="filter-select form-control form-control-sm"
-                          />
-                        </div>
-                      </div>
-                      <div className="col-12 col-sm-6 col-lg-2">
-                        <div className="filter-section">
-                          <label className="form-label small mb-1">Fecha Hasta:</label>
-                          <input
-                            type="date"
-                            value={fechaHasta}
-                            onChange={(e) => setFechaHasta(e.target.value)}
-                            className="filter-select form-control form-control-sm"
-                          />
-                        </div>
-                      </div>
+            {/* Filters Card */}
+            <Card
+              sx={{
+                mb: 3,
+                background: "linear-gradient(135deg, #1e293b 0%, #0f172a 100%)",
+                color: "white",
+                border: "1px solid rgba(148, 163, 184, 0.1)",
+              }}>
+              <CardHeader
+                title="Filtros de Búsqueda"
+                titleTypographyProps={{color: "white"}}
+                action={
+                  <Box display="flex" gap={1}>
+                    {filterLoading && (
+                      <Chip
+                        icon={<CircularProgress size={16} />}
+                        label="Actualizando..."
+                        color="info"
+                        size="small"
+                      />
+                    )}
+                    {(appliedFechaDesde ||
+                      appliedFechaHasta !== new Date().toISOString().split("T")[0] ||
+                      appliedClientFilter !== "all" ||
+                      appliedLineaTransporteFilter !== "all" ||
+                      appliedOperadorFilter !== "all") && (
+                      <Chip
+                        icon={<FilterList />}
+                        label="Filtros Activos"
+                        color="primary"
+                        size="small"
+                      />
+                    )}
+                  </Box>
+                }
+                sx={{
+                  background: "linear-gradient(135deg, #1e293b 0%, #0f172a 100%)",
+                  borderBottom: "1px solid rgba(255,255,255,0.1)",
+                }}
+              />
+              <CardContent>
+                <Grid container spacing={2} alignItems="flex-end">
+                  <Grid item xs={12} sm={6} md={2}>
+                    <TextField
+                      label="Fecha Desde"
+                      type="date"
+                      value={fechaDesde}
+                      onChange={(e) => setFechaDesde(e.target.value)}
+                      fullWidth
+                      size="small"
+                      InputLabelProps={{shrink: true}}
+                      sx={{
+                        "& .MuiInputLabel-root": {
+                          color: "rgba(255,255,255,0.7)",
+                        },
+                        "& .MuiInputBase-root": {
+                          color: "white",
+                          "& fieldset": {
+                            borderColor: "rgba(255,255,255,0.3)",
+                          },
+                          "&:hover fieldset": {
+                            borderColor: "rgba(255,255,255,0.5)",
+                          },
+                        },
+                      }}
+                    />
+                  </Grid>
+                  <Grid item xs={12} sm={6} md={2}>
+                    <TextField
+                      label="Fecha Hasta"
+                      type="date"
+                      value={fechaHasta}
+                      onChange={(e) => setFechaHasta(e.target.value)}
+                      fullWidth
+                      size="small"
+                      InputLabelProps={{shrink: true}}
+                      sx={{
+                        "& .MuiInputLabel-root": {
+                          color: "rgba(255,255,255,0.7)",
+                        },
+                        "& .MuiInputBase-root": {
+                          color: "white",
+                          "& fieldset": {
+                            borderColor: "rgba(255,255,255,0.3)",
+                          },
+                          "&:hover fieldset": {
+                            borderColor: "rgba(255,255,255,0.5)",
+                          },
+                        },
+                      }}
+                    />
+                  </Grid>
+                  <Grid item xs={12} sm={6} md={2}>
+                    <FormControl fullWidth size="small">
+                      <InputLabel sx={{color: "rgba(255,255,255,0.7)"}}>Cliente</InputLabel>
+                      <Select
+                        value={clientFilter}
+                        onChange={(e) => setClientFilter(e.target.value)}
+                        label="Cliente"
+                        sx={{
+                          color: "white",
+                          "& .MuiOutlinedInput-notchedOutline": {
+                            borderColor: "rgba(255,255,255,0.3)",
+                          },
+                          "&:hover .MuiOutlinedInput-notchedOutline": {
+                            borderColor: "rgba(255,255,255,0.5)",
+                          },
+                          "& .MuiSvgIcon-root": {
+                            color: "rgba(255,255,255,0.7)",
+                          },
+                        }}>
+                        <MenuItem value="all">Todos los clientes</MenuItem>
+                        {availableClients
+                          ?.filter((client) => client && client.razon_social)
+                          .sort((a, b) => a.razon_social.localeCompare(b.razon_social))
+                          .map((client) => (
+                            <MenuItem key={client._id} value={client.razon_social}>
+                              {client.razon_social}
+                            </MenuItem>
+                          ))}
+                      </Select>
+                    </FormControl>
+                  </Grid>
+                  <Grid item xs={12} sm={6} md={2}>
+                    <FormControl fullWidth size="small">
+                      <InputLabel sx={{color: "rgba(255,255,255,0.7)"}}>
+                        Línea Transporte
+                      </InputLabel>
+                      <Select
+                        value={lineaTransporteFilter}
+                        onChange={(e) => setLineaTransporteFilter(e.target.value)}
+                        label="Línea Transporte"
+                        sx={{
+                          color: "white",
+                          "& .MuiOutlinedInput-notchedOutline": {
+                            borderColor: "rgba(255,255,255,0.3)",
+                          },
+                          "&:hover .MuiOutlinedInput-notchedOutline": {
+                            borderColor: "rgba(255,255,255,0.5)",
+                          },
+                          "& .MuiSvgIcon-root": {
+                            color: "rgba(255,255,255,0.7)",
+                          },
+                        }}>
+                        <MenuItem value="all">Todas las líneas</MenuItem>
+                        {availableLineasTransporte
+                          ?.filter((linea) => linea && linea.nombre)
+                          .sort((a, b) => a.nombre.localeCompare(b.nombre))
+                          .map((linea) => (
+                            <MenuItem key={linea._id} value={linea.nombre}>
+                              {linea.nombre}
+                            </MenuItem>
+                          ))}
+                      </Select>
+                    </FormControl>
+                  </Grid>
+                  <Grid item xs={12} sm={6} md={2}>
+                    <FormControl fullWidth size="small">
+                      <InputLabel sx={{color: "rgba(255,255,255,0.7)"}}>Operador</InputLabel>
+                      <Select
+                        value={operadorFilter}
+                        onChange={(e) => setOperadorFilter(e.target.value)}
+                        label="Operador"
+                        sx={{
+                          color: "white",
+                          "& .MuiOutlinedInput-notchedOutline": {
+                            borderColor: "rgba(255,255,255,0.3)",
+                          },
+                          "&:hover .MuiOutlinedInput-notchedOutline": {
+                            borderColor: "rgba(255,255,255,0.5)",
+                          },
+                          "& .MuiSvgIcon-root": {
+                            color: "rgba(255,255,255,0.7)",
+                          },
+                        }}>
+                        <MenuItem value="all">Todos los operadores</MenuItem>
+                        {availableOperadores
+                          ?.filter((operador) => operador && operador.nombre)
+                          .sort((a, b) => a.nombre.localeCompare(b.nombre))
+                          .map((operador) => (
+                            <MenuItem key={operador._id} value={operador.nombre}>
+                              {operador.nombre}
+                            </MenuItem>
+                          ))}
+                      </Select>
+                    </FormControl>
+                  </Grid>
+                  <Grid item xs={12} sm={6} md={2}>
+                    <Box display="flex" gap={1}>
+                      <Button
+                        variant="contained"
+                        startIcon={<FilterList />}
+                        onClick={applyFilters}
+                        fullWidth>
+                        Aplicar
+                      </Button>
+                      <IconButton color="secondary" onClick={resetFilters} title="Limpiar filtros">
+                        <Refresh />
+                      </IconButton>
+                    </Box>
+                  </Grid>
+                </Grid>
+              </CardContent>
+            </Card>
 
-                      {/* Filtro de cliente después */}
-                      <div className="col-12 col-sm-6 col-lg-2">
-                        <div className="filter-section">
-                          <label className="form-label small mb-1">Cliente:</label>
-                          <select
-                            value={clientFilter}
-                            onChange={(e) => setClientFilter(e.target.value)}
-                            className="filter-select form-select form-select-sm">
-                            <option value="all">Todos los clientes</option>
-                            {availableClients && availableClients.length > 0
-                              ? availableClients
-                                  .filter((client) => client && client.razon_social)
-                                  .sort((a, b) => a.razon_social.localeCompare(b.razon_social))
-                                  .map((client) => (
-                                    <option key={client._id} value={client.razon_social}>
-                                      {client.razon_social}
-                                    </option>
-                                  ))
-                              : null}
-                          </select>
-                        </div>
-                      </div>
-
-                      {/* Filtros de línea de transporte y operador */}
-                      <div className="col-12 col-sm-6 col-lg-2">
-                        <div className="filter-section">
-                          <label className="form-label small mb-1">Línea Transporte:</label>
-                          <select
-                            value={lineaTransporteFilter}
-                            onChange={(e) => setLineaTransporteFilter(e.target.value)}
-                            className="filter-select form-select form-select-sm">
-                            <option value="all">Todas las líneas</option>
-                            {availableLineasTransporte && availableLineasTransporte.length > 0
-                              ? availableLineasTransporte
-                                  .filter((linea) => linea && linea.nombre)
-                                  .sort((a, b) => a.nombre.localeCompare(b.nombre))
-                                  .map((linea) => (
-                                    <option key={linea._id} value={linea.nombre}>
-                                      {linea.nombre}
-                                    </option>
-                                  ))
-                              : null}
-                          </select>
-                        </div>
-                      </div>
-                      <div className="col-12 col-sm-6 col-lg-2">
-                        <div className="filter-section">
-                          <label className="form-label small mb-1">Operador:</label>
-                          <select
-                            value={operadorFilter}
-                            onChange={(e) => setOperadorFilter(e.target.value)}
-                            className="filter-select form-select form-select-sm">
-                            <option value="all">Todos los operadores</option>
-                            {availableOperadores && availableOperadores.length > 0
-                              ? availableOperadores
-                                  .filter((operador) => operador && operador.nombre)
-                                  .sort((a, b) => a.nombre.localeCompare(b.nombre))
-                                  .map((operador) => (
-                                    <option key={operador._id} value={operador.nombre}>
-                                      {operador.nombre}
-                                    </option>
-                                  ))
-                              : null}
-                          </select>
-                        </div>
-                      </div>
-                      <div className="col-12 col-sm-6 col-lg-2">
-                        <div className="filter-actions d-flex justify-content-end gap-2">
-                          <button
-                            className="filter-btn btn btn-outline-primary btn-sm"
-                            onClick={applyFilters}>
-                            <i className="fa fa-check me-1"></i>
-                          </button>
-                          <button
-                            className="filter-btn btn btn-outline-secondary btn-sm"
-                            onClick={resetFilters}>
-                            <i className="fa fa-refresh me-1"></i>
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Análisis de anomalías */}
-            <div className="row mb-3 mb-md-4">
-              <div className="col-12">
-                <div className="chart-card">
-                  <div className="chart-header">
-                    <h6 className="mb-0">Análisis de Anomalías</h6>
-                  </div>
-                  <div className="chart-body">
-                    <div className="row g-3">
-                      {/* Anomalías Aceptadas - Gráfico de Pie */}
-                      <div className="col-12 col-lg-6">
-                        <div className="chart-card">
-                          <div className="chart-header">
-                            <h6 className="mb-0">Anomalías Aceptadas</h6>
-                          </div>
-                          <div className="chart-body">{renderAnomaliasPieChart()}</div>
-                        </div>
-                      </div>
-
-                      {/* Usuario No Responde - Gráfico de Barras */}
-                      <div className="col-12 col-lg-6">
-                        <div className="chart-card">
-                          <div className="chart-header d-flex justify-content-between align-items-center">
-                            <h6 className="mb-0">Usuario No Responde</h6>
-                            <div className="btn-group btn-group-sm" role="group">
-                              <button
-                                type="button"
-                                className={`btn ${
-                                  oncViewMode === "chart" ? "btn-primary" : "btn-outline-primary"
-                                }`}
-                                onClick={() => setOncViewMode("chart")}
-                                title="Vista de gráfico">
-                                <i className="fa fa-bar-chart"></i>
-                              </button>
-                              <button
-                                type="button"
-                                className={`btn ${
-                                  oncViewMode === "list" ? "btn-primary" : "btn-outline-primary"
-                                }`}
-                                onClick={() => setOncViewMode("list")}
-                                title="Vista de lista">
-                                <i className="fa fa-list"></i>
-                              </button>
-                            </div>
-                          </div>
-                          <div className="chart-body">
-                            {oncViewMode === "chart" ? renderOncBarChart() : renderOncListView()}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Lista de bitácoras con anomalías */}
+            {/* Statistics Cards */}
             <div className="row mb-3 mb-md-4">
               <div className="col-12">
                 <div className="chart-card">
                   <div className="chart-header d-flex justify-content-between align-items-center">
-                    <h6 className="mb-0">Lista de Bitácoras con Anomalías</h6>
-                    <button
-                      className="btn btn-sm btn-outline-success"
-                      onClick={() => downloadBitacorasAnomaliasExcel(filteredAnomaliasData)}
-                      disabled={filteredAnomaliasData.length === 0}>
-                      <i className="fa fa-file-excel me-1"></i>
-                      Excel
-                    </button>
+                    <div className="d-flex align-items-center gap-2">
+                      <h6 className="mb-0">Resumen de Bitácoras</h6>
+                      {(appliedClientFilter !== "all" ||
+                        appliedLineaTransporteFilter !== "all" ||
+                        appliedOperadorFilter !== "all" ||
+                        appliedFechaDesde ||
+                        appliedFechaHasta !== new Date().toISOString().split("T")[0]) && (
+                        <span className="badge bg-info" style={{fontSize: "10px"}}>
+                          <i className="fa fa-filter me-1"></i>
+                          Filtrado
+                        </span>
+                      )}
+                    </div>
                   </div>
-                  <div className="chart-body">{renderBitacorasAnomalias()}</div>
+                  <div className="chart-body">
+                    {(appliedClientFilter !== "all" ||
+                      appliedLineaTransporteFilter !== "all" ||
+                      appliedOperadorFilter !== "all" ||
+                      appliedFechaDesde ||
+                      appliedFechaHasta !== new Date().toISOString().split("T")[0]) && (
+                      <div className="alert alert-info py-2 mb-3" style={{fontSize: "12px"}}>
+                        <i className="fa fa-info-circle me-2"></i>
+                        <strong>Filtros activos:</strong>{" "}
+                        {appliedClientFilter !== "all" && `Cliente: ${appliedClientFilter} | `}
+                        {appliedLineaTransporteFilter !== "all" &&
+                          `Línea: ${appliedLineaTransporteFilter} | `}
+                        {appliedOperadorFilter !== "all" && `Operador: ${appliedOperadorFilter} | `}
+                        {appliedFechaDesde && `Desde: ${appliedFechaDesde} | `}
+                        {appliedFechaHasta !== new Date().toISOString().split("T")[0] &&
+                          `Hasta: ${appliedFechaHasta}`}
+                      </div>
+                    )}
+                    <div className="row g-2 g-md-3">
+                      {/* Total Bitácoras */}
+                      <div className="col-6 col-lg mb-2 mb-lg-0">
+                        <div className="stat-card h-100" style={{position: "relative"}}>
+                          {renderLoadingOverlay()}
+                          <div
+                            className="stat-icon"
+                            style={{backgroundColor: "#6b7280 !important", color: "#fff"}}>
+                            <i className="fa fa-book"></i>
+                          </div>
+                          <div className="stat-content">
+                            <div className="stat-value fs-4 fs-md-3">
+                              {formatNumber(dashboardStats.totalBitacoras || 0)}
+                            </div>
+                            <div className="stat-label small">Total Bitácoras</div>
+                            <div
+                              className="stat-percentage small"
+                              style={{color: "#6b7280", fontWeight: "600"}}>
+                              100%
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Nuevas */}
+                      <div className="col-6 col-lg mb-2 mb-lg-0">
+                        <div className="stat-card h-100" style={{position: "relative"}}>
+                          {renderLoadingOverlay()}
+                          <div className="stat-icon new">
+                            <i className="fa fa-plus-circle"></i>
+                          </div>
+                          <div className="stat-content">
+                            <div className="stat-value fs-4 fs-md-3">
+                              {formatNumber(dashboardStats.nuevasBitacoras || 0)}
+                            </div>
+                            <div className="stat-label small">Nuevas</div>
+                            <div
+                              className="stat-percentage small"
+                              style={{color: "#10b981", fontWeight: "600"}}>
+                              {dashboardStats.totalBitacoras > 0 &&
+                              dashboardStats.nuevasBitacoras !== undefined
+                                ? Math.round(
+                                    (dashboardStats.nuevasBitacoras /
+                                      dashboardStats.totalBitacoras) *
+                                      100
+                                  )
+                                : 0}
+                              %
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* En Proceso */}
+                      <div className="col-6 col-lg mb-2 mb-lg-0">
+                        <div className="stat-card h-100" style={{position: "relative"}}>
+                          {renderLoadingOverlay()}
+                          <div className="stat-icon pending">
+                            <i className="fa fa-clock"></i>
+                          </div>
+                          <div className="stat-content">
+                            <div className="stat-value fs-4 fs-md-3">
+                              {formatNumber(dashboardStats.enProcesoBitacoras || 0)}
+                            </div>
+                            <div className="stat-label small">En proceso</div>
+                            <div
+                              className="stat-percentage small"
+                              style={{color: "#3b82f6", fontWeight: "600"}}>
+                              {dashboardStats.totalBitacoras > 0 &&
+                              dashboardStats.enProcesoBitacoras !== undefined
+                                ? Math.round(
+                                    (dashboardStats.enProcesoBitacoras /
+                                      dashboardStats.totalBitacoras) *
+                                      100
+                                  )
+                                : 0}
+                              %
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Cerradas */}
+                      <div className="col-6 col-lg mb-2 mb-lg-0">
+                        <div className="stat-card h-100" style={{position: "relative"}}>
+                          {renderLoadingOverlay()}
+                          <div className="stat-icon closed">
+                            <i className="fa fa-lock"></i>
+                          </div>
+                          <div className="stat-content">
+                            <div className="stat-value fs-4 fs-md-3">
+                              {formatNumber(dashboardStats.cerradasBitacoras || 0)}
+                            </div>
+                            <div className="stat-label small">Cerradas</div>
+                            <div
+                              className="stat-percentage small"
+                              style={{color: "#ef4444", fontWeight: "600"}}>
+                              {dashboardStats.totalBitacoras > 0 &&
+                              dashboardStats.cerradasBitacoras !== undefined
+                                ? Math.round(
+                                    (dashboardStats.cerradasBitacoras /
+                                      dashboardStats.totalBitacoras) *
+                                      100
+                                  )
+                                : 0}
+                              %
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Con Anomalías */}
+                      <div className="col-6 col-lg mb-2 mb-lg-0">
+                        <div className="stat-card h-100" style={{position: "relative"}}>
+                          {renderLoadingOverlay()}
+                          <div className="stat-icon anomalia">
+                            <i className="fa fa-exclamation-triangle"></i>
+                          </div>
+                          <div className="stat-content">
+                            <div className="stat-value fs-4 fs-md-3">
+                              {formatNumber(
+                                dashboardStats.eventCategoriesStats &&
+                                  dashboardStats.eventCategoriesStats.length > 0
+                                  ? dashboardStats.eventCategoriesStats.reduce(
+                                      (sum, category) => sum + category.count,
+                                      0
+                                    )
+                                  : 0
+                              )}
+                            </div>
+                            <div className="stat-label small">Con Anomalías</div>
+                            <div
+                              className="stat-percentage small"
+                              style={{color: "#f59e0b", fontWeight: "600"}}>
+                              {dashboardStats.totalBitacoras > 0 &&
+                              dashboardStats.eventCategoriesStats &&
+                              dashboardStats.eventCategoriesStats.length > 0
+                                ? Math.round(
+                                    (dashboardStats.eventCategoriesStats.reduce(
+                                      (sum, category) => sum + category.count,
+                                      0
+                                    ) /
+                                      dashboardStats.totalBitacoras) *
+                                      100
+                                  )
+                                : 0}
+                              %
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
+
+            {/* Main Charts Grid */}
+            <Grid container spacing={3} sx={{mb: 3}}>
+              {/* Client Anomalies Pie Chart */}
+              <Grid item xs={12} lg={6}>
+                <Card
+                  sx={{
+                    background: "linear-gradient(135deg, #1e293b 0%, #0f172a 100%)",
+                    color: "white",
+                    border: "1px solid rgba(148, 163, 184, 0.1)",
+                  }}>
+                  <CardHeader
+                    title="Anomalías por Cliente"
+                    subheader="Haz clic en un segmento para filtrar por ese cliente"
+                    titleTypographyProps={{color: "white"}}
+                    subheaderTypographyProps={{color: "rgba(255,255,255,0.7)"}}
+                    action={
+                      <MuiTooltip title="Gráfico interactivo">
+                        <PieChartIcon sx={{color: "white"}} />
+                      </MuiTooltip>
+                    }
+                    sx={{
+                      background: "linear-gradient(135deg, #1e293b 0%, #0f172a 100%)",
+                      borderBottom: "1px solid rgba(255,255,255,0.1)",
+                    }}
+                  />
+                  <CardContent>{renderClientAnomaliasPieChart()}</CardContent>
+                </Card>
+              </Grid>
+
+              {/* Event Categories Pie Chart */}
+              <Grid item xs={12} lg={6}>
+                <Card
+                  sx={{
+                    background: "linear-gradient(135deg, #1e293b 0%, #0f172a 100%)",
+                    color: "white",
+                    border: "1px solid rgba(148, 163, 184, 0.1)",
+                  }}>
+                  <CardHeader
+                    title="Tipos de Anomalías"
+                    subheader="Distribución por categoría de evento"
+                    titleTypographyProps={{color: "white"}}
+                    subheaderTypographyProps={{color: "rgba(255,255,255,0.7)"}}
+                    sx={{
+                      background: "linear-gradient(135deg, #1e293b 0%, #0f172a 100%)",
+                      borderBottom: "1px solid rgba(255,255,255,0.1)",
+                    }}
+                  />
+                  <CardContent>{renderEventCategoriesPieChart()}</CardContent>
+                </Card>
+              </Grid>
+            </Grid>
+
+            {/* ONC Events Section */}
+            <Card
+              sx={{
+                mb: 3,
+                background: "linear-gradient(135deg, #1e293b 0%, #0f172a 100%)",
+                color: "white",
+                border: "1px solid rgba(148, 163, 184, 0.1)",
+              }}>
+              <CardHeader
+                title="Eventos de Usuario No Responde (ONC)"
+                subheader="Análisis de eventos donde el usuario no responde"
+                titleTypographyProps={{color: "white"}}
+                subheaderTypographyProps={{color: "rgba(255,255,255,0.7)"}}
+                action={
+                  <Box display="flex" gap={1}>
+                    <Button
+                      variant={oncViewMode === "chart" ? "contained" : "outlined"}
+                      size="small"
+                      startIcon={<BarChartIcon />}
+                      onClick={() => setOncViewMode("chart")}
+                      sx={{
+                        color: oncViewMode === "chart" ? "white" : "rgba(255,255,255,0.7)",
+                        borderColor:
+                          oncViewMode === "outlined" ? "rgba(255,255,255,0.3)" : "transparent",
+                      }}>
+                      Gráfico
+                    </Button>
+                    <Button
+                      variant={oncViewMode === "list" ? "contained" : "outlined"}
+                      size="small"
+                      startIcon={<ListIcon />}
+                      onClick={() => setOncViewMode("list")}
+                      sx={{
+                        color: oncViewMode === "list" ? "white" : "rgba(255,255,255,0.7)",
+                        borderColor:
+                          oncViewMode === "outlined" ? "rgba(255,255,255,0.3)" : "transparent",
+                      }}>
+                      Lista
+                    </Button>
+                  </Box>
+                }
+                sx={{
+                  background: "linear-gradient(135deg, #1e293b 0%, #0f172a 100%)",
+                  borderBottom: "1px solid rgba(255,255,255,0.1)",
+                }}
+              />
+              <CardContent>
+                {oncViewMode === "chart" ? renderOncBarChart() : renderOncListView()}
+              </CardContent>
+            </Card>
+
+            {/* Anomalies Table */}
+            <Card
+              sx={{
+                background: "linear-gradient(135deg, #1e293b 0%, #0f172a 100%)",
+                color: "white",
+                border: "1px solid rgba(148, 163, 184, 0.1)",
+              }}>
+              <CardHeader
+                title="Bitácoras con Anomalías"
+                subheader={`Mostrando ${filteredAnomaliasData.length} de ${bitacorasAnomalias.length} registros`}
+                titleTypographyProps={{color: "white"}}
+                subheaderTypographyProps={{color: "rgba(255,255,255,0.7)"}}
+                action={
+                  <Button
+                    variant="outlined"
+                    startIcon={<Download />}
+                    onClick={() => downloadBitacorasAnomaliasExcel(filteredAnomaliasData)}
+                    disabled={filteredAnomaliasData.length === 0}
+                    sx={{
+                      color: "white",
+                      borderColor: "rgba(255,255,255,0.3)",
+                      "&:hover": {
+                        borderColor: "rgba(255,255,255,0.5)",
+                      },
+                    }}>
+                    Exportar Excel
+                  </Button>
+                }
+                sx={{
+                  background: "linear-gradient(135deg, #1e293b 0%, #0f172a 100%)",
+                  borderBottom: "1px solid rgba(255,255,255,0.1)",
+                }}
+              />
+              <CardContent>{renderAnomaliasTable()}</CardContent>
+            </Card>
+          </Box>
         </div>
       </div>
     </section>

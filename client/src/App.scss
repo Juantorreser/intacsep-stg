@@ -4922,3 +4922,77 @@ $gray: #223b53;
     }
   }
 }
+
+// Material-UI Custom Styles for Anomalias Dashboard
+.MuiCard-root {
+  border-radius: 12px !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1) !important;
+  transition: box-shadow 0.3s ease !important;
+
+  &:hover {
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15) !important;
+  }
+}
+
+.MuiCardHeader-root {
+  border-bottom: 1px solid #e2e8f0 !important;
+  border-radius: 12px 12px 0 0 !important;
+}
+
+.MuiCardContent-root {
+  padding: 24px !important;
+}
+
+.MuiChip-root {
+  border-radius: 16px !important;
+  font-weight: 500 !important;
+}
+
+.MuiButton-root {
+  border-radius: 8px !important;
+  text-transform: none !important;
+  font-weight: 600 !important;
+}
+
+.MuiTextField-root {
+  .MuiOutlinedInput-root {
+    border-radius: 8px !important;
+  }
+}
+
+.MuiSelect-root {
+  border-radius: 8px !important;
+}
+
+.MuiTable-root {
+  .MuiTableCell-root {
+    border-bottom: 1px solid #f1f5f9 !important;
+  }
+
+  .MuiTableRow-root:hover {
+    background-color: #f8fafc !important;
+  }
+}
+
+.MuiFab-root {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+
+  &:hover {
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25) !important;
+  }
+}
+
+// Responsive adjustments
+@media (max-width: 768px) {
+  .MuiCardContent-root {
+    padding: 16px !important;
+  }
+
+  .MuiGrid-container {
+    margin: 0 !important;
+  }
+
+  .MuiGrid-item {
+    padding: 8px !important;
+  }
+}

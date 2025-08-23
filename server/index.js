@@ -4857,6 +4857,234 @@ app.get('/dashboard/bitacoras-anomalias', async (req, res) => {
   }
 });
 
+// Endpoint para obtener estadísticas de anomalías por cliente
+app.get('/dashboard/client-anomalias-stats', async (req, res) => {
+  try {
+    const user = req.session.user;
+    if (!user) {
+      return res.status(401).json({ message: 'User not found' });
+    }
+
+    const role = await Role.findOne({ name: user.role });
+    if (!role) {
+      return res.status(401).json({ message: 'Role not found' });
+    }
+
+    // Obtener filtros de la query
+    const {
+      clientFilter = 'all',
+      fechaDesde = '',
+      fechaHasta = '',
+      lineaTransporte = 'all',
+      operador = 'all'
+    } = req.query;
+
+    // Construir filtros de bitácora
+    let bitacoraFilter = {};
+
+    // Filtro de fechas
+    if (fechaDesde && fechaHasta && fechaDesde.trim() !== '' && fechaHasta.trim() !== '') {
+      const startDate = new Date(fechaDesde);
+      const endDate = new Date(fechaHasta + 'T23:59:59.999Z');
+
+      if (!isNaN(startDate) && !isNaN(endDate)) {
+        bitacoraFilter.createdAt = {
+          $gte: startDate,
+          $lte: endDate
+        };
+      }
+    }
+
+    // Filtro de cliente
+    if (clientFilter !== 'all') {
+      bitacoraFilter.cliente = clientFilter;
+    }
+
+    // Filtro de línea de transporte
+    if (lineaTransporte !== 'all') {
+      if (bitacoraFilter.$or || bitacoraFilter.$and || Object.keys(bitacoraFilter).some(key => key !== 'cliente' && key !== 'createdAt')) {
+        const existingFilters = {};
+        if (bitacoraFilter.$or) {
+          existingFilters.$or = bitacoraFilter.$or;
+          delete bitacoraFilter.$or;
+        }
+        if (bitacoraFilter.$and) {
+          existingFilters.$and = bitacoraFilter.$and;
+          delete bitacoraFilter.$and;
+        }
+
+        Object.keys(bitacoraFilter).forEach(key => {
+          if (key !== 'cliente' && key !== 'createdAt') {
+            existingFilters[key] = bitacoraFilter[key];
+            delete bitacoraFilter[key];
+          }
+        });
+
+        bitacoraFilter.$and = [
+          existingFilters,
+          {
+            $or: [
+              { linea_transporte: lineaTransporte },
+              { 'transportes.lineaTransporte': lineaTransporte }
+            ]
+          }
+        ];
+      } else {
+        bitacoraFilter.$or = [
+          { linea_transporte: lineaTransporte },
+          { 'transportes.lineaTransporte': lineaTransporte }
+        ];
+      }
+    }
+
+    // Filtro de operador
+    if (operador !== 'all') {
+      if (bitacoraFilter.$or || bitacoraFilter.$and || Object.keys(bitacoraFilter).some(key => key !== 'cliente' && key !== 'createdAt')) {
+        const existingFilters = {};
+        if (bitacoraFilter.$or) {
+          existingFilters.$or = bitacoraFilter.$or;
+          delete bitacoraFilter.$or;
+        }
+        if (bitacoraFilter.$and) {
+          existingFilters.$and = bitacoraFilter.$and;
+          delete bitacoraFilter.$and;
+        }
+
+        Object.keys(bitacoraFilter).forEach(key => {
+          if (key !== 'cliente' && key !== 'createdAt') {
+            existingFilters[key] = bitacoraFilter[key];
+            delete bitacoraFilter[key];
+          }
+        });
+
+        bitacoraFilter.$and = [
+          existingFilters,
+          {
+            $or: [
+              { operador: operador },
+              { 'transportes.operador': operador }
+            ]
+          }
+        ];
+      } else {
+        bitacoraFilter.$or = [
+          { operador: operador },
+          { 'transportes.operador': operador }
+        ];
+      }
+    }
+
+    // Filtro de permisos de usuario
+    if (!role.bitacoras?.read_all) {
+      const userFullName = `${user.firstName} ${user.lastName}`;
+      if (operador !== 'all' && operador !== userFullName) {
+        return res.status(200).json([]);
+      }
+
+      if (bitacoraFilter.$or || bitacoraFilter.$and || Object.keys(bitacoraFilter).some(key => key !== 'cliente' && key !== 'createdAt')) {
+        const existingFilters = {};
+        if (bitacoraFilter.$or) {
+          existingFilters.$or = bitacoraFilter.$or;
+          delete bitacoraFilter.$or;
+        }
+        if (bitacoraFilter.$and) {
+          existingFilters.$and = bitacoraFilter.$and;
+          delete bitacoraFilter.$and;
+        }
+
+        Object.keys(bitacoraFilter).forEach(key => {
+          if (key !== 'cliente' && key !== 'createdAt') {
+            existingFilters[key] = bitacoraFilter[key];
+            delete bitacoraFilter[key];
+          }
+        });
+
+        bitacoraFilter.$and = [
+          existingFilters,
+          {
+            $or: [
+              { operador: userFullName },
+              { 'transportes.operador': userFullName }
+            ]
+          }
+        ];
+      } else {
+        bitacoraFilter.$or = [
+          { operador: userFullName },
+          { 'transportes.operador': userFullName }
+        ];
+      }
+    }
+
+    // Obtener tipos de eventos para categorías
+    const eventTypes = await EventType.find({ categoria: { $in: ['ENA', 'ONC', 'DR', 'FM'] } });
+    const eventNamesByCategory = {};
+    eventTypes.forEach(eventType => {
+      if (!eventNamesByCategory[eventType.categoria]) {
+        eventNamesByCategory[eventType.categoria] = [];
+      }
+      eventNamesByCategory[eventType.categoria].push(eventType.evento);
+    });
+
+    // Agregar filtro para bitácoras con anomalías
+    const allEventNames = eventTypes.map(et => et.evento);
+    bitacoraFilter['eventos.nombre'] = { $in: allEventNames };
+
+    // Obtener estadísticas por cliente
+    const clientStats = await Bitacora.aggregate([
+      { $match: bitacoraFilter },
+      { $unwind: '$eventos' },
+      {
+        $match: {
+          'eventos.nombre': { $in: allEventNames }
+        }
+      },
+      {
+        $lookup: {
+          from: 'eventtypes',
+          localField: 'eventos.nombre',
+          foreignField: 'evento',
+          as: 'eventTypeInfo'
+        }
+      },
+      {
+        $group: {
+          _id: '$cliente',
+          anomalias: { $sum: 1 },
+          bitacoras: { $addToSet: '$_id' }
+        }
+      },
+      {
+        $project: {
+          cliente: '$_id',
+          anomalias: 1,
+          bitacoras: { $size: '$bitacoras' }
+        }
+      },
+      { $sort: { anomalias: -1 } },
+      { $limit: 10 }
+    ]);
+
+    // Formatear datos para el gráfico
+    const colors = [
+      '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7',
+      '#DDA0DD', '#98D8C8', '#F7DC6F', '#BB8FCE', '#85C1E9'
+    ];
+
+    const formattedStats = clientStats.map((stat, index) => ({
+      cliente: stat.cliente || 'Cliente no especificado',
+      anomalias: stat.anomalias,
+      bitacoras: stat.bitacoras,
+      color: colors[index % colors.length]
+    }));
+
+    res.status(200).json(formattedStats);
+  } catch (error) {
+    console.error('[GET /dashboard/client-anomalias-stats] Error:', error);
+    res.status(500).json({ error: 'Failed to fetch client anomalies statistics' });
+  }
+});
+
 //start the server
 app.listen(PORT, () => {
   console.log(`Server Running at ${PORT}`);

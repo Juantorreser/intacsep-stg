@@ -11,9 +11,13 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.1",
     "@fortawesome/fontawesome-free": "^6.6.0",
     "@fortawesome/free-solid-svg-icons": "^6.6.0",
     "@fortawesome/react-fontawesome": "^0.2.2",
+    "@mui/icons-material": "^5.18.0",
+    "@mui/material": "^5.18.0",
     "axios": "^1.7.9",
     "bootstrap": "^5.3.3",
     "chart.js": "^4.5.0",
@@ -30,6 +34,7 @@
     "react-leaflet": "^4.2.1",
     "react-modal": "^3.16.1",
     "react-router-dom": "^6.25.1",
+    "recharts": "^2.15.4",
     "sass": "^1.77.8",
     "xlsx": "^0.18.5"
   },
