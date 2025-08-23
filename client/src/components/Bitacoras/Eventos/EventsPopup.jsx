@@ -1,7 +1,7 @@
 import React, {useEffect, useState} from "react";
 import axios from "axios";
 import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
+import "jspdf-autotable";
 import {getLocationText} from "../../../utils/api";
 
 const EventsPopup = ({bitacora, onClose, origenes, destinos}) => {
@@ -116,7 +116,7 @@ const EventsPopup = ({bitacora, onClose, origenes, destinos}) => {
 
     const tableStartY = startY + Math.max(leftCol.length, rightCol.length) * lineHeight + 10;
 
-    autoTable(doc, {
+    doc.autoTable({
       startY: tableStartY,
       head: [["Semáforo", "Evento", "Frecuencia", "Transporte", "Fecha/Hora", "Calificación"]],
       body: eventosOrdenados.map((evt) => [

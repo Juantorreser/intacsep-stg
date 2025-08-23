@@ -1,16 +1,16 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
-import App from "./App.jsx";
-import "./index.scss";
-import "bootstrap/dist/css/bootstrap.min.css";
 import {BrowserRouter} from "react-router-dom";
+import App from "./App.jsx";
 import {AuthProvider} from "./context/AuthContext.jsx";
-import {WialonProvider} from "./context/WialonProvider.jsx";
+import "./index.scss";
 
 ReactDOM.createRoot(document.getElementById("root")).render(
-  <BrowserRouter>
-    <AuthProvider>
-      <App />
-    </AuthProvider>
-  </BrowserRouter>
+  <React.StrictMode>
+    <BrowserRouter>
+      <AuthProvider>
+        <App />
+      </AuthProvider>
+    </BrowserRouter>
+  </React.StrictMode>
 );

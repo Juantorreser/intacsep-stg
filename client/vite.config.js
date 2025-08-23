@@ -25,18 +25,14 @@ export default defineConfig(({ mode }) => ({
           if (id.includes('@mui') || id.includes('@emotion')) {
             return 'mui-vendor'
           }
-          // Chart libraries
-          if (id.includes('recharts') || id.includes('chart.js')) {
+          // Chart libraries (only recharts now)
+          if (id.includes('recharts')) {
             return 'charts-vendor'
           }
           // Utility libraries
-          if (id.includes('axios') || id.includes('xlsx') || id.includes('file-saver') || 
-              id.includes('html2canvas') || id.includes('jspdf')) {
+          if (id.includes('axios') || id.includes('xlsx') || id.includes('file-saver') ||
+            id.includes('jspdf')) {
             return 'utils-vendor'
-          }
-          // Map libraries
-          if (id.includes('leaflet')) {
-            return 'map-vendor'
           }
           // Bootstrap
           if (id.includes('bootstrap')) {
@@ -91,8 +87,6 @@ export default defineConfig(({ mode }) => ({
     ],
     exclude: [
       // Exclude large libraries that are not needed in dev
-      'leaflet',
-      'html2canvas',
       'jspdf',
       'jspdf-autotable',
     ],
