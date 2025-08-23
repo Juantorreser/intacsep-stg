@@ -15,33 +15,13 @@ export default defineConfig(({ mode }) => ({
     target: 'es2015',
     rollupOptions: {
       output: {
-        // Split vendor chunks for better caching
+        // Minimal chunk splitting to avoid initialization issues
         manualChunks: (id) => {
-          // React and related libraries
-          if (id.includes('react') || id.includes('react-dom') || id.includes('react-router')) {
+          // Only split React core libraries
+          if (id.includes('react') || id.includes('react-dom')) {
             return 'react-vendor'
           }
-          // Material-UI
-          if (id.includes('@mui') || id.includes('@emotion')) {
-            return 'mui-vendor'
-          }
-          // Chart libraries (only recharts now)
-          if (id.includes('recharts')) {
-            return 'charts-vendor'
-          }
-          // Utility libraries
-          if (id.includes('axios') || id.includes('xlsx') || id.includes('file-saver') ||
-            id.includes('jspdf')) {
-            return 'utils-vendor'
-          }
-          // Bootstrap
-          if (id.includes('bootstrap')) {
-            return 'bootstrap-vendor'
-          }
-          // FontAwesome
-          if (id.includes('@fortawesome')) {
-            return 'icons-vendor'
-          }
+          // Keep everything else in main bundle
         },
         // Optimize asset names
         assetFileNames: (assetInfo) => {
