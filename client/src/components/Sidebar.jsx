@@ -1,11 +1,51 @@
 import "bootstrap/dist/js/bootstrap.bundle.min";
-import {NavLink} from "react-router-dom";
+import {useState} from "react";
+import {useNavigate} from "react-router-dom";
 import {useAuth} from "../context/AuthContext.jsx";
 import {useSidebar} from "../context/SidebarContext.jsx";
+import InactivityModal from "./Settings/InactivityModal.jsx";
+import Footer from "./Footer.jsx";
 
 const Sidebar = () => {
-  const {user} = useAuth();
-  const {isSidebarCollapsed} = useSidebar();
+  const {user, logout} = useAuth();
+  const {isSidebarCollapsed, toggleSidebar} = useSidebar();
+  const navigate = useNavigate();
+
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  const [showInacModal, setShowInacModal] = useState(false);
+  const [collapsedItems, setCollapsedItems] = useState({
+    dashboardCollapse: false,
+    bitacorasCollapse: false,
+    settingsCollapse: false,
+    catalogosCollapse: false,
+    sistemaCollapse: false,
+    auditoriaCollapse: false,
+  });
+  const [roleData] = useState({});
+
+  // Functions
+  const openInacModal = () => {
+    setShowInacModal(true);
+  };
+
+  const closeInacModal = () => {
+    setShowInacModal(false);
+  };
+
+  const toggleCollapse = (itemKey) => {
+    setCollapsedItems((prev) => ({
+      ...prev,
+      [itemKey]: !prev[itemKey],
+    }));
+  };
+
+  const handleIconClick = (callback, itemKey) => {
+    if (isSidebarCollapsed) {
+      toggleCollapse(itemKey);
+    } else {
+      callback();
+    }
+  };
 
   const menuItems = [
     {
@@ -106,19 +146,6 @@ const Sidebar = () => {
     },
   ];
 
-  const filteredMenuItems = menuItems.filter((item) => item.roles.includes(user?.role || "user"));
-
-  return (
-    <div className={`sidebar ${isSidebarCollapsed ? "collapsed" : ""}`}>
-      <div className="sidebar-header">
-        <div className="sidebar-logo">
-          <img src="/logoSpoty.png" alt="Logo" className="logo-img" />
-          {!isSidebarCollapsed && <span className="logo-text">Intacsep</span>}
-        </div>
-      </div>
-    );
-  }
-
   return (
     <>
       <button
@@ -152,7 +179,7 @@ const Sidebar = () => {
           )}
 
           {/* User Profile Section */}
-          <div className="user-profile" onClick={handleOpenModal}>
+          <div className="user-profile">
             {/* Collapse/Expand Button (only when expanded) */}
             {!isSidebarCollapsed && (
               <div className="sidebar-toggle" onClick={(e) => e.stopPropagation()}>
@@ -418,7 +445,6 @@ const Sidebar = () => {
       </aside>
 
       <InactivityModal show={showInacModal} handleClose={closeInacModal} />
-      <ProfileModal showModal={showModal} handleClose={handleCloseModal} />
     </>
   );
 };

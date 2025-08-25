@@ -1,7 +1,7 @@
 import "./App.scss";
 import "bootstrap/dist/css/bootstrap.min.css";
 import "bootstrap/dist/js/bootstrap.bundle.min";
-import "@fortawesome/fontawesome-free/css/solid.min.css";
+import "@fortawesome/fontawesome-free/css/all.min.css";
 import {Route, Routes} from "react-router-dom";
 import {SidebarProvider} from "./context/SidebarContext";
 import Login from "./components/LoginPage";
