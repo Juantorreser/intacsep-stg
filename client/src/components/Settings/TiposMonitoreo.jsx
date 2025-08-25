@@ -7,7 +7,7 @@ import {useNavigate} from "react-router-dom";
 
 const TiposMonitoreo = () => {
   const [monitoreos, setMonitoreos] = useState([]);
-  const [filteredMonitoreos, setFilteredMonitoreos] = useState([]);
+  const [filteredMonitoreos, setFilteredMonitoreos] = useState([]); 
   const [newMonitoreo, setNewMonitoreo] = useState("");
   const [showModal, setShowModal] = useState(false);
   const [currentMonitoreo, setCurrentMonitoreo] = useState(null);
