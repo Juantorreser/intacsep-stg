@@ -311,6 +311,14 @@ const Sidebar = () => {
                                 <span>Destinos</span>
                               </li>
                             )}
+                            <li onClick={() => navigate("/lineas-transporte")}>
+                              <i className="fa fa-truck"></i>
+                              <span>Líneas de Transporte</span>
+                            </li>
+                            <li onClick={() => navigate("/operadores")}>
+                              <i className="fa fa-user-tie"></i>
+                              <span>Operadores</span>
+                            </li>
                           </ul>
                         )}
                       </li>
