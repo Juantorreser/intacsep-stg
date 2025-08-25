@@ -4,13 +4,13 @@ import ModalTemplate from "../ModalTemplate";
 import {useAuth} from "../../context/AuthContext";
 import {useSidebar} from "../../context/SidebarContext";
 
-const OperadorPage = () => {
-  const [operadores, setOperadores] = useState([]);
-  const [filteredOperadores, setFilteredOperadores] = useState([]);
+const LineaTransportePage = () => {
   const [lineasTransporte, setLineasTransporte] = useState([]);
-  const [formData, setFormData] = useState({nombre: "", lineaTransporte: ""});
+  const [filteredLineasTransporte, setFilteredLineasTransporte] = useState([]);
+  const [clients, setClients] = useState([]);
+  const [formData, setFormData] = useState({nombre: "", cliente: ""});
   const [idToDelete, setIdToDelete] = useState("");
-  const [currentOperador, setCurrentOperador] = useState(null);
+  const [currentLineaTransporte, setCurrentLineaTransporte] = useState(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [modalType, setModalType] = useState(""); // 'create' | 'edit'
   const baseUrl = import.meta.env.VITE_BASE_URL;
@@ -26,7 +26,7 @@ const OperadorPage = () => {
   // Filter states
   const [filters, setFilters] = useState({
     nombre: "",
-    lineaTransporte: "",
+    cliente: "",
   });
 
   const {user, verifyToken, setUser} = useAuth();
@@ -64,28 +64,6 @@ const OperadorPage = () => {
   }, [user]);
 
   useEffect(() => {
-    const fetchOperadores = async () => {
-      try {
-        const response = await fetch(`${baseUrl}/operadores`, {
-          method: "GET",
-          credentials: "include",
-        });
-        if (response.ok) {
-          const data = await response.json();
-          setOperadores(data);
-          setFilteredOperadores(data);
-        } else {
-          console.error("Failed to fetch operadores:", response.statusText);
-        }
-      } catch (e) {
-        console.error("Error fetching operadores:", e);
-      }
-    };
-
-    fetchOperadores();
-  }, [baseUrl]);
-
-  useEffect(() => {
     const fetchLineasTransporte = async () => {
       try {
         const response = await fetch(`${baseUrl}/lineas-transporte`, {
@@ -95,6 +73,7 @@ const OperadorPage = () => {
         if (response.ok) {
           const data = await response.json();
           setLineasTransporte(data);
+          setFilteredLineasTransporte(data);
         } else {
           console.error("Failed to fetch lineas transporte:", response.statusText);
         }
@@ -106,28 +85,45 @@ const OperadorPage = () => {
     fetchLineasTransporte();
   }, [baseUrl]);
 
-  // Filter operadores based on search criteria
   useEffect(() => {
-    const filtered = operadores.filter((operador) => {
-      // Handle both possible field names (nombre or name)
-      const operadorName = operador.nombre || operador.name || "";
-      const operadorLinea = operador.lineaTransporte || "";
+    const fetchClients = async () => {
+      try {
+        const response = await fetch(`${baseUrl}/clients`, {
+          method: "GET",
+          credentials: "include",
+        });
+        if (response.ok) {
+          const data = await response.json();
+          setClients(data);
+        } else {
+          console.error("Failed to fetch clients:", response.statusText);
+        }
+      } catch (e) {
+        console.error("Error fetching clients:", e);
+      }
+    };
 
-      const nombreMatch = operadorName.toLowerCase().includes(filters.nombre.toLowerCase());
-      const lineaMatch = operadorLinea
-        .toLowerCase()
-        .includes(filters.lineaTransporte.toLowerCase());
+    fetchClients();
+  }, [baseUrl]);
 
-      return nombreMatch && lineaMatch;
+  // Filter lineas transporte based on search criteria
+  useEffect(() => {
+    const filtered = lineasTransporte.filter((linea) => {
+      const nombreMatch =
+        linea.nombre && linea.nombre.toLowerCase().includes(filters.nombre.toLowerCase());
+      const clienteMatch =
+        linea.cliente && linea.cliente.toLowerCase().includes(filters.cliente.toLowerCase());
+
+      return nombreMatch && clienteMatch;
     });
-    setFilteredOperadores(filtered);
+    setFilteredLineasTransporte(filtered);
 
     // Update pagination
     const totalFiltered = filtered.length;
     setTotalItems(totalFiltered);
     setTotalPages(Math.ceil(totalFiltered / itemsPerPage));
     setCurrentPage(1); // Reset to first page when filters change
-  }, [operadores, filters, itemsPerPage]);
+  }, [lineasTransporte, filters, itemsPerPage]);
 
   const handleFilterChange = (e) => {
     const {name, value} = e.target;
@@ -140,7 +136,7 @@ const OperadorPage = () => {
   const clearFilters = () => {
     setFilters({
       nombre: "",
-      lineaTransporte: "",
+      cliente: "",
     });
   };
 
@@ -156,10 +152,10 @@ const OperadorPage = () => {
   };
 
   // Get paginated data
-  const getPaginatedOperadores = () => {
+  const getPaginatedLineasTransporte = () => {
     const startIndex = (currentPage - 1) * itemsPerPage;
     const endIndex = startIndex + itemsPerPage;
-    return filteredOperadores.slice(startIndex, endIndex);
+    return filteredLineasTransporte.slice(startIndex, endIndex);
   };
 
   const handleDelete = (id) => {
@@ -173,25 +169,25 @@ const OperadorPage = () => {
 
   const handleConfirmDelete = async (id) => {
     try {
-      const response = await fetch(`${baseUrl}/operadores/${id}`, {
+      const response = await fetch(`${baseUrl}/lineas-transporte/${id}`, {
         method: "DELETE",
         credentials: "include",
       });
       if (response.ok) {
-        setOperadores(operadores.filter((operador) => operador._id !== id));
+        setLineasTransporte(lineasTransporte.filter((linea) => linea._id !== id));
         setShowDeleteModal(false);
       } else {
-        console.error("Failed to delete operador:", response.statusText);
+        console.error("Failed to delete linea transporte:", response.statusText);
       }
     } catch (e) {
-      console.error("Error deleting operador:", e);
+      console.error("Error deleting linea transporte:", e);
     }
   };
 
   const handleCreate = async (e) => {
     e.preventDefault();
     try {
-      const response = await fetch(`${baseUrl}/operadores`, {
+      const response = await fetch(`${baseUrl}/lineas-transporte`, {
         method: "POST",
         headers: {"Content-Type": "application/json"},
         body: JSON.stringify(formData),
@@ -200,22 +196,22 @@ const OperadorPage = () => {
 
       if (response.ok) {
         const created = await response.json();
-        setOperadores([...operadores, created]);
-        setFormData({nombre: "", lineaTransporte: ""});
+        setLineasTransporte([...lineasTransporte, created]);
+        setFormData({nombre: "", cliente: ""});
         setModalType("");
       } else {
-        console.error("Failed to create operador:", response.statusText);
+        console.error("Failed to create linea transporte:", response.statusText);
       }
     } catch (e) {
-      console.error("Error creating operador:", e);
+      console.error("Error creating linea transporte:", e);
     }
   };
 
   const handleSaveEdit = async () => {
-    if (!currentOperador) return;
+    if (!currentLineaTransporte) return;
 
     try {
-      const response = await fetch(`${baseUrl}/operadores/${currentOperador._id}`, {
+      const response = await fetch(`${baseUrl}/lineas-transporte/${currentLineaTransporte._id}`, {
         method: "PUT",
         headers: {"Content-Type": "application/json"},
         body: JSON.stringify(formData),
@@ -224,23 +220,23 @@ const OperadorPage = () => {
 
       if (response.ok) {
         const updated = await response.json();
-        setOperadores(operadores.map((o) => (o._id === updated._id ? updated : o)));
-        setFormData({nombre: "", lineaTransporte: ""});
-        setCurrentOperador(null);
+        setLineasTransporte(lineasTransporte.map((l) => (l._id === updated._id ? updated : l)));
+        setFormData({nombre: "", cliente: ""});
+        setCurrentLineaTransporte(null);
         setModalType("");
       } else {
-        console.error("Failed to update operador:", response.statusText);
+        console.error("Failed to update linea transporte:", response.statusText);
       }
     } catch (e) {
-      console.error("Error updating operador:", e);
+      console.error("Error updating linea transporte:", e);
     }
   };
 
-  const handleEdit = (operador) => {
-    setCurrentOperador(operador);
+  const handleEdit = (linea) => {
+    setCurrentLineaTransporte(linea);
     setFormData({
-      nombre: operador.nombre || operador.name || "",
-      lineaTransporte: operador.lineaTransporte || "",
+      nombre: linea.nombre,
+      cliente: linea.cliente,
     });
     setModalType("edit");
   };
@@ -251,14 +247,14 @@ const OperadorPage = () => {
   };
 
   return (
-    <section id="operadores" className="settings-page">
+    <section id="lineasTransporte" className="settings-page">
       <div className="w-100 d-flex">
         <div className="sidebar-wrapper">
           <Sidebar />
         </div>
         <div className={`content-wrapper ${isSidebarCollapsed ? "sidebar-collapsed" : ""}`}>
           <div className="page-header">
-            <h1>Catálogos - Operadores</h1>
+            <h1>Catálogos - Líneas de Transporte</h1>
 
             <button type="button" className="new-btn" onClick={() => setModalType("create")}>
               <i className="fas fa-plus"></i>
@@ -287,13 +283,13 @@ const OperadorPage = () => {
                 <div className="flex-fill">
                   <select
                     className="form-control form-control-sm border-0 bg-white shadow-sm"
-                    name="lineaTransporte"
-                    value={filters.lineaTransporte}
+                    name="cliente"
+                    value={filters.cliente}
                     onChange={handleFilterChange}>
-                    <option value="">Todas las líneas de transporte</option>
-                    {lineasTransporte.map((linea) => (
-                      <option key={linea._id} value={linea.nombre}>
-                        {linea.nombre}
+                    <option value="">Todos los clientes</option>
+                    {clients.map((client) => (
+                      <option key={client._id} value={client.razon_social}>
+                        {client.razon_social}
                       </option>
                     ))}
                   </select>
@@ -319,29 +315,27 @@ const OperadorPage = () => {
                     <tr>
                       <th style={{width: "60px"}}>ID</th>
                       <th>Nombre</th>
-                      <th>Línea de Transporte</th>
+                      <th>Cliente</th>
                       <th className="text-end">Acciones</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {getPaginatedOperadores().map((operador, index) => (
-                      <tr key={operador._id}>
+                    {getPaginatedLineasTransporte().map((linea, index) => (
+                      <tr key={linea._id}>
                         <td className="text-center fw-bold">
                           {(currentPage - 1) * itemsPerPage + index + 1}
                         </td>
-                        <td>{operador.nombre || operador.name || ""}</td>
-                        <td>{operador.lineaTransporte || ""}</td>
+                        <td>{linea.nombre}</td>
+                        <td>{linea.cliente}</td>
                         <td className="text-end">
                           <div className="action-buttons">
-                            <button
-                              className="btn btn-primary"
-                              onClick={() => handleEdit(operador)}>
+                            <button className="btn btn-primary" onClick={() => handleEdit(linea)}>
                               <i className="fas fa-edit"></i>
                             </button>
 
                             <button
                               className="btn btn-danger"
-                              onClick={() => handleDelete(operador._id)}>
+                              onClick={() => handleDelete(linea._id)}>
                               <i className="fas fa-trash"></i>
                             </button>
                           </div>
@@ -351,10 +345,10 @@ const OperadorPage = () => {
                   </tbody>
                 </table>
               </div>
-              {filteredOperadores.length === 0 && (
+              {filteredLineasTransporte.length === 0 && (
                 <div className="text-center py-4">
                   <p className="text-muted">
-                    No se encontraron operadores que coincidan con los filtros.
+                    No se encontraron líneas de transporte que coincidan con los filtros.
                   </p>
                 </div>
               )}
@@ -362,7 +356,7 @@ const OperadorPage = () => {
           </div>
 
           {/* Pagination Controls */}
-          {filteredOperadores.length > 0 && (
+          {filteredLineasTransporte.length > 0 && (
             <div className="pagination-container">
               <div className="pagination-content">
                 <div className="pagination-info">
@@ -433,7 +427,7 @@ const OperadorPage = () => {
           {modalType === "create" && (
             <ModalTemplate
               show
-              title="Crear Operador"
+              title="Crear Línea de Transporte"
               onClose={() => setModalType("")}
               onSubmit={handleCreate}>
               <div className="mb-3">
@@ -449,19 +443,19 @@ const OperadorPage = () => {
                 />
               </div>
               <div className="mb-3">
-                <label htmlFor="lineaTransporte" className="form-label">
-                  Línea de Transporte
+                <label htmlFor="cliente" className="form-label">
+                  Cliente
                 </label>
                 <select
-                  id="lineaTransporte"
+                  id="cliente"
                   className="form-control"
-                  value={formData.lineaTransporte}
+                  value={formData.cliente}
                   onChange={handleChange}
                   required>
-                  <option value="">Selecciona una línea de transporte</option>
-                  {lineasTransporte.map((linea) => (
-                    <option key={linea._id} value={linea.nombre}>
-                      {linea.nombre}
+                  <option value="">Selecciona un cliente</option>
+                  {clients.map((client) => (
+                    <option key={client._id} value={client.razon_social}>
+                      {client.razon_social}
                     </option>
                   ))}
                 </select>
@@ -470,13 +464,13 @@ const OperadorPage = () => {
           )}
 
           {/* Modal: Editar */}
-          {modalType === "edit" && currentOperador && (
+          {modalType === "edit" && currentLineaTransporte && (
             <ModalTemplate
               show
-              title="Editar Operador"
+              title="Editar Línea de Transporte"
               onClose={() => {
                 setModalType("");
-                setCurrentOperador(null);
+                setCurrentLineaTransporte(null);
               }}
               onSubmit={(e) => {
                 e.preventDefault();
@@ -495,19 +489,19 @@ const OperadorPage = () => {
                 />
               </div>
               <div className="mb-3">
-                <label htmlFor="lineaTransporte" className="form-label">
-                  Línea de Transporte
+                <label htmlFor="cliente" className="form-label">
+                  Cliente
                 </label>
                 <select
-                  id="lineaTransporte"
+                  id="cliente"
                   className="form-control"
-                  value={formData.lineaTransporte}
+                  value={formData.cliente}
                   onChange={handleChange}
                   required>
-                  <option value="">Selecciona una línea de transporte</option>
-                  {lineasTransporte.map((linea) => (
-                    <option key={linea._id} value={linea.nombre}>
-                      {linea.nombre}
+                  <option value="">Selecciona un cliente</option>
+                  {clients.map((client) => (
+                    <option key={client._id} value={client.razon_social}>
+                      {client.razon_social}
                     </option>
                   ))}
                 </select>
@@ -525,7 +519,7 @@ const OperadorPage = () => {
                 e.preventDefault();
                 handleConfirmDelete(idToDelete);
               }}>
-              <p>¿Está seguro de que desea eliminar este operador?</p>
+              <p>¿Está seguro de que desea eliminar esta línea de transporte?</p>
             </ModalTemplate>
           )}
         </div>
@@ -534,4 +528,4 @@ const OperadorPage = () => {
   );
 };
 
-export default OperadorPage;
+export default LineaTransportePage;

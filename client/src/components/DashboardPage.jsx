@@ -61,6 +61,96 @@ const DashboardPage = () => {
   const [availableLineasTransporte, setAvailableLineasTransporte] = useState([]);
   const [availableOperadores, setAvailableOperadores] = useState([]);
   const [applyFiltersTrigger, setApplyFiltersTrigger] = useState(0);
+  const [loadingLineasTransporte, setLoadingLineasTransporte] = useState(false);
+  const [loadingOperadores, setLoadingOperadores] = useState(false);
+
+  const baseUrl = import.meta.env.VITE_BASE_URL || "http://localhost:3001";
+
+  // Function to fetch transport lines filtered by client
+  const fetchLineasTransporte = useCallback(
+    async (cliente = "all") => {
+      try {
+        setLoadingLineasTransporte(true);
+        let lineasData = [];
+
+        // Only fetch transport lines if a specific client is selected (not "all")
+        if (cliente && cliente !== "all") {
+          try {
+            const lineasResponse = await fetch(
+              `${baseUrl}/lineas-transporte?cliente=${encodeURIComponent(cliente)}`,
+              {
+                method: "GET",
+                credentials: "include",
+              }
+            );
+            if (lineasResponse.ok) {
+              const newLineasData = await lineasResponse.json();
+              lineasData = newLineasData.map((linea) => ({
+                _id: linea._id,
+                nombre: linea.nombre,
+              }));
+            }
+          } catch (error) {
+            console.warn("New transport lines endpoint not available:", error);
+          }
+        }
+
+        // Only use data from the LineaTransporte model, not from bitacoras
+        // This ensures we only show transport lines that exist in the database
+
+        setAvailableLineasTransporte(lineasData);
+      } catch (error) {
+        console.error("Error fetching transport lines:", error);
+        setAvailableLineasTransporte([]);
+      } finally {
+        setLoadingLineasTransporte(false);
+      }
+    },
+    [baseUrl]
+  );
+
+  // Function to fetch operators filtered by transport line
+  const fetchOperadores = useCallback(
+    async (lineaTransporte = "all") => {
+      try {
+        setLoadingOperadores(true);
+        let operadoresData = [];
+
+        // Only fetch operators if a specific transport line is selected (not "all")
+        if (lineaTransporte && lineaTransporte !== "all") {
+          try {
+            const operadoresResponse = await fetch(
+              `${baseUrl}/operadores?lineaTransporte=${encodeURIComponent(lineaTransporte)}`,
+              {
+                method: "GET",
+                credentials: "include",
+              }
+            );
+            if (operadoresResponse.ok) {
+              const newOperadoresData = await operadoresResponse.json();
+              operadoresData = newOperadoresData.map((operador) => ({
+                _id: operador._id,
+                nombre: operador.nombre || operador.name || "",
+              }));
+            }
+          } catch (error) {
+            console.warn("New operators endpoint not available:", error);
+          }
+        }
+
+        // Only use data from the Operador model, not from bitacoras
+        // This ensures we only show operators that exist in the database
+
+        setAvailableOperadores(operadoresData);
+      } catch (error) {
+        console.error("Error fetching operators:", error);
+        setAvailableOperadores([]);
+      } finally {
+        setLoadingOperadores(false);
+      }
+    },
+    [baseUrl]
+  );
 
   const [lineasViewMode, setLineasViewMode] = useState("chart"); // 'chart' or 'list'
   const [operadoresTransportesViewMode, setOperadoresTransportesViewMode] = useState("chart"); // 'chart' or 'list'
@@ -90,8 +180,6 @@ const DashboardPage = () => {
   const [locationPagination, setLocationPagination] = useState({}); // {locationName: paginationInfo}
   const [loadingLocationDownload, setLoadingLocationDownload] = useState({}); // {locationName: boolean}
   const [locationPageLimits, setLocationPageLimits] = useState({}); // {locationName: limit}
-
-  const baseUrl = import.meta.env.VITE_BASE_URL;
 
   // Function to apply filters when check button is pressed
   const applyFilters = () => {
@@ -690,29 +778,21 @@ const DashboardPage = () => {
         setAvailableClients(clientsData);
       }
 
-      // Fetch available transport lines for filter from bitacoras
-      const lineasResponse = await fetch(`${baseUrl}/lineas-transporte-bitacoras`, {
-        method: "GET",
-        credentials: "include",
-      });
-      if (lineasResponse.ok) {
-        const lineasData = await lineasResponse.json();
-        setAvailableLineasTransporte(lineasData);
+      // Fetch available transport lines for filter based on selected client
+      // Only fetch if a specific client is selected (not "all")
+      if (appliedClientFilter && appliedClientFilter !== "all") {
+        await fetchLineasTransporte(appliedClientFilter);
       } else {
-        console.warn("Transport lines endpoint not available:", lineasResponse.status);
+        // If no client selected, clear transport lines
         setAvailableLineasTransporte([]);
       }
 
-      // Fetch available operators for filter from bitacoras
-      const operadoresResponse = await fetch(`${baseUrl}/operadores-bitacoras`, {
-        method: "GET",
-        credentials: "include",
-      });
-      if (operadoresResponse.ok) {
-        const operadoresData = await operadoresResponse.json();
-        setAvailableOperadores(operadoresData);
+      // Fetch available operators for filter based on selected transport line
+      // Only fetch if a specific transport line is selected (not "all")
+      if (appliedLineaTransporteFilter && appliedLineaTransporteFilter !== "all") {
+        await fetchOperadores(appliedLineaTransporteFilter);
       } else {
-        console.warn("Operators endpoint not available:", operadoresResponse.status);
+        // If no transport line selected, clear operators
         setAvailableOperadores([]);
       }
 
@@ -778,6 +858,20 @@ const DashboardPage = () => {
     }
     fetchDashboardData();
   }, [user, navigate, fetchDashboardData, applyFiltersTrigger]);
+
+  // Update transport lines when client filter changes
+  useEffect(() => {
+    if (user) {
+      fetchLineasTransporte(clientFilter);
+    }
+  }, [user, clientFilter, fetchLineasTransporte]);
+
+  // Update operators when transport line filter changes
+  useEffect(() => {
+    if (user) {
+      fetchOperadores(lineaTransporteFilter);
+    }
+  }, [user, lineaTransporteFilter, fetchOperadores]);
 
   // Chart rendering functions
   const renderTiposMonitoreoChart = () => {
@@ -3175,7 +3269,16 @@ const DashboardPage = () => {
                           <label className="form-label small mb-1">Cliente:</label>
                           <select
                             value={clientFilter}
-                            onChange={(e) => setClientFilter(e.target.value)}
+                            onChange={(e) => {
+                              const newClientFilter = e.target.value;
+                              setClientFilter(newClientFilter);
+
+                              // Reset transport line filter when client changes
+                              if (newClientFilter !== clientFilter) {
+                                setLineaTransporteFilter("all");
+                                setOperadorFilter("all");
+                              }
+                            }}
                             className="filter-select form-select form-select-sm">
                             <option value="all">Todos los clientes</option>
                             {availableClients && availableClients.length > 0
@@ -3195,12 +3298,30 @@ const DashboardPage = () => {
                       {/* Filtros de línea de transporte y operador */}
                       <div className="col-12 col-sm-6 col-lg-2">
                         <div className="filter-section">
-                          <label className="form-label small mb-1">Línea Transporte:</label>
+                          <label className="form-label small mb-1">
+                            Línea Transporte:
+                            {loadingLineasTransporte && (
+                              <i className="fa fa-spinner fa-spin ms-1"></i>
+                            )}
+                          </label>
                           <select
                             value={lineaTransporteFilter}
-                            onChange={(e) => setLineaTransporteFilter(e.target.value)}
-                            className="filter-select form-select form-select-sm">
-                            <option value="all">Todas las líneas</option>
+                            onChange={(e) => {
+                              const newLineaTransporteFilter = e.target.value;
+                              setLineaTransporteFilter(newLineaTransporteFilter);
+
+                              // Reset operator filter when transport line changes
+                              if (newLineaTransporteFilter !== lineaTransporteFilter) {
+                                setOperadorFilter("all");
+                              }
+                            }}
+                            className="filter-select form-select form-select-sm"
+                            disabled={loadingLineasTransporte || clientFilter === "all"}>
+                            <option value="all">
+                              {clientFilter === "all"
+                                ? "Selecciona un cliente primero"
+                                : "Todas las líneas"}
+                            </option>
                             {availableLineasTransporte && availableLineasTransporte.length > 0
                               ? availableLineasTransporte
                                   .filter((linea) => linea && linea.nombre)
@@ -3216,12 +3337,20 @@ const DashboardPage = () => {
                       </div>
                       <div className="col-12 col-sm-6 col-lg-2">
                         <div className="filter-section">
-                          <label className="form-label small mb-1">Operador:</label>
+                          <label className="form-label small mb-1">
+                            Operador:
+                            {loadingOperadores && <i className="fa fa-spinner fa-spin ms-1"></i>}
+                          </label>
                           <select
                             value={operadorFilter}
                             onChange={(e) => setOperadorFilter(e.target.value)}
-                            className="filter-select form-select form-select-sm">
-                            <option value="all">Todos los operadores</option>
+                            className="filter-select form-select form-select-sm"
+                            disabled={loadingOperadores || lineaTransporteFilter === "all"}>
+                            <option value="all">
+                              {lineaTransporteFilter === "all"
+                                ? "Selecciona una línea de transporte primero"
+                                : "Todos los operadores"}
+                            </option>
                             {availableOperadores && availableOperadores.length > 0
                               ? availableOperadores
                                   .filter((operador) => operador && operador.nombre)

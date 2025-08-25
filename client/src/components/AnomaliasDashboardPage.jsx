@@ -62,7 +62,8 @@ const AnomaliasDashboardPage = () => {
 
   const [dashboardStats, setDashboardStats] = useState({
     eventCategoriesStats: [],
-    clientAnomaliasStats: [],
+    lineasTransporteStats: [],
+    operadoresStats: [],
     totalAnomalias: 0,
     totalBitacoras: 0,
   });
@@ -75,6 +76,96 @@ const AnomaliasDashboardPage = () => {
   const [availableOperadores, setAvailableOperadores] = useState([]);
   const [oncViewMode, setOncViewMode] = useState("chart");
   const [applyFiltersTrigger, setApplyFiltersTrigger] = useState(0);
+  const [loadingLineasTransporte, setLoadingLineasTransporte] = useState(false);
+  const [loadingOperadores, setLoadingOperadores] = useState(false);
+
+  const baseUrl = import.meta.env.VITE_BASE_URL || "http://localhost:3001";
+
+  // Function to fetch transport lines filtered by client
+  const fetchLineasTransporte = useCallback(
+    async (cliente = "all") => {
+      try {
+        setLoadingLineasTransporte(true);
+        let lineasData = [];
+
+        // Only fetch transport lines if a specific client is selected (not "all")
+        if (cliente && cliente !== "all") {
+          try {
+            const lineasResponse = await fetch(
+              `${baseUrl}/lineas-transporte?cliente=${encodeURIComponent(cliente)}`,
+              {
+                method: "GET",
+                credentials: "include",
+              }
+            );
+            if (lineasResponse.ok) {
+              const newLineasData = await lineasResponse.json();
+              lineasData = newLineasData.map((linea) => ({
+                _id: linea._id,
+                nombre: linea.nombre,
+              }));
+            }
+          } catch (error) {
+            console.warn("New transport lines endpoint not available:", error);
+          }
+        }
+
+        // Only use data from the LineaTransporte model, not from bitacoras
+        // This ensures we only show transport lines that exist in the database
+
+        setAvailableLineasTransporte(lineasData);
+      } catch (error) {
+        console.error("Error fetching transport lines:", error);
+        setAvailableLineasTransporte([]);
+      } finally {
+        setLoadingLineasTransporte(false);
+      }
+    },
+    [baseUrl]
+  );
+
+  // Function to fetch operators filtered by transport line
+  const fetchOperadores = useCallback(
+    async (lineaTransporte = "all") => {
+      try {
+        setLoadingOperadores(true);
+        let operadoresData = [];
+
+        // Only fetch operators if a specific transport line is selected (not "all")
+        if (lineaTransporte && lineaTransporte !== "all") {
+          try {
+            const operadoresResponse = await fetch(
+              `${baseUrl}/operadores?lineaTransporte=${encodeURIComponent(lineaTransporte)}`,
+              {
+                method: "GET",
+                credentials: "include",
+              }
+            );
+            if (operadoresResponse.ok) {
+              const newOperadoresData = await operadoresResponse.json();
+              operadoresData = newOperadoresData.map((operador) => ({
+                _id: operador._id,
+                nombre: operador.nombre || operador.name || "",
+              }));
+            }
+          } catch (error) {
+            console.warn("New operators endpoint not available:", error);
+          }
+        }
+
+        // Only use data from the Operador model, not from bitacoras
+        // This ensures we only show operators that exist in the database
+
+        setAvailableOperadores(operadoresData);
+      } catch (error) {
+        console.error("Error fetching operators:", error);
+        setAvailableOperadores([]);
+      } finally {
+        setLoadingOperadores(false);
+      }
+    },
+    [baseUrl]
+  );
 
   // Filtros pendientes
   const [clientFilter, setClientFilter] = useState("all");
@@ -96,23 +187,9 @@ const AnomaliasDashboardPage = () => {
   const [appliedLineaTransporteFilter, setAppliedLineaTransporteFilter] = useState("all");
   const [appliedOperadorFilter, setAppliedOperadorFilter] = useState("all");
 
-  // Filtros para la tabla de anomalías
-  const [anomaliasFilters, setAnomaliasFilters] = useState({
-    bitacora_id: "",
-    cliente: "",
-    anomalias: [],
-    linea_transporte: "",
-    operador: "",
-    origen: "",
-    destino: "",
-    status: "",
-  });
-
   // Pagination for anomalies table
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
-
-  const baseUrl = import.meta.env.VITE_BASE_URL;
 
   // Function to apply filters when check button is pressed
   const applyFilters = () => {
@@ -135,11 +212,20 @@ const AnomaliasDashboardPage = () => {
     setOperadorFilter("all");
   };
 
-  // Function to handle client selection from pie chart
-  const handleClientClick = (data) => {
-    if (data && data.cliente) {
-      setClientFilter(data.cliente);
-      setAppliedClientFilter(data.cliente);
+  // Function to handle transport line selection from pie chart
+  const handleLineaTransporteClick = (data) => {
+    if (data && data.lineaTransporte) {
+      setLineaTransporteFilter(data.lineaTransporte);
+      setAppliedLineaTransporteFilter(data.lineaTransporte);
+      setApplyFiltersTrigger((prev) => prev + 1);
+    }
+  };
+
+  // Function to handle operator selection from pie chart
+  const handleOperadorClick = (data) => {
+    if (data && data.operador) {
+      setOperadorFilter(data.operador);
+      setAppliedOperadorFilter(data.operador);
       setApplyFiltersTrigger((prev) => prev + 1);
     }
   };
@@ -168,7 +254,7 @@ const AnomaliasDashboardPage = () => {
           justifyContent: "center",
           zIndex: 1,
         }}>
-        <CircularProgress size={20} sx={{color: "white"}} />
+        <i className="fa fa-spinner fa-spin text-white"></i>
       </div>
     );
   };
@@ -247,29 +333,21 @@ const AnomaliasDashboardPage = () => {
             setAvailableClients(clientsData);
           }
 
-          // Fetch available transport lines for filter from bitacoras
-          const lineasResponse = await fetch(`${baseUrl}/lineas-transporte-bitacoras`, {
-            method: "GET",
-            credentials: "include",
-          });
-          if (lineasResponse.ok) {
-            const lineasData = await lineasResponse.json();
-            setAvailableLineasTransporte(lineasData);
+          // Fetch available transport lines for filter based on selected client
+          // Only fetch if a specific client is selected (not "all")
+          if (appliedClientFilter && appliedClientFilter !== "all") {
+            await fetchLineasTransporte(appliedClientFilter);
           } else {
-            console.warn("Transport lines endpoint not available:", lineasResponse.status);
+            // If no client selected, clear transport lines
             setAvailableLineasTransporte([]);
           }
 
-          // Fetch available operators for filter from bitacoras
-          const operadoresResponse = await fetch(`${baseUrl}/operadores-bitacoras`, {
-            method: "GET",
-            credentials: "include",
-          });
-          if (operadoresResponse.ok) {
-            const operadoresData = await operadoresResponse.json();
-            setAvailableOperadores(operadoresData);
+          // Fetch available operators for filter based on selected transport line
+          // Only fetch if a specific transport line is selected (not "all")
+          if (appliedLineaTransporteFilter && appliedLineaTransporteFilter !== "all") {
+            await fetchOperadores(appliedLineaTransporteFilter);
           } else {
-            console.warn("Operators endpoint not available:", operadoresResponse.status);
+            // If no transport line selected, clear operators
             setAvailableOperadores([]);
           }
         }
@@ -293,8 +371,8 @@ const AnomaliasDashboardPage = () => {
           setDashboardStats(statsData);
         }
 
-        // Fetch client anomalies statistics
-        const clientStatsUrl = `${baseUrl}/dashboard/client-anomalias-stats?clientFilter=${encodeURIComponent(
+        // Fetch transport lines anomalies statistics
+        const lineasTransporteStatsUrl = `${baseUrl}/dashboard/lineas-transporte-stats?clientFilter=${encodeURIComponent(
           appliedClientFilter
         )}&fechaDesde=${encodeURIComponent(appliedFechaDesde)}&fechaHasta=${encodeURIComponent(
           appliedFechaHasta
@@ -302,16 +380,38 @@ const AnomaliasDashboardPage = () => {
           appliedLineaTransporteFilter
         )}&operador=${encodeURIComponent(appliedOperadorFilter)}`;
 
-        const clientStatsResponse = await fetch(clientStatsUrl, {
+        const lineasTransporteStatsResponse = await fetch(lineasTransporteStatsUrl, {
           method: "GET",
           credentials: "include",
         });
 
-        if (clientStatsResponse.ok) {
-          const clientStatsData = await clientStatsResponse.json();
+        if (lineasTransporteStatsResponse.ok) {
+          const lineasTransporteStatsData = await lineasTransporteStatsResponse.json();
           setDashboardStats((prev) => ({
             ...prev,
-            clientAnomaliasStats: clientStatsData,
+            lineasTransporteStats: lineasTransporteStatsData,
+          }));
+        }
+
+        // Fetch operators anomalies statistics
+        const operadoresStatsUrl = `${baseUrl}/dashboard/operadores-stats?clientFilter=${encodeURIComponent(
+          appliedClientFilter
+        )}&fechaDesde=${encodeURIComponent(appliedFechaDesde)}&fechaHasta=${encodeURIComponent(
+          appliedFechaHasta
+        )}&lineaTransporte=${encodeURIComponent(
+          appliedLineaTransporteFilter
+        )}&operador=${encodeURIComponent(appliedOperadorFilter)}`;
+
+        const operadoresStatsResponse = await fetch(operadoresStatsUrl, {
+          method: "GET",
+          credentials: "include",
+        });
+
+        if (operadoresStatsResponse.ok) {
+          const operadoresStatsData = await operadoresStatsResponse.json();
+          setDashboardStats((prev) => ({
+            ...prev,
+            operadoresStats: operadoresStatsData,
           }));
         }
 
@@ -388,6 +488,20 @@ const AnomaliasDashboardPage = () => {
     }
   }, [user, navigate, fetchDashboardData, applyFiltersTrigger]);
 
+  // Update transport lines when client filter changes
+  useEffect(() => {
+    if (user) {
+      fetchLineasTransporte(clientFilter);
+    }
+  }, [user, clientFilter, fetchLineasTransporte]);
+
+  // Update operators when transport line filter changes
+  useEffect(() => {
+    if (user) {
+      fetchOperadores(lineaTransporteFilter);
+    }
+  }, [user, lineaTransporteFilter, fetchOperadores]);
+
   // Memoize filtered data calculation
   const filteredAnomaliasData = useMemo(() => {
     if (bitacorasAnomalias.length === 0) {
@@ -395,7 +509,7 @@ const AnomaliasDashboardPage = () => {
     }
 
     return bitacorasAnomalias.filter((bitacora) => {
-      // First, check if the bitacora matches the applied client filter
+      // Check if the bitacora matches the applied client filter
       const matchesAppliedClientFilter =
         appliedClientFilter === "all" ||
         (bitacora.cliente && bitacora.cliente === appliedClientFilter);
@@ -404,55 +518,28 @@ const AnomaliasDashboardPage = () => {
         return false;
       }
 
-      const matchesBitacoraId =
-        !anomaliasFilters.bitacora_id ||
-        (bitacora.bitacora_id || "")
-          .toLowerCase()
-          .includes(anomaliasFilters.bitacora_id.toLowerCase());
+      // Check if the bitacora matches the applied transport line filter
+      const matchesAppliedLineaTransporteFilter =
+        appliedLineaTransporteFilter === "all" ||
+        (bitacora.linea_transporte && bitacora.linea_transporte === appliedLineaTransporteFilter);
 
-      const matchesCliente =
-        !anomaliasFilters.cliente ||
-        (bitacora.cliente || "").toLowerCase().includes(anomaliasFilters.cliente.toLowerCase());
+      if (!matchesAppliedLineaTransporteFilter) {
+        return false;
+      }
 
-      const matchesAnomalias =
-        anomaliasFilters.anomalias.length === 0 ||
-        (bitacora.categorias &&
-          bitacora.categorias.some((cat) => anomaliasFilters.anomalias.includes(cat)));
+      // Check if the bitacora matches the applied operator filter
+      const matchesAppliedOperadorFilter =
+        appliedOperadorFilter === "all" ||
+        (bitacora.operador && bitacora.operador === appliedOperadorFilter);
 
-      const matchesLineaTransporte =
-        !anomaliasFilters.linea_transporte ||
-        (bitacora.linea_transporte || "")
-          .toLowerCase()
-          .includes(anomaliasFilters.linea_transporte.toLowerCase());
-
-      const matchesUsuario =
-        !anomaliasFilters.operador ||
-        (bitacora.operador || "").toLowerCase().includes(anomaliasFilters.operador.toLowerCase());
-
-      const matchesOrigen =
-        !anomaliasFilters.origen ||
-        (bitacora.origen || "").toLowerCase().includes(anomaliasFilters.origen.toLowerCase());
-
-      const matchesDestino =
-        !anomaliasFilters.destino ||
-        (bitacora.destino || "").toLowerCase().includes(anomaliasFilters.destino.toLowerCase());
-
-      const matchesStatus =
-        !anomaliasFilters.status ||
-        (bitacora.status || "").toLowerCase().includes(anomaliasFilters.status.toLowerCase());
-
-      return (
-        matchesBitacoraId &&
-        matchesCliente &&
-        matchesAnomalias &&
-        matchesLineaTransporte &&
-        matchesUsuario &&
-        matchesOrigen &&
-        matchesDestino &&
-        matchesStatus
-      );
+      return matchesAppliedOperadorFilter;
     });
-  }, [bitacorasAnomalias, anomaliasFilters, appliedClientFilter]);
+  }, [
+    bitacorasAnomalias,
+    appliedClientFilter,
+    appliedLineaTransporteFilter,
+    appliedOperadorFilter,
+  ]);
 
   // Pagination for filtered data
   const paginatedData = useMemo(() => {
@@ -464,65 +551,74 @@ const AnomaliasDashboardPage = () => {
   const CustomTooltip = ({active, payload, label}) => {
     if (active && payload && payload.length) {
       const totalAnomalias =
-        dashboardStats.clientAnomaliasStats?.reduce((sum, stat) => sum + stat.anomalias, 0) || 0;
+        payload[0].payload?.totalAnomalias ||
+        dashboardStats.lineasTransporteStats?.reduce((sum, stat) => sum + stat.anomalias, 0) ||
+        0;
       return (
-        <Paper
-          elevation={3}
-          sx={{
-            p: 2,
+        <div
+          style={{
+            padding: "12px",
             backgroundColor: "rgba(255, 255, 255, 0.95)",
             border: "1px solid #ddd",
+            borderRadius: "4px",
+            boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
           }}>
-          <Typography variant="body2" color="textSecondary">
-            {label}
-          </Typography>
-          <Typography variant="h6" color="primary">
-            {formatNumber(payload[0].value)} anomalías
-          </Typography>
-          <Typography variant="body2" color="textSecondary">
+          <div className="small text-muted">{label}</div>
+          <div className="h6 text-primary">{formatNumber(payload[0].value)} anomalías</div>
+          <div className="small text-muted">
             {totalAnomalias > 0 ? ((payload[0].value / totalAnomalias) * 100).toFixed(1) : 0}% del
             total
-          </Typography>
-        </Paper>
+          </div>
+        </div>
       );
     }
     return null;
   };
 
-  // Render client anomalies pie chart
-  const renderClientAnomaliasPieChart = () => {
-    const clientStats = dashboardStats.clientAnomaliasStats || [];
+  // Render transport lines anomalies pie chart
+  const renderLineasTransportePieChart = () => {
+    const lineasTransporteStats = dashboardStats.lineasTransporteStats || [];
 
-    if (clientStats.length === 0) {
+    if (lineasTransporteStats.length === 0) {
       return (
-        <Box
-          display="flex"
-          flexDirection="column"
-          alignItems="center"
-          justifyContent="center"
-          height={300}
-          color="white">
-          <CheckCircle sx={{fontSize: 60, mb: 2, opacity: 0.3}} />
-          <Typography variant="h6" gutterBottom>
-            Sin Anomalías Detectadas
-          </Typography>
-          <Typography variant="body2" textAlign="center">
-            No se encontraron bitácoras con anomalías en el período seleccionado
-          </Typography>
-        </Box>
+        <div className="text-center text-muted py-5">
+          <i className="fa fa-check-circle fa-3x mb-3" style={{opacity: 0.3}}></i>
+          <h6>Sin Anomalías Detectadas</h6>
+          <p className="small">
+            No se encontraron líneas de transporte con anomalías para el cliente seleccionado
+          </p>
+        </div>
+      );
+    }
+
+    // Filter by selected client
+    const filteredStats = lineasTransporteStats.filter(
+      (stat) => stat.cliente === appliedClientFilter
+    );
+
+    if (filteredStats.length === 0) {
+      return (
+        <div className="text-center text-muted py-5">
+          <i className="fa fa-check-circle fa-3x mb-3" style={{opacity: 0.3}}></i>
+          <h6>Sin Anomalías Detectadas</h6>
+          <p className="small">
+            No se encontraron líneas de transporte con anomalías para el cliente seleccionado
+          </p>
+        </div>
       );
     }
 
     // Transform data for Recharts format
-    const chartData = clientStats.map((stat) => ({
-      name: stat.cliente,
+    const chartData = filteredStats.map((stat) => ({
+      name: stat.lineaTransporte,
       value: stat.anomalias,
       color: stat.color,
-      cliente: stat.cliente, // Keep original data for click handler
+      lineaTransporte: stat.lineaTransporte, // Keep original data for click handler
+      totalAnomalias: filteredStats.reduce((sum, s) => sum + s.anomalias, 0),
     }));
 
     return (
-      <ResponsiveContainer width="100%" height={400}>
+      <ResponsiveContainer width="100%" height={500}>
         <PieChart>
           <Pie
             data={chartData}
@@ -530,10 +626,80 @@ const AnomaliasDashboardPage = () => {
             cy="50%"
             labelLine={false}
             label={({name, percent}) => `${name} ${(percent * 100).toFixed(0)}%`}
-            outerRadius={120}
+            outerRadius={180}
             fill="#8884d8"
             dataKey="value"
-            onClick={handleClientClick}
+            onClick={handleLineaTransporteClick}
+            style={{cursor: "pointer"}}>
+            {chartData.map((entry, index) => (
+              <Cell key={`cell-${index}`} fill={entry.color} />
+            ))}
+          </Pie>
+          <Tooltip content={<CustomTooltip />} />
+          <Legend />
+        </PieChart>
+      </ResponsiveContainer>
+    );
+  };
+
+  // Render operators anomalies pie chart
+  const renderOperadoresPieChart = () => {
+    const operadoresStats = dashboardStats.operadoresStats || [];
+
+    if (operadoresStats.length === 0) {
+      return (
+        <div className="text-center text-muted py-5">
+          <i className="fa fa-check-circle fa-3x mb-3" style={{opacity: 0.3}}></i>
+          <h6>Sin Anomalías Detectadas</h6>
+          <p className="small">
+            No se encontraron operadores con anomalías para la línea de transporte seleccionada
+          </p>
+        </div>
+      );
+    }
+
+    // Filter by selected client and transport line
+    const filteredStats = operadoresStats.filter(
+      (stat) =>
+        stat.cliente === appliedClientFilter &&
+        (appliedLineaTransporteFilter === "all" ||
+          stat.lineaTransporte === appliedLineaTransporteFilter)
+    );
+
+    if (filteredStats.length === 0) {
+      return (
+        <div className="text-center text-muted py-5">
+          <i className="fa fa-check-circle fa-3x mb-3" style={{opacity: 0.3}}></i>
+          <h6>Sin Anomalías Detectadas</h6>
+          <p className="small">
+            No se encontraron operadores con anomalías para la línea de transporte seleccionada
+          </p>
+        </div>
+      );
+    }
+
+    // Transform data for Recharts format
+    const chartData = filteredStats.map((stat) => ({
+      name: stat.operador,
+      value: stat.anomalias,
+      color: stat.color,
+      operador: stat.operador, // Keep original data for click handler
+      totalAnomalias: filteredStats.reduce((sum, s) => sum + s.anomalias, 0),
+    }));
+
+    return (
+      <ResponsiveContainer width="100%" height={500}>
+        <PieChart>
+          <Pie
+            data={chartData}
+            cx="50%"
+            cy="50%"
+            labelLine={false}
+            label={({name, percent}) => `${name} ${(percent * 100).toFixed(0)}%`}
+            outerRadius={180}
+            fill="#8884d8"
+            dataKey="value"
+            onClick={handleOperadorClick}
             style={{cursor: "pointer"}}>
             {chartData.map((entry, index) => (
               <Cell key={`cell-${index}`} fill={entry.color} />
@@ -552,21 +718,11 @@ const AnomaliasDashboardPage = () => {
 
     if (eventCategoriesStats.length === 0) {
       return (
-        <Box
-          display="flex"
-          flexDirection="column"
-          alignItems="center"
-          justifyContent="center"
-          height={300}
-          color="white">
-          <CheckCircle sx={{fontSize: 60, mb: 2, opacity: 0.3}} />
-          <Typography variant="h6" gutterBottom>
-            Sin Eventos Registrados
-          </Typography>
-          <Typography variant="body2" textAlign="center">
-            No hay eventos registrados en las categorías especificadas
-          </Typography>
-        </Box>
+        <div className="text-center text-muted py-5">
+          <i className="fa fa-check-circle fa-3x mb-3" style={{opacity: 0.3}}></i>
+          <h6>Sin Eventos Registrados</h6>
+          <p className="small">No hay eventos registrados en las categorías especificadas</p>
+        </div>
       );
     }
 
@@ -586,7 +742,7 @@ const AnomaliasDashboardPage = () => {
     }));
 
     return (
-      <ResponsiveContainer width="100%" height={300}>
+      <ResponsiveContainer width="100%" height={500}>
         <PieChart>
           <Pie
             data={chartData}
@@ -594,7 +750,7 @@ const AnomaliasDashboardPage = () => {
             cy="50%"
             labelLine={false}
             label={({name, percent}) => `${name} ${(percent * 100).toFixed(0)}%`}
-            outerRadius={80}
+            outerRadius={180}
             fill="#8884d8"
             dataKey="value">
             {chartData.map((entry, index) => (
@@ -612,21 +768,11 @@ const AnomaliasDashboardPage = () => {
   const renderOncBarChart = () => {
     if (oncEventsData.length === 0) {
       return (
-        <Box
-          display="flex"
-          flexDirection="column"
-          alignItems="center"
-          justifyContent="center"
-          height={300}
-          color="white">
-          <Person sx={{fontSize: 60, mb: 2, opacity: 0.3}} />
-          <Typography variant="h6" gutterBottom>
-            Sin Eventos ONC
-          </Typography>
-          <Typography variant="body2" textAlign="center">
-            No hay eventos de &quot;Usuario No Responde&quot; registrados
-          </Typography>
-        </Box>
+        <div className="text-center text-muted py-5">
+          <i className="fa fa-user fa-3x mb-3" style={{opacity: 0.3}}></i>
+          <h6>Sin Eventos ONC</h6>
+          <p className="small">No hay eventos de &quot;Usuario No Responde&quot; registrados</p>
+        </div>
       );
     }
 
@@ -667,67 +813,56 @@ const AnomaliasDashboardPage = () => {
   const renderOncListView = () => {
     if (oncEventsData.length === 0) {
       return (
-        <Box
-          display="flex"
-          flexDirection="column"
-          alignItems="center"
-          justifyContent="center"
-          height={300}
-          color="white">
-          <Person sx={{fontSize: 60, mb: 2, opacity: 0.3}} />
-          <Typography variant="h6" gutterBottom>
-            Sin Eventos ONC
-          </Typography>
-          <Typography variant="body2" textAlign="center">
-            No hay eventos de &quot;Usuario No Responde&quot; registrados
-          </Typography>
-        </Box>
+        <div className="text-center text-muted py-5">
+          <i className="fa fa-user fa-3x mb-3" style={{opacity: 0.3}}></i>
+          <h6>Sin Eventos ONC</h6>
+          <p className="small">No hay eventos de &quot;Usuario No Responde&quot; registrados</p>
+        </div>
       );
     }
 
     const totalEvents = oncEventsData.reduce((sum, event) => sum + event.count, 0);
 
     return (
-      <TableContainer>
-        <Table size="small">
-          <TableHead>
-            <TableRow>
-              <TableCell>Evento</TableCell>
-              <TableCell align="center">Cantidad</TableCell>
-              <TableCell align="center">Porcentaje</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
+      <div className="table-responsive">
+        <table className="table table-sm">
+          <thead>
+            <tr>
+              <th>Evento</th>
+              <th className="text-center">Cantidad</th>
+              <th className="text-center">Porcentaje</th>
+            </tr>
+          </thead>
+          <tbody>
             {oncEventsData.map((event, index) => {
               const percentage =
                 totalEvents > 0 ? ((event.count / totalEvents) * 100).toFixed(1) : 0;
               return (
-                <TableRow key={index}>
-                  <TableCell>
-                    <Box display="flex" alignItems="center" gap={1}>
-                      <Box
-                        width={12}
-                        height={12}
-                        borderRadius="50%"
-                        sx={{backgroundColor: event.color}}
-                      />
-                      {event.eventName}
-                    </Box>
-                  </TableCell>
-                  <TableCell align="center">
-                    <Typography variant="body2" fontWeight="bold">
-                      {formatNumber(event.count)}
-                    </Typography>
-                  </TableCell>
-                  <TableCell align="center">
-                    <Typography variant="body2">{percentage}%</Typography>
-                  </TableCell>
-                </TableRow>
+                <tr key={index}>
+                  <td>
+                    <div className="d-flex align-items-center gap-2">
+                      <div
+                        className="rounded-circle"
+                        style={{
+                          width: "12px",
+                          height: "12px",
+                          backgroundColor: event.color,
+                        }}></div>
+                      <span className="small">{event.eventName}</span>
+                    </div>
+                  </td>
+                  <td className="text-center">
+                    <span className="small fw-bold">{formatNumber(event.count)}</span>
+                  </td>
+                  <td className="text-center">
+                    <span className="small">{percentage}%</span>
+                  </td>
+                </tr>
               );
             })}
-          </TableBody>
-        </Table>
-      </TableContainer>
+          </tbody>
+        </table>
+      </div>
     );
   };
 
@@ -735,28 +870,18 @@ const AnomaliasDashboardPage = () => {
   const renderAnomaliasTable = () => {
     if (bitacorasAnomalias.length === 0) {
       return (
-        <Box
-          display="flex"
-          flexDirection="column"
-          alignItems="center"
-          justifyContent="center"
-          height={400}
-          color="white">
-          <CheckCircle sx={{fontSize: 60, mb: 2, opacity: 0.3}} />
-          <Typography variant="h6" gutterBottom>
-            Sin Anomalías Registradas
-          </Typography>
-          <Typography variant="body2" textAlign="center">
-            No hay bitácoras con anomalías en el período seleccionado
-          </Typography>
-        </Box>
+        <div className="text-center text-muted py-5">
+          <i className="fa fa-check-circle fa-3x mb-3" style={{opacity: 0.3}}></i>
+          <h6>Sin Anomalías Registradas</h6>
+          <p className="small">No hay bitácoras con anomalías en el período seleccionado</p>
+        </div>
       );
     }
 
     const getStatusColor = (status) => {
       switch (status?.toLowerCase()) {
         case "cerrada":
-          return "error";
+          return "danger";
         case "nueva":
           return "warning";
         case "iniciada":
@@ -764,117 +889,118 @@ const AnomaliasDashboardPage = () => {
         case "validada":
           return "info";
         case "finalizada":
-          return "default";
+          return "secondary";
         default:
-          return "default";
+          return "secondary";
       }
     };
 
     return (
-      <Box>
-        <TableContainer component={Paper} elevation={1}>
-          <Table size="small">
-            <TableHead>
-              <TableRow>
-                <TableCell>No. Bitácora</TableCell>
-                <TableCell>Cliente</TableCell>
-                <TableCell>Anomalías</TableCell>
-                <TableCell>Línea Transporte</TableCell>
-                <TableCell>Operador</TableCell>
-                <TableCell>Origen</TableCell>
-                <TableCell>Destino</TableCell>
-                <TableCell align="center">Estado</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
+      <div>
+        <div className="table-responsive">
+          <table className="table table-sm">
+            <thead>
+              <tr>
+                <th>No. Bitácora</th>
+                <th>Cliente</th>
+                <th>Anomalías</th>
+                <th>Línea Transporte</th>
+                <th>Operador</th>
+                <th>Origen</th>
+                <th>Destino</th>
+                <th className="text-center">Estado</th>
+              </tr>
+            </thead>
+            <tbody>
               {paginatedData.map((bitacora, index) => (
-                <TableRow key={bitacora._id || index} hover>
-                  <TableCell>
-                    <Typography variant="body2" fontWeight="medium">
-                      {bitacora.bitacora_id || "N/A"}
-                    </Typography>
-                  </TableCell>
-                  <TableCell>
-                    <Typography variant="body2">{bitacora.cliente || "N/A"}</Typography>
-                  </TableCell>
-                  <TableCell>
-                    <Box display="flex" gap={0.5} flexWrap="wrap">
+                <tr key={bitacora._id || index}>
+                  <td>
+                    <span className="small fw-medium">{bitacora.bitacora_id || "N/A"}</span>
+                  </td>
+                  <td>
+                    <span className="small">{bitacora.cliente || "N/A"}</span>
+                  </td>
+                  <td>
+                    <div className="d-flex gap-1 flex-wrap">
                       {bitacora.categorias && bitacora.categorias.length > 0 ? (
                         bitacora.categorias.map((categoria, catIndex) => (
-                          <Chip
+                          <span
                             key={catIndex}
-                            label={categoria}
-                            size="small"
-                            sx={{
+                            className="badge"
+                            style={{
                               backgroundColor: getAnomaliaColor(categoria),
                               color: "white",
                               fontSize: "0.7rem",
-                              height: 20,
-                            }}
-                          />
+                            }}>
+                            {categoria}
+                          </span>
                         ))
                       ) : (
-                        <Chip label="N/A" size="small" variant="outlined" />
+                        <span className="badge bg-secondary">N/A</span>
                       )}
-                    </Box>
-                  </TableCell>
-                  <TableCell>
-                    <Typography variant="body2">{bitacora.linea_transporte || "N/A"}</Typography>
-                  </TableCell>
-                  <TableCell>
-                    <Typography variant="body2">{bitacora.operador || "N/A"}</Typography>
-                  </TableCell>
-                  <TableCell>
-                    <Typography variant="body2">{bitacora.origen || "N/A"}</Typography>
-                  </TableCell>
-                  <TableCell>
-                    <Typography variant="body2">{bitacora.destino || "N/A"}</Typography>
-                  </TableCell>
-                  <TableCell align="center">
-                    <Chip
-                      label={bitacora.status || "N/A"}
-                      size="small"
-                      color={getStatusColor(bitacora.status)}
-                      variant="outlined"
-                    />
-                  </TableCell>
-                </TableRow>
+                    </div>
+                  </td>
+                  <td>
+                    <span className="small">{bitacora.linea_transporte || "N/A"}</span>
+                  </td>
+                  <td>
+                    <span className="small">{bitacora.operador || "N/A"}</span>
+                  </td>
+                  <td>
+                    <span className="small">{bitacora.origen || "N/A"}</span>
+                  </td>
+                  <td>
+                    <span className="small">{bitacora.destino || "N/A"}</span>
+                  </td>
+                  <td className="text-center">
+                    <span className={`badge bg-${getStatusColor(bitacora.status)}`}>
+                      {bitacora.status || "N/A"}
+                    </span>
+                  </td>
+                </tr>
               ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
-        <TablePagination
-          component="div"
-          count={filteredAnomaliasData.length}
-          page={page}
-          onPageChange={(event, newPage) => setPage(newPage)}
-          rowsPerPage={rowsPerPage}
-          onRowsPerPageChange={(event) => {
-            setRowsPerPage(parseInt(event.target.value, 10));
-            setPage(0);
-          }}
-          labelRowsPerPage="Filas por página:"
-          labelDisplayedRows={({from, to, count}) => `${from}-${to} de ${count}`}
-          sx={{
-            color: "white",
-            "& .MuiTablePagination-selectLabel": {
-              color: "white",
-            },
-            "& .MuiTablePagination-displayedRows": {
-              color: "white",
-            },
-            "& .MuiTablePagination-select": {
-              color: "white",
-            },
-            "& .MuiTablePagination-actions": {
-              color: "white",
-            },
-            "& .MuiIconButton-root": {
-              color: "white",
-            },
-          }}
-        />
-      </Box>
+            </tbody>
+          </table>
+        </div>
+        <div className="d-flex justify-content-between align-items-center mt-3">
+          <div className="d-flex align-items-center gap-3">
+            <span className="small text-muted">Filas por página:</span>
+            <select
+              value={rowsPerPage}
+              onChange={(event) => {
+                setRowsPerPage(parseInt(event.target.value, 10));
+                setPage(0);
+              }}
+              className="form-select form-select-sm"
+              style={{width: "auto"}}>
+              <option value={10}>10</option>
+              <option value={25}>25</option>
+              <option value={50}>50</option>
+            </select>
+          </div>
+          <div className="d-flex align-items-center gap-2">
+            <span className="small text-muted">
+              {page * rowsPerPage + 1}-
+              {Math.min((page + 1) * rowsPerPage, filteredAnomaliasData.length)} de{" "}
+              {filteredAnomaliasData.length}
+            </span>
+            <div className="btn-group btn-group-sm">
+              <button
+                className="btn btn-outline-secondary"
+                onClick={() => setPage(page - 1)}
+                disabled={page === 0}>
+                <i className="fa fa-chevron-left"></i>
+              </button>
+              <button
+                className="btn btn-outline-secondary"
+                onClick={() => setPage(page + 1)}
+                disabled={(page + 1) * rowsPerPage >= filteredAnomaliasData.length}>
+                <i className="fa fa-chevron-right"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
     );
   };
 
@@ -886,17 +1012,14 @@ const AnomaliasDashboardPage = () => {
             <Sidebar />
           </div>
           <div className={`content-wrapper ${isSidebarCollapsed ? "sidebar-collapsed" : ""}`}>
-            <Box
-              display="flex"
-              justifyContent="center"
-              alignItems="center"
-              height="100vh"
-              flexDirection="column">
-              <CircularProgress size={60} />
-              <Typography variant="h6" sx={{mt: 2}}>
-                Cargando dashboard de anomalías...
-              </Typography>
-            </Box>
+            <div
+              className="d-flex justify-content-center align-items-center"
+              style={{height: "100vh"}}>
+              <div className="text-center">
+                <i className="fa fa-spinner fa-spin fa-2x text-primary mb-3"></i>
+                <p className="text-muted">Cargando dashboard de anomalías...</p>
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -910,270 +1033,489 @@ const AnomaliasDashboardPage = () => {
           <Sidebar />
         </div>
         <div className={`content-wrapper ${isSidebarCollapsed ? "sidebar-collapsed" : ""}`}>
-          {/* Header */}
-          <Box
-            sx={{
-              p: 3,
-              backgroundColor: "background.paper",
-              borderBottom: 1,
-              borderColor: "divider",
-            }}>
-            <Typography variant="h4" fontWeight="bold" color="primary" gutterBottom>
-              Dashboard de Anomalías
-            </Typography>
-            <Typography variant="body1" color="text.secondary">
-              Tablero de control de anomalías del sistema de monitoreo Intacsep
-            </Typography>
-          </Box>
+          {/* Título */}
+          <div className="page-header">
+            <h1 className="fs-3 fw-semibold text-black m-0">Dashboard de Anomalías</h1>
+          </div>
 
-          <Box sx={{p: 3}}>
-            {/* Welcome Card */}
-            <Card
-              sx={{
-                mb: 3,
-                background: "linear-gradient(135deg, #1e293b 0%, #0f172a 100%)",
-                color: "white",
-                border: "1px solid rgba(148, 163, 184, 0.1)",
-              }}>
-              <CardContent>
-                <Box display="flex" alignItems="center" gap={2}>
-                  <Box
-                    sx={{
-                      width: 60,
-                      height: 60,
-                      borderRadius: "50%",
-                      backgroundColor: "rgba(255,255,255,0.2)",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                    }}>
-                    <Warning sx={{fontSize: 30}} />
-                  </Box>
-                  <Box>
-                    <Typography variant="h5" fontWeight="bold" gutterBottom>
-                      Hola, {user?.firstName} {user?.lastName}
-                    </Typography>
-                    <Typography variant="body1" sx={{opacity: 0.9}}>
-                      Bienvenido al dashboard de anomalías. Aquí podrás monitorear y analizar todas
-                      las anomalías detectadas en el sistema.
-                    </Typography>
-                  </Box>
-                </Box>
-              </CardContent>
-            </Card>
+          <div className="container-fluid px-3 px-md-4">
+            {/* Welcome Section */}
+            <div className="row mb-3 mb-md-4">
+              <div className="col-12">
+                <div className="welcome-card">
+                  <div className="welcome-content">
+                    <div className="welcome-icon">
+                      <i className="fa fa-exclamation-triangle"></i>
+                    </div>
+                    <div className="welcome-text">
+                      <h4 className="fs-5 fs-md-4">
+                        Hola, {user?.firstName} {user?.lastName}
+                      </h4>
+                      <p className="mb-0 d-none d-md-block">
+                        Bienvenido al dashboard de anomalías. Aquí podrás monitorear y analizar
+                        todas las anomalías detectadas en el sistema.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
 
-            {/* Filters Card */}
-            <Card
-              sx={{
-                mb: 3,
-                background: "linear-gradient(135deg, #1e293b 0%, #0f172a 100%)",
-                color: "white",
-                border: "1px solid rgba(148, 163, 184, 0.1)",
-              }}>
-              <CardHeader
-                title="Filtros de Búsqueda"
-                titleTypographyProps={{color: "white"}}
-                action={
-                  <Box display="flex" gap={1}>
-                    {filterLoading && (
-                      <Chip
-                        icon={<CircularProgress size={16} />}
-                        label="Actualizando..."
-                        color="info"
-                        size="small"
-                      />
-                    )}
-                    {(appliedFechaDesde ||
-                      appliedFechaHasta !== new Date().toISOString().split("T")[0] ||
-                      appliedClientFilter !== "all" ||
-                      appliedLineaTransporteFilter !== "all" ||
-                      appliedOperadorFilter !== "all") && (
-                      <Chip
-                        icon={<FilterList />}
-                        label="Filtros Activos"
-                        color="primary"
-                        size="small"
-                      />
-                    )}
-                  </Box>
-                }
-                sx={{
-                  background: "linear-gradient(135deg, #1e293b 0%, #0f172a 100%)",
-                  borderBottom: "1px solid rgba(255,255,255,0.1)",
-                }}
-              />
-              <CardContent>
-                <Grid container spacing={2} alignItems="flex-end">
-                  <Grid item xs={12} sm={6} md={2}>
-                    <TextField
-                      label="Fecha Desde"
-                      type="date"
-                      value={fechaDesde}
-                      onChange={(e) => setFechaDesde(e.target.value)}
-                      fullWidth
-                      size="small"
-                      InputLabelProps={{shrink: true}}
-                      sx={{
-                        "& .MuiInputLabel-root": {
-                          color: "rgba(255,255,255,0.7)",
-                        },
-                        "& .MuiInputBase-root": {
-                          color: "white",
-                          "& fieldset": {
-                            borderColor: "rgba(255,255,255,0.3)",
-                          },
-                          "&:hover fieldset": {
-                            borderColor: "rgba(255,255,255,0.5)",
-                          },
-                        },
-                      }}
-                    />
-                  </Grid>
-                  <Grid item xs={12} sm={6} md={2}>
-                    <TextField
-                      label="Fecha Hasta"
-                      type="date"
-                      value={fechaHasta}
-                      onChange={(e) => setFechaHasta(e.target.value)}
-                      fullWidth
-                      size="small"
-                      InputLabelProps={{shrink: true}}
-                      sx={{
-                        "& .MuiInputLabel-root": {
-                          color: "rgba(255,255,255,0.7)",
-                        },
-                        "& .MuiInputBase-root": {
-                          color: "white",
-                          "& fieldset": {
-                            borderColor: "rgba(255,255,255,0.3)",
-                          },
-                          "&:hover fieldset": {
-                            borderColor: "rgba(255,255,255,0.5)",
-                          },
-                        },
-                      }}
-                    />
-                  </Grid>
-                  <Grid item xs={12} sm={6} md={2}>
-                    <FormControl fullWidth size="small">
-                      <InputLabel sx={{color: "rgba(255,255,255,0.7)"}}>Cliente</InputLabel>
-                      <Select
-                        value={clientFilter}
-                        onChange={(e) => setClientFilter(e.target.value)}
-                        label="Cliente"
-                        sx={{
-                          color: "white",
-                          "& .MuiOutlinedInput-notchedOutline": {
-                            borderColor: "rgba(255,255,255,0.3)",
-                          },
-                          "&:hover .MuiOutlinedInput-notchedOutline": {
-                            borderColor: "rgba(255,255,255,0.5)",
-                          },
-                          "& .MuiSvgIcon-root": {
-                            color: "rgba(255,255,255,0.7)",
-                          },
-                        }}>
-                        <MenuItem value="all">Todos los clientes</MenuItem>
-                        {availableClients
-                          ?.filter((client) => client && client.razon_social)
-                          .sort((a, b) => a.razon_social.localeCompare(b.razon_social))
-                          .map((client) => (
-                            <MenuItem key={client._id} value={client.razon_social}>
-                              {client.razon_social}
-                            </MenuItem>
-                          ))}
-                      </Select>
-                    </FormControl>
-                  </Grid>
-                  <Grid item xs={12} sm={6} md={2}>
-                    <FormControl fullWidth size="small">
-                      <InputLabel sx={{color: "rgba(255,255,255,0.7)"}}>
-                        Línea Transporte
-                      </InputLabel>
-                      <Select
-                        value={lineaTransporteFilter}
-                        onChange={(e) => setLineaTransporteFilter(e.target.value)}
-                        label="Línea Transporte"
-                        sx={{
-                          color: "white",
-                          "& .MuiOutlinedInput-notchedOutline": {
-                            borderColor: "rgba(255,255,255,0.3)",
-                          },
-                          "&:hover .MuiOutlinedInput-notchedOutline": {
-                            borderColor: "rgba(255,255,255,0.5)",
-                          },
-                          "& .MuiSvgIcon-root": {
-                            color: "rgba(255,255,255,0.7)",
-                          },
-                        }}>
-                        <MenuItem value="all">Todas las líneas</MenuItem>
-                        {availableLineasTransporte
-                          ?.filter((linea) => linea && linea.nombre)
-                          .sort((a, b) => a.nombre.localeCompare(b.nombre))
-                          .map((linea) => (
-                            <MenuItem key={linea._id} value={linea.nombre}>
-                              {linea.nombre}
-                            </MenuItem>
-                          ))}
-                      </Select>
-                    </FormControl>
-                  </Grid>
-                  <Grid item xs={12} sm={6} md={2}>
-                    <FormControl fullWidth size="small">
-                      <InputLabel sx={{color: "rgba(255,255,255,0.7)"}}>Operador</InputLabel>
-                      <Select
-                        value={operadorFilter}
-                        onChange={(e) => setOperadorFilter(e.target.value)}
-                        label="Operador"
-                        sx={{
-                          color: "white",
-                          "& .MuiOutlinedInput-notchedOutline": {
-                            borderColor: "rgba(255,255,255,0.3)",
-                          },
-                          "&:hover .MuiOutlinedInput-notchedOutline": {
-                            borderColor: "rgba(255,255,255,0.5)",
-                          },
-                          "& .MuiSvgIcon-root": {
-                            color: "rgba(255,255,255,0.7)",
-                          },
-                        }}>
-                        <MenuItem value="all">Todos los operadores</MenuItem>
-                        {availableOperadores
-                          ?.filter((operador) => operador && operador.nombre)
-                          .sort((a, b) => a.nombre.localeCompare(b.nombre))
-                          .map((operador) => (
-                            <MenuItem key={operador._id} value={operador.nombre}>
-                              {operador.nombre}
-                            </MenuItem>
-                          ))}
-                      </Select>
-                    </FormControl>
-                  </Grid>
-                  <Grid item xs={12} sm={6} md={2}>
-                    <Box display="flex" gap={1}>
-                      <Button
-                        variant="contained"
-                        startIcon={<FilterList />}
-                        onClick={applyFilters}
-                        fullWidth>
-                        Aplicar
-                      </Button>
-                      <IconButton color="secondary" onClick={resetFilters} title="Limpiar filtros">
-                        <Refresh />
-                      </IconButton>
-                    </Box>
-                  </Grid>
-                </Grid>
-              </CardContent>
-            </Card>
+            {/* Filtros */}
+            <div className="row mb-3 mb-md-4">
+              <div className="col-12">
+                <div className="filter-card">
+                  <div className="filter-header d-flex justify-content-end align-items-center mb-2">
+                    <div className="d-flex align-items-center gap-2">
+                      {filterLoading && (
+                        <span className="badge bg-warning">
+                          <i className="fa fa-spinner fa-spin me-1"></i>
+                          Cargando...
+                        </span>
+                      )}
+                      {(appliedFechaDesde ||
+                        appliedFechaHasta !== new Date().toISOString().split("T")[0] ||
+                        appliedClientFilter !== "all" ||
+                        appliedLineaTransporteFilter !== "all" ||
+                        appliedOperadorFilter !== "all") && (
+                        <span className="badge bg-primary">
+                          <i className="fa fa-filter me-1"></i>
+                          Filtros Activos
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="filter-content">
+                    <div className="row g-2 g-md-3 align-items-end">
+                      {/* Filtros de fecha primero */}
+                      <div className="col-12 col-sm-6 col-lg-2">
+                        <div className="filter-section">
+                          <label className="form-label small mb-1">Fecha Desde:</label>
+                          <input
+                            type="date"
+                            value={fechaDesde}
+                            onChange={(e) => setFechaDesde(e.target.value)}
+                            className="filter-select form-control form-control-sm"
+                          />
+                        </div>
+                      </div>
+                      <div className="col-12 col-sm-6 col-lg-2">
+                        <div className="filter-section">
+                          <label className="form-label small mb-1">Fecha Hasta:</label>
+                          <input
+                            type="date"
+                            value={fechaHasta}
+                            onChange={(e) => setFechaHasta(e.target.value)}
+                            className="filter-select form-control form-control-sm"
+                          />
+                        </div>
+                      </div>
 
-            {/* Statistics Cards */}
+                      {/* Filtro de cliente después */}
+                      <div className="col-12 col-sm-6 col-lg-2">
+                        <div className="filter-section">
+                          <label className="form-label small mb-1">Cliente:</label>
+                          <select
+                            value={clientFilter}
+                            onChange={(e) => {
+                              const newClientFilter = e.target.value;
+                              setClientFilter(newClientFilter);
+
+                              // Reset transport line filter when client changes
+                              if (newClientFilter !== clientFilter) {
+                                setLineaTransporteFilter("all");
+                                setOperadorFilter("all");
+                              }
+                            }}
+                            className="filter-select form-select form-select-sm">
+                            <option value="all">Todos los clientes</option>
+                            {availableClients && availableClients.length > 0
+                              ? availableClients
+                                  .filter((client) => client && client.razon_social)
+                                  .sort((a, b) => a.razon_social.localeCompare(b.razon_social))
+                                  .map((client) => (
+                                    <option key={client._id} value={client.razon_social}>
+                                      {client.razon_social}
+                                    </option>
+                                  ))
+                              : null}
+                          </select>
+                        </div>
+                      </div>
+
+                      {/* Filtros de línea de transporte y operador */}
+                      <div className="col-12 col-sm-6 col-lg-2">
+                        <div className="filter-section">
+                          <label className="form-label small mb-1">
+                            Línea Transporte:
+                            {loadingLineasTransporte && (
+                              <i className="fa fa-spinner fa-spin ms-1"></i>
+                            )}
+                          </label>
+                          <select
+                            value={lineaTransporteFilter}
+                            onChange={(e) => {
+                              const newLineaTransporteFilter = e.target.value;
+                              setLineaTransporteFilter(newLineaTransporteFilter);
+
+                              // Reset operator filter when transport line changes
+                              if (newLineaTransporteFilter !== lineaTransporteFilter) {
+                                setOperadorFilter("all");
+                              }
+                            }}
+                            className="filter-select form-select form-select-sm"
+                            disabled={loadingLineasTransporte || clientFilter === "all"}>
+                            <option value="all">
+                              {clientFilter === "all"
+                                ? "Selecciona un cliente primero"
+                                : "Todas las líneas"}
+                            </option>
+                            {availableLineasTransporte && availableLineasTransporte.length > 0
+                              ? availableLineasTransporte
+                                  .filter((linea) => linea && linea.nombre)
+                                  .sort((a, b) => a.nombre.localeCompare(b.nombre))
+                                  .map((linea) => (
+                                    <option key={linea._id} value={linea.nombre}>
+                                      {linea.nombre}
+                                    </option>
+                                  ))
+                              : null}
+                          </select>
+                        </div>
+                      </div>
+                      <div className="col-12 col-sm-6 col-lg-2">
+                        <div className="filter-section">
+                          <label className="form-label small mb-1">
+                            Operador:
+                            {loadingOperadores && <i className="fa fa-spinner fa-spin ms-1"></i>}
+                          </label>
+                          <select
+                            value={operadorFilter}
+                            onChange={(e) => setOperadorFilter(e.target.value)}
+                            className="filter-select form-select form-select-sm"
+                            disabled={loadingOperadores || lineaTransporteFilter === "all"}>
+                            <option value="all">
+                              {lineaTransporteFilter === "all"
+                                ? "Selecciona una línea de transporte primero"
+                                : "Todos los operadores"}
+                            </option>
+                            {availableOperadores && availableOperadores.length > 0
+                              ? availableOperadores
+                                  .filter((operador) => operador && operador.nombre)
+                                  .sort((a, b) => a.nombre.localeCompare(b.nombre))
+                                  .map((operador) => (
+                                    <option key={operador._id} value={operador.nombre}>
+                                      {operador.nombre}
+                                    </option>
+                                  ))
+                              : null}
+                          </select>
+                        </div>
+                      </div>
+                      <div className="col-12 col-sm-6 col-lg-2">
+                        <div className="filter-actions d-flex justify-content-end gap-2">
+                          <button
+                            className="filter-btn btn btn-outline-primary btn-sm"
+                            onClick={applyFilters}>
+                            <i className="fa fa-check me-1"></i>
+                          </button>
+                          <button
+                            className="filter-btn btn btn-outline-secondary btn-sm"
+                            onClick={resetFilters}>
+                            <i className="fa fa-refresh me-1"></i>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Estadísticas principales con totales y porcentajes integrados */}
+            <div className="row mb-3 mb-md-4 g-2 g-md-3">
+              {(appliedClientFilter !== "all" ||
+                appliedLineaTransporteFilter !== "all" ||
+                appliedOperadorFilter !== "all" ||
+                appliedFechaDesde ||
+                appliedFechaHasta !== new Date().toISOString().split("T")[0]) && (
+                <div className="col-12 mb-2">
+                  <div className="alert alert-info py-2" style={{fontSize: "12px"}}>
+                    <i className="fa fa-info-circle me-2"></i>
+                    <strong>Estadísticas filtradas:</strong>{" "}
+                    {appliedClientFilter !== "all" && `Cliente: ${appliedClientFilter} | `}
+                    {appliedLineaTransporteFilter !== "all" &&
+                      `Línea: ${appliedLineaTransporteFilter} | `}
+                    {appliedOperadorFilter !== "all" && `Operador: ${appliedOperadorFilter} | `}
+                    {appliedFechaDesde && `Desde: ${appliedFechaDesde} | `}
+                    {appliedFechaHasta !== new Date().toISOString().split("T")[0] &&
+                      `Hasta: ${appliedFechaHasta}`}
+                  </div>
+                </div>
+              )}
+              {/* Total Bitácoras */}
+              <div className="col-6 col-lg mb-2 mb-lg-0">
+                <div className="stat-card h-100">
+                  <div
+                    className="stat-icon"
+                    style={{backgroundColor: "#6b7280 !important", color: "#fff"}}>
+                    <i className="fa fa-book"></i>
+                  </div>
+                  <div className="stat-content">
+                    <div className="stat-value fs-4 fs-md-3">
+                      {formatNumber(dashboardStats.totalBitacoras || 0)}
+                    </div>
+                    <div className="stat-label small">Total Bitácoras</div>
+                    <div
+                      className="stat-percentage small"
+                      style={{color: "#6b7280", fontWeight: "600"}}>
+                      100%
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Nuevas */}
+              <div className="col-6 col-lg mb-2 mb-lg-0">
+                <div className="stat-card h-100">
+                  <div className="stat-icon new">
+                    <i className="fa fa-plus-circle"></i>
+                  </div>
+                  <div className="stat-content">
+                    <div className="stat-value fs-4 fs-md-3">
+                      {formatNumber(dashboardStats.nuevasBitacoras || 0)}
+                    </div>
+                    <div className="stat-label small">Nuevas</div>
+                    <div
+                      className="stat-percentage small"
+                      style={{color: "#10b981", fontWeight: "600"}}>
+                      {dashboardStats.totalBitacoras > 0 &&
+                      dashboardStats.nuevasBitacoras !== undefined
+                        ? Math.round(
+                            (dashboardStats.nuevasBitacoras / dashboardStats.totalBitacoras) * 100
+                          )
+                        : 0}
+                      %
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* En Proceso */}
+              <div className="col-6 col-lg mb-2 mb-lg-0">
+                <div className="stat-card h-100">
+                  <div className="stat-icon pending">
+                    <i className="fa fa-clock"></i>
+                  </div>
+                  <div className="stat-content">
+                    <div className="stat-value fs-4 fs-md-3">
+                      {formatNumber(dashboardStats.enProcesoBitacoras || 0)}
+                    </div>
+                    <div className="stat-label small">En proceso</div>
+                    <div
+                      className="stat-percentage small"
+                      style={{color: "#3b82f6", fontWeight: "600"}}>
+                      {dashboardStats.totalBitacoras > 0 &&
+                      dashboardStats.enProcesoBitacoras !== undefined
+                        ? Math.round(
+                            (dashboardStats.enProcesoBitacoras / dashboardStats.totalBitacoras) *
+                              100
+                          )
+                        : 0}
+                      %
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Cerradas */}
+              <div className="col-6 col-lg mb-2 mb-lg-0">
+                <div className="stat-card h-100">
+                  <div className="stat-icon closed">
+                    <i className="fa fa-lock"></i>
+                  </div>
+                  <div className="stat-content">
+                    <div className="stat-value fs-4 fs-md-3">
+                      {formatNumber(dashboardStats.cerradasBitacoras || 0)}
+                    </div>
+                    <div className="stat-label small">Cerradas</div>
+                    <div
+                      className="stat-percentage small"
+                      style={{color: "#ef4444", fontWeight: "600"}}>
+                      {dashboardStats.totalBitacoras > 0 &&
+                      dashboardStats.cerradasBitacoras !== undefined
+                        ? Math.round(
+                            (dashboardStats.cerradasBitacoras / dashboardStats.totalBitacoras) * 100
+                          )
+                        : 0}
+                      %
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Con Anomalías */}
+              <div className="col-6 col-lg mb-2 mb-lg-0">
+                <div className="stat-card h-100">
+                  <div className="stat-icon anomalia">
+                    <i className="fa fa-exclamation-triangle"></i>
+                  </div>
+                  <div className="stat-content">
+                    <div className="stat-value fs-4 fs-md-3">
+                      {formatNumber(
+                        dashboardStats.eventCategoriesStats &&
+                          dashboardStats.eventCategoriesStats.length > 0
+                          ? dashboardStats.eventCategoriesStats.reduce(
+                              (sum, category) => sum + category.count,
+                              0
+                            )
+                          : 0
+                      )}
+                    </div>
+                    <div className="stat-label small">Con Anomalías</div>
+                    <div
+                      className="stat-percentage small"
+                      style={{color: "#f59e0b", fontWeight: "600"}}>
+                      {dashboardStats.totalBitacoras > 0 &&
+                      dashboardStats.eventCategoriesStats &&
+                      dashboardStats.eventCategoriesStats.length > 0
+                        ? Math.round(
+                            (dashboardStats.eventCategoriesStats.reduce(
+                              (sum, category) => sum + category.count,
+                              0
+                            ) /
+                              dashboardStats.totalBitacoras) *
+                              100
+                          )
+                        : 0}
+                      %
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Líneas de Transporte - Solo mostrar si hay cliente seleccionado */}
+            {appliedClientFilter !== "all" && (
+              <div className="row mb-3 mb-md-4">
+                <div className="col-12">
+                  <div className="chart-card">
+                    <div className="chart-header d-flex justify-content-between align-items-center">
+                      <div className="d-flex align-items-center gap-2">
+                        <h6 className="mb-0">
+                          Anomalías por Línea de Transporte
+                          {appliedClientFilter !== "all" ? ` - ${appliedClientFilter}` : ""}
+                        </h6>
+                        {(appliedClientFilter !== "all" ||
+                          appliedLineaTransporteFilter !== "all" ||
+                          appliedOperadorFilter !== "all" ||
+                          appliedFechaDesde ||
+                          appliedFechaHasta !== new Date().toISOString().split("T")[0]) && (
+                          <span className="badge bg-info" style={{fontSize: "10px"}}>
+                            <i className="fa fa-filter me-1"></i>
+                            Filtrado
+                          </span>
+                        )}
+                      </div>
+                      <div className="d-flex align-items-center gap-2">
+                        <i className="fa fa-pie-chart text-primary"></i>
+                      </div>
+                    </div>
+                    <div className="chart-body">
+                      {(appliedClientFilter !== "all" ||
+                        appliedLineaTransporteFilter !== "all" ||
+                        appliedOperadorFilter !== "all" ||
+                        appliedFechaDesde ||
+                        appliedFechaHasta !== new Date().toISOString().split("T")[0]) && (
+                        <div className="alert alert-info py-2 mb-3" style={{fontSize: "12px"}}>
+                          <i className="fa fa-info-circle me-2"></i>
+                          <strong>Filtros activos:</strong>{" "}
+                          {appliedClientFilter !== "all" && `Cliente: ${appliedClientFilter} | `}
+                          {appliedLineaTransporteFilter !== "all" &&
+                            `Línea: ${appliedLineaTransporteFilter} | `}
+                          {appliedOperadorFilter !== "all" &&
+                            `Operador: ${appliedOperadorFilter} | `}
+                          {appliedFechaDesde && `Desde: ${appliedFechaDesde} | `}
+                          {appliedFechaHasta !== new Date().toISOString().split("T")[0] &&
+                            `Hasta: ${appliedFechaHasta}`}
+                        </div>
+                      )}
+                      <div className="chart-subheader small text-muted mb-3">
+                        Haz clic en un segmento para filtrar por esa línea
+                      </div>
+                      <div className="overflow-auto">{renderLineasTransportePieChart()}</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Operadores - Solo mostrar si hay cliente y línea de transporte seleccionados */}
+            {appliedClientFilter !== "all" && appliedLineaTransporteFilter !== "all" && (
+              <div className="row mb-3 mb-md-4">
+                <div className="col-12">
+                  <div className="chart-card">
+                    <div className="chart-header d-flex justify-content-between align-items-center">
+                      <div className="d-flex align-items-center gap-2">
+                        <h6 className="mb-0">
+                          Anomalías por Operador
+                          {appliedClientFilter !== "all" && appliedLineaTransporteFilter !== "all"
+                            ? ` - ${appliedClientFilter} / ${appliedLineaTransporteFilter}`
+                            : appliedClientFilter !== "all"
+                            ? ` - ${appliedClientFilter}`
+                            : ""}
+                        </h6>
+                        {(appliedClientFilter !== "all" ||
+                          appliedLineaTransporteFilter !== "all" ||
+                          appliedOperadorFilter !== "all" ||
+                          appliedFechaDesde ||
+                          appliedFechaHasta !== new Date().toISOString().split("T")[0]) && (
+                          <span className="badge bg-info" style={{fontSize: "10px"}}>
+                            <i className="fa fa-filter me-1"></i>
+                            Filtrado
+                          </span>
+                        )}
+                      </div>
+                      <div className="d-flex align-items-center gap-2">
+                        <i className="fa fa-pie-chart text-primary"></i>
+                      </div>
+                    </div>
+                    <div className="chart-body">
+                      {(appliedClientFilter !== "all" ||
+                        appliedLineaTransporteFilter !== "all" ||
+                        appliedOperadorFilter !== "all" ||
+                        appliedFechaDesde ||
+                        appliedFechaHasta !== new Date().toISOString().split("T")[0]) && (
+                        <div className="alert alert-info py-2 mb-3" style={{fontSize: "12px"}}>
+                          <i className="fa fa-info-circle me-2"></i>
+                          <strong>Filtros activos:</strong>{" "}
+                          {appliedClientFilter !== "all" && `Cliente: ${appliedClientFilter} | `}
+                          {appliedLineaTransporteFilter !== "all" &&
+                            `Línea: ${appliedLineaTransporteFilter} | `}
+                          {appliedOperadorFilter !== "all" &&
+                            `Operador: ${appliedOperadorFilter} | `}
+                          {appliedFechaDesde && `Desde: ${appliedFechaDesde} | `}
+                          {appliedFechaHasta !== new Date().toISOString().split("T")[0] &&
+                            `Hasta: ${appliedFechaHasta}`}
+                        </div>
+                      )}
+                      <div className="chart-subheader small text-muted mb-3">
+                        Haz clic en un segmento para filtrar por ese operador
+                      </div>
+                      <div className="overflow-auto">{renderOperadoresPieChart()}</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Tipos de Anomalías */}
             <div className="row mb-3 mb-md-4">
               <div className="col-12">
                 <div className="chart-card">
                   <div className="chart-header d-flex justify-content-between align-items-center">
                     <div className="d-flex align-items-center gap-2">
-                      <h6 className="mb-0">Resumen de Bitácoras</h6>
+                      <h6 className="mb-0">Tipos de Anomalías</h6>
                       {(appliedClientFilter !== "all" ||
                         appliedLineaTransporteFilter !== "all" ||
                         appliedOperadorFilter !== "all" ||
@@ -1184,6 +1526,9 @@ const AnomaliasDashboardPage = () => {
                           Filtrado
                         </span>
                       )}
+                    </div>
+                    <div className="d-flex align-items-center gap-2">
+                      <i className="fa fa-pie-chart text-primary"></i>
                     </div>
                   </div>
                   <div className="chart-body">
@@ -1204,302 +1549,139 @@ const AnomaliasDashboardPage = () => {
                           `Hasta: ${appliedFechaHasta}`}
                       </div>
                     )}
-                    <div className="row g-2 g-md-3">
-                      {/* Total Bitácoras */}
-                      <div className="col-6 col-lg mb-2 mb-lg-0">
-                        <div className="stat-card h-100" style={{position: "relative"}}>
-                          {renderLoadingOverlay()}
-                          <div
-                            className="stat-icon"
-                            style={{backgroundColor: "#6b7280 !important", color: "#fff"}}>
-                            <i className="fa fa-book"></i>
-                          </div>
-                          <div className="stat-content">
-                            <div className="stat-value fs-4 fs-md-3">
-                              {formatNumber(dashboardStats.totalBitacoras || 0)}
-                            </div>
-                            <div className="stat-label small">Total Bitácoras</div>
-                            <div
-                              className="stat-percentage small"
-                              style={{color: "#6b7280", fontWeight: "600"}}>
-                              100%
-                            </div>
-                          </div>
-                        </div>
-                      </div>
+                    <div className="chart-subheader small text-muted mb-3">
+                      Distribución por categoría de evento
+                    </div>
+                    <div className="overflow-auto">{renderEventCategoriesPieChart()}</div>
+                  </div>
+                </div>
+              </div>
+            </div>
 
-                      {/* Nuevas */}
-                      <div className="col-6 col-lg mb-2 mb-lg-0">
-                        <div className="stat-card h-100" style={{position: "relative"}}>
-                          {renderLoadingOverlay()}
-                          <div className="stat-icon new">
-                            <i className="fa fa-plus-circle"></i>
-                          </div>
-                          <div className="stat-content">
-                            <div className="stat-value fs-4 fs-md-3">
-                              {formatNumber(dashboardStats.nuevasBitacoras || 0)}
-                            </div>
-                            <div className="stat-label small">Nuevas</div>
-                            <div
-                              className="stat-percentage small"
-                              style={{color: "#10b981", fontWeight: "600"}}>
-                              {dashboardStats.totalBitacoras > 0 &&
-                              dashboardStats.nuevasBitacoras !== undefined
-                                ? Math.round(
-                                    (dashboardStats.nuevasBitacoras /
-                                      dashboardStats.totalBitacoras) *
-                                      100
-                                  )
-                                : 0}
-                              %
-                            </div>
-                          </div>
-                        </div>
+            {/* ONC Events Section */}
+            <div className="row mb-3 mb-md-4">
+              <div className="col-12">
+                <div className="chart-card">
+                  <div className="chart-header d-flex justify-content-between align-items-center">
+                    <div className="d-flex align-items-center gap-2">
+                      <h6 className="mb-0">Eventos de Usuario No Responde (ONC)</h6>
+                      {(appliedClientFilter !== "all" ||
+                        appliedLineaTransporteFilter !== "all" ||
+                        appliedOperadorFilter !== "all" ||
+                        appliedFechaDesde ||
+                        appliedFechaHasta !== new Date().toISOString().split("T")[0]) && (
+                        <span className="badge bg-info" style={{fontSize: "10px"}}>
+                          <i className="fa fa-filter me-1"></i>
+                          Filtrado
+                        </span>
+                      )}
+                    </div>
+                    <div className="btn-group btn-group-sm" role="group">
+                      <button
+                        type="button"
+                        className={`btn ${
+                          oncViewMode === "chart" ? "btn-primary" : "btn-outline-primary"
+                        }`}
+                        onClick={() => setOncViewMode("chart")}
+                        title="Vista de gráfico">
+                        <i className="fa fa-bar-chart"></i>
+                      </button>
+                      <button
+                        type="button"
+                        className={`btn ${
+                          oncViewMode === "list" ? "btn-primary" : "btn-outline-primary"
+                        }`}
+                        onClick={() => setOncViewMode("list")}
+                        title="Vista de lista">
+                        <i className="fa fa-list"></i>
+                      </button>
+                    </div>
+                  </div>
+                  <div className="chart-body">
+                    {(appliedClientFilter !== "all" ||
+                      appliedLineaTransporteFilter !== "all" ||
+                      appliedOperadorFilter !== "all" ||
+                      appliedFechaDesde ||
+                      appliedFechaHasta !== new Date().toISOString().split("T")[0]) && (
+                      <div className="alert alert-info py-2 mb-3" style={{fontSize: "12px"}}>
+                        <i className="fa fa-info-circle me-2"></i>
+                        <strong>Filtros activos:</strong>{" "}
+                        {appliedClientFilter !== "all" && `Cliente: ${appliedClientFilter} | `}
+                        {appliedLineaTransporteFilter !== "all" &&
+                          `Línea: ${appliedLineaTransporteFilter} | `}
+                        {appliedOperadorFilter !== "all" && `Operador: ${appliedOperadorFilter} | `}
+                        {appliedFechaDesde && `Desde: ${appliedFechaDesde} | `}
+                        {appliedFechaHasta !== new Date().toISOString().split("T")[0] &&
+                          `Hasta: ${appliedFechaHasta}`}
                       </div>
-
-                      {/* En Proceso */}
-                      <div className="col-6 col-lg mb-2 mb-lg-0">
-                        <div className="stat-card h-100" style={{position: "relative"}}>
-                          {renderLoadingOverlay()}
-                          <div className="stat-icon pending">
-                            <i className="fa fa-clock"></i>
-                          </div>
-                          <div className="stat-content">
-                            <div className="stat-value fs-4 fs-md-3">
-                              {formatNumber(dashboardStats.enProcesoBitacoras || 0)}
-                            </div>
-                            <div className="stat-label small">En proceso</div>
-                            <div
-                              className="stat-percentage small"
-                              style={{color: "#3b82f6", fontWeight: "600"}}>
-                              {dashboardStats.totalBitacoras > 0 &&
-                              dashboardStats.enProcesoBitacoras !== undefined
-                                ? Math.round(
-                                    (dashboardStats.enProcesoBitacoras /
-                                      dashboardStats.totalBitacoras) *
-                                      100
-                                  )
-                                : 0}
-                              %
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Cerradas */}
-                      <div className="col-6 col-lg mb-2 mb-lg-0">
-                        <div className="stat-card h-100" style={{position: "relative"}}>
-                          {renderLoadingOverlay()}
-                          <div className="stat-icon closed">
-                            <i className="fa fa-lock"></i>
-                          </div>
-                          <div className="stat-content">
-                            <div className="stat-value fs-4 fs-md-3">
-                              {formatNumber(dashboardStats.cerradasBitacoras || 0)}
-                            </div>
-                            <div className="stat-label small">Cerradas</div>
-                            <div
-                              className="stat-percentage small"
-                              style={{color: "#ef4444", fontWeight: "600"}}>
-                              {dashboardStats.totalBitacoras > 0 &&
-                              dashboardStats.cerradasBitacoras !== undefined
-                                ? Math.round(
-                                    (dashboardStats.cerradasBitacoras /
-                                      dashboardStats.totalBitacoras) *
-                                      100
-                                  )
-                                : 0}
-                              %
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Con Anomalías */}
-                      <div className="col-6 col-lg mb-2 mb-lg-0">
-                        <div className="stat-card h-100" style={{position: "relative"}}>
-                          {renderLoadingOverlay()}
-                          <div className="stat-icon anomalia">
-                            <i className="fa fa-exclamation-triangle"></i>
-                          </div>
-                          <div className="stat-content">
-                            <div className="stat-value fs-4 fs-md-3">
-                              {formatNumber(
-                                dashboardStats.eventCategoriesStats &&
-                                  dashboardStats.eventCategoriesStats.length > 0
-                                  ? dashboardStats.eventCategoriesStats.reduce(
-                                      (sum, category) => sum + category.count,
-                                      0
-                                    )
-                                  : 0
-                              )}
-                            </div>
-                            <div className="stat-label small">Con Anomalías</div>
-                            <div
-                              className="stat-percentage small"
-                              style={{color: "#f59e0b", fontWeight: "600"}}>
-                              {dashboardStats.totalBitacoras > 0 &&
-                              dashboardStats.eventCategoriesStats &&
-                              dashboardStats.eventCategoriesStats.length > 0
-                                ? Math.round(
-                                    (dashboardStats.eventCategoriesStats.reduce(
-                                      (sum, category) => sum + category.count,
-                                      0
-                                    ) /
-                                      dashboardStats.totalBitacoras) *
-                                      100
-                                  )
-                                : 0}
-                              %
-                            </div>
-                          </div>
-                        </div>
-                      </div>
+                    )}
+                    <div className="chart-subheader small text-muted mb-3">
+                      Análisis de eventos donde el usuario no responde
+                    </div>
+                    <div className="overflow-auto">
+                      {oncViewMode === "chart" ? renderOncBarChart() : renderOncListView()}
                     </div>
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* Main Charts Grid */}
-            <Grid container spacing={3} sx={{mb: 3}}>
-              {/* Client Anomalies Pie Chart */}
-              <Grid item xs={12} lg={6}>
-                <Card
-                  sx={{
-                    background: "linear-gradient(135deg, #1e293b 0%, #0f172a 100%)",
-                    color: "white",
-                    border: "1px solid rgba(148, 163, 184, 0.1)",
-                  }}>
-                  <CardHeader
-                    title="Anomalías por Cliente"
-                    subheader="Haz clic en un segmento para filtrar por ese cliente"
-                    titleTypographyProps={{color: "white"}}
-                    subheaderTypographyProps={{color: "rgba(255,255,255,0.7)"}}
-                    action={
-                      <MuiTooltip title="Gráfico interactivo">
-                        <PieChartIcon sx={{color: "white"}} />
-                      </MuiTooltip>
-                    }
-                    sx={{
-                      background: "linear-gradient(135deg, #1e293b 0%, #0f172a 100%)",
-                      borderBottom: "1px solid rgba(255,255,255,0.1)",
-                    }}
-                  />
-                  <CardContent>{renderClientAnomaliasPieChart()}</CardContent>
-                </Card>
-              </Grid>
-
-              {/* Event Categories Pie Chart */}
-              <Grid item xs={12} lg={6}>
-                <Card
-                  sx={{
-                    background: "linear-gradient(135deg, #1e293b 0%, #0f172a 100%)",
-                    color: "white",
-                    border: "1px solid rgba(148, 163, 184, 0.1)",
-                  }}>
-                  <CardHeader
-                    title="Tipos de Anomalías"
-                    subheader="Distribución por categoría de evento"
-                    titleTypographyProps={{color: "white"}}
-                    subheaderTypographyProps={{color: "rgba(255,255,255,0.7)"}}
-                    sx={{
-                      background: "linear-gradient(135deg, #1e293b 0%, #0f172a 100%)",
-                      borderBottom: "1px solid rgba(255,255,255,0.1)",
-                    }}
-                  />
-                  <CardContent>{renderEventCategoriesPieChart()}</CardContent>
-                </Card>
-              </Grid>
-            </Grid>
-
-            {/* ONC Events Section */}
-            <Card
-              sx={{
-                mb: 3,
-                background: "linear-gradient(135deg, #1e293b 0%, #0f172a 100%)",
-                color: "white",
-                border: "1px solid rgba(148, 163, 184, 0.1)",
-              }}>
-              <CardHeader
-                title="Eventos de Usuario No Responde (ONC)"
-                subheader="Análisis de eventos donde el usuario no responde"
-                titleTypographyProps={{color: "white"}}
-                subheaderTypographyProps={{color: "rgba(255,255,255,0.7)"}}
-                action={
-                  <Box display="flex" gap={1}>
-                    <Button
-                      variant={oncViewMode === "chart" ? "contained" : "outlined"}
-                      size="small"
-                      startIcon={<BarChartIcon />}
-                      onClick={() => setOncViewMode("chart")}
-                      sx={{
-                        color: oncViewMode === "chart" ? "white" : "rgba(255,255,255,0.7)",
-                        borderColor:
-                          oncViewMode === "outlined" ? "rgba(255,255,255,0.3)" : "transparent",
-                      }}>
-                      Gráfico
-                    </Button>
-                    <Button
-                      variant={oncViewMode === "list" ? "contained" : "outlined"}
-                      size="small"
-                      startIcon={<ListIcon />}
-                      onClick={() => setOncViewMode("list")}
-                      sx={{
-                        color: oncViewMode === "list" ? "white" : "rgba(255,255,255,0.7)",
-                        borderColor:
-                          oncViewMode === "outlined" ? "rgba(255,255,255,0.3)" : "transparent",
-                      }}>
-                      Lista
-                    </Button>
-                  </Box>
-                }
-                sx={{
-                  background: "linear-gradient(135deg, #1e293b 0%, #0f172a 100%)",
-                  borderBottom: "1px solid rgba(255,255,255,0.1)",
-                }}
-              />
-              <CardContent>
-                {oncViewMode === "chart" ? renderOncBarChart() : renderOncListView()}
-              </CardContent>
-            </Card>
-
             {/* Anomalies Table */}
-            <Card
-              sx={{
-                background: "linear-gradient(135deg, #1e293b 0%, #0f172a 100%)",
-                color: "white",
-                border: "1px solid rgba(148, 163, 184, 0.1)",
-              }}>
-              <CardHeader
-                title="Bitácoras con Anomalías"
-                subheader={`Mostrando ${filteredAnomaliasData.length} de ${bitacorasAnomalias.length} registros`}
-                titleTypographyProps={{color: "white"}}
-                subheaderTypographyProps={{color: "rgba(255,255,255,0.7)"}}
-                action={
-                  <Button
-                    variant="outlined"
-                    startIcon={<Download />}
-                    onClick={() => downloadBitacorasAnomaliasExcel(filteredAnomaliasData)}
-                    disabled={filteredAnomaliasData.length === 0}
-                    sx={{
-                      color: "white",
-                      borderColor: "rgba(255,255,255,0.3)",
-                      "&:hover": {
-                        borderColor: "rgba(255,255,255,0.5)",
-                      },
-                    }}>
-                    Exportar Excel
-                  </Button>
-                }
-                sx={{
-                  background: "linear-gradient(135deg, #1e293b 0%, #0f172a 100%)",
-                  borderBottom: "1px solid rgba(255,255,255,0.1)",
-                }}
-              />
-              <CardContent>{renderAnomaliasTable()}</CardContent>
-            </Card>
-          </Box>
+            <div className="row mb-3 mb-md-4">
+              <div className="col-12">
+                <div className="chart-card">
+                  <div className="chart-header d-flex justify-content-between align-items-center">
+                    <div className="d-flex align-items-center gap-2">
+                      <h6 className="mb-0">Bitácoras con Anomalías</h6>
+                      {(appliedClientFilter !== "all" ||
+                        appliedLineaTransporteFilter !== "all" ||
+                        appliedOperadorFilter !== "all" ||
+                        appliedFechaDesde ||
+                        appliedFechaHasta !== new Date().toISOString().split("T")[0]) && (
+                        <span className="badge bg-info" style={{fontSize: "10px"}}>
+                          <i className="fa fa-filter me-1"></i>
+                          Filtrado
+                        </span>
+                      )}
+                    </div>
+                    <div className="d-flex align-items-center gap-2">
+                      <button
+                        className="btn btn-outline-primary btn-sm"
+                        onClick={() => downloadBitacorasAnomaliasExcel(filteredAnomaliasData)}
+                        disabled={filteredAnomaliasData.length === 0}>
+                        <i className="fa fa-download me-1"></i>
+                        Exportar Excel
+                      </button>
+                    </div>
+                  </div>
+                  <div className="chart-body">
+                    {(appliedClientFilter !== "all" ||
+                      appliedLineaTransporteFilter !== "all" ||
+                      appliedOperadorFilter !== "all" ||
+                      appliedFechaDesde ||
+                      appliedFechaHasta !== new Date().toISOString().split("T")[0]) && (
+                      <div className="alert alert-info py-2 mb-3" style={{fontSize: "12px"}}>
+                        <i className="fa fa-info-circle me-2"></i>
+                        <strong>Filtros activos:</strong>{" "}
+                        {appliedClientFilter !== "all" && `Cliente: ${appliedClientFilter} | `}
+                        {appliedLineaTransporteFilter !== "all" &&
+                          `Línea: ${appliedLineaTransporteFilter} | `}
+                        {appliedOperadorFilter !== "all" && `Operador: ${appliedOperadorFilter} | `}
+                        {appliedFechaDesde && `Desde: ${appliedFechaDesde} | `}
+                        {appliedFechaHasta !== new Date().toISOString().split("T")[0] &&
+                          `Hasta: ${appliedFechaHasta}`}
+                      </div>
+                    )}
+                    <div className="chart-subheader small text-muted mb-3">
+                      Mostrando {filteredAnomaliasData.length} de {bitacorasAnomalias.length}{" "}
+                      registros
+                    </div>
+                    <div className="overflow-auto">{renderAnomaliasTable()}</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </section>

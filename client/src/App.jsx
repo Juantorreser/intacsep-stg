@@ -16,6 +16,7 @@ import EventsPage from "./components/Settings/EventsPage";
 import BitacorasPage from "./components/Bitacoras/BitacorasPage";
 import OrigenPage from "./components/Settings/OrigenPage";
 import DestinoPage from "./components/Settings/DestinoPage";
+import LineaTransportePage from "./components/Settings/LineaTransportePage";
 import OperadorPage from "./components/Settings/OperadorPage";
 import ProfilePage from "./components/Profile/ProfilePage";
 import ResetPassword from "./components/ResetPassword";
@@ -43,6 +44,7 @@ function App() {
         <Route path="/eventos" element={<EventsPage />}></Route>
         <Route path="/origenes" element={<OrigenPage />}></Route>
         <Route path="/destinos" element={<DestinoPage />}></Route>
+        <Route path="/lineas-transporte" element={<LineaTransportePage />}></Route>
         <Route path="/operadores" element={<OperadorPage />}></Route>
         <Route path="/perfil" element={<ProfilePage />}></Route>
         <Route path="/reset-password" element={<ResetPassword />} />
