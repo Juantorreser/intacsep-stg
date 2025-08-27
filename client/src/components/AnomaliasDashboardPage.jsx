@@ -524,13 +524,16 @@ const AnomaliasDashboardPage = () => {
     if (lineasTransporteStats.length > 0) {
       console.log("[DEBUG] Frontend transport lines stats:", {
         appliedClientFilter,
+        appliedLineaTransporteFilter,
         lineasTransporteStatsLength: lineasTransporteStats.length,
         lineasTransporteStats: lineasTransporteStats.slice(0, 3),
       });
     } else {
       console.log(
         "[DEBUG] Frontend: No transport lines stats received for client:",
-        appliedClientFilter
+        appliedClientFilter,
+        "linea:",
+        appliedLineaTransporteFilter
       );
     }
 
@@ -540,20 +543,27 @@ const AnomaliasDashboardPage = () => {
           <i className="fa fa-check-circle fa-3x mb-3" style={{opacity: 0.3}}></i>
           <h6>Sin Anomalías Detectadas</h6>
           <p className="small">
-            No se encontraron líneas de transporte con anomalías para el cliente seleccionado
+            {appliedLineaTransporteFilter !== "all" 
+              ? `No se encontraron anomalías para la línea de transporte "${appliedLineaTransporteFilter}"`
+              : "No se encontraron líneas de transporte con anomalías para el cliente seleccionado"
+            }
           </p>
         </div>
       );
     }
 
-    // Backend already filters by client, so we don't need additional filtering here
-    // Just use the stats directly
-    const chartData = lineasTransporteStats.map((stat) => ({
+    // Backend already filters by client and specific transport line if selected
+    // If a specific transport line is selected, show only that one
+    const statsToUse = appliedLineaTransporteFilter !== "all" 
+      ? lineasTransporteStats.filter(stat => stat.lineaTransporte === appliedLineaTransporteFilter)
+      : lineasTransporteStats;
+
+    const chartData = statsToUse.map((stat) => ({
       name: stat.lineaTransporte,
       value: stat.anomalias,
       color: stat.color,
       lineaTransporte: stat.lineaTransporte, // Keep original data for click handler
-      totalAnomalias: lineasTransporteStats.reduce((sum, s) => sum + s.anomalias, 0),
+      totalAnomalias: statsToUse.reduce((sum, s) => sum + s.anomalias, 0),
     }));
 
     return (
@@ -591,7 +601,10 @@ const AnomaliasDashboardPage = () => {
           <i className="fa fa-check-circle fa-3x mb-3" style={{opacity: 0.3}}></i>
           <h6>Sin Anomalías Detectadas</h6>
           <p className="small">
-            No se encontraron operadores con anomalías para la línea de transporte seleccionada
+            {appliedLineaTransporteFilter !== "all" 
+              ? `No se encontraron operadores con anomalías para la línea de transporte "${appliedLineaTransporteFilter}"`
+              : "No se encontraron operadores con anomalías para la línea de transporte seleccionada"
+            }
           </p>
         </div>
       );
@@ -611,19 +624,27 @@ const AnomaliasDashboardPage = () => {
           <i className="fa fa-check-circle fa-3x mb-3" style={{opacity: 0.3}}></i>
           <h6>Sin Anomalías Detectadas</h6>
           <p className="small">
-            No se encontraron operadores con anomalías para la línea de transporte seleccionada
+            {appliedLineaTransporteFilter !== "all" 
+              ? `No se encontraron operadores con anomalías para la línea de transporte "${appliedLineaTransporteFilter}"`
+              : "No se encontraron operadores con anomalías para la línea de transporte seleccionada"
+            }
           </p>
         </div>
       );
     }
 
     // Transform data for Recharts format
-    const chartData = filteredStats.map((stat) => ({
+    // If a specific operator is selected, show only that one
+    const statsToUse = appliedOperadorFilter !== "all" 
+      ? filteredStats.filter(stat => stat.operador === appliedOperadorFilter)
+      : filteredStats;
+
+    const chartData = statsToUse.map((stat) => ({
       name: stat.operador,
       value: stat.anomalias,
       color: stat.color,
       operador: stat.operador, // Keep original data for click handler
-      totalAnomalias: filteredStats.reduce((sum, s) => sum + s.anomalias, 0),
+      totalAnomalias: statsToUse.reduce((sum, s) => sum + s.anomalias, 0),
     }));
 
     return (
@@ -661,14 +682,20 @@ const AnomaliasDashboardPage = () => {
           <i className="fa fa-check-circle fa-3x mb-3" style={{opacity: 0.3}}></i>
           <h6>Sin Anomalías Detectadas</h6>
           <p className="small">
-            No se encontraron líneas de transporte con anomalías para el cliente seleccionado
+            {appliedLineaTransporteFilter !== "all" 
+              ? `No se encontraron anomalías para la línea de transporte "${appliedLineaTransporteFilter}"`
+              : "No se encontraron líneas de transporte con anomalías para el cliente seleccionado"
+            }
           </p>
         </div>
       );
     }
 
     // Sort by anomalies count (descending) and limit to top 10
-    const chartData = lineasTransporteStats.sort((a, b) => b.anomalias - a.anomalias).slice(0, 10);
+    // If a specific transport line is selected, show only that one
+    const chartData = appliedLineaTransporteFilter !== "all" 
+      ? lineasTransporteStats.filter(stat => stat.lineaTransporte === appliedLineaTransporteFilter)
+      : lineasTransporteStats.sort((a, b) => b.anomalias - a.anomalias).slice(0, 10);
 
     const maxAnomalias = Math.max(...chartData.map((item) => item.anomalias));
 
@@ -709,7 +736,10 @@ const AnomaliasDashboardPage = () => {
           <i className="fa fa-check-circle fa-3x mb-3" style={{opacity: 0.3}}></i>
           <h6>Sin Anomalías Detectadas</h6>
           <p className="small">
-            No se encontraron operadores con anomalías para la línea de transporte seleccionada
+            {appliedLineaTransporteFilter !== "all" 
+              ? `No se encontraron operadores con anomalías para la línea de transporte "${appliedLineaTransporteFilter}"`
+              : "No se encontraron operadores con anomalías para la línea de transporte seleccionada"
+            }
           </p>
         </div>
       );
@@ -729,14 +759,20 @@ const AnomaliasDashboardPage = () => {
           <i className="fa fa-check-circle fa-3x mb-3" style={{opacity: 0.3}}></i>
           <h6>Sin Anomalías Detectadas</h6>
           <p className="small">
-            No se encontraron operadores con anomalías para la línea de transporte seleccionada
+            {appliedLineaTransporteFilter !== "all" 
+              ? `No se encontraron operadores con anomalías para la línea de transporte "${appliedLineaTransporteFilter}"`
+              : "No se encontraron operadores con anomalías para la línea de transporte seleccionada"
+            }
           </p>
         </div>
       );
     }
 
     // Sort by anomalies count (descending) and limit to top 10
-    const chartData = filteredStats.sort((a, b) => b.anomalias - a.anomalias).slice(0, 10);
+    // If a specific operator is selected, show only that one
+    const chartData = appliedOperadorFilter !== "all" 
+      ? filteredStats.filter(stat => stat.operador === appliedOperadorFilter)
+      : filteredStats.sort((a, b) => b.anomalias - a.anomalias).slice(0, 10);
 
     const maxAnomalias = Math.max(...chartData.map((item) => item.anomalias));
 

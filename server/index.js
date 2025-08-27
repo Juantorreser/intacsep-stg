@@ -5568,6 +5568,12 @@ app.get('/dashboard/lineas-transporte-stats', async (req, res) => {
           }
         }
       },
+      // Si se especifica una línea de transporte específica, filtrar por ella
+      ...(lineaTransporte !== 'all' ? [{
+        $match: {
+          'transportes.lineaTransporte': lineaTransporte
+        }
+      }] : []),
       {
         $lookup: {
           from: 'eventtypes',
