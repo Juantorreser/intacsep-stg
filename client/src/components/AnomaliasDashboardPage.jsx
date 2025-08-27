@@ -273,24 +273,6 @@ const AnomaliasDashboardPage = () => {
             const clientsData = await clientsResponse.json();
             setAvailableClients(clientsData);
           }
-
-          // Fetch available transport lines for filter based on selected client
-          // Only fetch if a specific client is selected (not "all")
-          if (appliedClientFilter && appliedClientFilter !== "all") {
-            await fetchLineasTransporte(appliedClientFilter);
-          } else {
-            // If no client selected, clear transport lines
-            setAvailableLineasTransporte([]);
-          }
-
-          // Fetch available operators for filter based on selected transport line
-          // Only fetch if a specific transport line is selected (not "all")
-          if (appliedLineaTransporteFilter && appliedLineaTransporteFilter !== "all") {
-            await fetchOperadores(appliedLineaTransporteFilter);
-          } else {
-            // If no transport line selected, clear operators
-            setAvailableOperadores([]);
-          }
         }
 
         // Fetch dashboard statistics with filters for anomalías
@@ -1046,7 +1028,7 @@ const AnomaliasDashboardPage = () => {
         </div>
         <div className="d-flex justify-content-between align-items-center mt-3">
           <div className="d-flex align-items-center gap-3">
-            <span className="small text-muted">Filas por página:</span>
+            <span className="small text-white">Filas por página:</span>
             <select
               value={rowsPerPage}
               onChange={(event) => {
@@ -1059,9 +1041,12 @@ const AnomaliasDashboardPage = () => {
               <option value={25}>25</option>
               <option value={50}>50</option>
             </select>
+            <span className="small text-white">
+              Total: {filteredAnomaliasData.length} bitácoras
+            </span>
           </div>
           <div className="d-flex align-items-center gap-2">
-            <span className="small text-muted">
+            <span className="small text-white">
               {page * rowsPerPage + 1}-
               {Math.min((page + 1) * rowsPerPage, filteredAnomaliasData.length)} de{" "}
               {filteredAnomaliasData.length}
@@ -1742,7 +1727,7 @@ const AnomaliasDashboardPage = () => {
             {/* ONC Events Section */}
             <div className="row mb-3 mb-md-4">
               {/* Bar Chart - Eventos ONC */}
-              <div className="col-12 col-lg-6">
+              <div className="col-12">
                 <div className="chart-card">
                   <div className="chart-header d-flex justify-content-between align-items-center">
                     <div className="d-flex align-items-center gap-2">
@@ -1835,7 +1820,7 @@ const AnomaliasDashboardPage = () => {
                           `Hasta: ${appliedFechaHasta}`}
                       </div>
                     )}
-                    <div className="chart-subheader small text-muted mb-3">
+                    <div className="chart-subheader small text-white mb-3">
                       Mostrando {filteredAnomaliasData.length} de {bitacorasAnomalias.length}{" "}
                       registros
                     </div>

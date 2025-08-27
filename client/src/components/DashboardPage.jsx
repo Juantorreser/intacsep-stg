@@ -11,9 +11,10 @@ const DashboardPage = () => {
 
   const [dashboardStats, setDashboardStats] = useState({
     totalBitacoras: 0,
-    activeBitacoras: 0,
-    completedBitacoras: 0,
-    pendingBitacoras: 0,
+    nuevasBitacoras: 0,
+    enProcesoBitacoras: 0,
+    cerradasBitacoras: 0,
+    eventCategoriesStats: [],
     totalUsers: 0,
     totalClients: 0,
     recentActivity: [],
@@ -25,7 +26,6 @@ const DashboardPage = () => {
     topOperadoresTransportes: [],
     statusTrends: [],
     eventDistribution: [],
-
     geographicData: [],
     operatorEfficiency: [],
     clientPerformance: [],
@@ -845,19 +845,18 @@ const DashboardPage = () => {
         setAvailableOperadores([]);
       }
 
-      // Fetch dashboard statistics with filters
-      const statsUrl = `${baseUrl}/dashboard/stats?clientFilter=${encodeURIComponent(
+      // Fetch dashboard statistics with filters - using the same approach as AnomaliasDashboardPage
+      const statsUrl = `${baseUrl}/dashboard/anomalias-stats?clientFilter=${encodeURIComponent(
         appliedClientFilter
-      )}&geoType=${encodeURIComponent(appliedGeoType)}&fechaDesde=${encodeURIComponent(
-        appliedFechaDesde
-      )}&fechaHasta=${encodeURIComponent(appliedFechaHasta)}&lineaTransporte=${encodeURIComponent(
+      )}&fechaDesde=${encodeURIComponent(appliedFechaDesde)}&fechaHasta=${encodeURIComponent(
+        appliedFechaHasta
+      )}&lineaTransporte=${encodeURIComponent(
         appliedLineaTransporteFilter
       )}&operador=${encodeURIComponent(appliedOperadorFilter)}`;
 
       console.log("🔍 Dashboard Stats URL:", statsUrl);
       console.log("🔍 Applied Filters:", {
         clientFilter: appliedClientFilter,
-        geoType: appliedGeoType,
         fechaDesde: appliedFechaDesde,
         fechaHasta: appliedFechaHasta,
         lineaTransporte: appliedLineaTransporteFilter,
@@ -874,16 +873,41 @@ const DashboardPage = () => {
         console.log("📊 Dashboard Stats Response:", {
           totalBitacoras: statsData.totalBitacoras || 0,
           nuevasBitacoras: statsData.nuevasBitacoras || 0,
-          monthlyData: statsData.monthlyData?.length || 0,
-          topClients: statsData.topClients?.length || 0,
-          topLineasTransporte: statsData.topLineasTransporte?.length || 0,
-          topOperadores: statsData.topOperadores?.length || 0,
-          topOperadoresTransportes: statsData.topOperadoresTransportes?.length || 0,
-          geographicData: statsData.geographicData?.length || 0,
+          enProcesoBitacoras: statsData.enProcesoBitacoras || 0,
+          cerradasBitacoras: statsData.cerradasBitacoras || 0,
+          eventCategoriesStats: statsData.eventCategoriesStats?.length || 0,
         });
-        console.log("📋 Monthly Data Sample:", statsData.monthlyData?.slice(0, 3));
-        console.log("👥 Top Clients Sample:", statsData.topClients?.slice(0, 3));
+        console.log("📋 Event Categories Sample:", statsData.eventCategoriesStats?.slice(0, 3));
         setDashboardStats(statsData);
+      }
+
+      // Fetch additional data for geographic analysis and other charts
+      const geoUrl = `${baseUrl}/dashboard/stats?clientFilter=${encodeURIComponent(
+        appliedClientFilter
+      )}&geoType=${encodeURIComponent(appliedGeoType)}&fechaDesde=${encodeURIComponent(
+        appliedFechaDesde
+      )}&fechaHasta=${encodeURIComponent(appliedFechaHasta)}&lineaTransporte=${encodeURIComponent(
+        appliedLineaTransporteFilter
+      )}&operador=${encodeURIComponent(appliedOperadorFilter)}`;
+
+      const geoResponse = await fetch(geoUrl, {
+        method: "GET",
+        credentials: "include",
+      });
+
+      if (geoResponse.ok) {
+        const geoData = await geoResponse.json();
+        // Merge the geographic and additional data with the main stats
+        setDashboardStats((prev) => ({
+          ...prev,
+          monthlyData: geoData.monthlyData || [],
+          topClients: geoData.topClients || [],
+          topLineasTransporte: geoData.topLineasTransporte || [],
+          topOperadores: geoData.topOperadores || [],
+          topOperadoresTransportes: geoData.topOperadoresTransportes || [],
+          geographicData: geoData.geographicData || [],
+          tiposMonitoreo: geoData.tiposMonitoreo || [],
+        }));
       }
     } catch (error) {
       console.error("Error fetching dashboard data:", error);
@@ -3793,7 +3817,7 @@ const DashboardPage = () => {
                   </div>
                   <div className="stat-content">
                     <div className="stat-value fs-4 fs-md-3">
-                      {formatNumber(dashboardStats.totalBitacoras)}
+                      {formatNumber(dashboardStats.totalBitacoras || 0)}
                     </div>
                     <div className="stat-label small">Total Bitácoras</div>
                     <div
@@ -3813,7 +3837,7 @@ const DashboardPage = () => {
                   </div>
                   <div className="stat-content">
                     <div className="stat-value fs-4 fs-md-3">
-                      {formatNumber(dashboardStats.nuevasBitacoras)}
+                      {formatNumber(dashboardStats.nuevasBitacoras || 0)}
                     </div>
                     <div className="stat-label small">Nuevas</div>
                     <div
@@ -3839,7 +3863,7 @@ const DashboardPage = () => {
                   </div>
                   <div className="stat-content">
                     <div className="stat-value fs-4 fs-md-3">
-                      {formatNumber(dashboardStats.enProcesoBitacoras)}
+                      {formatNumber(dashboardStats.enProcesoBitacoras || 0)}
                     </div>
                     <div className="stat-label small">En proceso</div>
                     <div
@@ -3866,7 +3890,7 @@ const DashboardPage = () => {
                   </div>
                   <div className="stat-content">
                     <div className="stat-value fs-4 fs-md-3">
-                      {formatNumber(dashboardStats.cerradasBitacoras)}
+                      {formatNumber(dashboardStats.cerradasBitacoras || 0)}
                     </div>
                     <div className="stat-label small">Cerradas</div>
                     <div
@@ -3884,7 +3908,7 @@ const DashboardPage = () => {
                 </div>
               </div>
 
-              {/* Anomalías - Primera tarjeta */}
+              {/* Con Anomalías */}
               <div className="col-6 col-lg mb-2 mb-lg-0">
                 <div className="stat-card h-100">
                   <div className="stat-icon anomalia">
