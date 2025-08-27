@@ -5331,12 +5331,26 @@ app.get('/dashboard/lineas-transporte-stats', async (req, res) => {
     }
 
     // Obtener estadísticas por línea de transporte
+    // Necesitamos descomponer el array transportes para obtener las líneas de transporte
     const transportLineStats = await Bitacora.aggregate([
       { $match: bitacoraFilter },
       { $unwind: '$eventos' },
       {
         $match: {
           'eventos.nombre': { $in: allEventNames }
+        }
+      },
+      // Descomponer el array transportes para acceder a lineaTransporte
+      { $unwind: '$transportes' },
+      // Filtrar solo transportes que tienen lineaTransporte válido (no null, undefined o vacío)
+      {
+        $match: {
+          'transportes.lineaTransporte': {
+            $exists: true,
+            $ne: null,
+            $ne: '',
+            $ne: 'N/A'
+          }
         }
       },
       {
@@ -5350,7 +5364,7 @@ app.get('/dashboard/lineas-transporte-stats', async (req, res) => {
       {
         $group: {
           _id: {
-            lineaTransporte: '$linea_transporte',
+            lineaTransporte: '$transportes.lineaTransporte',
             cliente: '$cliente'
           },
           anomalias: { $sum: 1 },
@@ -5368,10 +5382,35 @@ app.get('/dashboard/lineas-transporte-stats', async (req, res) => {
       { $sort: { anomalias: -1 } }
     ]);
 
-    // Filtrar solo las líneas de transporte que existen en el modelo LineaTransporte
-    const filteredTransportLineStats = transportLineStats.filter(stat =>
-      lineasTransporte.some(lt => lt.nombre === stat.lineaTransporte)
-    );
+    // Filtrar solo las líneas de transporte que existen en el modelo LineaTransporte para el cliente específico
+    // Solo mostrar datos cuando hay un cliente específico seleccionado
+    let filteredTransportLineStats = [];
+    if (clientFilter !== 'all') {
+      // Filtrar estadísticas para que solo incluyan líneas de transporte que existen en el modelo LineaTransporte
+      // y que pertenecen al cliente seleccionado
+      filteredTransportLineStats = transportLineStats.filter(stat => {
+        // Verificar que la estadística sea del cliente correcto
+        const isCorrectClient = stat.cliente === clientFilter;
+        // Verificar que la línea de transporte exista en el modelo LineaTransporte para este cliente
+        // Comparación case-insensitive para evitar problemas de capitalización
+        const lineaExists = lineasTransporte.some(lt =>
+          lt.nombre && stat.lineaTransporte &&
+          lt.nombre.toLowerCase().trim() === stat.lineaTransporte.toLowerCase().trim()
+        );
+
+        console.log('[DEBUG] Filtering stat:', {
+          statLineaTransporte: stat.lineaTransporte,
+          statCliente: stat.cliente,
+          clientFilter,
+          isCorrectClient,
+          lineaExists,
+          availableLineas: lineasTransporte.map(lt => lt.nombre),
+          willInclude: isCorrectClient && lineaExists
+        });
+
+        return isCorrectClient && lineaExists;
+      });
+    }
 
     // Formatear datos para el gráfico
     const colors = [
@@ -5386,6 +5425,18 @@ app.get('/dashboard/lineas-transporte-stats', async (req, res) => {
       bitacoras: stat.bitacoras,
       color: colors[index % colors.length]
     }));
+
+    // Debug logging
+    console.log('[DEBUG] Transport lines endpoint:', {
+      clientFilter,
+      lineasTransporteCount: lineasTransporte.length,
+      transportLineStatsCount: transportLineStats.length,
+      filteredTransportLineStatsCount: filteredTransportLineStats.length,
+      formattedStatsCount: formattedStats.length,
+      lineasTransporteNames: lineasTransporte.map(lt => lt.nombre),
+      transportLineStatsRaw: transportLineStats.slice(0, 5),
+      formattedStats: formattedStats.slice(0, 3)
+    });
 
     res.status(200).json(formattedStats);
   } catch (error) {
@@ -5579,12 +5630,26 @@ app.get('/dashboard/operadores-stats', async (req, res) => {
     }
 
     // Obtener estadísticas por operador
+    // Necesitamos descomponer el array transportes para obtener los operadores
     const operatorStats = await Bitacora.aggregate([
       { $match: bitacoraFilter },
       { $unwind: '$eventos' },
       {
         $match: {
           'eventos.nombre': { $in: allEventNames }
+        }
+      },
+      // Descomponer el array transportes para acceder a operador
+      { $unwind: '$transportes' },
+      // Filtrar solo transportes que tienen operador válido (no null, undefined o vacío)
+      {
+        $match: {
+          'transportes.operador': {
+            $exists: true,
+            $ne: null,
+            $ne: '',
+            $ne: 'N/A'
+          }
         }
       },
       {
@@ -5598,9 +5663,9 @@ app.get('/dashboard/operadores-stats', async (req, res) => {
       {
         $group: {
           _id: {
-            operador: '$operador',
-            cliente: '$cliente',
-            lineaTransporte: '$linea_transporte'
+            operador: '$transportes.operador',
+            lineaTransporte: '$transportes.lineaTransporte',
+            cliente: '$cliente'
           },
           anomalias: { $sum: 1 },
           bitacoras: { $addToSet: '$_id' }
@@ -5609,8 +5674,8 @@ app.get('/dashboard/operadores-stats', async (req, res) => {
       {
         $project: {
           operador: '$_id.operador',
-          cliente: '$_id.cliente',
           lineaTransporte: '$_id.lineaTransporte',
+          cliente: '$_id.cliente',
           anomalias: 1,
           bitacoras: { $size: '$bitacoras' }
         }
@@ -5619,9 +5684,43 @@ app.get('/dashboard/operadores-stats', async (req, res) => {
     ]);
 
     // Filtrar solo los operadores que existen en el modelo Operador
-    const filteredOperatorStats = operatorStats.filter(stat =>
-      operadores.some(op => op.nombre === stat.operador)
-    );
+    // Solo mostrar datos cuando hay un cliente específico seleccionado
+    let filteredOperatorStats = [];
+    if (clientFilter !== 'all') {
+      // Filtrar estadísticas para que solo incluyan operadores que existen en el modelo Operador
+      filteredOperatorStats = operatorStats.filter(stat => {
+        // Verificar que la estadística sea del cliente correcto
+        const isCorrectClient = stat.cliente === clientFilter;
+
+        // Verificar que el operador exista en el modelo Operador
+        // Comparación case-insensitive para evitar problemas de capitalización
+        const operadorExists = operadores.some(op =>
+          op.nombre && stat.operador &&
+          op.nombre.toLowerCase().trim() === stat.operador.toLowerCase().trim()
+        );
+
+        // Si hay línea de transporte específica, verificar que coincida
+        let isCorrectLinea = true;
+        if (lineaTransporte !== 'all') {
+          isCorrectLinea = stat.lineaTransporte === lineaTransporte;
+        }
+
+        console.log('[DEBUG] Filtering operator stat:', {
+          statOperador: stat.operador,
+          statLineaTransporte: stat.lineaTransporte,
+          statCliente: stat.cliente,
+          clientFilter,
+          lineaTransporte,
+          isCorrectClient,
+          isCorrectLinea,
+          operadorExists,
+          availableOperadores: operadores.map(op => op.nombre),
+          willInclude: isCorrectClient && isCorrectLinea && operadorExists
+        });
+
+        return isCorrectClient && isCorrectLinea && operadorExists;
+      });
+    }
 
     // Formatear datos para el gráfico
     const colors = [
@@ -5637,6 +5736,19 @@ app.get('/dashboard/operadores-stats', async (req, res) => {
       bitacoras: stat.bitacoras,
       color: colors[index % colors.length]
     }));
+
+    // Debug logging
+    console.log('[DEBUG] Operators endpoint:', {
+      clientFilter,
+      lineaTransporte,
+      operadoresCount: operadores.length,
+      operatorStatsCount: operatorStats.length,
+      filteredOperatorStatsCount: filteredOperatorStats.length,
+      formattedStatsCount: formattedStats.length,
+      operadoresNames: operadores.map(op => op.nombre),
+      operatorStatsRaw: operatorStats.slice(0, 5),
+      formattedStats: formattedStats.slice(0, 3)
+    });
 
     res.status(200).json(formattedStats);
   } catch (error) {

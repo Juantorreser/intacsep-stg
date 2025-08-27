@@ -16,43 +16,7 @@ import {
   YAxis,
   CartesianGrid,
 } from "recharts";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  Typography,
-  Box,
-  Chip,
-  Button,
-  IconButton,
-  TextField,
-  Select,
-  MenuItem,
-  FormControl,
-  InputLabel,
-  Grid,
-  Paper,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  TablePagination,
-  CircularProgress,
-  Tooltip as MuiTooltip,
-} from "@mui/material";
-import {
-  FilterList,
-  Refresh,
-  Download,
-  PieChart as PieChartIcon,
-  BarChart as BarChartIcon,
-  List as ListIcon,
-  Warning,
-  CheckCircle,
-  Person,
-} from "@mui/icons-material";
+
 import * as XLSX from "xlsx";
 
 const AnomaliasDashboardPage = () => {
@@ -234,29 +198,6 @@ const AnomaliasDashboardPage = () => {
   const formatNumber = (num) => {
     if (num === null || num === undefined) return "0";
     return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-  };
-
-  // Helper function to render loading overlay for stat cards
-  const renderLoadingOverlay = () => {
-    if (!filterLoading) return null;
-    return (
-      <div
-        style={{
-          position: "absolute",
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: "rgba(0,0,0,0.1)",
-          borderRadius: "16px",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          zIndex: 1,
-        }}>
-        <i className="fa fa-spinner fa-spin text-white"></i>
-      </div>
-    );
   };
 
   // Helper function to get anomaly color (matching dashboard colors)
@@ -579,6 +520,20 @@ const AnomaliasDashboardPage = () => {
   const renderLineasTransportePieChart = () => {
     const lineasTransporteStats = dashboardStats.lineasTransporteStats || [];
 
+    // Debug logging
+    if (lineasTransporteStats.length > 0) {
+      console.log("[DEBUG] Frontend transport lines stats:", {
+        appliedClientFilter,
+        lineasTransporteStatsLength: lineasTransporteStats.length,
+        lineasTransporteStats: lineasTransporteStats.slice(0, 3),
+      });
+    } else {
+      console.log(
+        "[DEBUG] Frontend: No transport lines stats received for client:",
+        appliedClientFilter
+      );
+    }
+
     if (lineasTransporteStats.length === 0) {
       return (
         <div className="text-center text-muted py-5">
@@ -591,34 +546,18 @@ const AnomaliasDashboardPage = () => {
       );
     }
 
-    // Filter by selected client
-    const filteredStats = lineasTransporteStats.filter(
-      (stat) => stat.cliente === appliedClientFilter
-    );
-
-    if (filteredStats.length === 0) {
-      return (
-        <div className="text-center text-muted py-5">
-          <i className="fa fa-check-circle fa-3x mb-3" style={{opacity: 0.3}}></i>
-          <h6>Sin Anomalías Detectadas</h6>
-          <p className="small">
-            No se encontraron líneas de transporte con anomalías para el cliente seleccionado
-          </p>
-        </div>
-      );
-    }
-
-    // Transform data for Recharts format
-    const chartData = filteredStats.map((stat) => ({
+    // Backend already filters by client, so we don't need additional filtering here
+    // Just use the stats directly
+    const chartData = lineasTransporteStats.map((stat) => ({
       name: stat.lineaTransporte,
       value: stat.anomalias,
       color: stat.color,
       lineaTransporte: stat.lineaTransporte, // Keep original data for click handler
-      totalAnomalias: filteredStats.reduce((sum, s) => sum + s.anomalias, 0),
+      totalAnomalias: lineasTransporteStats.reduce((sum, s) => sum + s.anomalias, 0),
     }));
 
     return (
-      <ResponsiveContainer width="100%" height={500}>
+      <ResponsiveContainer width="100%" height={350}>
         <PieChart>
           <Pie
             data={chartData}
@@ -626,7 +565,7 @@ const AnomaliasDashboardPage = () => {
             cy="50%"
             labelLine={false}
             label={({name, percent}) => `${name} ${(percent * 100).toFixed(0)}%`}
-            outerRadius={180}
+            outerRadius={120}
             fill="#8884d8"
             dataKey="value"
             onClick={handleLineaTransporteClick}
@@ -688,7 +627,7 @@ const AnomaliasDashboardPage = () => {
     }));
 
     return (
-      <ResponsiveContainer width="100%" height={500}>
+      <ResponsiveContainer width="100%" height={350}>
         <PieChart>
           <Pie
             data={chartData}
@@ -696,7 +635,7 @@ const AnomaliasDashboardPage = () => {
             cy="50%"
             labelLine={false}
             label={({name, percent}) => `${name} ${(percent * 100).toFixed(0)}%`}
-            outerRadius={180}
+            outerRadius={120}
             fill="#8884d8"
             dataKey="value"
             onClick={handleOperadorClick}
@@ -708,6 +647,134 @@ const AnomaliasDashboardPage = () => {
           <Tooltip content={<CustomTooltip />} />
           <Legend />
         </PieChart>
+      </ResponsiveContainer>
+    );
+  };
+
+  // Render transport lines anomalies bar chart
+  const renderLineasTransporteBarChart = () => {
+    const lineasTransporteStats = dashboardStats.lineasTransporteStats || [];
+
+    if (lineasTransporteStats.length === 0) {
+      return (
+        <div className="text-center text-muted py-5">
+          <i className="fa fa-check-circle fa-3x mb-3" style={{opacity: 0.3}}></i>
+          <h6>Sin Anomalías Detectadas</h6>
+          <p className="small">
+            No se encontraron líneas de transporte con anomalías para el cliente seleccionado
+          </p>
+        </div>
+      );
+    }
+
+    // Sort by anomalies count (descending) and limit to top 10
+    const chartData = lineasTransporteStats
+      .sort((a, b) => b.anomalias - a.anomalias)
+      .slice(0, 10)
+      .map((stat) => ({
+        name: stat.lineaTransporte,
+        anomalias: stat.anomalias,
+        color: stat.color,
+        lineaTransporte: stat.lineaTransporte, // Keep original data for click handler
+      }));
+
+    return (
+      <ResponsiveContainer width="100%" height={400}>
+        <BarChart
+          data={chartData}
+          layout="horizontal"
+          margin={{top: 5, right: 30, left: 20, bottom: 5}}>
+          <CartesianGrid strokeDasharray="3 3" />
+          <XAxis type="number" />
+          <YAxis type="category" dataKey="name" width={120} />
+          <Tooltip
+            formatter={(value) => [`${formatNumber(value)} anomalías`, "Anomalías"]}
+            labelFormatter={(label) => `Línea: ${label}`}
+          />
+          <Bar
+            dataKey="anomalias"
+            fill="#8884d8"
+            onClick={handleLineaTransporteClick}
+            style={{cursor: "pointer"}}>
+            {chartData.map((entry, index) => (
+              <Cell key={`cell-${index}`} fill={entry.color} />
+            ))}
+          </Bar>
+        </BarChart>
+      </ResponsiveContainer>
+    );
+  };
+
+  // Render operators anomalies bar chart
+  const renderOperadoresBarChart = () => {
+    const operadoresStats = dashboardStats.operadoresStats || [];
+
+    if (operadoresStats.length === 0) {
+      return (
+        <div className="text-center text-muted py-5">
+          <i className="fa fa-check-circle fa-3x mb-3" style={{opacity: 0.3}}></i>
+          <h6>Sin Anomalías Detectadas</h6>
+          <p className="small">
+            No se encontraron operadores con anomalías para la línea de transporte seleccionada
+          </p>
+        </div>
+      );
+    }
+
+    // Filter by selected client and transport line
+    const filteredStats = operadoresStats.filter(
+      (stat) =>
+        stat.cliente === appliedClientFilter &&
+        (appliedLineaTransporteFilter === "all" ||
+          stat.lineaTransporte === appliedLineaTransporteFilter)
+    );
+
+    if (filteredStats.length === 0) {
+      return (
+        <div className="text-center text-muted py-5">
+          <i className="fa fa-check-circle fa-3x mb-3" style={{opacity: 0.3}}></i>
+          <h6>Sin Anomalías Detectadas</h6>
+          <p className="small">
+            No se encontraron operadores con anomalías para la línea de transporte seleccionada
+          </p>
+        </div>
+      );
+    }
+
+    // Sort by anomalies count (descending) and limit to top 10
+    const chartData = filteredStats
+      .sort((a, b) => b.anomalias - a.anomalias)
+      .slice(0, 10)
+      .map((stat) => ({
+        name: stat.operador,
+        anomalias: stat.anomalias,
+        color: stat.color,
+        operador: stat.operador, // Keep original data for click handler
+      }));
+
+    return (
+      <ResponsiveContainer width="100%" height={400}>
+        <BarChart
+          data={chartData}
+          layout="horizontal"
+          margin={{top: 5, right: 30, left: 20, bottom: 5}}>
+          <CartesianGrid strokeDasharray="3 3" />
+          <XAxis type="number" />
+          <YAxis type="category" dataKey="name" width={120} />
+          <Tooltip
+            formatter={(value) => [`${formatNumber(value)} anomalías`, "Anomalías"]}
+            labelFormatter={(label) => `Operador: ${label}`}
+          />
+          <Bar
+            dataKey="anomalias"
+            fill="#8884d8"
+            onClick={handleOperadorClick}
+            style={{cursor: "pointer"}}>
+            {chartData.map((entry, index) => (
+              <Cell key={`cell-${index}`} fill={entry.color} />
+            ))}
+          </Bar>
+        </BarChart>
       </ResponsiveContainer>
     );
   };
@@ -1398,7 +1465,8 @@ const AnomaliasDashboardPage = () => {
             {/* Líneas de Transporte - Solo mostrar si hay cliente seleccionado */}
             {appliedClientFilter !== "all" && (
               <div className="row mb-3 mb-md-4">
-                <div className="col-12">
+                {/* Pie Chart - Líneas de Transporte */}
+                <div className="col-12 col-lg-6">
                   <div className="chart-card">
                     <div className="chart-header d-flex justify-content-between align-items-center">
                       <div className="d-flex align-items-center gap-2">
@@ -1447,13 +1515,47 @@ const AnomaliasDashboardPage = () => {
                     </div>
                   </div>
                 </div>
+
+                {/* Bar Chart - Líneas de Transporte */}
+                <div className="col-12 col-lg-6">
+                  <div className="chart-card">
+                    <div className="chart-header d-flex justify-content-between align-items-center">
+                      <div className="d-flex align-items-center gap-2">
+                        <h6 className="mb-0">
+                          Anomalías por Línea de Transporte (Barras)
+                          {appliedClientFilter !== "all" ? ` - ${appliedClientFilter}` : ""}
+                        </h6>
+                        {(appliedClientFilter !== "all" ||
+                          appliedLineaTransporteFilter !== "all" ||
+                          appliedOperadorFilter !== "all" ||
+                          appliedFechaDesde ||
+                          appliedFechaHasta !== new Date().toISOString().split("T")[0]) && (
+                          <span className="badge bg-info" style={{fontSize: "10px"}}>
+                            <i className="fa fa-filter me-1"></i>
+                            Filtrado
+                          </span>
+                        )}
+                      </div>
+                      <div className="d-flex align-items-center gap-2">
+                        <i className="fa fa-bar-chart text-primary"></i>
+                      </div>
+                    </div>
+                    <div className="chart-body">
+                      <div className="chart-subheader small text-muted mb-3">
+                        Vista de barras horizontales
+                      </div>
+                      <div className="overflow-auto">{renderLineasTransporteBarChart()}</div>
+                    </div>
+                  </div>
+                </div>
               </div>
             )}
 
             {/* Operadores - Solo mostrar si hay cliente y línea de transporte seleccionados */}
             {appliedClientFilter !== "all" && appliedLineaTransporteFilter !== "all" && (
               <div className="row mb-3 mb-md-4">
-                <div className="col-12">
+                {/* Pie Chart - Operadores */}
+                <div className="col-12 col-lg-6">
                   <div className="chart-card">
                     <div className="chart-header d-flex justify-content-between align-items-center">
                       <div className="d-flex align-items-center gap-2">
@@ -1503,6 +1605,43 @@ const AnomaliasDashboardPage = () => {
                         Haz clic en un segmento para filtrar por ese operador
                       </div>
                       <div className="overflow-auto">{renderOperadoresPieChart()}</div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Bar Chart - Operadores */}
+                <div className="col-12 col-lg-6">
+                  <div className="chart-card">
+                    <div className="chart-header d-flex justify-content-between align-items-center">
+                      <div className="d-flex align-items-center gap-2">
+                        <h6 className="mb-0">
+                          Anomalías por Operador (Barras)
+                          {appliedClientFilter !== "all" && appliedLineaTransporteFilter !== "all"
+                            ? ` - ${appliedClientFilter} / ${appliedLineaTransporteFilter}`
+                            : appliedClientFilter !== "all"
+                            ? ` - ${appliedClientFilter}`
+                            : ""}
+                        </h6>
+                        {(appliedClientFilter !== "all" ||
+                          appliedLineaTransporteFilter !== "all" ||
+                          appliedOperadorFilter !== "all" ||
+                          appliedFechaDesde ||
+                          appliedFechaHasta !== new Date().toISOString().split("T")[0]) && (
+                          <span className="badge bg-info" style={{fontSize: "10px"}}>
+                            <i className="fa fa-filter me-1"></i>
+                            Filtrado
+                          </span>
+                        )}
+                      </div>
+                      <div className="d-flex align-items-center gap-2">
+                        <i className="fa fa-bar-chart text-primary"></i>
+                      </div>
+                    </div>
+                    <div className="chart-body">
+                      <div className="chart-subheader small text-muted mb-3">
+                        Vista de barras horizontales
+                      </div>
+                      <div className="overflow-auto">{renderOperadoresBarChart()}</div>
                     </div>
                   </div>
                 </div>
