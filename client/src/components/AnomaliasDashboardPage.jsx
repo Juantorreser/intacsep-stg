@@ -38,10 +38,10 @@ const AnomaliasDashboardPage = () => {
   const [availableClients, setAvailableClients] = useState([]);
   const [availableLineasTransporte, setAvailableLineasTransporte] = useState([]);
   const [availableOperadores, setAvailableOperadores] = useState([]);
-  const [oncViewMode, setOncViewMode] = useState("chart");
   const [applyFiltersTrigger, setApplyFiltersTrigger] = useState(0);
   const [loadingLineasTransporte, setLoadingLineasTransporte] = useState(false);
   const [loadingOperadores, setLoadingOperadores] = useState(false);
+  const [eventCategoriesStats, setEventCategoriesStats] = useState([]);
 
   const baseUrl = import.meta.env.VITE_BASE_URL || "http://localhost:3001";
 
@@ -356,6 +356,25 @@ const AnomaliasDashboardPage = () => {
           }));
         }
 
+        // Fetch event categories anomalies statistics
+        const eventCategoriesStatsUrl = `${baseUrl}/dashboard/event-categories-stats?clientFilter=${encodeURIComponent(
+          appliedClientFilter
+        )}&fechaDesde=${encodeURIComponent(appliedFechaDesde)}&fechaHasta=${encodeURIComponent(
+          appliedFechaHasta
+        )}&lineaTransporte=${encodeURIComponent(
+          appliedLineaTransporteFilter
+        )}&operador=${encodeURIComponent(appliedOperadorFilter)}`;
+
+        const eventCategoriesStatsResponse = await fetch(eventCategoriesStatsUrl, {
+          method: "GET",
+          credentials: "include",
+        });
+
+        if (eventCategoriesStatsResponse.ok) {
+          const eventCategoriesStatsData = await eventCategoriesStatsResponse.json();
+          setEventCategoriesStats(eventCategoriesStatsData);
+        }
+
         // Fetch ONC events data for bar chart
         const oncResponse = await fetch(
           `${baseUrl}/dashboard/onc-events?clientFilter=${encodeURIComponent(
@@ -444,37 +463,12 @@ const AnomaliasDashboardPage = () => {
   }, [user, lineaTransporteFilter, fetchOperadores]);
 
   // Memoize filtered data calculation
+  // Since the backend now applies catalog validation and filtering, we trust the backend data
+  // The backend should return only the data that matches the applied filters
   const filteredAnomaliasData = useMemo(() => {
-    if (bitacorasAnomalias.length === 0) {
-      return [];
-    }
-
-    return bitacorasAnomalias.filter((bitacora) => {
-      // Check if the bitacora matches the applied client filter
-      const matchesAppliedClientFilter =
-        appliedClientFilter === "all" ||
-        (bitacora.cliente && bitacora.cliente === appliedClientFilter);
-
-      if (!matchesAppliedClientFilter) {
-        return false;
-      }
-
-      // Check if the bitacora matches the applied transport line filter
-      const matchesAppliedLineaTransporteFilter =
-        appliedLineaTransporteFilter === "all" ||
-        (bitacora.linea_transporte && bitacora.linea_transporte === appliedLineaTransporteFilter);
-
-      if (!matchesAppliedLineaTransporteFilter) {
-        return false;
-      }
-
-      // Check if the bitacora matches the applied operator filter
-      const matchesAppliedOperadorFilter =
-        appliedOperadorFilter === "all" ||
-        (bitacora.operador && bitacora.operador === appliedOperadorFilter);
-
-      return matchesAppliedOperadorFilter;
-    });
+    // The backend should already be filtering based on catalog validation and applied filters
+    // We trust the backend data and don't apply additional filtering
+    return bitacorasAnomalias;
   }, [
     bitacorasAnomalias,
     appliedClientFilter,
@@ -543,10 +537,9 @@ const AnomaliasDashboardPage = () => {
           <i className="fa fa-check-circle fa-3x mb-3" style={{opacity: 0.3}}></i>
           <h6>Sin Anomalías Detectadas</h6>
           <p className="small">
-            {appliedLineaTransporteFilter !== "all" 
+            {appliedLineaTransporteFilter !== "all"
               ? `No se encontraron anomalías para la línea de transporte "${appliedLineaTransporteFilter}"`
-              : "No se encontraron líneas de transporte con anomalías para el cliente seleccionado"
-            }
+              : "No se encontraron líneas de transporte con anomalías para el cliente seleccionado"}
           </p>
         </div>
       );
@@ -554,9 +547,12 @@ const AnomaliasDashboardPage = () => {
 
     // Backend already filters by client and specific transport line if selected
     // If a specific transport line is selected, show only that one
-    const statsToUse = appliedLineaTransporteFilter !== "all" 
-      ? lineasTransporteStats.filter(stat => stat.lineaTransporte === appliedLineaTransporteFilter)
-      : lineasTransporteStats;
+    const statsToUse =
+      appliedLineaTransporteFilter !== "all"
+        ? lineasTransporteStats.filter(
+            (stat) => stat.lineaTransporte === appliedLineaTransporteFilter
+          )
+        : lineasTransporteStats;
 
     const chartData = statsToUse.map((stat) => ({
       name: stat.lineaTransporte,
@@ -601,10 +597,9 @@ const AnomaliasDashboardPage = () => {
           <i className="fa fa-check-circle fa-3x mb-3" style={{opacity: 0.3}}></i>
           <h6>Sin Anomalías Detectadas</h6>
           <p className="small">
-            {appliedLineaTransporteFilter !== "all" 
+            {appliedLineaTransporteFilter !== "all"
               ? `No se encontraron operadores con anomalías para la línea de transporte "${appliedLineaTransporteFilter}"`
-              : "No se encontraron operadores con anomalías para la línea de transporte seleccionada"
-            }
+              : "No se encontraron operadores con anomalías para la línea de transporte seleccionada"}
           </p>
         </div>
       );
@@ -624,10 +619,9 @@ const AnomaliasDashboardPage = () => {
           <i className="fa fa-check-circle fa-3x mb-3" style={{opacity: 0.3}}></i>
           <h6>Sin Anomalías Detectadas</h6>
           <p className="small">
-            {appliedLineaTransporteFilter !== "all" 
+            {appliedLineaTransporteFilter !== "all"
               ? `No se encontraron operadores con anomalías para la línea de transporte "${appliedLineaTransporteFilter}"`
-              : "No se encontraron operadores con anomalías para la línea de transporte seleccionada"
-            }
+              : "No se encontraron operadores con anomalías para la línea de transporte seleccionada"}
           </p>
         </div>
       );
@@ -635,9 +629,10 @@ const AnomaliasDashboardPage = () => {
 
     // Transform data for Recharts format
     // If a specific operator is selected, show only that one
-    const statsToUse = appliedOperadorFilter !== "all" 
-      ? filteredStats.filter(stat => stat.operador === appliedOperadorFilter)
-      : filteredStats;
+    const statsToUse =
+      appliedOperadorFilter !== "all"
+        ? filteredStats.filter((stat) => stat.operador === appliedOperadorFilter)
+        : filteredStats;
 
     const chartData = statsToUse.map((stat) => ({
       name: stat.operador,
@@ -682,10 +677,9 @@ const AnomaliasDashboardPage = () => {
           <i className="fa fa-check-circle fa-3x mb-3" style={{opacity: 0.3}}></i>
           <h6>Sin Anomalías Detectadas</h6>
           <p className="small">
-            {appliedLineaTransporteFilter !== "all" 
+            {appliedLineaTransporteFilter !== "all"
               ? `No se encontraron anomalías para la línea de transporte "${appliedLineaTransporteFilter}"`
-              : "No se encontraron líneas de transporte con anomalías para el cliente seleccionado"
-            }
+              : "No se encontraron líneas de transporte con anomalías para el cliente seleccionado"}
           </p>
         </div>
       );
@@ -693,9 +687,12 @@ const AnomaliasDashboardPage = () => {
 
     // Sort by anomalies count (descending) and limit to top 10
     // If a specific transport line is selected, show only that one
-    const chartData = appliedLineaTransporteFilter !== "all" 
-      ? lineasTransporteStats.filter(stat => stat.lineaTransporte === appliedLineaTransporteFilter)
-      : lineasTransporteStats.sort((a, b) => b.anomalias - a.anomalias).slice(0, 10);
+    const chartData =
+      appliedLineaTransporteFilter !== "all"
+        ? lineasTransporteStats.filter(
+            (stat) => stat.lineaTransporte === appliedLineaTransporteFilter
+          )
+        : lineasTransporteStats.sort((a, b) => b.anomalias - a.anomalias).slice(0, 10);
 
     const maxAnomalias = Math.max(...chartData.map((item) => item.anomalias));
 
@@ -736,10 +733,9 @@ const AnomaliasDashboardPage = () => {
           <i className="fa fa-check-circle fa-3x mb-3" style={{opacity: 0.3}}></i>
           <h6>Sin Anomalías Detectadas</h6>
           <p className="small">
-            {appliedLineaTransporteFilter !== "all" 
+            {appliedLineaTransporteFilter !== "all"
               ? `No se encontraron operadores con anomalías para la línea de transporte "${appliedLineaTransporteFilter}"`
-              : "No se encontraron operadores con anomalías para la línea de transporte seleccionada"
-            }
+              : "No se encontraron operadores con anomalías para la línea de transporte seleccionada"}
           </p>
         </div>
       );
@@ -759,10 +755,9 @@ const AnomaliasDashboardPage = () => {
           <i className="fa fa-check-circle fa-3x mb-3" style={{opacity: 0.3}}></i>
           <h6>Sin Anomalías Detectadas</h6>
           <p className="small">
-            {appliedLineaTransporteFilter !== "all" 
+            {appliedLineaTransporteFilter !== "all"
               ? `No se encontraron operadores con anomalías para la línea de transporte "${appliedLineaTransporteFilter}"`
-              : "No se encontraron operadores con anomalías para la línea de transporte seleccionada"
-            }
+              : "No se encontraron operadores con anomalías para la línea de transporte seleccionada"}
           </p>
         </div>
       );
@@ -770,9 +765,10 @@ const AnomaliasDashboardPage = () => {
 
     // Sort by anomalies count (descending) and limit to top 10
     // If a specific operator is selected, show only that one
-    const chartData = appliedOperadorFilter !== "all" 
-      ? filteredStats.filter(stat => stat.operador === appliedOperadorFilter)
-      : filteredStats.sort((a, b) => b.anomalias - a.anomalias).slice(0, 10);
+    const chartData =
+      appliedOperadorFilter !== "all"
+        ? filteredStats.filter((stat) => stat.operador === appliedOperadorFilter)
+        : filteredStats.sort((a, b) => b.anomalias - a.anomalias).slice(0, 10);
 
     const maxAnomalias = Math.max(...chartData.map((item) => item.anomalias));
 
@@ -803,11 +799,63 @@ const AnomaliasDashboardPage = () => {
     );
   };
 
+  // Render event categories bar chart
+  const renderEventCategoriesBarChart = () => {
+    const eventCategoriesStatsData = eventCategoriesStats || [];
+
+    if (eventCategoriesStatsData.length === 0) {
+      return (
+        <div className="text-center text-muted py-5">
+          <i className="fa fa-check-circle fa-3x mb-3" style={{opacity: 0.3}}></i>
+          <h6>Sin Anomalías Detectadas</h6>
+          <p className="small">No se encontraron anomalías en las categorías especificadas</p>
+        </div>
+      );
+    }
+
+    // Sort by count (descending)
+    const chartData = eventCategoriesStatsData.sort((a, b) => b.count - a.count);
+    const maxCount = Math.max(...chartData.map((item) => item.count));
+
+    return (
+      <div className="custom-bar-chart">
+        {chartData.map((item, index) => {
+          const percentage = maxCount > 0 ? (item.count / maxCount) * 100 : 0;
+          const categoryName =
+            item.categoria === "ENA"
+              ? "Estadia no autorizada"
+              : item.categoria === "FM"
+              ? "Falla mecánica"
+              : item.categoria === "ONC"
+              ? "Usuario no responde"
+              : item.categoria === "DR"
+              ? "Desvío de ruta"
+              : item.categoria;
+
+          return (
+            <div key={index} className="bar-row" style={{cursor: "default"}}>
+              <div className="bar-label">{categoryName}</div>
+              <div className="bar-container">
+                <div
+                  className="bar-fill"
+                  style={{
+                    width: `${percentage}%`,
+                    backgroundColor: item.color,
+                  }}></div>
+              </div>
+              <div className="bar-value">{formatNumber(item.count)}</div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
   // Render event categories pie chart
   const renderEventCategoriesPieChart = () => {
-    const eventCategoriesStats = dashboardStats.eventCategoriesStats || [];
+    const eventCategoriesStatsData = eventCategoriesStats || [];
 
-    if (eventCategoriesStats.length === 0) {
+    if (eventCategoriesStatsData.length === 0) {
       return (
         <div className="text-center text-muted py-5">
           <i className="fa fa-check-circle fa-3x mb-3" style={{opacity: 0.3}}></i>
@@ -817,7 +865,7 @@ const AnomaliasDashboardPage = () => {
       );
     }
 
-    const chartData = eventCategoriesStats.map((category) => ({
+    const chartData = eventCategoriesStatsData.map((category) => ({
       name:
         category.categoria === "ENA"
           ? "Estadia no autorizada"
@@ -897,63 +945,6 @@ const AnomaliasDashboardPage = () => {
           </Bar>
         </BarChart>
       </ResponsiveContainer>
-    );
-  };
-
-  // Render ONC events list view
-  const renderOncListView = () => {
-    if (oncEventsData.length === 0) {
-      return (
-        <div className="text-center text-muted py-5">
-          <i className="fa fa-user fa-3x mb-3" style={{opacity: 0.3}}></i>
-          <h6>Sin Eventos ONC</h6>
-          <p className="small">No hay eventos de &quot;Usuario No Responde&quot; registrados</p>
-        </div>
-      );
-    }
-
-    const totalEvents = oncEventsData.reduce((sum, event) => sum + event.count, 0);
-
-    return (
-      <div className="table-responsive">
-        <table className="table table-sm">
-          <thead>
-            <tr>
-              <th>Evento</th>
-              <th className="text-center">Cantidad</th>
-              <th className="text-center">Porcentaje</th>
-            </tr>
-          </thead>
-          <tbody>
-            {oncEventsData.map((event, index) => {
-              const percentage =
-                totalEvents > 0 ? ((event.count / totalEvents) * 100).toFixed(1) : 0;
-              return (
-                <tr key={index}>
-                  <td>
-                    <div className="d-flex align-items-center gap-2">
-                      <div
-                        className="rounded-circle"
-                        style={{
-                          width: "12px",
-                          height: "12px",
-                          backgroundColor: event.color,
-                        }}></div>
-                      <span className="small">{event.eventName}</span>
-                    </div>
-                  </td>
-                  <td className="text-center">
-                    <span className="small fw-bold">{formatNumber(event.count)}</span>
-                  </td>
-                  <td className="text-center">
-                    <span className="small">{percentage}%</span>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
     );
   };
 
@@ -1454,12 +1445,8 @@ const AnomaliasDashboardPage = () => {
                   <div className="stat-content">
                     <div className="stat-value fs-4 fs-md-3">
                       {formatNumber(
-                        dashboardStats.eventCategoriesStats &&
-                          dashboardStats.eventCategoriesStats.length > 0
-                          ? dashboardStats.eventCategoriesStats.reduce(
-                              (sum, category) => sum + category.count,
-                              0
-                            )
+                        eventCategoriesStats && eventCategoriesStats.length > 0
+                          ? eventCategoriesStats.reduce((sum, category) => sum + category.count, 0)
                           : 0
                       )}
                     </div>
@@ -1468,10 +1455,10 @@ const AnomaliasDashboardPage = () => {
                       className="stat-percentage small"
                       style={{color: "#f59e0b", fontWeight: "600"}}>
                       {dashboardStats.totalBitacoras > 0 &&
-                      dashboardStats.eventCategoriesStats &&
-                      dashboardStats.eventCategoriesStats.length > 0
+                      eventCategoriesStats &&
+                      eventCategoriesStats.length > 0
                         ? Math.round(
-                            (dashboardStats.eventCategoriesStats.reduce(
+                            (eventCategoriesStats.reduce(
                               (sum, category) => sum + category.count,
                               0
                             ) /
@@ -1674,7 +1661,8 @@ const AnomaliasDashboardPage = () => {
 
             {/* Tipos de Anomalías */}
             <div className="row mb-3 mb-md-4">
-              <div className="col-12">
+              {/* Pie Chart - Tipos de Anomalías */}
+              <div className="col-12 col-lg-6">
                 <div className="chart-card">
                   <div className="chart-header d-flex justify-content-between align-items-center">
                     <div className="d-flex align-items-center gap-2">
@@ -1719,11 +1707,42 @@ const AnomaliasDashboardPage = () => {
                   </div>
                 </div>
               </div>
+
+              {/* Bar Chart - Tipos de Anomalías */}
+              <div className="col-12 col-lg-6">
+                <div className="chart-card">
+                  <div className="chart-header d-flex justify-content-between align-items-center">
+                    <div className="d-flex align-items-center gap-2">
+                      <h6 className="mb-0">Tipos de Anomalías (Barras)</h6>
+                      {(appliedClientFilter !== "all" ||
+                        appliedLineaTransporteFilter !== "all" ||
+                        appliedOperadorFilter !== "all" ||
+                        appliedFechaDesde ||
+                        appliedFechaHasta !== new Date().toISOString().split("T")[0]) && (
+                        <span className="badge bg-info" style={{fontSize: "10px"}}>
+                          <i className="fa fa-filter me-1"></i>
+                          Filtrado
+                        </span>
+                      )}
+                    </div>
+                    <div className="d-flex align-items-center gap-2">
+                      <i className="fa fa-bar-chart text-primary"></i>
+                    </div>
+                  </div>
+                  <div className="chart-body">
+                    <div className="chart-subheader small text-muted mb-3">
+                      Vista de barras horizontales
+                    </div>
+                    <div className="overflow-auto">{renderEventCategoriesBarChart()}</div>
+                  </div>
+                </div>
+              </div>
             </div>
 
             {/* ONC Events Section */}
             <div className="row mb-3 mb-md-4">
-              <div className="col-12">
+              {/* Bar Chart - Eventos ONC */}
+              <div className="col-12 col-lg-6">
                 <div className="chart-card">
                   <div className="chart-header d-flex justify-content-between align-items-center">
                     <div className="d-flex align-items-center gap-2">
@@ -1739,25 +1758,8 @@ const AnomaliasDashboardPage = () => {
                         </span>
                       )}
                     </div>
-                    <div className="btn-group btn-group-sm" role="group">
-                      <button
-                        type="button"
-                        className={`btn ${
-                          oncViewMode === "chart" ? "btn-primary" : "btn-outline-primary"
-                        }`}
-                        onClick={() => setOncViewMode("chart")}
-                        title="Vista de gráfico">
-                        <i className="fa fa-bar-chart"></i>
-                      </button>
-                      <button
-                        type="button"
-                        className={`btn ${
-                          oncViewMode === "list" ? "btn-primary" : "btn-outline-primary"
-                        }`}
-                        onClick={() => setOncViewMode("list")}
-                        title="Vista de lista">
-                        <i className="fa fa-list"></i>
-                      </button>
+                    <div className="d-flex align-items-center gap-2">
+                      <i className="fa fa-bar-chart text-primary"></i>
                     </div>
                   </div>
                   <div className="chart-body">
@@ -1779,11 +1781,9 @@ const AnomaliasDashboardPage = () => {
                       </div>
                     )}
                     <div className="chart-subheader small text-muted mb-3">
-                      Análisis de eventos donde el usuario no responde
+                      Vista de barras verticales
                     </div>
-                    <div className="overflow-auto">
-                      {oncViewMode === "chart" ? renderOncBarChart() : renderOncListView()}
-                    </div>
+                    <div className="overflow-auto">{renderOncBarChart()}</div>
                   </div>
                 </div>
               </div>

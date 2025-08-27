@@ -3940,6 +3940,8 @@ app.get('/dashboard/stats', async (req, res) => {
 // Dashboard Stats for Anomalias Dashboard (without default time filters)
 app.get('/dashboard/anomalias-stats', async (req, res) => {
   try {
+    console.log('=== DEBUG: /dashboard/anomalias-stats ===');
+
     // Get user from session (already verified by middleware)
     const user = req.session.user;
     if (!user) {
@@ -3960,6 +3962,8 @@ app.get('/dashboard/anomalias-stats', async (req, res) => {
       lineaTransporte = 'all',
       operador = 'all'
     } = req.query;
+
+    console.log('Query params:', { clientFilter, fechaDesde, fechaHasta, lineaTransporte, operador });
 
     // Build filters based on user permissions
     let bitacoraFilter = { deleted: { $ne: true } }; // Exclude deleted bitacoras
@@ -3982,36 +3986,8 @@ app.get('/dashboard/anomalias-stats', async (req, res) => {
       }
     }
 
-    // Add transport line filter
-    if (lineaTransporte !== 'all') {
-      bitacoraFilter.$or = [
-        { linea_transporte: lineaTransporte },
-        { 'transportes.lineaTransporte': lineaTransporte }
-      ];
-    }
-
-    // Add operator filter
-    if (operador !== 'all') {
-      if (bitacoraFilter.$or) {
-        // If we already have $or filter, create $and to combine them
-        const existingOr = bitacoraFilter.$or;
-        delete bitacoraFilter.$or;
-        bitacoraFilter.$and = [
-          { $or: existingOr },
-          {
-            $or: [
-              { operador: operador },
-              { 'transportes.operador': operador }
-            ]
-          }
-        ];
-      } else {
-        bitacoraFilter.$or = [
-          { operador: operador },
-          { 'transportes.operador': operador }
-        ];
-      }
-    }
+    // Note: lineaTransporte and operador filters are applied in the aggregation pipeline
+    // after $unwind: '$eventos.transportes' to ensure correct nested field matching
 
     if (!role.bitacoras?.read_all) {
       // If user can't read all bitacoras, filter by their name
@@ -4055,21 +4031,17 @@ app.get('/dashboard/anomalias-stats', async (req, res) => {
     const cerradasBitacoras = await Bitacora.countDocuments({ ...bitacoraFilter, status: { $in: ['cerrada', 'finalizada'] } });
 
     // Get event categories statistics for pie chart (excluding "General")
+    // Apply the same strict catalog validation as other anomaly endpoints
     let eventCategoriesStats = [];
     try {
+      console.log('=== DEBUG: Starting eventCategoriesStats aggregation ===');
+      console.log('bitacoraFilter for eventCategoriesStats:', JSON.stringify(bitacoraFilter, null, 2));
+
       // First, let's get all event types to understand the mapping
       const eventTypes = await EventType.find({ categoria: { $in: ['ENA', 'ONC', 'DR', 'FM'] } });
+      console.log('Found eventTypes:', eventTypes.map(et => ({ evento: et.evento, categoria: et.categoria })));
 
-      // Get event names for each category
-      const eventNamesByCategory = {};
-      eventTypes.forEach(eventType => {
-        if (!eventNamesByCategory[eventType.categoria]) {
-          eventNamesByCategory[eventType.categoria] = [];
-        }
-        eventNamesByCategory[eventType.categoria].push(eventType.evento);
-      });
-
-      // Now aggregate by event names that belong to our categories
+      // Now aggregate by event names that belong to our categories with full catalog validation
       eventCategoriesStats = await Bitacora.aggregate([
         { $match: bitacoraFilter },
         { $unwind: '$eventos' },
@@ -4078,6 +4050,63 @@ app.get('/dashboard/anomalias-stats', async (req, res) => {
             'eventos.nombre': {
               $in: eventTypes.map(et => et.evento)
             }
+          }
+        },
+        // Unwind the transportes array within each evento
+        { $unwind: '$eventos.transportes' },
+        // Verify that the transport line exists in the official catalog
+        {
+          $lookup: {
+            from: 'lineatransportes',
+            let: {
+              lineaTransporte: '$eventos.transportes.lineaTransporte',
+              cliente: '$cliente'
+            },
+            pipeline: [
+              {
+                $match: {
+                  $expr: {
+                    $and: [
+                      { $eq: [{ $toLower: { $trim: { input: '$nombre' } } }, { $toLower: { $trim: { input: '$$lineaTransporte' } } }] },
+                      { $eq: [{ $toLower: { $trim: { input: '$cliente' } } }, { $toLower: { $trim: { input: '$$cliente' } } }] }
+                    ]
+                  }
+                }
+              }
+            ],
+            as: 'lineaTransporteInfo'
+          }
+        },
+        // Verify that the operator exists in the official catalog and is linked to the transport line
+        {
+          $lookup: {
+            from: 'operadores',
+            let: {
+              operador: '$eventos.transportes.operador',
+              lineaTransporte: '$eventos.transportes.lineaTransporte'
+            },
+            pipeline: [
+              {
+                $match: {
+                  $expr: {
+                    $and: [
+                      { $eq: [{ $toLower: { $trim: { input: '$nombre' } } }, { $toLower: { $trim: { input: '$$operador' } } }] },
+                      { $eq: [{ $toLower: { $trim: { input: '$lineaTransporte' } } }, { $toLower: { $trim: { input: '$$lineaTransporte' } } }] }
+                    ]
+                  }
+                }
+              }
+            ],
+            as: 'operadorInfo'
+          }
+        },
+        // Only include if both transport line and operator exist in the official catalog
+        {
+          $match: {
+            $and: [
+              { 'lineaTransporteInfo': { $ne: [] } },
+              { 'operadorInfo': { $ne: [] } }
+            ]
           }
         },
         {
@@ -4096,6 +4125,9 @@ app.get('/dashboard/anomalias-stats', async (req, res) => {
         },
         { $sort: { count: -1 } }
       ]);
+
+      console.log('=== DEBUG: eventCategoriesStats aggregation completed ===');
+      console.log('Raw eventCategoriesStats:', JSON.stringify(eventCategoriesStats, null, 2));
 
       // Define colors for each category
       const categoryColors = {
@@ -4122,13 +4154,18 @@ app.get('/dashboard/anomalias-stats', async (req, res) => {
       eventCategoriesStats = [];
     }
 
-    res.status(200).json({
+    const response = {
       totalBitacoras,
       nuevasBitacoras,
       enProcesoBitacoras,
       cerradasBitacoras,
       eventCategoriesStats
-    });
+    };
+
+    console.log('=== DEBUG: Final response for /dashboard/anomalias-stats ===');
+    console.log('Response:', JSON.stringify(response, null, 2));
+
+    res.status(200).json(response);
 
   } catch (err) {
     console.error('[GET /dashboard/anomalias-stats] Error:', err);
@@ -4481,85 +4518,8 @@ app.get('/dashboard/onc-events', async (req, res) => {
       bitacoraFilter.cliente = clientFilter;
     }
 
-    // Filtro de línea de transporte
-    if (lineaTransporte !== 'all') {
-      // If we already have filters, we need to combine them properly
-      if (bitacoraFilter.$or || bitacoraFilter.$and || Object.keys(bitacoraFilter).some(key => key !== 'cliente' && key !== 'createdAt')) {
-        // Create a new $and filter to combine existing filters with transport line filter
-        const existingFilters = {};
-        if (bitacoraFilter.$or) {
-          existingFilters.$or = bitacoraFilter.$or;
-          delete bitacoraFilter.$or;
-        }
-        if (bitacoraFilter.$and) {
-          existingFilters.$and = bitacoraFilter.$and;
-          delete bitacoraFilter.$and;
-        }
-
-        // Add other existing filters
-        Object.keys(bitacoraFilter).forEach(key => {
-          if (key !== 'cliente' && key !== 'createdAt') {
-            existingFilters[key] = bitacoraFilter[key];
-            delete bitacoraFilter[key];
-          }
-        });
-
-        bitacoraFilter.$and = [
-          existingFilters,
-          {
-            $or: [
-              { linea_transporte: lineaTransporte },
-              { 'transportes.lineaTransporte': lineaTransporte }
-            ]
-          }
-        ];
-      } else {
-        bitacoraFilter.$or = [
-          { linea_transporte: lineaTransporte },
-          { 'transportes.lineaTransporte': lineaTransporte }
-        ];
-      }
-    }
-
-    // Filtro de operador
-    if (operador !== 'all') {
-      // If we already have filters, we need to combine them properly
-      if (bitacoraFilter.$or || bitacoraFilter.$and || Object.keys(bitacoraFilter).some(key => key !== 'cliente' && key !== 'createdAt')) {
-        // Create a new $and filter to combine existing filters with operator filter
-        const existingFilters = {};
-        if (bitacoraFilter.$or) {
-          existingFilters.$or = bitacoraFilter.$or;
-          delete bitacoraFilter.$or;
-        }
-        if (bitacoraFilter.$and) {
-          existingFilters.$and = bitacoraFilter.$and;
-          delete bitacoraFilter.$and;
-        }
-
-        // Add other existing filters
-        Object.keys(bitacoraFilter).forEach(key => {
-          if (key !== 'cliente' && key !== 'createdAt') {
-            existingFilters[key] = bitacoraFilter[key];
-            delete bitacoraFilter[key];
-          }
-        });
-
-        bitacoraFilter.$and = [
-          existingFilters,
-          {
-            $or: [
-              { operador: operador },
-              { 'transportes.operador': operador }
-            ]
-          }
-        ];
-      } else {
-        bitacoraFilter.$or = [
-          { operador: operador },
-          { 'transportes.operador': operador }
-        ];
-      }
-    }
+    // Note: lineaTransporte and operador filters are applied in the aggregation pipeline
+    // after $unwind: '$eventos.transportes' to ensure correct nested field matching
 
 
 
@@ -4635,7 +4595,7 @@ app.get('/dashboard/onc-events', async (req, res) => {
       eventos: b.eventos?.length || 0
     })));
 
-    // Obtener datos de eventos ONC de las bitácoras
+    // Obtener datos de eventos ONC de las bitácoras con catalog validation
     const oncEventsData = await Bitacora.aggregate([
       { $match: bitacoraFilter },
       { $unwind: '$eventos' },
@@ -4652,6 +4612,82 @@ app.get('/dashboard/onc-events', async (req, res) => {
           'eventTypeInfo.categoria': 'ONC'
         }
       },
+      // Unwind the transportes array within each evento
+      { $unwind: '$eventos.transportes' },
+      // Verify that the transport line exists in the official catalog
+      {
+        $lookup: {
+          from: 'lineatransportes',
+          let: {
+            lineaTransporte: '$eventos.transportes.lineaTransporte',
+            cliente: '$cliente'
+          },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $eq: [{ $toLower: { $trim: { input: '$nombre' } } }, { $toLower: { $trim: { input: '$$lineaTransporte' } } }] },
+                    { $eq: [{ $toLower: { $trim: { input: '$cliente' } } }, { $toLower: { $trim: { input: '$$cliente' } } }] }
+                  ]
+                }
+              }
+            }
+          ],
+          as: 'lineaTransporteInfo'
+        }
+      },
+      // Verify that the operator exists in the official catalog and is linked to the transport line
+      {
+        $lookup: {
+          from: 'operadores',
+          let: {
+            operador: '$eventos.transportes.operador',
+            lineaTransporte: '$eventos.transportes.lineaTransporte'
+          },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $eq: [{ $toLower: { $trim: { input: '$nombre' } } }, { $toLower: { $trim: { input: '$$operador' } } }] },
+                    { $eq: [{ $toLower: { $trim: { input: '$lineaTransporte' } } }, { $toLower: { $trim: { input: '$$lineaTransporte' } } }] }
+                  ]
+                }
+              }
+            }
+          ],
+          as: 'operadorInfo'
+        }
+      },
+      // Only include if transport line exists in the official catalog (less restrictive)
+      {
+        $match: {
+          'lineaTransporteInfo': { $ne: [] }
+        }
+      },
+      // Apply transport line filter if specified
+      ...(lineaTransporte !== 'all' ? [{
+        $match: {
+          $expr: {
+            $eq: [
+              { $toLower: { $trim: { input: '$eventos.transportes.lineaTransporte' } } },
+              { $toLower: { $trim: { input: lineaTransporte } } }
+            ]
+          }
+        }
+      }] : []),
+      // Apply operator filter if specified
+      ...(operador !== 'all' ? [{
+        $match: {
+          $expr: {
+            $eq: [
+              { $toLower: { $trim: { input: '$eventos.transportes.operador' } } },
+              { $toLower: { $trim: { input: operador } } }
+            ]
+          }
+        }
+      }] : []),
       {
         $group: {
           _id: '$eventos.nombre',
@@ -4662,6 +4698,17 @@ app.get('/dashboard/onc-events', async (req, res) => {
     ]);
 
     console.log('ONC Events data:', oncEventsData);
+
+    // Debug logging
+    console.log('[DEBUG] ONC events endpoint:', {
+      clientFilter,
+      lineaTransporte,
+      operador,
+      oncEventTypesCount: oncEventTypes.length,
+      oncEventsDataCount: oncEventsData.length,
+      oncEventTypes: oncEventTypes.map(et => et.evento),
+      oncEventsDataRaw: oncEventsData.slice(0, 5)
+    });
 
     // Función para generar iniciales del evento
     const getEventInitials = (eventName) => {
@@ -4770,85 +4817,8 @@ app.get('/dashboard/bitacoras-anomalias', async (req, res) => {
       bitacoraFilter.cliente = clientFilter;
     }
 
-    // Filtro de línea de transporte
-    if (lineaTransporte !== 'all') {
-      // If we already have filters, we need to combine them properly
-      if (bitacoraFilter.$or || bitacoraFilter.$and || Object.keys(bitacoraFilter).some(key => key !== 'cliente' && key !== 'createdAt')) {
-        // Create a new $and filter to combine existing filters with transport line filter
-        const existingFilters = {};
-        if (bitacoraFilter.$or) {
-          existingFilters.$or = bitacoraFilter.$or;
-          delete bitacoraFilter.$or;
-        }
-        if (bitacoraFilter.$and) {
-          existingFilters.$and = bitacoraFilter.$and;
-          delete bitacoraFilter.$and;
-        }
-
-        // Add other existing filters
-        Object.keys(bitacoraFilter).forEach(key => {
-          if (key !== 'cliente' && key !== 'createdAt') {
-            existingFilters[key] = bitacoraFilter[key];
-            delete bitacoraFilter[key];
-          }
-        });
-
-        bitacoraFilter.$and = [
-          existingFilters,
-          {
-            $or: [
-              { linea_transporte: lineaTransporte },
-              { 'transportes.lineaTransporte': lineaTransporte }
-            ]
-          }
-        ];
-      } else {
-        bitacoraFilter.$or = [
-          { linea_transporte: lineaTransporte },
-          { 'transportes.lineaTransporte': lineaTransporte }
-        ];
-      }
-    }
-
-    // Filtro de operador
-    if (operador !== 'all') {
-      // If we already have filters, we need to combine them properly
-      if (bitacoraFilter.$or || bitacoraFilter.$and || Object.keys(bitacoraFilter).some(key => key !== 'cliente' && key !== 'createdAt')) {
-        // Create a new $and filter to combine existing filters with operator filter
-        const existingFilters = {};
-        if (bitacoraFilter.$or) {
-          existingFilters.$or = bitacoraFilter.$or;
-          delete bitacoraFilter.$or;
-        }
-        if (bitacoraFilter.$and) {
-          existingFilters.$and = bitacoraFilter.$and;
-          delete bitacoraFilter.$and;
-        }
-
-        // Add other existing filters
-        Object.keys(bitacoraFilter).forEach(key => {
-          if (key !== 'cliente' && key !== 'createdAt') {
-            existingFilters[key] = bitacoraFilter[key];
-            delete bitacoraFilter[key];
-          }
-        });
-
-        bitacoraFilter.$and = [
-          existingFilters,
-          {
-            $or: [
-              { operador: operador },
-              { 'transportes.operador': operador }
-            ]
-          }
-        ];
-      } else {
-        bitacoraFilter.$or = [
-          { operador: operador },
-          { 'transportes.operador': operador }
-        ];
-      }
-    }
+    // Note: lineaTransporte and operador filters are applied in the aggregation pipeline
+    // after $unwind: '$eventos.transportes' to ensure correct nested field matching
 
     // Filtro de permisos de usuario para bitacoras anomalias
     if (!role.bitacoras?.read_all) {
@@ -4901,8 +4871,12 @@ app.get('/dashboard/bitacoras-anomalias', async (req, res) => {
 
     // Obtener bitácoras que tengan al menos un evento de categoría diferente a "General"
     console.log('Starting aggregation for bitacoras con anomalias...');
+    console.log('Final bitacoraFilter:', JSON.stringify(bitacoraFilter, null, 2));
     let bitacorasConAnomalias;
     try {
+      console.log('=== DEBUG: /dashboard/bitacoras-anomalias ===');
+      console.log('bitacoraFilter:', JSON.stringify(bitacoraFilter, null, 2));
+
       bitacorasConAnomalias = await Bitacora.aggregate([
         { $match: bitacoraFilter },
         { $unwind: '$eventos' },
@@ -4919,6 +4893,100 @@ app.get('/dashboard/bitacoras-anomalias', async (req, res) => {
             'eventTypeInfo.categoria': { $ne: 'General' }
           }
         },
+        // Unwind the transportes array within each evento
+        { $unwind: '$eventos.transportes' },
+        // Apply transport line filter if specified (case-insensitive)
+        ...(lineaTransporte !== 'all' ? [{
+          $match: {
+            $expr: {
+              $eq: [
+                { $toLower: { $trim: { input: '$eventos.transportes.lineaTransporte' } } },
+                { $toLower: { $trim: { input: lineaTransporte } } }
+              ]
+            }
+          }
+        }] : []),
+        // Apply operator filter if specified (case-insensitive)
+        ...(operador !== 'all' ? [{
+          $match: {
+            $expr: {
+              $eq: [
+                { $toLower: { $trim: { input: '$eventos.transportes.operador' } } },
+                { $toLower: { $trim: { input: operador } } }
+              ]
+            }
+          }
+        }] : []),
+        // Add a stage to count documents at this point for debugging
+        {
+          $addFields: {
+            debugStage: 'after_transport_filters'
+          }
+        },
+        // Verify that the transport line exists in the official catalog
+        {
+          $lookup: {
+            from: 'lineatransportes',
+            let: {
+              lineaTransporte: '$eventos.transportes.lineaTransporte',
+              cliente: '$cliente'
+            },
+            pipeline: [
+              {
+                $match: {
+                  $expr: {
+                    $and: [
+                      { $eq: [{ $toLower: { $trim: { input: '$nombre' } } }, { $toLower: { $trim: { input: '$$lineaTransporte' } } }] },
+                      { $eq: [{ $toLower: { $trim: { input: '$cliente' } } }, { $toLower: { $trim: { input: '$$cliente' } } }] }
+                    ]
+                  }
+                }
+              }
+            ],
+            as: 'lineaTransporteInfo'
+          }
+        },
+        // Verify that the operator exists in the official catalog and is linked to the transport line
+        {
+          $lookup: {
+            from: 'operadores',
+            let: {
+              operador: '$eventos.transportes.operador',
+              lineaTransporte: '$eventos.transportes.lineaTransporte'
+            },
+            pipeline: [
+              {
+                $match: {
+                  $expr: {
+                    $and: [
+                      { $eq: [{ $toLower: { $trim: { input: '$nombre' } } }, { $toLower: { $trim: { input: '$$operador' } } }] },
+                      { $eq: [{ $toLower: { $trim: { input: '$lineaTransporte' } } }, { $toLower: { $trim: { input: '$$lineaTransporte' } } }] }
+                    ]
+                  }
+                }
+              }
+            ],
+            as: 'operadorInfo'
+          }
+        },
+        // Only include if transport line exists in the official catalog (less restrictive)
+        {
+          $match: {
+            'lineaTransporteInfo': { $ne: [] }
+          }
+        },
+        // Add a stage to count documents after catalog validation
+        {
+          $addFields: {
+            debugStage: 'after_catalog_validation'
+          }
+        },
+        // Add a field to mark that this bitácora has passed catalog validation
+        {
+          $addFields: {
+            passedCatalogValidation: true
+          }
+        },
         {
           $group: {
             _id: '$_id',
@@ -4932,7 +5000,16 @@ app.get('/dashboard/bitacoras-anomalias', async (req, res) => {
             createdAt: { $first: '$createdAt' },
             transportes: { $first: '$transportes' },
             eventos: { $push: '$eventos' },
-            eventTypes: { $push: '$eventTypeInfo' }
+            eventTypes: { $push: '$eventTypeInfo' },
+            passedCatalogValidation: { $first: '$passedCatalogValidation' },
+            // Count how many events passed catalog validation
+            validEventCount: { $sum: 1 }
+          }
+        },
+        // Only include bitácoras that have at least one event that passed catalog validation
+        {
+          $match: {
+            validEventCount: { $gt: 0 }
           }
         },
         // Add fields to handle ObjectId conversion for lookups
@@ -5018,7 +5095,20 @@ app.get('/dashboard/bitacoras-anomalias', async (req, res) => {
         },
         { $sort: { createdAt: -1 } }
       ]);
-      console.log(`Aggregation completed. Found ${bitacorasConAnomalias.length} bitacoras with anomalies.`);
+
+      console.log(`=== DEBUG: Aggregation completed. Found ${bitacorasConAnomalias.length} bitacoras with anomalies.`);
+      console.log(`=== DEBUG: Bitacoras that passed catalog validation: ${bitacorasConAnomalias.filter(b => b.passedCatalogValidation).length}`);
+      console.log(`=== DEBUG: Bitacoras with valid events: ${bitacorasConAnomalias.filter(b => b.validEventCount > 0).length}`);
+
+      // Count documents at each debug stage
+      const afterTransportFilters = bitacorasConAnomalias.filter(b => b.debugStage === 'after_transport_filters').length;
+      const afterCatalogValidation = bitacorasConAnomalias.filter(b => b.debugStage === 'after_catalog_validation').length;
+      console.log(`=== DEBUG: Documents after transport filters: ${afterTransportFilters}`);
+      console.log(`=== DEBUG: Documents after catalog validation: ${afterCatalogValidation}`);
+
+      if (bitacorasConAnomalias.length > 0) {
+        console.log('First bitacora sample:', JSON.stringify(bitacorasConAnomalias[0], null, 2));
+      }
     } catch (aggregationError) {
       console.error('Error in aggregation pipeline:', aggregationError);
       throw new Error(`Aggregation failed: ${aggregationError.message}`);
@@ -5130,6 +5220,11 @@ app.get('/dashboard/bitacoras-anomalias', async (req, res) => {
         totalEventos: bitacora.eventos.length
       };
     });
+
+    console.log(`=== DEBUG: Final formatted data has ${formattedBitacoras.length} items`);
+    if (formattedBitacoras.length > 0) {
+      console.log('First formatted bitacora sample:', JSON.stringify(formattedBitacoras[0], null, 2));
+    }
 
     res.status(200).json(formattedBitacoras);
   } catch (error) {
@@ -5409,79 +5504,8 @@ app.get('/dashboard/lineas-transporte-stats', async (req, res) => {
       bitacoraFilter.cliente = clientFilter;
     }
 
-    // Filtro de línea de transporte
-    if (lineaTransporte !== 'all') {
-      if (bitacoraFilter.$or || bitacoraFilter.$and || Object.keys(bitacoraFilter).some(key => key !== 'cliente' && key !== 'createdAt')) {
-        const existingFilters = {};
-        if (bitacoraFilter.$or) {
-          existingFilters.$or = bitacoraFilter.$or;
-          delete bitacoraFilter.$or;
-        }
-        if (bitacoraFilter.$and) {
-          existingFilters.$and = bitacoraFilter.$and;
-          delete bitacoraFilter.$and;
-        }
-
-        Object.keys(bitacoraFilter).forEach(key => {
-          if (key !== 'cliente' && key !== 'createdAt') {
-            existingFilters[key] = bitacoraFilter[key];
-            delete bitacoraFilter[key];
-          }
-        });
-
-        bitacoraFilter.$and = [
-          existingFilters,
-          {
-            $or: [
-              { linea_transporte: lineaTransporte },
-              { 'transportes.lineaTransporte': lineaTransporte }
-            ]
-          }
-        ];
-      } else {
-        bitacoraFilter.$or = [
-          { linea_transporte: lineaTransporte },
-          { 'transportes.lineaTransporte': lineaTransporte }
-        ];
-      }
-    }
-
-    // Filtro de operador
-    if (operador !== 'all') {
-      if (bitacoraFilter.$or || bitacoraFilter.$and || Object.keys(bitacoraFilter).some(key => key !== 'cliente' && key !== 'createdAt')) {
-        const existingFilters = {};
-        if (bitacoraFilter.$or) {
-          existingFilters.$or = bitacoraFilter.$or;
-          delete bitacoraFilter.$or;
-        }
-        if (bitacoraFilter.$and) {
-          existingFilters.$and = bitacoraFilter.$and;
-          delete bitacoraFilter.$and;
-        }
-
-        Object.keys(bitacoraFilter).forEach(key => {
-          if (key !== 'cliente' && key !== 'createdAt') {
-            existingFilters[key] = bitacoraFilter[key];
-            delete bitacoraFilter[key];
-          }
-        });
-
-        bitacoraFilter.$and = [
-          existingFilters,
-          {
-            $or: [
-              { operador: operador },
-              { 'transportes.operador': operador }
-            ]
-          }
-        ];
-      } else {
-        bitacoraFilter.$or = [
-          { operador: operador },
-          { 'transportes.operador': operador }
-        ];
-      }
-    }
+    // Note: lineaTransporte and operador filters are applied in the aggregation pipeline
+    // after $unwind: '$eventos.transportes' to ensure correct nested field matching
 
     // Filtro de permisos de usuario
     if (!role.bitacoras?.read_all) {
@@ -5555,12 +5579,12 @@ app.get('/dashboard/lineas-transporte-stats', async (req, res) => {
           'eventos.nombre': { $in: allEventNames }
         }
       },
-      // Descomponer el array transportes para acceder a lineaTransporte
-      { $unwind: '$transportes' },
+      // Unwind the transportes array within each evento
+      { $unwind: '$eventos.transportes' },
       // Filtrar solo transportes que tienen lineaTransporte válido (no null, undefined o vacío)
       {
         $match: {
-          'transportes.lineaTransporte': {
+          'eventos.transportes.lineaTransporte': {
             $exists: true,
             $ne: null,
             $ne: '',
@@ -5568,10 +5592,15 @@ app.get('/dashboard/lineas-transporte-stats', async (req, res) => {
           }
         }
       },
-      // Si se especifica una línea de transporte específica, filtrar por ella
+      // Si se especifica una línea de transporte específica, filtrar por ella (case-insensitive)
       ...(lineaTransporte !== 'all' ? [{
         $match: {
-          'transportes.lineaTransporte': lineaTransporte
+          $expr: {
+            $eq: [
+              { $toLower: { $trim: { input: '$eventos.transportes.lineaTransporte' } } },
+              { $toLower: { $trim: { input: lineaTransporte } } }
+            ]
+          }
         }
       }] : []),
       {
@@ -5585,7 +5614,7 @@ app.get('/dashboard/lineas-transporte-stats', async (req, res) => {
       {
         $group: {
           _id: {
-            lineaTransporte: '$transportes.lineaTransporte',
+            lineaTransporte: '$eventos.transportes.lineaTransporte',
             cliente: '$cliente'
           },
           anomalias: { $sum: 1 },
@@ -5709,79 +5738,8 @@ app.get('/dashboard/operadores-stats', async (req, res) => {
       bitacoraFilter.cliente = clientFilter;
     }
 
-    // Filtro de línea de transporte
-    if (lineaTransporte !== 'all') {
-      if (bitacoraFilter.$or || bitacoraFilter.$and || Object.keys(bitacoraFilter).some(key => key !== 'cliente' && key !== 'createdAt')) {
-        const existingFilters = {};
-        if (bitacoraFilter.$or) {
-          existingFilters.$or = bitacoraFilter.$or;
-          delete bitacoraFilter.$or;
-        }
-        if (bitacoraFilter.$and) {
-          existingFilters.$and = bitacoraFilter.$and;
-          delete bitacoraFilter.$and;
-        }
-
-        Object.keys(bitacoraFilter).forEach(key => {
-          if (key !== 'cliente' && key !== 'createdAt') {
-            existingFilters[key] = bitacoraFilter[key];
-            delete bitacoraFilter[key];
-          }
-        });
-
-        bitacoraFilter.$and = [
-          existingFilters,
-          {
-            $or: [
-              { linea_transporte: lineaTransporte },
-              { 'transportes.lineaTransporte': lineaTransporte }
-            ]
-          }
-        ];
-      } else {
-        bitacoraFilter.$or = [
-          { linea_transporte: lineaTransporte },
-          { 'transportes.lineaTransporte': lineaTransporte }
-        ];
-      }
-    }
-
-    // Filtro de operador
-    if (operador !== 'all') {
-      if (bitacoraFilter.$or || bitacoraFilter.$and || Object.keys(bitacoraFilter).some(key => key !== 'cliente' && key !== 'createdAt')) {
-        const existingFilters = {};
-        if (bitacoraFilter.$or) {
-          existingFilters.$or = bitacoraFilter.$or;
-          delete bitacoraFilter.$or;
-        }
-        if (bitacoraFilter.$and) {
-          existingFilters.$and = bitacoraFilter.$and;
-          delete bitacoraFilter.$and;
-        }
-
-        Object.keys(bitacoraFilter).forEach(key => {
-          if (key !== 'cliente' && key !== 'createdAt') {
-            existingFilters[key] = bitacoraFilter[key];
-            delete bitacoraFilter[key];
-          }
-        });
-
-        bitacoraFilter.$and = [
-          existingFilters,
-          {
-            $or: [
-              { operador: operador },
-              { 'transportes.operador': operador }
-            ]
-          }
-        ];
-      } else {
-        bitacoraFilter.$or = [
-          { operador: operador },
-          { 'transportes.operador': operador }
-        ];
-      }
-    }
+    // Note: lineaTransporte and operador filters are applied in the aggregation pipeline
+    // after $unwind: '$eventos.transportes' to ensure correct nested field matching
 
     // Filtro de permisos de usuario
     if (!role.bitacoras?.read_all) {
@@ -5860,12 +5818,12 @@ app.get('/dashboard/operadores-stats', async (req, res) => {
           'eventos.nombre': { $in: allEventNames }
         }
       },
-      // Descomponer el array transportes para acceder a operador
-      { $unwind: '$transportes' },
+      // Unwind the transportes array within each evento
+      { $unwind: '$eventos.transportes' },
       // Filtrar solo transportes que tienen operador válido (no null, undefined o vacío)
       {
         $match: {
-          'transportes.operador': {
+          'eventos.transportes.operador': {
             $exists: true,
             $ne: null,
             $ne: '',
@@ -5873,6 +5831,17 @@ app.get('/dashboard/operadores-stats', async (req, res) => {
           }
         }
       },
+      // Si se especifica un operador específico, filtrar por él (case-insensitive)
+      ...(operador !== 'all' ? [{
+        $match: {
+          $expr: {
+            $eq: [
+              { $toLower: { $trim: { input: '$eventos.transportes.operador' } } },
+              { $toLower: { $trim: { input: operador } } }
+            ]
+          }
+        }
+      }] : []),
       {
         $lookup: {
           from: 'eventtypes',
@@ -5884,9 +5853,9 @@ app.get('/dashboard/operadores-stats', async (req, res) => {
       {
         $group: {
           _id: {
-            operador: '$transportes.operador',
-            lineaTransporte: '$transportes.lineaTransporte',
-            cliente: '$cliente'
+            operador: '$eventos.transportes.operador',
+            cliente: '$cliente',
+            lineaTransporte: '$eventos.transportes.lineaTransporte'
           },
           anomalias: { $sum: 1 },
           bitacoras: { $addToSet: '$_id' }
@@ -5895,8 +5864,8 @@ app.get('/dashboard/operadores-stats', async (req, res) => {
       {
         $project: {
           operador: '$_id.operador',
-          lineaTransporte: '$_id.lineaTransporte',
           cliente: '$_id.cliente',
+          lineaTransporte: '$_id.lineaTransporte',
           anomalias: 1,
           bitacoras: { $size: '$bitacoras' }
         }
@@ -5905,41 +5874,35 @@ app.get('/dashboard/operadores-stats', async (req, res) => {
     ]);
 
     // Filtrar solo los operadores que existen en el modelo Operador
-    // Solo mostrar datos cuando hay un cliente específico seleccionado
+    // Solo mostrar datos cuando hay una línea de transporte específica seleccionada
     let filteredOperatorStats = [];
-    if (clientFilter !== 'all') {
+    if (lineaTransporte !== 'all') {
       // Filtrar estadísticas para que solo incluyan operadores que existen en el modelo Operador
+      // y que pertenecen a la línea de transporte seleccionada
       filteredOperatorStats = operatorStats.filter(stat => {
-        // Verificar que la estadística sea del cliente correcto
-        const isCorrectClient = stat.cliente === clientFilter;
-
-        // Verificar que el operador exista en el modelo Operador
+        // Verificar que la estadística sea de la línea de transporte correcta
+        const isCorrectLineaTransporte = stat.lineaTransporte === lineaTransporte;
+        // Verificar que el operador exista en el modelo Operador para esta línea de transporte
         // Comparación case-insensitive para evitar problemas de capitalización
         const operadorExists = operadores.some(op =>
           op.nombre && stat.operador &&
           op.nombre.toLowerCase().trim() === stat.operador.toLowerCase().trim()
         );
 
-        // Si hay línea de transporte específica, verificar que coincida
-        let isCorrectLinea = true;
-        if (lineaTransporte !== 'all') {
-          isCorrectLinea = stat.lineaTransporte === lineaTransporte;
-        }
+        return isCorrectLineaTransporte && operadorExists;
+      });
+    } else if (clientFilter !== 'all') {
+      // Si no hay línea de transporte seleccionada pero sí hay cliente, filtrar por operadores del cliente
+      filteredOperatorStats = operatorStats.filter(stat => {
+        // Verificar que la estadística sea del cliente correcto
+        const isCorrectClient = stat.cliente === clientFilter;
+        // Verificar que el operador exista en el modelo Operador para las líneas del cliente
+        const operadorExists = operadores.some(op =>
+          op.nombre && stat.operador &&
+          op.nombre.toLowerCase().trim() === stat.operador.toLowerCase().trim()
+        );
 
-        console.log('[DEBUG] Filtering operator stat:', {
-          statOperador: stat.operador,
-          statLineaTransporte: stat.lineaTransporte,
-          statCliente: stat.cliente,
-          clientFilter,
-          lineaTransporte,
-          isCorrectClient,
-          isCorrectLinea,
-          operadorExists,
-          availableOperadores: operadores.map(op => op.nombre),
-          willInclude: isCorrectClient && isCorrectLinea && operadorExists
-        });
-
-        return isCorrectClient && isCorrectLinea && operadorExists;
+        return isCorrectClient && operadorExists;
       });
     }
 
@@ -5975,6 +5938,208 @@ app.get('/dashboard/operadores-stats', async (req, res) => {
   } catch (error) {
     console.error('[GET /dashboard/operadores-stats] Error:', error);
     res.status(500).json({ error: 'Failed to fetch operators anomalies statistics' });
+  }
+});
+
+// Endpoint para obtener estadísticas de anomalías por categoría de evento
+app.get('/dashboard/event-categories-stats', async (req, res) => {
+  try {
+    const user = req.session.user;
+    if (!user) {
+      return res.status(401).json({ message: 'User not found' });
+    }
+
+    const role = await Role.findOne({ name: user.role });
+    if (!role) {
+      return res.status(401).json({ message: 'Role not found' });
+    }
+
+    // Obtener filtros de la query
+    const {
+      clientFilter = 'all',
+      fechaDesde = '',
+      fechaHasta = '',
+      lineaTransporte = 'all',
+      operador = 'all'
+    } = req.query;
+
+    // Construir filtros de bitácora
+    let bitacoraFilter = { deleted: { $ne: true } }; // Exclude deleted bitacoras
+
+    // Filtro de fechas
+    if (fechaDesde && fechaHasta && fechaDesde.trim() !== '' && fechaHasta.trim() !== '') {
+      const startDate = new Date(fechaDesde);
+      const endDate = new Date(fechaHasta + 'T23:59:59.999Z');
+
+      if (!isNaN(startDate) && !isNaN(endDate)) {
+        bitacoraFilter.createdAt = {
+          $gte: startDate,
+          $lte: endDate
+        };
+      }
+    }
+
+    // Filtro de cliente
+    if (clientFilter !== 'all') {
+      bitacoraFilter.cliente = clientFilter;
+    }
+
+    // Filtro de permisos de usuario
+    if (!role.bitacoras?.read_all) {
+      const userFullName = `${user.firstName} ${user.lastName}`;
+      if (operador !== 'all' && operador !== userFullName) {
+        return res.status(200).json([]);
+      }
+
+      bitacoraFilter.$or = [
+        { operador: userFullName },
+        { 'transportes.operador': userFullName }
+      ];
+    }
+
+    // Obtener tipos de eventos para categorías
+    const eventTypes = await EventType.find({ categoria: { $in: ['ENA', 'ONC', 'DR', 'FM'] } });
+    const allEventNames = eventTypes.map(et => et.evento);
+
+    // Agregar filtro para bitácoras con anomalías
+    bitacoraFilter['eventos.nombre'] = { $in: allEventNames };
+
+    // Obtener estadísticas por categoría de evento con validación de catálogo
+    const eventCategoryStats = await Bitacora.aggregate([
+      { $match: bitacoraFilter },
+      { $unwind: '$eventos' },
+      {
+        $match: {
+          'eventos.nombre': { $in: allEventNames }
+        }
+      },
+      // Unwind the transportes array within each evento
+      { $unwind: '$eventos.transportes' },
+      // Verify that the transport line exists in the official catalog
+      {
+        $lookup: {
+          from: 'lineatransportes',
+          let: {
+            lineaTransporte: '$eventos.transportes.lineaTransporte',
+            cliente: '$cliente'
+          },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $eq: [{ $toLower: { $trim: { input: '$nombre' } } }, { $toLower: { $trim: { input: '$$lineaTransporte' } } }] },
+                    { $eq: [{ $toLower: { $trim: { input: '$cliente' } } }, { $toLower: { $trim: { input: '$$cliente' } } }] }
+                  ]
+                }
+              }
+            }
+          ],
+          as: 'lineaTransporteInfo'
+        }
+      },
+      // Verify that the operator exists in the official catalog and is linked to the transport line
+      {
+        $lookup: {
+          from: 'operadores',
+          let: {
+            operador: '$eventos.transportes.operador',
+            lineaTransporte: '$eventos.transportes.lineaTransporte'
+          },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $eq: [{ $toLower: { $trim: { input: '$nombre' } } }, { $toLower: { $trim: { input: '$$operador' } } }] },
+                    { $eq: [{ $toLower: { $trim: { input: '$lineaTransporte' } } }, { $toLower: { $trim: { input: '$$lineaTransporte' } } }] }
+                  ]
+                }
+              }
+            }
+          ],
+          as: 'operadorInfo'
+        }
+      },
+      // Only include records where transport line exists in catalog (less restrictive)
+      {
+        $match: {
+          lineaTransporteInfo: { $ne: [] }
+        }
+      },
+      // Apply transport line filter if specified
+      ...(lineaTransporte !== 'all' ? [{
+        $match: {
+          $expr: {
+            $eq: [
+              { $toLower: { $trim: { input: '$eventos.transportes.lineaTransporte' } } },
+              { $toLower: { $trim: { input: lineaTransporte } } }
+            ]
+          }
+        }
+      }] : []),
+      // Apply operator filter if specified
+      ...(operador !== 'all' ? [{
+        $match: {
+          $expr: {
+            $eq: [
+              { $toLower: { $trim: { input: '$eventos.transportes.operador' } } },
+              { $toLower: { $trim: { input: operador } } }
+            ]
+          }
+        }
+      }] : []),
+      {
+        $lookup: {
+          from: 'eventtypes',
+          localField: 'eventos.nombre',
+          foreignField: 'evento',
+          as: 'eventTypeInfo'
+        }
+      },
+      {
+        $group: {
+          _id: { $arrayElemAt: ['$eventTypeInfo.categoria', 0] },
+          count: { $sum: 1 }
+        }
+      },
+      { $sort: { count: -1 } }
+    ]);
+
+    // Define colors for each category
+    const categoryColors = {
+      'ENA': '#3b82f6', // Blue
+      'FM': '#10b981',  // Green
+      'ONC': '#f59e0b', // Orange
+      'DR': '#ef4444'   // Red
+    };
+
+    // Format the data with colors and ensure all categories are present
+    const allCategories = ['ENA', 'FM', 'ONC', 'DR'];
+    const formattedCategories = allCategories.map(category => {
+      const found = eventCategoryStats.find(stat => stat._id === category);
+      return {
+        categoria: category,
+        count: found ? found.count : 0,
+        color: categoryColors[category]
+      };
+    });
+
+    // Debug logging
+    console.log('[DEBUG] Event categories endpoint:', {
+      clientFilter,
+      lineaTransporte,
+      operador,
+      eventCategoryStatsCount: eventCategoryStats.length,
+      formattedCategoriesCount: formattedCategories.length,
+      eventCategoryStatsRaw: eventCategoryStats,
+      formattedCategories
+    });
+
+    res.status(200).json(formattedCategories);
+  } catch (error) {
+    console.error('[GET /dashboard/event-categories-stats] Error:', error);
+    res.status(500).json({ error: 'Failed to fetch event categories statistics' });
   }
 });
 
