@@ -181,6 +181,10 @@ const DashboardPage = () => {
   const [loadingLocationDownload, setLoadingLocationDownload] = useState({}); // {locationName: boolean}
   const [locationPageLimits, setLocationPageLimits] = useState({}); // {locationName: limit}
 
+  // Estado para paginación de la vista geográfica principal
+  const [geographicPage, setGeographicPage] = useState(1);
+  const [geographicPageSize, setGeographicPageSize] = useState(50); // Aumentado a 50 por defecto
+
   // Function to apply filters when check button is pressed
   const applyFilters = () => {
     setAppliedClientFilter(clientFilter);
@@ -211,6 +215,9 @@ const DashboardPage = () => {
     setLoadingLocationBitacoras({});
     setLocationPagination({});
     setLoadingLocationDownload({});
+
+    // Reset paginación geográfica
+    setGeographicPage(1);
   };
 
   // Function to reset filters
@@ -243,6 +250,9 @@ const DashboardPage = () => {
     setLoadingLocationBitacoras({});
     setLocationPagination({});
     setLoadingLocationDownload({});
+
+    // Reset paginación geográfica
+    setGeographicPage(1);
   };
 
   // Helper function to format numbers with thousands separator
@@ -764,6 +774,45 @@ const DashboardPage = () => {
     }
   };
 
+  // Funciones para manejar la paginación geográfica
+  const handleGeographicPageChange = (newPage) => {
+    setGeographicPage(newPage);
+  };
+
+  const handleGeographicPageSizeChange = (newPageSize) => {
+    setGeographicPageSize(newPageSize);
+    setGeographicPage(1); // Reset to first page when changing page size
+  };
+
+  const getPaginatedGeographicData = () => {
+    const geographicData = dashboardStats.geographicData || [];
+
+    // Si el tamaño de página es muy grande (9999), mostrar todos los elementos
+    if (geographicPageSize >= 9999) {
+      return {
+        data: geographicData,
+        totalItems: geographicData.length,
+        totalPages: 1,
+        currentPage: 1,
+        hasNextPage: false,
+        hasPrevPage: false,
+      };
+    }
+
+    const startIndex = (geographicPage - 1) * geographicPageSize;
+    const endIndex = startIndex + geographicPageSize;
+    const paginatedData = geographicData.slice(startIndex, endIndex);
+
+    return {
+      data: paginatedData,
+      totalItems: geographicData.length,
+      totalPages: Math.ceil(geographicData.length / geographicPageSize),
+      currentPage: geographicPage,
+      hasNextPage: endIndex < geographicData.length,
+      hasPrevPage: geographicPage > 1,
+    };
+  };
+
   const fetchDashboardData = useCallback(async () => {
     try {
       setLoading(true);
@@ -849,6 +898,8 @@ const DashboardPage = () => {
     appliedFechaHasta,
     appliedLineaTransporteFilter,
     appliedOperadorFilter,
+    fetchLineasTransporte,
+    fetchOperadores,
   ]);
 
   useEffect(() => {
@@ -1050,6 +1101,7 @@ const DashboardPage = () => {
 
   const renderGeographicChart = () => {
     const geographicData = dashboardStats.geographicData || [];
+    const paginatedGeographic = getPaginatedGeographicData();
 
     if (geographicData.length === 0) {
       return <div className="text-center text-muted">No hay datos disponibles</div>;
@@ -1057,7 +1109,7 @@ const DashboardPage = () => {
 
     return (
       <div className="geographic-chart">
-        <div className="d-flex align-items-center justify-content-between mb-2">
+        <div className="d-flex align-items-center justify-content-between mb-3">
           <div className="d-flex align-items-center gap-2">
             <span
               className="badge"
@@ -1069,34 +1121,75 @@ const DashboardPage = () => {
               }}>
               {appliedGeoType === "origen" ? "Origen" : "Destino"}
             </span>
+            <span className="text-muted small">Total: {geographicData.length} ubicaciones</span>
           </div>
-          <select
-            value={geoType}
-            onChange={(e) => {
-              setGeoType(e.target.value);
-              setAppliedGeoType(e.target.value);
-              setApplyFiltersTrigger((prev) => prev + 1);
-            }}
-            className={`filter-select geo-type-select ${geoType} form-select form-select-sm`}
-            style={{
-              width: 120,
-              borderRadius: 8,
-              border: "1px solid #e5e7eb",
-              background: "#fff",
-              color: geoType === "origen" ? "#10b981" : "#f59e0b",
-              fontWeight: 600,
-              boxShadow: "0 2px 8px rgba(16,24,40,0.06)",
-              padding: "6px 12px",
-              outline: "none",
-              transition: "border-color 0.2s",
-              fontSize: "0.8rem",
-            }}>
-            <option value="origen">Por Origen</option>
-            <option value="destino">Por Destino</option>
-          </select>
+          <div className="d-flex align-items-center gap-3">
+            {/* Selector de cantidad por página */}
+            <div className="d-flex align-items-center gap-2">
+              <span className="text-muted small">Mostrar:</span>
+              <select
+                value={geographicPageSize}
+                onChange={(e) => handleGeographicPageSizeChange(parseInt(e.target.value))}
+                className="form-select form-select-sm"
+                style={{
+                  width: "80px",
+                  fontSize: "0.75rem",
+                  padding: "4px 8px",
+                  border: "1px solid #e5e7eb",
+                  borderRadius: "6px",
+                }}>
+                <option value={10}>10</option>
+                <option value={25}>25</option>
+                <option value={50}>50</option>
+                <option value={100}>100</option>
+                <option value={250}>250</option>
+                <option value={500}>500</option>
+                <option value={9999}>Todas</option>
+              </select>
+            </div>
+            {/* Selector de tipo geográfico */}
+            <select
+              value={geoType}
+              onChange={(e) => {
+                setGeoType(e.target.value);
+                setAppliedGeoType(e.target.value);
+                setGeographicPage(1); // Reset page when changing type
+                setApplyFiltersTrigger((prev) => prev + 1);
+              }}
+              className={`filter-select geo-type-select ${geoType} form-select form-select-sm`}
+              style={{
+                width: 120,
+                borderRadius: 8,
+                border: "1px solid #e5e7eb",
+                background: "#fff",
+                color: geoType === "origen" ? "#10b981" : "#f59e0b",
+                fontWeight: 600,
+                boxShadow: "0 2px 8px rgba(16,24,40,0.06)",
+                padding: "6px 12px",
+                outline: "none",
+                transition: "border-color 0.2s",
+                fontSize: "0.8rem",
+              }}>
+              <option value="origen">Por Origen</option>
+              <option value="destino">Por Destino</option>
+            </select>
+          </div>
         </div>
-        <div className="geo-items">
-          {geographicData.map((location, index) => {
+
+        {/* Mensaje informativo cuando se muestran todas las ubicaciones */}
+        {geographicPageSize >= 9999 && geographicData.length > 0 && (
+          <div
+            className="alert alert-success mb-3"
+            style={{fontSize: "0.85rem", padding: "8px 12px"}}>
+            <i className="fa fa-info-circle me-2"></i>
+            <strong>Mostrando todas las ubicaciones:</strong> {geographicData.length} ubicaciones en
+            total
+          </div>
+        )}
+
+        {/* Lista de ubicaciones paginada */}
+        <div className="geo-items" style={{minHeight: "400px"}}>
+          {paginatedGeographic.data.map((location, index) => {
             const percentage = Math.round(
               (location.count / geographicData.reduce((sum, loc) => sum + loc.count, 0)) * 100
             );
@@ -1117,13 +1210,21 @@ const DashboardPage = () => {
                     <i className="fa fa-map-marker-alt" style={{color: "#fff"}}></i>
                   </div>
                   <div className="geo-info">
-                    <div className="geo-name small">{location.name}</div>
-                    <div className="geo-count small">{formatNumber(location.count)} bitácoras</div>
+                    <div className="geo-name small" style={{color: "#ffffff", fontWeight: "500"}}>
+                      {location.name}
+                    </div>
+                    <div className="geo-count small" style={{color: "#e2e8f0", fontSize: "0.8rem"}}>
+                      {formatNumber(location.count)} bitácoras
+                    </div>
                   </div>
                   <div
                     className="geo-percentage-container"
                     style={{display: "flex", alignItems: "center", gap: "8px"}}>
-                    <div className="geo-percentage small">{percentage}%</div>
+                    <div
+                      className="geo-percentage small"
+                      style={{color: "#ffffff", fontWeight: "600", fontSize: "0.9rem"}}>
+                      {percentage}%
+                    </div>
                     {/* Botón de descarga */}
                     <button
                       onClick={(e) => {
@@ -1607,6 +1708,283 @@ const DashboardPage = () => {
             );
           })}
         </div>
+
+        {/* Controles de paginación elegantes */}
+        {paginatedGeographic.totalItems > 0 && geographicPageSize < 9999 && (
+          <div className="mt-4">
+            <div
+              className="d-flex justify-content-between align-items-center p-3"
+              style={{
+                backgroundColor: "#f8fafc",
+                borderRadius: "12px",
+                border: "1px solid #e2e8f0",
+                boxShadow: "0 1px 3px rgba(16, 24, 40, 0.1)",
+              }}>
+              {/* Información de paginación */}
+              <div className="d-flex align-items-center gap-3">
+                <span
+                  className="text-muted"
+                  style={{
+                    fontSize: "0.85rem",
+                    fontWeight: "500",
+                  }}>
+                  Mostrando{" "}
+                  <span className="fw-bold text-dark">
+                    {(geographicPage - 1) * geographicPageSize + 1}
+                  </span>{" "}
+                  a{" "}
+                  <span className="fw-bold text-dark">
+                    {Math.min(geographicPage * geographicPageSize, paginatedGeographic.totalItems)}
+                  </span>{" "}
+                  de <span className="fw-bold text-dark">{paginatedGeographic.totalItems}</span>{" "}
+                  ubicaciones
+                </span>
+              </div>
+
+              {/* Controles de navegación */}
+              <div className="d-flex align-items-center gap-2">
+                {/* Botón anterior */}
+                <button
+                  onClick={() => handleGeographicPageChange(geographicPage - 1)}
+                  disabled={!paginatedGeographic.hasPrevPage}
+                  className="btn btn-sm"
+                  style={{
+                    backgroundColor: paginatedGeographic.hasPrevPage ? "#ffffff" : "#f1f5f9",
+                    border: "1px solid #e2e8f0",
+                    borderRadius: "8px",
+                    width: "36px",
+                    height: "36px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    cursor: paginatedGeographic.hasPrevPage ? "pointer" : "not-allowed",
+                    color: paginatedGeographic.hasPrevPage ? "#374151" : "#9ca3af",
+                    transition: "all 0.2s ease",
+                    boxShadow: paginatedGeographic.hasPrevPage
+                      ? "0 1px 2px rgba(16, 24, 40, 0.05)"
+                      : "none",
+                  }}
+                  onMouseEnter={(e) => {
+                    if (paginatedGeographic.hasPrevPage) {
+                      e.currentTarget.style.backgroundColor = "#f8fafc";
+                      e.currentTarget.style.transform = "translateY(-1px)";
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (paginatedGeographic.hasPrevPage) {
+                      e.currentTarget.style.backgroundColor = "#ffffff";
+                      e.currentTarget.style.transform = "translateY(0)";
+                    }
+                  }}>
+                  <i className="fa fa-chevron-left" style={{fontSize: "12px"}}></i>
+                </button>
+
+                {/* Números de página */}
+                <div className="d-flex gap-1">
+                  {(() => {
+                    const pages = [];
+                    const totalPages = paginatedGeographic.totalPages;
+                    const currentPage = paginatedGeographic.currentPage;
+                    let startPage = Math.max(1, currentPage - 2);
+                    let endPage = Math.min(totalPages, currentPage + 2);
+
+                    // Ajustar para mostrar siempre 5 páginas si es posible
+                    if (endPage - startPage < 4) {
+                      if (startPage === 1) {
+                        endPage = Math.min(totalPages, startPage + 4);
+                      } else {
+                        startPage = Math.max(1, endPage - 4);
+                      }
+                    }
+
+                    // Primera página si no está visible
+                    if (startPage > 1) {
+                      pages.push(
+                        <button
+                          key={1}
+                          onClick={() => handleGeographicPageChange(1)}
+                          className="btn btn-sm"
+                          style={{
+                            backgroundColor: "#ffffff",
+                            border: "1px solid #e2e8f0",
+                            borderRadius: "8px",
+                            width: "36px",
+                            height: "36px",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            cursor: "pointer",
+                            color: "#374151",
+                            fontSize: "0.8rem",
+                            fontWeight: "500",
+                            transition: "all 0.2s ease",
+                            boxShadow: "0 1px 2px rgba(16, 24, 40, 0.05)",
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.backgroundColor = "#f8fafc";
+                            e.currentTarget.style.transform = "translateY(-1px)";
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.backgroundColor = "#ffffff";
+                            e.currentTarget.style.transform = "translateY(0)";
+                          }}>
+                          1
+                        </button>
+                      );
+                      if (startPage > 2) {
+                        pages.push(
+                          <span
+                            key="dots1"
+                            className="d-flex align-items-center"
+                            style={{color: "#9ca3af", fontSize: "0.8rem", padding: "0 8px"}}>
+                            ...
+                          </span>
+                        );
+                      }
+                    }
+
+                    // Páginas del rango
+                    for (let page = startPage; page <= endPage; page++) {
+                      const isActive = page === currentPage;
+                      pages.push(
+                        <button
+                          key={page}
+                          onClick={() => handleGeographicPageChange(page)}
+                          className="btn btn-sm"
+                          style={{
+                            backgroundColor: isActive
+                              ? appliedGeoType === "origen"
+                                ? "#10b981"
+                                : "#f59e0b"
+                              : "#ffffff",
+                            border: `1px solid ${
+                              isActive
+                                ? appliedGeoType === "origen"
+                                  ? "#10b981"
+                                  : "#f59e0b"
+                                : "#e2e8f0"
+                            }`,
+                            borderRadius: "8px",
+                            width: "36px",
+                            height: "36px",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            cursor: "pointer",
+                            color: isActive ? "#ffffff" : "#374151",
+                            fontSize: "0.8rem",
+                            fontWeight: isActive ? "600" : "500",
+                            transition: "all 0.2s ease",
+                            boxShadow: isActive
+                              ? "0 2px 4px rgba(16, 24, 40, 0.1)"
+                              : "0 1px 2px rgba(16, 24, 40, 0.05)",
+                          }}
+                          onMouseEnter={(e) => {
+                            if (!isActive) {
+                              e.currentTarget.style.backgroundColor = "#f8fafc";
+                              e.currentTarget.style.transform = "translateY(-1px)";
+                            }
+                          }}
+                          onMouseLeave={(e) => {
+                            if (!isActive) {
+                              e.currentTarget.style.backgroundColor = "#ffffff";
+                              e.currentTarget.style.transform = "translateY(0)";
+                            }
+                          }}>
+                          {page}
+                        </button>
+                      );
+                    }
+
+                    // Última página si no está visible
+                    if (endPage < totalPages) {
+                      if (endPage < totalPages - 1) {
+                        pages.push(
+                          <span
+                            key="dots2"
+                            className="d-flex align-items-center"
+                            style={{color: "#9ca3af", fontSize: "0.8rem", padding: "0 8px"}}>
+                            ...
+                          </span>
+                        );
+                      }
+                      pages.push(
+                        <button
+                          key={totalPages}
+                          onClick={() => handleGeographicPageChange(totalPages)}
+                          className="btn btn-sm"
+                          style={{
+                            backgroundColor: "#ffffff",
+                            border: "1px solid #e2e8f0",
+                            borderRadius: "8px",
+                            width: "36px",
+                            height: "36px",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            cursor: "pointer",
+                            color: "#374151",
+                            fontSize: "0.8rem",
+                            fontWeight: "500",
+                            transition: "all 0.2s ease",
+                            boxShadow: "0 1px 2px rgba(16, 24, 40, 0.05)",
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.backgroundColor = "#f8fafc";
+                            e.currentTarget.style.transform = "translateY(-1px)";
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.backgroundColor = "#ffffff";
+                            e.currentTarget.style.transform = "translateY(0)";
+                          }}>
+                          {totalPages}
+                        </button>
+                      );
+                    }
+
+                    return pages;
+                  })()}
+                </div>
+
+                {/* Botón siguiente */}
+                <button
+                  onClick={() => handleGeographicPageChange(geographicPage + 1)}
+                  disabled={!paginatedGeographic.hasNextPage}
+                  className="btn btn-sm"
+                  style={{
+                    backgroundColor: paginatedGeographic.hasNextPage ? "#ffffff" : "#f1f5f9",
+                    border: "1px solid #e2e8f0",
+                    borderRadius: "8px",
+                    width: "36px",
+                    height: "36px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    cursor: paginatedGeographic.hasNextPage ? "pointer" : "not-allowed",
+                    color: paginatedGeographic.hasNextPage ? "#374151" : "#9ca3af",
+                    transition: "all 0.2s ease",
+                    boxShadow: paginatedGeographic.hasNextPage
+                      ? "0 1px 2px rgba(16, 24, 40, 0.05)"
+                      : "none",
+                  }}
+                  onMouseEnter={(e) => {
+                    if (paginatedGeographic.hasNextPage) {
+                      e.currentTarget.style.backgroundColor = "#f8fafc";
+                      e.currentTarget.style.transform = "translateY(-1px)";
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (paginatedGeographic.hasNextPage) {
+                      e.currentTarget.style.backgroundColor = "#ffffff";
+                      e.currentTarget.style.transform = "translateY(0)";
+                    }
+                  }}>
+                  <i className="fa fa-chevron-right" style={{fontSize: "12px"}}></i>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   };

@@ -247,6 +247,14 @@ const BitacorasPage = () => {
           [field]: value,
         },
       }));
+    } else if (id === "cliente") {
+      // When client changes, reset origin and destination
+      setFormData((prevData) => ({
+        ...prevData,
+        [id]: value,
+        origen: "", // Reset origin when client changes
+        destino: "", // Reset destination when client changes
+      }));
     } else {
       setFormData((prevData) => ({
         ...prevData,
@@ -1193,19 +1201,22 @@ const BitacorasPage = () => {
                 className="form-select"
                 value={formData.origen}
                 onChange={handleChange}
+                disabled={!formData.cliente}
                 required>
-                <option value="">Seleccionar</option>
-                {origenes
-                  .sort((a, b) =>
-                    `${a.nombre}, ${a.cliente}, ${a.estado}`.localeCompare(
-                      `${b.nombre}, ${b.cliente}, ${b.estado}`
+                <option value="">
+                  {formData.cliente ? "Seleccionar origen" : "Primero selecciona un cliente"}
+                </option>
+                {formData.cliente &&
+                  origenes
+                    .filter((origen) => origen.cliente === formData.cliente)
+                    .sort((a, b) =>
+                      `${a.nombre}, ${a.estado}`.localeCompare(`${b.nombre}, ${b.estado}`)
                     )
-                  )
-                  .map((origen) => (
-                    <option key={origen._id} value={origen._id}>
-                      {`${origen.nombre}, ${origen.cliente}, ${origen.estado}`}
-                    </option>
-                  ))}
+                    .map((origen) => (
+                      <option key={origen._id} value={origen._id}>
+                        {`${origen.nombre}, ${origen.estado}`}
+                      </option>
+                    ))}
               </select>
             </div>
 
@@ -1219,19 +1230,22 @@ const BitacorasPage = () => {
                 className="form-select"
                 value={formData.destino}
                 onChange={handleChange}
+                disabled={!formData.cliente}
                 required>
-                <option value="">Seleccionar</option>
-                {destinos
-                  .sort((a, b) =>
-                    `${a.nombre}, ${a.cliente}, ${a.estado}`.localeCompare(
-                      `${b.nombre}, ${b.cliente}, ${b.estado}`
+                <option value="">
+                  {formData.cliente ? "Seleccionar destino" : "Primero selecciona un cliente"}
+                </option>
+                {formData.cliente &&
+                  destinos
+                    .filter((destino) => destino.cliente === formData.cliente)
+                    .sort((a, b) =>
+                      `${a.nombre}, ${a.estado}`.localeCompare(`${b.nombre}, ${b.estado}`)
                     )
-                  )
-                  .map((destino) => (
-                    <option key={destino._id} value={destino._id}>
-                      {`${destino.nombre}, ${destino.cliente}, ${destino.estado}`}
-                    </option>
-                  ))}
+                    .map((destino) => (
+                      <option key={destino._id} value={destino._id}>
+                        {`${destino.nombre}, ${destino.estado}`}
+                      </option>
+                    ))}
               </select>
             </div>
             {formData.monitoreo === "Custodia fisica" && (

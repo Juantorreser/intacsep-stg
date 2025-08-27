@@ -3536,7 +3536,6 @@ app.get('/dashboard/stats', async (req, res) => {
           { $match: bitacoraFilter },
           { $group: { _id: '$destino', count: { $sum: 1 } } },
           { $sort: { count: -1 } },
-          { $limit: 10 },
           // Add fields to handle ObjectId conversion for lookups
           {
             $addFields: {
@@ -3601,7 +3600,6 @@ app.get('/dashboard/stats', async (req, res) => {
           { $match: bitacoraFilter },
           { $group: { _id: '$origen', count: { $sum: 1 } } },
           { $sort: { count: -1 } },
-          { $limit: 10 },
           // Add fields to handle ObjectId conversion for lookups
           {
             $addFields: {

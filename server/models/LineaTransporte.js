@@ -8,3 +8,4 @@ const LineaTransporteSchema = new mongoose.Schema({
 const LineaTransporte = mongoose.model("LineaTransporte", LineaTransporteSchema);
 export default LineaTransporte;
 
+

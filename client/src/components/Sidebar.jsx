@@ -21,7 +21,20 @@ const Sidebar = () => {
     sistemaCollapse: false,
     auditoriaCollapse: false,
   });
-  const [roleData] = useState({});
+  // Mock roleData - en una implementación real, esto vendría del contexto de autenticación
+  const [roleData] = useState({
+    // Permisos básicos para mostrar las opciones del menú
+    bitacoras: {read: true, create: true, update: true, delete: true},
+    tipos_de_monitoreo: {read: true, create: true, update: true, delete: true},
+    eventos: {read: true, create: true, update: true, delete: true},
+    clientes: {read: true, create: true, update: true, delete: true},
+    origenes: {read: true, create: true, update: true, delete: true},
+    destinos: {read: true, create: true, update: true, delete: true},
+    usuarios: {read: true, create: true, update: true, delete: true},
+    roles: {read: true, create: true, update: true, delete: true},
+    inactividad: {read: true, create: true, update: true, delete: true},
+    auditoria_bitacora: {read: true, create: true, update: true, delete: true},
+  });
 
   // Functions
   const openInacModal = () => {
@@ -46,105 +59,6 @@ const Sidebar = () => {
       callback();
     }
   };
-
-  const menuItems = [
-    {
-      path: "/inicio",
-      icon: "fa-home",
-      label: "Inicio",
-      roles: ["admin", "user", "supervisor"],
-    },
-    {
-      path: "/dashboard/general",
-      icon: "fa-tachometer-alt",
-      label: "Dashboard General",
-      roles: ["admin", "user", "supervisor"],
-    },
-    {
-      path: "/dashboard/anomalias",
-      icon: "fa-exclamation-triangle",
-      label: "Dashboard Anomalías",
-      roles: ["admin", "user", "supervisor"],
-    },
-    {
-      path: "/bitacoras",
-      icon: "fa-book",
-      label: "Bitácoras",
-      roles: ["admin", "user", "supervisor"],
-    },
-    {
-      path: "/auditoria/bitacoras",
-      icon: "fa-search",
-      label: "Auditoría",
-      roles: ["admin", "supervisor"],
-    },
-    {
-      path: "/wialon",
-      icon: "fa-map-marker-alt",
-      label: "Wialon Tracker",
-      roles: ["admin", "user", "supervisor"],
-    },
-    {
-      path: "/units",
-      icon: "fa-satellite-dish",
-      label: "Wialon Units",
-      roles: ["admin", "user", "supervisor"],
-    },
-    {
-      path: "/tipos_monitoreo",
-      icon: "fa-cogs",
-      label: "Tipos de Monitoreo",
-      roles: ["admin"],
-    },
-    {
-      path: "/usuarios",
-      icon: "fa-users",
-      label: "Usuarios",
-      roles: ["admin"],
-    },
-    {
-      path: "/roles",
-      icon: "fa-user-shield",
-      label: "Roles",
-      roles: ["admin"],
-    },
-    {
-      path: "/clientes",
-      icon: "fa-building",
-      label: "Clientes",
-      roles: ["admin"],
-    },
-    {
-      path: "/eventos",
-      icon: "fa-calendar",
-      label: "Eventos",
-      roles: ["admin"],
-    },
-    {
-      path: "/origenes",
-      icon: "fa-map-pin",
-      label: "Orígenes",
-      roles: ["admin"],
-    },
-    {
-      path: "/destinos",
-      icon: "fa-map-marker",
-      label: "Destinos",
-      roles: ["admin"],
-    },
-    {
-      path: "/operadores",
-      icon: "fa-user-tie",
-      label: "Operadores",
-      roles: ["admin"],
-    },
-    {
-      path: "/perfil",
-      icon: "fa-user",
-      label: "Perfil",
-      roles: ["admin", "user", "supervisor"],
-    },
-  ];
 
   return (
     <>
