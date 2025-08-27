@@ -38,6 +38,7 @@ const CreateTransporteModal = ({
   const [selectedUnitId, setSelectedUnitId] = useState("");
   const [selectedUnitName, setSelectedUnitName] = useState("");
   const [operadores, setOperadores] = useState([]);
+  const [lineasTransporte, setLineasTransporte] = useState([]);
   // const [units, setUnits] = useState([]);
 
   const [roleData, setRoleData] = useState(null);
@@ -78,14 +79,45 @@ const CreateTransporteModal = ({
   }, [user]);
 
   useEffect(() => {
-    fetchOperadores();
+    // Fetch initial data
+    if (bitacora && bitacora.cliente) {
+      fetchLineasTransporte(bitacora.cliente);
+    }
     // fetchAllUnits();
     console.log("Cached token:", localStorage.getItem("wialon_token"));
-  }, []);
+  }, [bitacora]);
 
-  const fetchOperadores = async () => {
+  // Fetch lineas de transporte filtered by client
+  const fetchLineasTransporte = async (cliente) => {
     try {
-      const response = await fetch(`${baseUrl}/operadores`, {
+      let url = `${baseUrl}/lineas-transporte`;
+      if (cliente && cliente !== "all") {
+        url += `?cliente=${encodeURIComponent(cliente)}`;
+      }
+      
+      const response = await fetch(url, {
+        method: "GET",
+        credentials: "include",
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setLineasTransporte(data);
+      } else {
+        console.error("Failed to fetch lineas transporte:", response.statusText);
+      }
+    } catch (e) {
+      console.error("Error fetching lineas transporte:", e);
+    }
+  };
+
+  const fetchOperadores = async (lineaTransporte = null) => {
+    try {
+      let url = `${baseUrl}/operadores`;
+      if (lineaTransporte && lineaTransporte !== "all") {
+        url += `?lineaTransporte=${encodeURIComponent(lineaTransporte)}`;
+      }
+      
+      const response = await fetch(url, {
         method: "GET",
         credentials: "include",
       });
@@ -156,6 +188,16 @@ const CreateTransporteModal = ({
       } else {
         setPhoneError("");
       }
+    }
+
+    // Si se cambia la línea de transporte, actualizar operadores
+    if (name === "lineaTransporte") {
+      fetchOperadores(value);
+      // Reset operador when lineaTransporte changes
+      setTransporteData((prev) => ({
+        ...prev,
+        operador: "",
+      }));
     }
 
     if (section && field) {
@@ -345,23 +387,40 @@ const CreateTransporteModal = ({
             <h5>Datos del Operador</h5>
             <Form.Group className="mb-3">
               <Form.Label>Línea de Transporte</Form.Label>
-              <Form.Control
-                type="text"
+              <Form.Select
                 name="lineaTransporte"
                 value={transporteData.lineaTransporte}
                 onChange={handleChange}
                 required={!!roleData?.operador?.create}
-              />
+              >
+                <option value="">Selecciona una línea de transporte</option>
+                {lineasTransporte.map((linea) => (
+                  <option key={linea._id} value={linea.nombre}>
+                    {linea.nombre}
+                  </option>
+                ))}
+              </Form.Select>
             </Form.Group>
             <Form.Group className="mb-3">
               <Form.Label>Operador</Form.Label>
-              <Form.Control
-                type="text"
+              <Form.Select
                 name="operador"
                 value={transporteData.operador}
                 onChange={handleChange}
                 required={!!roleData?.operador?.create}
-              />
+                disabled={!transporteData.lineaTransporte}
+              >
+                <option value="">
+                  {transporteData.lineaTransporte 
+                    ? "Selecciona un operador" 
+                    : "Selecciona una línea de transporte primero"}
+                </option>
+                {operadores.map((operador) => (
+                  <option key={operador._id} value={operador.nombre}>
+                    {operador.nombre}
+                  </option>
+                ))}
+              </Form.Select>
             </Form.Group>
             <Form.Group className="mb-3">
               <Form.Label>Teléfono</Form.Label>

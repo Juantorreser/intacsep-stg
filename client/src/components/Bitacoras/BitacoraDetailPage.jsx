@@ -1,15 +1,14 @@
-import React, {useState, useEffect} from "react";
+import {useState, useEffect} from "react";
 import {useParams, useNavigate} from "react-router-dom";
-import Header from "../Header";
 import Sidebar from "../Sidebar";
 import {FontAwesomeIcon} from "@fortawesome/react-fontawesome";
 import {faPlus} from "@fortawesome/free-solid-svg-icons";
 import {useAuth} from "../../context/AuthContext";
-import {Modal, Form, Button, Tabs, Tab, Row} from "react-bootstrap";
+import {Form, Tabs, Tab} from "react-bootstrap";
 import "bootstrap/dist/js/bootstrap.bundle.min.js";
 import CreateTransporteModal from "./Transportes/CreateTransporteModal";
 import NewEventModal from "./Eventos/NewEventModal";
-import {createAuditoria, generateAuditoriasFromChanges} from "../../utils/auditoria";
+import {generateAuditoriasFromChanges} from "../../utils/auditoria";
 import {getLocationText} from "../../utils/api";
 import {useMemo} from "react";
 import ModalTemplate from "../../components/ModalTemplate"; // make sure path is valid
@@ -29,6 +28,7 @@ const BitacoraDetailPage = ({edited}) => {
   const [origenes, setOrigenes] = useState([]);
   const [destinos, setDestinos] = useState([]);
   const [operadores, setOperadores] = useState([]);
+  const [lineasTransporte, setLineasTransporte] = useState([]);
   const [clients, setClients] = useState([]);
   const [monitoreos, setMonitoreos] = useState([]);
   const navigate = useNavigate();
@@ -228,9 +228,14 @@ const BitacoraDetailPage = ({edited}) => {
     }
   };
 
-  const fetchOrigenes = async () => {
+  const fetchOrigenes = async (cliente = null) => {
     try {
-      const response = await fetch(`${baseUrl}/origenes`, {
+      let url = `${baseUrl}/origenes`;
+      if (cliente && cliente !== "all") {
+        url += `?cliente=${encodeURIComponent(cliente)}`;
+      }
+
+      const response = await fetch(url, {
         method: "GET",
         credentials: "include",
       });
@@ -245,9 +250,14 @@ const BitacoraDetailPage = ({edited}) => {
     }
   };
 
-  const fetchDestinos = async () => {
+  const fetchDestinos = async (cliente = null) => {
     try {
-      const response = await fetch(`${baseUrl}/destinos`, {
+      let url = `${baseUrl}/destinos`;
+      if (cliente && cliente !== "all") {
+        url += `?cliente=${encodeURIComponent(cliente)}`;
+      }
+
+      const response = await fetch(url, {
         method: "GET",
         credentials: "include",
       });
@@ -262,9 +272,14 @@ const BitacoraDetailPage = ({edited}) => {
     }
   };
 
-  const fetchOperadores = async () => {
+  const fetchOperadores = async (lineaTransporte = null) => {
     try {
-      const response = await fetch(`${baseUrl}/operadores`, {
+      let url = `${baseUrl}/operadores`;
+      if (lineaTransporte && lineaTransporte !== "all") {
+        url += `?lineaTransporte=${encodeURIComponent(lineaTransporte)}`;
+      }
+
+      const response = await fetch(url, {
         method: "GET",
         credentials: "include",
       });
@@ -277,6 +292,29 @@ const BitacoraDetailPage = ({edited}) => {
       }
     } catch (e) {
       console.error("Error fetching operadores:", e);
+    }
+  };
+
+  // Fetch lineas de transporte filtered by client
+  const fetchLineasTransporte = async (cliente) => {
+    try {
+      let url = `${baseUrl}/lineas-transporte`;
+      if (cliente && cliente !== "all") {
+        url += `?cliente=${encodeURIComponent(cliente)}`;
+      }
+
+      const response = await fetch(url, {
+        method: "GET",
+        credentials: "include",
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setLineasTransporte(data);
+      } else {
+        console.error("Failed to fetch lineas transporte:", response.statusText);
+      }
+    } catch (e) {
+      console.error("Error fetching lineas transporte:", e);
     }
   };
 
@@ -335,6 +373,15 @@ const BitacoraDetailPage = ({edited}) => {
     fetchEventos();
   }, []);
 
+  // Update filtered data when bitacora is loaded
+  useEffect(() => {
+    if (bitacora && bitacora.cliente) {
+      fetchOrigenes(bitacora.cliente);
+      fetchDestinos(bitacora.cliente);
+      fetchLineasTransporte(bitacora.cliente);
+    }
+  }, [bitacora]);
+
   useEffect(() => {
     const init = async () => {
       try {
@@ -364,11 +411,7 @@ const BitacoraDetailPage = ({edited}) => {
     };
 
     fetchClients();
-    fetchOperadores();
-    fetchOrigenes();
     fetchMonitoreos();
-    fetchDestinos();
-    fetchBitacora();
     fetchEventTypes();
     init();
   }, []);
@@ -1786,23 +1829,47 @@ const BitacoraDetailPage = ({edited}) => {
               <Tab eventKey="operador" title="OPERADOR">
                 <Form.Group className="mb-3">
                   <Form.Label>Línea de Transporte</Form.Label>
-                  <Form.Control
-                    type="text"
+                  <Form.Select
                     value={editedTransporte.lineaTransporte || ""}
-                    onChange={(e) =>
-                      setEditedTransporte((prev) => ({...prev, lineaTransporte: e.target.value}))
-                    }
-                  />
+                    onChange={(e) => {
+                      const selectedLinea = e.target.value;
+                      setEditedTransporte((prev) => ({
+                        ...prev,
+                        lineaTransporte: selectedLinea,
+                        operador: "", // Reset operador when lineaTransporte changes
+                      }));
+                      // Fetch operadores for the selected linea de transporte
+                      if (selectedLinea && selectedLinea !== "all") {
+                        fetchOperadores(selectedLinea);
+                      }
+                    }}>
+                    <option value="">Selecciona una línea de transporte</option>
+                    {lineasTransporte.map((linea) => (
+                      <option key={linea._id} value={linea.nombre}>
+                        {linea.nombre}
+                      </option>
+                    ))}
+                  </Form.Select>
                 </Form.Group>
                 <Form.Group className="mb-3">
                   <Form.Label>Operador</Form.Label>
-                  <Form.Control
-                    type="text"
+                  <Form.Select
                     value={editedTransporte.operador || ""}
                     onChange={(e) =>
                       setEditedTransporte((prev) => ({...prev, operador: e.target.value}))
                     }
-                  />
+                    disabled={!editedTransporte.lineaTransporte}>
+                    <option value="">
+                      {editedTransporte.lineaTransporte
+                        ? "Selecciona un operador"
+                        : "Selecciona una línea de transporte primero"}
+                    </option>
+                    {operadores.map((operador) => (
+                      <option key={operador._id} value={operador.nombre}>
+                        {operador.nombre}
+                      </option>
+                    ))}
+                  </Form.Select>
                 </Form.Group>
                 <Form.Group className="mb-3">
                   <Form.Label>Teléfono</Form.Label>

@@ -2188,7 +2188,15 @@ app.delete("/roles/:id", async (req, res) => {
 // Fetch all origenes
 app.get("/origenes", async (req, res) => {
   try {
-    const origenes = await Origen.find();
+    const { cliente } = req.query;
+    let query = {};
+
+    // If cliente filter is provided, filter by cliente
+    if (cliente && cliente !== "all") {
+      query.cliente = cliente;
+    }
+
+    const origenes = await Origen.find(query);
     res.json(origenes);
   } catch (e) {
     res.status(500).json({ message: "Failed to fetch origenes", error: e.message });
@@ -2244,7 +2252,15 @@ app.delete("/origenes/:id", async (req, res) => {
 //DESTINOS
 app.get("/destinos", async (req, res) => {
   try {
-    const destinos = await Destino.find();
+    const { cliente } = req.query;
+    let query = {};
+
+    // If cliente filter is provided, filter by cliente
+    if (cliente && cliente !== "all") {
+      query.cliente = cliente;
+    }
+
+    const destinos = await Destino.find(query);
     res.status(200).json(destinos);
   } catch (e) {
     res.status(500).json({ message: "Error fetching destinos", error: e.message });

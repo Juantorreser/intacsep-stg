@@ -2,9 +2,14 @@
 
 const baseUrl = import.meta.env.VITE_BASE_URL;
 
-export const fetchOrigenes = async () => {
+export const fetchOrigenes = async (cliente = null) => {
   try {
-    const response = await fetch(`${baseUrl}/origenes`, {
+    let url = `${baseUrl}/origenes`;
+    if (cliente && cliente !== "all") {
+      url += `?cliente=${encodeURIComponent(cliente)}`;
+    }
+    
+    const response = await fetch(url, {
       method: "GET",
       credentials: "include",
     });
@@ -16,9 +21,14 @@ export const fetchOrigenes = async () => {
   }
 };
 
-export const fetchDestinos = async () => {
+export const fetchDestinos = async (cliente = null) => {
   try {
-    const response = await fetch(`${baseUrl}/destinos`, {
+    let url = `${baseUrl}/destinos`;
+    if (cliente && cliente !== "all") {
+      url += `?cliente=${encodeURIComponent(cliente)}`;
+    }
+    
+    const response = await fetch(url, {
       method: "GET",
       credentials: "include",
     });
@@ -30,9 +40,14 @@ export const fetchDestinos = async () => {
   }
 };
 
-export const fetchOperadores = async () => {
+export const fetchOperadores = async (lineaTransporte = null) => {
   try {
-    const response = await fetch(`${baseUrl}/operadores`, {
+    let url = `${baseUrl}/operadores`;
+    if (lineaTransporte && lineaTransporte !== "all") {
+      url += `?lineaTransporte=${encodeURIComponent(lineaTransporte)}`;
+    }
+    
+    const response = await fetch(url, {
       method: "GET",
       credentials: "include",
     });
@@ -40,6 +55,25 @@ export const fetchOperadores = async () => {
     return await response.json();
   } catch (e) {
     console.error("Error fetching operadores:", e);
+    return [];
+  }
+};
+
+export const fetchLineasTransporte = async (cliente = null) => {
+  try {
+    let url = `${baseUrl}/lineas-transporte`;
+    if (cliente && cliente !== "all") {
+      url += `?cliente=${encodeURIComponent(cliente)}`;
+    }
+    
+    const response = await fetch(url, {
+      method: "GET",
+      credentials: "include",
+    });
+    if (!response.ok) throw new Error("Failed to fetch lineas transporte");
+    return await response.json();
+  } catch (e) {
+    console.error("Error fetching lineas transporte:", e);
     return [];
   }
 };
