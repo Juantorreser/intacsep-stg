@@ -3009,7 +3009,7 @@ app.get("/bitacoras/download-location/:locationName", async (req, res) => {
   }
 });
 
-// Dashboard Stats
+// Dashboard Stats (for main dashboard)
 app.get('/dashboard/stats', async (req, res) => {
   try {
     // Get user from session (already verified by middleware)
@@ -3918,6 +3918,205 @@ app.get('/dashboard/stats', async (req, res) => {
   } catch (err) {
     console.error('[GET /dashboard/stats] Error:', err);
     res.status(500).json({ error: 'Failed to fetch dashboard statistics' });
+  }
+});
+
+// Dashboard Stats for Anomalias Dashboard (without default time filters)
+app.get('/dashboard/anomalias-stats', async (req, res) => {
+  try {
+    // Get user from session (already verified by middleware)
+    const user = req.session.user;
+    if (!user) {
+      return res.status(401).json({ message: 'User not found' });
+    }
+
+    // Get role permissions
+    const role = await Role.findOne({ name: user.role });
+    if (!role) {
+      return res.status(401).json({ message: 'Role not found' });
+    }
+
+    // Get filter parameters
+    const {
+      clientFilter = 'all',
+      fechaDesde = '',
+      fechaHasta = '',
+      lineaTransporte = 'all',
+      operador = 'all'
+    } = req.query;
+
+    // Build filters based on user permissions
+    let bitacoraFilter = { deleted: { $ne: true } }; // Exclude deleted bitacoras
+
+    // Add client filter
+    if (clientFilter !== 'all') {
+      bitacoraFilter.cliente = clientFilter;
+    }
+
+    // Add date range filter
+    if (fechaDesde && fechaHasta && fechaDesde.trim() !== '' && fechaHasta.trim() !== '') {
+      const startDate = new Date(fechaDesde);
+      const endDate = new Date(fechaHasta + 'T23:59:59.999Z');
+
+      if (!isNaN(startDate) && !isNaN(endDate)) {
+        bitacoraFilter.createdAt = {
+          $gte: startDate,
+          $lte: endDate
+        };
+      }
+    }
+
+    // Add transport line filter
+    if (lineaTransporte !== 'all') {
+      bitacoraFilter.$or = [
+        { linea_transporte: lineaTransporte },
+        { 'transportes.lineaTransporte': lineaTransporte }
+      ];
+    }
+
+    // Add operator filter
+    if (operador !== 'all') {
+      if (bitacoraFilter.$or) {
+        // If we already have $or filter, create $and to combine them
+        const existingOr = bitacoraFilter.$or;
+        delete bitacoraFilter.$or;
+        bitacoraFilter.$and = [
+          { $or: existingOr },
+          {
+            $or: [
+              { operador: operador },
+              { 'transportes.operador': operador }
+            ]
+          }
+        ];
+      } else {
+        bitacoraFilter.$or = [
+          { operador: operador },
+          { 'transportes.operador': operador }
+        ];
+      }
+    }
+
+    if (!role.bitacoras?.read_all) {
+      // If user can't read all bitacoras, filter by their name
+      const userFullName = `${user.firstName} ${user.lastName}`;
+      // Only override operator filter if no specific operator is selected
+      if (operador === 'all') {
+        if (bitacoraFilter.$or || bitacoraFilter.$and) {
+          // If we already have filters, create $and to combine them
+          const existingFilters = {};
+          if (bitacoraFilter.$or) {
+            existingFilters.$or = bitacoraFilter.$or;
+            delete bitacoraFilter.$or;
+          }
+          if (bitacoraFilter.$and) {
+            existingFilters.$and = bitacoraFilter.$and;
+            delete bitacoraFilter.$and;
+          }
+
+          bitacoraFilter.$and = [
+            existingFilters,
+            {
+              $or: [
+                { operador: userFullName },
+                { 'transportes.operador': userFullName }
+              ]
+            }
+          ];
+        } else {
+          bitacoraFilter.$or = [
+            { operador: userFullName },
+            { 'transportes.operador': userFullName }
+          ];
+        }
+      }
+    }
+
+    // Get bitacora statistics (NO default time filters applied)
+    let totalBitacoras = await Bitacora.countDocuments(bitacoraFilter);
+    const nuevasBitacoras = await Bitacora.countDocuments({ ...bitacoraFilter, status: 'nueva' });
+    const enProcesoBitacoras = await Bitacora.countDocuments({ ...bitacoraFilter, status: { $in: ['validada', 'iniciada'] } });
+    const cerradasBitacoras = await Bitacora.countDocuments({ ...bitacoraFilter, status: { $in: ['cerrada', 'finalizada'] } });
+
+    // Get event categories statistics for pie chart (excluding "General")
+    let eventCategoriesStats = [];
+    try {
+      // First, let's get all event types to understand the mapping
+      const eventTypes = await EventType.find({ categoria: { $in: ['ENA', 'ONC', 'DR', 'FM'] } });
+
+      // Get event names for each category
+      const eventNamesByCategory = {};
+      eventTypes.forEach(eventType => {
+        if (!eventNamesByCategory[eventType.categoria]) {
+          eventNamesByCategory[eventType.categoria] = [];
+        }
+        eventNamesByCategory[eventType.categoria].push(eventType.evento);
+      });
+
+      // Now aggregate by event names that belong to our categories
+      eventCategoriesStats = await Bitacora.aggregate([
+        { $match: bitacoraFilter },
+        { $unwind: '$eventos' },
+        {
+          $match: {
+            'eventos.nombre': {
+              $in: eventTypes.map(et => et.evento)
+            }
+          }
+        },
+        {
+          $lookup: {
+            from: 'eventtypes',
+            localField: 'eventos.nombre',
+            foreignField: 'evento',
+            as: 'eventTypeInfo'
+          }
+        },
+        {
+          $group: {
+            _id: { $arrayElemAt: ['$eventTypeInfo.categoria', 0] },
+            count: { $sum: 1 }
+          }
+        },
+        { $sort: { count: -1 } }
+      ]);
+
+      // Define colors for each category
+      const categoryColors = {
+        'ENA': '#3b82f6',  // Blue
+        'FM': '#10b981',   // Green
+        'ONC': '#f59e0b',  // Orange
+        'DR': '#ef4444'    // Red
+      };
+
+      // Format the data with colors and ensure all categories are present
+      const allCategories = ['ENA', 'FM', 'ONC', 'DR'];
+      const formattedCategories = allCategories.map(category => {
+        const found = eventCategoriesStats.find(stat => stat._id === category);
+        return {
+          categoria: category,
+          count: found ? found.count : 0,
+          color: categoryColors[category]
+        };
+      });
+
+      eventCategoriesStats = formattedCategories;
+    } catch (error) {
+      console.log('Error fetching event categories stats:', error);
+      eventCategoriesStats = [];
+    }
+
+    res.status(200).json({
+      totalBitacoras,
+      nuevasBitacoras,
+      enProcesoBitacoras,
+      cerradasBitacoras,
+      eventCategoriesStats
+    });
+
+  } catch (err) {
+    console.error('[GET /dashboard/anomalias-stats] Error:', err);
+    res.status(500).json({ error: 'Failed to fetch anomalias dashboard statistics' });
   }
 });
 

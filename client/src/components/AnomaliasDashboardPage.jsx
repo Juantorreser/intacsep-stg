@@ -294,7 +294,7 @@ const AnomaliasDashboardPage = () => {
         }
 
         // Fetch dashboard statistics with filters for anomalías
-        const statsUrl = `${baseUrl}/dashboard/stats?clientFilter=${encodeURIComponent(
+        const statsUrl = `${baseUrl}/dashboard/anomalias-stats?clientFilter=${encodeURIComponent(
           appliedClientFilter
         )}&fechaDesde=${encodeURIComponent(appliedFechaDesde)}&fechaHasta=${encodeURIComponent(
           appliedFechaHasta
@@ -668,40 +668,34 @@ const AnomaliasDashboardPage = () => {
     }
 
     // Sort by anomalies count (descending) and limit to top 10
-    const chartData = lineasTransporteStats
-      .sort((a, b) => b.anomalias - a.anomalias)
-      .slice(0, 10)
-      .map((stat) => ({
-        name: stat.lineaTransporte,
-        anomalias: stat.anomalias,
-        color: stat.color,
-        lineaTransporte: stat.lineaTransporte, // Keep original data for click handler
-      }));
+    const chartData = lineasTransporteStats.sort((a, b) => b.anomalias - a.anomalias).slice(0, 10);
+
+    const maxAnomalias = Math.max(...chartData.map((item) => item.anomalias));
 
     return (
-      <ResponsiveContainer width="100%" height={400}>
-        <BarChart
-          data={chartData}
-          layout="horizontal"
-          margin={{top: 5, right: 30, left: 20, bottom: 5}}>
-          <CartesianGrid strokeDasharray="3 3" />
-          <XAxis type="number" />
-          <YAxis type="category" dataKey="name" width={120} />
-          <Tooltip
-            formatter={(value) => [`${formatNumber(value)} anomalías`, "Anomalías"]}
-            labelFormatter={(label) => `Línea: ${label}`}
-          />
-          <Bar
-            dataKey="anomalias"
-            fill="#8884d8"
-            onClick={handleLineaTransporteClick}
-            style={{cursor: "pointer"}}>
-            {chartData.map((entry, index) => (
-              <Cell key={`cell-${index}`} fill={entry.color} />
-            ))}
-          </Bar>
-        </BarChart>
-      </ResponsiveContainer>
+      <div className="custom-bar-chart">
+        {chartData.map((item, index) => {
+          const percentage = maxAnomalias > 0 ? (item.anomalias / maxAnomalias) * 100 : 0;
+          return (
+            <div
+              key={index}
+              className="bar-row"
+              onClick={() => handleLineaTransporteClick({lineaTransporte: item.lineaTransporte})}
+              style={{cursor: "pointer"}}>
+              <div className="bar-label">{item.lineaTransporte}</div>
+              <div className="bar-container">
+                <div
+                  className="bar-fill"
+                  style={{
+                    width: `${percentage}%`,
+                    backgroundColor: item.color,
+                  }}></div>
+              </div>
+              <div className="bar-value">{formatNumber(item.anomalias)}</div>
+            </div>
+          );
+        })}
+      </div>
     );
   };
 
@@ -742,40 +736,34 @@ const AnomaliasDashboardPage = () => {
     }
 
     // Sort by anomalies count (descending) and limit to top 10
-    const chartData = filteredStats
-      .sort((a, b) => b.anomalias - a.anomalias)
-      .slice(0, 10)
-      .map((stat) => ({
-        name: stat.operador,
-        anomalias: stat.anomalias,
-        color: stat.color,
-        operador: stat.operador, // Keep original data for click handler
-      }));
+    const chartData = filteredStats.sort((a, b) => b.anomalias - a.anomalias).slice(0, 10);
+
+    const maxAnomalias = Math.max(...chartData.map((item) => item.anomalias));
 
     return (
-      <ResponsiveContainer width="100%" height={400}>
-        <BarChart
-          data={chartData}
-          layout="horizontal"
-          margin={{top: 5, right: 30, left: 20, bottom: 5}}>
-          <CartesianGrid strokeDasharray="3 3" />
-          <XAxis type="number" />
-          <YAxis type="category" dataKey="name" width={120} />
-          <Tooltip
-            formatter={(value) => [`${formatNumber(value)} anomalías`, "Anomalías"]}
-            labelFormatter={(label) => `Operador: ${label}`}
-          />
-          <Bar
-            dataKey="anomalias"
-            fill="#8884d8"
-            onClick={handleOperadorClick}
-            style={{cursor: "pointer"}}>
-            {chartData.map((entry, index) => (
-              <Cell key={`cell-${index}`} fill={entry.color} />
-            ))}
-          </Bar>
-        </BarChart>
-      </ResponsiveContainer>
+      <div className="custom-bar-chart">
+        {chartData.map((item, index) => {
+          const percentage = maxAnomalias > 0 ? (item.anomalias / maxAnomalias) * 100 : 0;
+          return (
+            <div
+              key={index}
+              className="bar-row"
+              onClick={() => handleOperadorClick({operador: item.operador})}
+              style={{cursor: "pointer"}}>
+              <div className="bar-label">{item.operador}</div>
+              <div className="bar-container">
+                <div
+                  className="bar-fill"
+                  style={{
+                    width: `${percentage}%`,
+                    backgroundColor: item.color,
+                  }}></div>
+              </div>
+              <div className="bar-value">{formatNumber(item.anomalias)}</div>
+            </div>
+          );
+        })}
+      </div>
     );
   };
 
