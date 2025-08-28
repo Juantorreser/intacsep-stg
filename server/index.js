@@ -5563,10 +5563,14 @@ app.get('/dashboard/lineas-transporte-stats', async (req, res) => {
     const allEventNames = eventTypes.map(et => et.evento);
     bitacoraFilter['eventos.nombre'] = { $in: allEventNames };
 
-    // Obtener líneas de transporte del modelo LineaTransporte para el cliente seleccionado
+    // Obtener líneas de transporte del modelo LineaTransporte
     let lineasTransporte = [];
     if (clientFilter !== 'all') {
+      // Si hay un cliente específico seleccionado, obtener solo las líneas de ese cliente
       lineasTransporte = await LineaTransporte.find({ cliente: clientFilter }).select('nombre');
+    } else {
+      // Si no hay cliente seleccionado, obtener todas las líneas de transporte
+      lineasTransporte = await LineaTransporte.find({}).select('nombre');
     }
 
     // Obtener estadísticas por línea de transporte
@@ -5632,12 +5636,10 @@ app.get('/dashboard/lineas-transporte-stats', async (req, res) => {
       { $sort: { anomalias: -1 } }
     ]);
 
-    // Filtrar solo las líneas de transporte que existen en el modelo LineaTransporte para el cliente específico
-    // Solo mostrar datos cuando hay un cliente específico seleccionado
+    // Filtrar solo las líneas de transporte que existen en el modelo LineaTransporte
     let filteredTransportLineStats = [];
     if (clientFilter !== 'all') {
-      // Filtrar estadísticas para que solo incluyan líneas de transporte que existen en el modelo LineaTransporte
-      // y que pertenecen al cliente seleccionado
+      // Si hay un cliente específico seleccionado, filtrar por ese cliente
       filteredTransportLineStats = transportLineStats.filter(stat => {
         // Verificar que la estadística sea del cliente correcto
         const isCorrectClient = stat.cliente === clientFilter;
@@ -5659,6 +5661,18 @@ app.get('/dashboard/lineas-transporte-stats', async (req, res) => {
         });
 
         return isCorrectClient && lineaExists;
+      });
+    } else {
+      // Si no hay cliente seleccionado, mostrar todas las líneas de transporte que existen en el catálogo
+      filteredTransportLineStats = transportLineStats.filter(stat => {
+        // Verificar que la línea de transporte exista en el modelo LineaTransporte
+        // Comparación case-insensitive para evitar problemas de capitalización
+        const lineaExists = lineasTransporte.some(lt =>
+          lt.nombre && stat.lineaTransporte &&
+          lt.nombre.toLowerCase().trim() === stat.lineaTransporte.toLowerCase().trim()
+        );
+
+        return lineaExists;
       });
     }
 
@@ -5797,15 +5811,19 @@ app.get('/dashboard/operadores-stats', async (req, res) => {
     const allEventNames = eventTypes.map(et => et.evento);
     bitacoraFilter['eventos.nombre'] = { $in: allEventNames };
 
-    // Obtener operadores del modelo Operador para la línea de transporte seleccionada
+    // Obtener operadores del modelo Operador
     let operadores = [];
     if (lineaTransporte !== 'all') {
+      // Si hay una línea de transporte específica seleccionada, obtener solo los operadores de esa línea
       operadores = await Operador.find({ lineaTransporte: lineaTransporte }).select('nombre');
     } else if (clientFilter !== 'all') {
       // Si no hay línea de transporte seleccionada pero sí hay cliente, obtener todas las líneas del cliente
       const lineasDelCliente = await LineaTransporte.find({ cliente: clientFilter }).select('nombre');
       const nombresLineas = lineasDelCliente.map(lt => lt.nombre);
       operadores = await Operador.find({ lineaTransporte: { $in: nombresLineas } }).select('nombre');
+    } else {
+      // Si no hay filtros aplicados, obtener todos los operadores
+      operadores = await Operador.find({}).select('nombre');
     }
 
     // Obtener estadísticas por operador
@@ -5874,11 +5892,9 @@ app.get('/dashboard/operadores-stats', async (req, res) => {
     ]);
 
     // Filtrar solo los operadores que existen en el modelo Operador
-    // Solo mostrar datos cuando hay una línea de transporte específica seleccionada
     let filteredOperatorStats = [];
     if (lineaTransporte !== 'all') {
-      // Filtrar estadísticas para que solo incluyan operadores que existen en el modelo Operador
-      // y que pertenecen a la línea de transporte seleccionada
+      // Si hay una línea de transporte específica seleccionada, filtrar por esa línea
       filteredOperatorStats = operatorStats.filter(stat => {
         // Verificar que la estadística sea de la línea de transporte correcta
         const isCorrectLineaTransporte = stat.lineaTransporte === lineaTransporte;
@@ -5903,6 +5919,18 @@ app.get('/dashboard/operadores-stats', async (req, res) => {
         );
 
         return isCorrectClient && operadorExists;
+      });
+    } else {
+      // Si no hay filtros aplicados, mostrar todos los operadores que existen en el catálogo
+      filteredOperatorStats = operatorStats.filter(stat => {
+        // Verificar que el operador exista en el modelo Operador
+        // Comparación case-insensitive para evitar problemas de capitalización
+        const operadorExists = operadores.some(op =>
+          op.nombre && stat.operador &&
+          op.nombre.toLowerCase().trim() === stat.operador.toLowerCase().trim()
+        );
+
+        return operadorExists;
       });
     }
 

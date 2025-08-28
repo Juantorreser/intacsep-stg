@@ -525,20 +525,28 @@ const AnomaliasDashboardPage = () => {
           <p className="small">
             {appliedLineaTransporteFilter !== "all"
               ? `No se encontraron anomalías para la línea de transporte "${appliedLineaTransporteFilter}"`
-              : "No se encontraron líneas de transporte con anomalías para el cliente seleccionado"}
+              : appliedClientFilter !== "all"
+              ? "No se encontraron líneas de transporte con anomalías para el cliente seleccionado"
+              : "No se encontraron líneas de transporte con anomalías en el sistema"}
           </p>
         </div>
       );
     }
 
-    // Backend already filters by client and specific transport line if selected
-    // If a specific transport line is selected, show only that one
-    const statsToUse =
-      appliedLineaTransporteFilter !== "all"
-        ? lineasTransporteStats.filter(
-            (stat) => stat.lineaTransporte === appliedLineaTransporteFilter
-          )
-        : lineasTransporteStats;
+    // Filter data based on applied filters
+    let statsToUse = lineasTransporteStats;
+
+    // If a specific client is selected, filter by client
+    if (appliedClientFilter !== "all") {
+      statsToUse = statsToUse.filter((stat) => stat.cliente === appliedClientFilter);
+    }
+
+    // If a specific transport line is selected, filter by transport line
+    if (appliedLineaTransporteFilter !== "all") {
+      statsToUse = statsToUse.filter(
+        (stat) => stat.lineaTransporte === appliedLineaTransporteFilter
+      );
+    }
 
     const chartData = statsToUse.map((stat) => ({
       name: stat.lineaTransporte,
@@ -585,19 +593,28 @@ const AnomaliasDashboardPage = () => {
           <p className="small">
             {appliedLineaTransporteFilter !== "all"
               ? `No se encontraron operadores con anomalías para la línea de transporte "${appliedLineaTransporteFilter}"`
-              : "No se encontraron operadores con anomalías para la línea de transporte seleccionada"}
+              : appliedClientFilter !== "all"
+              ? "No se encontraron operadores con anomalías para el cliente seleccionado"
+              : "No se encontraron operadores con anomalías en el sistema"}
           </p>
         </div>
       );
     }
 
-    // Filter by selected client and transport line
-    const filteredStats = operadoresStats.filter(
-      (stat) =>
-        stat.cliente === appliedClientFilter &&
-        (appliedLineaTransporteFilter === "all" ||
-          stat.lineaTransporte === appliedLineaTransporteFilter)
-    );
+    // Filter data based on applied filters
+    let filteredStats = operadoresStats;
+
+    // If a specific client is selected, filter by client
+    if (appliedClientFilter !== "all") {
+      filteredStats = filteredStats.filter((stat) => stat.cliente === appliedClientFilter);
+    }
+
+    // If a specific transport line is selected, filter by transport line
+    if (appliedLineaTransporteFilter !== "all") {
+      filteredStats = filteredStats.filter(
+        (stat) => stat.lineaTransporte === appliedLineaTransporteFilter
+      );
+    }
 
     if (filteredStats.length === 0) {
       return (
@@ -607,7 +624,9 @@ const AnomaliasDashboardPage = () => {
           <p className="small">
             {appliedLineaTransporteFilter !== "all"
               ? `No se encontraron operadores con anomalías para la línea de transporte "${appliedLineaTransporteFilter}"`
-              : "No se encontraron operadores con anomalías para la línea de transporte seleccionada"}
+              : appliedClientFilter !== "all"
+              ? "No se encontraron operadores con anomalías para el cliente seleccionado"
+              : "No se encontraron operadores con anomalías en el sistema"}
           </p>
         </div>
       );
@@ -665,20 +684,31 @@ const AnomaliasDashboardPage = () => {
           <p className="small">
             {appliedLineaTransporteFilter !== "all"
               ? `No se encontraron anomalías para la línea de transporte "${appliedLineaTransporteFilter}"`
-              : "No se encontraron líneas de transporte con anomalías para el cliente seleccionado"}
+              : appliedClientFilter !== "all"
+              ? "No se encontraron líneas de transporte con anomalías para el cliente seleccionado"
+              : "No se encontraron líneas de transporte con anomalías en el sistema"}
           </p>
         </div>
       );
     }
 
+    // Filter data based on applied filters
+    let statsToUse = lineasTransporteStats;
+
+    // If a specific client is selected, filter by client
+    if (appliedClientFilter !== "all") {
+      statsToUse = statsToUse.filter((stat) => stat.cliente === appliedClientFilter);
+    }
+
+    // If a specific transport line is selected, filter by transport line
+    if (appliedLineaTransporteFilter !== "all") {
+      statsToUse = statsToUse.filter(
+        (stat) => stat.lineaTransporte === appliedLineaTransporteFilter
+      );
+    }
+
     // Sort by anomalies count (descending) and limit to top 10
-    // If a specific transport line is selected, show only that one
-    const chartData =
-      appliedLineaTransporteFilter !== "all"
-        ? lineasTransporteStats.filter(
-            (stat) => stat.lineaTransporte === appliedLineaTransporteFilter
-          )
-        : lineasTransporteStats.sort((a, b) => b.anomalias - a.anomalias).slice(0, 10);
+    const chartData = statsToUse.sort((a, b) => b.anomalias - a.anomalias).slice(0, 10);
 
     const maxAnomalias = Math.max(...chartData.map((item) => item.anomalias));
 
@@ -721,19 +751,28 @@ const AnomaliasDashboardPage = () => {
           <p className="small">
             {appliedLineaTransporteFilter !== "all"
               ? `No se encontraron operadores con anomalías para la línea de transporte "${appliedLineaTransporteFilter}"`
-              : "No se encontraron operadores con anomalías para la línea de transporte seleccionada"}
+              : appliedClientFilter !== "all"
+              ? "No se encontraron operadores con anomalías para el cliente seleccionado"
+              : "No se encontraron operadores con anomalías en el sistema"}
           </p>
         </div>
       );
     }
 
-    // Filter by selected client and transport line
-    const filteredStats = operadoresStats.filter(
-      (stat) =>
-        stat.cliente === appliedClientFilter &&
-        (appliedLineaTransporteFilter === "all" ||
-          stat.lineaTransporte === appliedLineaTransporteFilter)
-    );
+    // Filter data based on applied filters
+    let filteredStats = operadoresStats;
+
+    // If a specific client is selected, filter by client
+    if (appliedClientFilter !== "all") {
+      filteredStats = filteredStats.filter((stat) => stat.cliente === appliedClientFilter);
+    }
+
+    // If a specific transport line is selected, filter by transport line
+    if (appliedLineaTransporteFilter !== "all") {
+      filteredStats = filteredStats.filter(
+        (stat) => stat.lineaTransporte === appliedLineaTransporteFilter
+      );
+    }
 
     if (filteredStats.length === 0) {
       return (
@@ -743,7 +782,9 @@ const AnomaliasDashboardPage = () => {
           <p className="small">
             {appliedLineaTransporteFilter !== "all"
               ? `No se encontraron operadores con anomalías para la línea de transporte "${appliedLineaTransporteFilter}"`
-              : "No se encontraron operadores con anomalías para la línea de transporte seleccionada"}
+              : appliedClientFilter !== "all"
+              ? "No se encontraron operadores con anomalías para el cliente seleccionado"
+              : "No se encontraron operadores con anomalías en el sistema"}
           </p>
         </div>
       );
@@ -1464,167 +1505,163 @@ const AnomaliasDashboardPage = () => {
 
             {/* Líneas de Transporte y Operadores - Unificadas en una fila */}
             <div className="row mb-3 mb-md-4">
-              {/* Líneas de Transporte - Solo mostrar si hay cliente seleccionado */}
-              {appliedClientFilter !== "all" && (
-                <div className="col-12 col-lg-6">
-                  <div className="chart-card">
-                    <div className="chart-header d-flex justify-content-between align-items-center">
-                      <div className="d-flex align-items-center gap-2">
-                        <h6 className="mb-0">
-                          Anomalías por Línea de Transporte
-                          {appliedClientFilter !== "all" ? ` - ${appliedClientFilter}` : ""}
-                        </h6>
-                        {(appliedClientFilter !== "all" ||
-                          appliedLineaTransporteFilter !== "all" ||
-                          appliedOperadorFilter !== "all" ||
-                          appliedFechaDesde ||
-                          appliedFechaHasta !== new Date().toISOString().split("T")[0]) && (
-                          <span className="badge bg-info" style={{fontSize: "10px"}}>
-                            <i className="fa fa-filter me-1"></i>
-                            Filtrado
-                          </span>
-                        )}
-                      </div>
-                      <div className="d-flex align-items-center gap-2">
-                        {/* Botón de switch para cambiar vista */}
-                        <div className="btn-group btn-group-sm" role="group">
-                          <button
-                            type="button"
-                            className={`btn ${
-                              lineasViewMode === "pie" ? "btn-primary" : "btn-outline-primary"
-                            }`}
-                            onClick={() => setLineasViewMode("pie")}
-                            title="Vista de gráfico circular">
-                            <i className="fa fa-pie-chart"></i>
-                          </button>
-                          <button
-                            type="button"
-                            className={`btn ${
-                              lineasViewMode === "bar" ? "btn-primary" : "btn-outline-primary"
-                            }`}
-                            onClick={() => setLineasViewMode("bar")}
-                            title="Vista de barras">
-                            <i className="fa fa-bar-chart"></i>
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="chart-body">
+              {/* Líneas de Transporte - Siempre mostrar */}
+              <div className="col-12 col-lg-6">
+                <div className="chart-card">
+                  <div className="chart-header d-flex justify-content-between align-items-center">
+                    <div className="d-flex align-items-center gap-2">
+                      <h6 className="mb-0">
+                        Anomalías por Línea de Transporte
+                        {appliedClientFilter !== "all"
+                          ? ` - ${appliedClientFilter}`
+                          : " - Todas las líneas"}
+                      </h6>
                       {(appliedClientFilter !== "all" ||
                         appliedLineaTransporteFilter !== "all" ||
                         appliedOperadorFilter !== "all" ||
                         appliedFechaDesde ||
                         appliedFechaHasta !== new Date().toISOString().split("T")[0]) && (
-                        <div className="alert alert-info py-2 mb-3" style={{fontSize: "12px"}}>
-                          <i className="fa fa-info-circle me-2"></i>
-                          <strong>Filtros activos:</strong>{" "}
-                          {appliedClientFilter !== "all" && `Cliente: ${appliedClientFilter} | `}
-                          {appliedLineaTransporteFilter !== "all" &&
-                            `Línea: ${appliedLineaTransporteFilter} | `}
-                          {appliedOperadorFilter !== "all" &&
-                            `Operador: ${appliedOperadorFilter} | `}
-                          {appliedFechaDesde && `Desde: ${appliedFechaDesde} | `}
-                          {appliedFechaHasta !== new Date().toISOString().split("T")[0] &&
-                            `Hasta: ${appliedFechaHasta}`}
-                        </div>
+                        <span className="badge bg-info" style={{fontSize: "10px"}}>
+                          <i className="fa fa-filter me-1"></i>
+                          Filtrado
+                        </span>
                       )}
-                      <div className="chart-subheader small text-muted mb-3">
-                        {lineasViewMode === "pie"
-                          ? "Haz clic en un segmento para filtrar por esa línea"
-                          : "Vista de barras horizontales"}
-                      </div>
-                      <div className="overflow-auto">
-                        {lineasViewMode === "pie"
-                          ? renderLineasTransportePieChart()
-                          : renderLineasTransporteBarChart()}
+                    </div>
+                    <div className="d-flex align-items-center gap-2">
+                      {/* Botón de switch para cambiar vista */}
+                      <div className="btn-group btn-group-sm" role="group">
+                        <button
+                          type="button"
+                          className={`btn ${
+                            lineasViewMode === "pie" ? "btn-primary" : "btn-outline-primary"
+                          }`}
+                          onClick={() => setLineasViewMode("pie")}
+                          title="Vista de gráfico circular">
+                          <i className="fa fa-pie-chart"></i>
+                        </button>
+                        <button
+                          type="button"
+                          className={`btn ${
+                            lineasViewMode === "bar" ? "btn-primary" : "btn-outline-primary"
+                          }`}
+                          onClick={() => setLineasViewMode("bar")}
+                          title="Vista de barras">
+                          <i className="fa fa-bar-chart"></i>
+                        </button>
                       </div>
                     </div>
                   </div>
+                  <div className="chart-body">
+                    {(appliedClientFilter !== "all" ||
+                      appliedLineaTransporteFilter !== "all" ||
+                      appliedOperadorFilter !== "all" ||
+                      appliedFechaDesde ||
+                      appliedFechaHasta !== new Date().toISOString().split("T")[0]) && (
+                      <div className="alert alert-info py-2 mb-3" style={{fontSize: "12px"}}>
+                        <i className="fa fa-info-circle me-2"></i>
+                        <strong>Filtros activos:</strong>{" "}
+                        {appliedClientFilter !== "all" && `Cliente: ${appliedClientFilter} | `}
+                        {appliedLineaTransporteFilter !== "all" &&
+                          `Línea: ${appliedLineaTransporteFilter} | `}
+                        {appliedOperadorFilter !== "all" && `Operador: ${appliedOperadorFilter} | `}
+                        {appliedFechaDesde && `Desde: ${appliedFechaDesde} | `}
+                        {appliedFechaHasta !== new Date().toISOString().split("T")[0] &&
+                          `Hasta: ${appliedFechaHasta}`}
+                      </div>
+                    )}
+                    <div className="chart-subheader small text-muted mb-3">
+                      {lineasViewMode === "pie"
+                        ? "Haz clic en un segmento para filtrar por esa línea"
+                        : "Vista de barras horizontales"}
+                    </div>
+                    <div className="overflow-auto">
+                      {lineasViewMode === "pie"
+                        ? renderLineasTransportePieChart()
+                        : renderLineasTransporteBarChart()}
+                    </div>
+                  </div>
                 </div>
-              )}
+              </div>
 
-              {/* Operadores - Solo mostrar si hay cliente y línea de transporte seleccionados */}
-              {appliedClientFilter !== "all" && appliedLineaTransporteFilter !== "all" && (
-                <div className="col-12 col-lg-6">
-                  <div className="chart-card">
-                    <div className="chart-header d-flex justify-content-between align-items-center">
-                      <div className="d-flex align-items-center gap-2">
-                        <h6 className="mb-0">
-                          Anomalías por Operador
-                          {appliedClientFilter !== "all" && appliedLineaTransporteFilter !== "all"
-                            ? ` - ${appliedClientFilter} / ${appliedLineaTransporteFilter}`
-                            : appliedClientFilter !== "all"
-                            ? ` - ${appliedClientFilter}`
-                            : ""}
-                        </h6>
-                        {(appliedClientFilter !== "all" ||
-                          appliedLineaTransporteFilter !== "all" ||
-                          appliedOperadorFilter !== "all" ||
-                          appliedFechaDesde ||
-                          appliedFechaHasta !== new Date().toISOString().split("T")[0]) && (
-                          <span className="badge bg-info" style={{fontSize: "10px"}}>
-                            <i className="fa fa-filter me-1"></i>
-                            Filtrado
-                          </span>
-                        )}
-                      </div>
-                      <div className="d-flex align-items-center gap-2">
-                        {/* Botón de switch para cambiar vista */}
-                        <div className="btn-group btn-group-sm" role="group">
-                          <button
-                            type="button"
-                            className={`btn ${
-                              operadoresViewMode === "pie" ? "btn-primary" : "btn-outline-primary"
-                            }`}
-                            onClick={() => setOperadoresViewMode("pie")}
-                            title="Vista de gráfico circular">
-                            <i className="fa fa-pie-chart"></i>
-                          </button>
-                          <button
-                            type="button"
-                            className={`btn ${
-                              operadoresViewMode === "bar" ? "btn-primary" : "btn-outline-primary"
-                            }`}
-                            onClick={() => setOperadoresViewMode("bar")}
-                            title="Vista de barras">
-                            <i className="fa fa-bar-chart"></i>
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="chart-body">
+              {/* Operadores - Siempre mostrar */}
+              <div className="col-12 col-lg-6">
+                <div className="chart-card">
+                  <div className="chart-header d-flex justify-content-between align-items-center">
+                    <div className="d-flex align-items-center gap-2">
+                      <h6 className="mb-0">
+                        Anomalías por Operador
+                        {appliedClientFilter !== "all" && appliedLineaTransporteFilter !== "all"
+                          ? ` - ${appliedClientFilter} / ${appliedLineaTransporteFilter}`
+                          : appliedClientFilter !== "all"
+                          ? ` - ${appliedClientFilter}`
+                          : " - Todos los operadores"}
+                      </h6>
                       {(appliedClientFilter !== "all" ||
                         appliedLineaTransporteFilter !== "all" ||
                         appliedOperadorFilter !== "all" ||
                         appliedFechaDesde ||
                         appliedFechaHasta !== new Date().toISOString().split("T")[0]) && (
-                        <div className="alert alert-info py-2 mb-3" style={{fontSize: "12px"}}>
-                          <i className="fa fa-info-circle me-2"></i>
-                          <strong>Filtros activos:</strong>{" "}
-                          {appliedClientFilter !== "all" && `Cliente: ${appliedClientFilter} | `}
-                          {appliedLineaTransporteFilter !== "all" &&
-                            `Línea: ${appliedLineaTransporteFilter} | `}
-                          {appliedOperadorFilter !== "all" &&
-                            `Operador: ${appliedOperadorFilter} | `}
-                          {appliedFechaDesde && `Desde: ${appliedFechaDesde} | `}
-                          {appliedFechaHasta !== new Date().toISOString().split("T")[0] &&
-                            `Hasta: ${appliedFechaHasta}`}
-                        </div>
+                        <span className="badge bg-info" style={{fontSize: "10px"}}>
+                          <i className="fa fa-filter me-1"></i>
+                          Filtrado
+                        </span>
                       )}
-                      <div className="chart-subheader small text-muted mb-3">
-                        {operadoresViewMode === "pie"
-                          ? "Haz clic en un segmento para filtrar por ese operador"
-                          : "Vista de barras horizontales"}
-                      </div>
-                      <div className="overflow-auto">
-                        {operadoresViewMode === "pie"
-                          ? renderOperadoresPieChart()
-                          : renderOperadoresBarChart()}
+                    </div>
+                    <div className="d-flex align-items-center gap-2">
+                      {/* Botón de switch para cambiar vista */}
+                      <div className="btn-group btn-group-sm" role="group">
+                        <button
+                          type="button"
+                          className={`btn ${
+                            operadoresViewMode === "pie" ? "btn-primary" : "btn-outline-primary"
+                          }`}
+                          onClick={() => setOperadoresViewMode("pie")}
+                          title="Vista de gráfico circular">
+                          <i className="fa fa-pie-chart"></i>
+                        </button>
+                        <button
+                          type="button"
+                          className={`btn ${
+                            operadoresViewMode === "bar" ? "btn-primary" : "btn-outline-primary"
+                          }`}
+                          onClick={() => setOperadoresViewMode("bar")}
+                          title="Vista de barras">
+                          <i className="fa fa-bar-chart"></i>
+                        </button>
                       </div>
                     </div>
                   </div>
+                  <div className="chart-body">
+                    {(appliedClientFilter !== "all" ||
+                      appliedLineaTransporteFilter !== "all" ||
+                      appliedOperadorFilter !== "all" ||
+                      appliedFechaDesde ||
+                      appliedFechaHasta !== new Date().toISOString().split("T")[0]) && (
+                      <div className="alert alert-info py-2 mb-3" style={{fontSize: "12px"}}>
+                        <i className="fa fa-info-circle me-2"></i>
+                        <strong>Filtros activos:</strong>{" "}
+                        {appliedClientFilter !== "all" && `Cliente: ${appliedClientFilter} | `}
+                        {appliedLineaTransporteFilter !== "all" &&
+                          `Línea: ${appliedLineaTransporteFilter} | `}
+                        {appliedOperadorFilter !== "all" && `Operador: ${appliedOperadorFilter} | `}
+                        {appliedFechaDesde && `Desde: ${appliedFechaDesde} | `}
+                        {appliedFechaHasta !== new Date().toISOString().split("T")[0] &&
+                          `Hasta: ${appliedFechaHasta}`}
+                      </div>
+                    )}
+                    <div className="chart-subheader small text-muted mb-3">
+                      {operadoresViewMode === "pie"
+                        ? "Haz clic en un segmento para filtrar por ese operador"
+                        : "Vista de barras horizontales"}
+                    </div>
+                    <div className="overflow-auto">
+                      {operadoresViewMode === "pie"
+                        ? renderOperadoresPieChart()
+                        : renderOperadoresBarChart()}
+                    </div>
+                  </div>
                 </div>
-              )}
+              </div>
             </div>
 
             {/* Tipos de Anomalías */}
