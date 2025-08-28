@@ -548,36 +548,146 @@ const AnomaliasDashboardPage = () => {
       );
     }
 
-    const chartData = statsToUse.map((stat) => ({
+    // Sort by anomalies count (descending) and limit to top 15 for better visualization
+    const sortedStats = statsToUse.sort((a, b) => b.anomalias - a.anomalias).slice(0, 15);
+
+    // Group remaining transport lines into "Otros" category if there are more than 15
+    let chartData = sortedStats.map((stat) => ({
       name: stat.lineaTransporte,
       value: stat.anomalias,
       color: stat.color,
-      lineaTransporte: stat.lineaTransporte, // Keep original data for click handler
+      lineaTransporte: stat.lineaTransporte,
       totalAnomalias: statsToUse.reduce((sum, s) => sum + s.anomalias, 0),
     }));
 
+    // Add "Otros" category if there are more than 15 transport lines
+    if (statsToUse.length > 15) {
+      const othersAnomalias = statsToUse.slice(15).reduce((sum, stat) => sum + stat.anomalias, 0);
+
+      if (othersAnomalias > 0) {
+        chartData.push({
+          name: `Otros (${statsToUse.length - 15} líneas)`,
+          value: othersAnomalias,
+          color: "#94a3b8", // Gray color for "Others"
+          lineaTransporte: "otros",
+          totalAnomalias: statsToUse.reduce((sum, s) => sum + s.anomalias, 0),
+        });
+      }
+    }
+
     return (
-      <ResponsiveContainer width="100%" height={350}>
-        <PieChart>
-          <Pie
-            data={chartData}
-            cx="50%"
-            cy="50%"
-            labelLine={false}
-            label={({name, percent}) => `${name} ${(percent * 100).toFixed(0)}%`}
-            outerRadius={120}
-            fill="#8884d8"
-            dataKey="value"
-            onClick={handleLineaTransporteClick}
-            style={{cursor: "pointer"}}>
+      <div>
+        <ResponsiveContainer width="100%" height={350}>
+          <PieChart>
+            <Pie
+              data={chartData}
+              cx="50%"
+              cy="50%"
+              labelLine={false}
+              label={({
+                cx,
+                cy,
+                midAngle,
+                innerRadius,
+                outerRadius,
+                percent,
+                name,
+                value,
+                index,
+              }) => {
+                const RADIAN = Math.PI / 180;
+                const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
+                const x = cx + radius * Math.cos(-midAngle * RADIAN);
+                const y = cy + radius * Math.sin(-midAngle * RADIAN);
+
+                // Only show labels for segments with more than 5% or top 5
+                const isTop5 = index < 5;
+                const hasSignificantPercentage = percent > 0.05;
+
+                if (isTop5 || hasSignificantPercentage) {
+                  const displayText = `${
+                    name.length > 15 ? name.substring(0, 15) + "..." : name
+                  } (${value})`;
+                  return (
+                    <text
+                      x={x}
+                      y={y}
+                      fill="white"
+                      textAnchor={x > cx ? "start" : "end"}
+                      dominantBaseline="central"
+                      fontSize="11px"
+                      fontWeight="500">
+                      {displayText}
+                    </text>
+                  );
+                }
+                return null;
+              }}
+              outerRadius={120}
+              fill="#8884d8"
+              dataKey="value"
+              onClick={handleLineaTransporteClick}
+              style={{cursor: "pointer"}}>
+              {chartData.map((entry, index) => (
+                <Cell key={`cell-${index}`} fill={entry.color} />
+              ))}
+            </Pie>
+            <Tooltip content={<CustomTooltip />} />
+          </PieChart>
+        </ResponsiveContainer>
+
+        {/* Enhanced legend with better formatting */}
+        <div className="mt-3">
+          <div className="row">
             {chartData.map((entry, index) => (
-              <Cell key={`cell-${index}`} fill={entry.color} />
+              <div key={index} className="col-6 col-md-4 mb-2">
+                <div className="d-flex align-items-center">
+                  <div
+                    className="legend-color me-2"
+                    style={{
+                      width: "12px",
+                      height: "12px",
+                      backgroundColor: entry.color,
+                      borderRadius: "2px",
+                      flexShrink: 0,
+                    }}
+                  />
+                  <div className="legend-text" style={{fontSize: "11px", lineHeight: "1.2"}}>
+                    <div className="fw-semibold">
+                      {entry.name.length > 20 ? entry.name.substring(0, 20) + "..." : entry.name}
+                    </div>
+                    <div className="text-muted" style={{fontSize: "10px"}}>
+                      {entry.value} anomalías
+                    </div>
+                  </div>
+                </div>
+              </div>
             ))}
-          </Pie>
-          <Tooltip content={<CustomTooltip />} />
-          <Legend />
-        </PieChart>
-      </ResponsiveContainer>
+          </div>
+
+          {/* Summary information */}
+          <div className="mt-3 p-2 bg-light rounded" style={{fontSize: "12px"}}>
+            <div className="row text-center">
+              <div className="col-4">
+                <div className="fw-bold text-primary">{chartData.length}</div>
+                <div className="text-muted">Categorías</div>
+              </div>
+              <div className="col-4">
+                <div className="fw-bold text-success">
+                  {chartData.reduce((sum, item) => sum + item.value, 0)}
+                </div>
+                <div className="text-muted">Total Anomalías</div>
+              </div>
+              <div className="col-4">
+                <div className="fw-bold text-info">
+                  {statsToUse.length > 15 ? statsToUse.length - 15 : 0}
+                </div>
+                <div className="text-muted">En &quot;Otros&quot;</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     );
   };
 
@@ -639,36 +749,146 @@ const AnomaliasDashboardPage = () => {
         ? filteredStats.filter((stat) => stat.operador === appliedOperadorFilter)
         : filteredStats;
 
-    const chartData = statsToUse.map((stat) => ({
+    // Sort by anomalies count (descending) and limit to top 15 for better visualization
+    const sortedStats = statsToUse.sort((a, b) => b.anomalias - a.anomalias).slice(0, 15);
+
+    // Group remaining operators into "Otros" category if there are more than 15
+    let chartData = sortedStats.map((stat) => ({
       name: stat.operador,
       value: stat.anomalias,
       color: stat.color,
-      operador: stat.operador, // Keep original data for click handler
+      operador: stat.operador,
       totalAnomalias: statsToUse.reduce((sum, s) => sum + s.anomalias, 0),
     }));
 
+    // Add "Otros" category if there are more than 15 operators
+    if (statsToUse.length > 15) {
+      const othersAnomalias = statsToUse.slice(15).reduce((sum, stat) => sum + stat.anomalias, 0);
+
+      if (othersAnomalias > 0) {
+        chartData.push({
+          name: `Otros (${statsToUse.length - 15} operadores)`,
+          value: othersAnomalias,
+          color: "#94a3b8", // Gray color for "Others"
+          operador: "otros",
+          totalAnomalias: statsToUse.reduce((sum, s) => sum + s.anomalias, 0),
+        });
+      }
+    }
+
     return (
-      <ResponsiveContainer width="100%" height={350}>
-        <PieChart>
-          <Pie
-            data={chartData}
-            cx="50%"
-            cy="50%"
-            labelLine={false}
-            label={({name, percent}) => `${name} ${(percent * 100).toFixed(0)}%`}
-            outerRadius={120}
-            fill="#8884d8"
-            dataKey="value"
-            onClick={handleOperadorClick}
-            style={{cursor: "pointer"}}>
+      <div>
+        <ResponsiveContainer width="100%" height={350}>
+          <PieChart>
+            <Pie
+              data={chartData}
+              cx="50%"
+              cy="50%"
+              labelLine={false}
+              label={({
+                cx,
+                cy,
+                midAngle,
+                innerRadius,
+                outerRadius,
+                percent,
+                name,
+                value,
+                index,
+              }) => {
+                const RADIAN = Math.PI / 180;
+                const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
+                const x = cx + radius * Math.cos(-midAngle * RADIAN);
+                const y = cy + radius * Math.sin(-midAngle * RADIAN);
+
+                // Only show labels for segments with more than 5% or top 5
+                const isTop5 = index < 5;
+                const hasSignificantPercentage = percent > 0.05;
+
+                if (isTop5 || hasSignificantPercentage) {
+                  const displayText = `${
+                    name.length > 15 ? name.substring(0, 15) + "..." : name
+                  } (${value})`;
+                  return (
+                    <text
+                      x={x}
+                      y={y}
+                      fill="white"
+                      textAnchor={x > cx ? "start" : "end"}
+                      dominantBaseline="central"
+                      fontSize="11px"
+                      fontWeight="500">
+                      {displayText}
+                    </text>
+                  );
+                }
+                return null;
+              }}
+              outerRadius={120}
+              fill="#8884d8"
+              dataKey="value"
+              onClick={handleOperadorClick}
+              style={{cursor: "pointer"}}>
+              {chartData.map((entry, index) => (
+                <Cell key={`cell-${index}`} fill={entry.color} />
+              ))}
+            </Pie>
+            <Tooltip content={<CustomTooltip />} />
+          </PieChart>
+        </ResponsiveContainer>
+
+        {/* Enhanced legend with better formatting */}
+        <div className="mt-3">
+          <div className="row">
             {chartData.map((entry, index) => (
-              <Cell key={`cell-${index}`} fill={entry.color} />
+              <div key={index} className="col-6 col-md-4 mb-2">
+                <div className="d-flex align-items-center">
+                  <div
+                    className="legend-color me-2"
+                    style={{
+                      width: "12px",
+                      height: "12px",
+                      backgroundColor: entry.color,
+                      borderRadius: "2px",
+                      flexShrink: 0,
+                    }}
+                  />
+                  <div className="legend-text" style={{fontSize: "11px", lineHeight: "1.2"}}>
+                    <div className="fw-semibold" >
+                      {entry.name.length > 20 ? entry.name.substring(0, 20) + "..." : entry.name}
+                    </div>
+                    <div className="text-muted" style={{fontSize: "10px"}}>
+                      {entry.value} anomalías
+                    </div>
+                  </div>
+                </div>
+              </div>
             ))}
-          </Pie>
-          <Tooltip content={<CustomTooltip />} />
-          <Legend />
-        </PieChart>
-      </ResponsiveContainer>
+          </div>
+
+          {/* Summary information */}
+          <div className="mt-3 p-2 bg-light rounded" style={{fontSize: "12px"}}>
+            <div className="row text-center">
+              <div className="col-4">
+                <div className="fw-bold text-primary">{chartData.length}</div>
+                <div className="text-muted">Categorías</div>
+              </div>
+              <div className="col-4">
+                <div className="fw-bold text-success">
+                  {chartData.reduce((sum, item) => sum + item.value, 0)}
+                </div>
+                <div className="text-muted">Total Anomalías</div>
+              </div>
+              <div className="col-4">
+                <div className="fw-bold text-info">
+                  {statsToUse.length > 15 ? statsToUse.length - 15 : 0}
+                </div>
+                <div className="text-muted">En "Otros"</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     );
   };
 
@@ -707,34 +927,111 @@ const AnomaliasDashboardPage = () => {
       );
     }
 
-    // Sort by anomalies count (descending) and limit to top 10
-    const chartData = statsToUse.sort((a, b) => b.anomalias - a.anomalias).slice(0, 10);
+    // Sort by anomalies count (descending) and show ALL data for scrollable view
+    const chartData = statsToUse.sort((a, b) => b.anomalias - a.anomalias);
 
     const maxAnomalias = Math.max(...chartData.map((item) => item.anomalias));
 
     return (
-      <div className="custom-bar-chart">
-        {chartData.map((item, index) => {
-          const percentage = maxAnomalias > 0 ? (item.anomalias / maxAnomalias) * 100 : 0;
-          return (
-            <div
-              key={index}
-              className="bar-row"
-              onClick={() => handleLineaTransporteClick({lineaTransporte: item.lineaTransporte})}
-              style={{cursor: "pointer"}}>
-              <div className="bar-label">{item.lineaTransporte}</div>
-              <div className="bar-container">
+      <div>
+        <div
+          className="custom-bar-chart"
+          style={{
+            maxHeight: "300px",
+            overflowY: "auto",
+            paddingRight: "8px",
+          }}>
+          {chartData.map((item, index) => {
+            const percentage = maxAnomalias > 0 ? (item.anomalias / maxAnomalias) * 100 : 0;
+            return (
+              <div
+                key={index}
+                className="bar-row"
+                onClick={() => handleLineaTransporteClick({lineaTransporte: item.lineaTransporte})}
+                style={{
+                  cursor: "pointer",
+                  padding: "8px 12px",
+                  marginBottom: "8px",
+                  borderRadius: "6px",
+                  transition: "all 0.2s ease",
+                  position: "relative",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = "rgba(255, 255, 255, 0.1)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = "transparent";
+                }}
+                title={`${item.lineaTransporte}: ${formatNumber(item.anomalias)} anomalías`}>
                 <div
-                  className="bar-fill"
+                  className="bar-label"
                   style={{
-                    width: `${percentage}%`,
-                    backgroundColor: item.color,
-                  }}></div>
+                    fontSize: "11px",
+                    fontWeight: "500",
+                    color: "#ffffff",
+                    marginBottom: "4px",
+                  }}>
+                  {item.lineaTransporte.length > 25
+                    ? item.lineaTransporte.substring(0, 25) + "..."
+                    : item.lineaTransporte}
+                </div>
+                <div className="bar-container" style={{marginBottom: "4px"}}>
+                  <div
+                    className="bar-fill"
+                    style={{
+                      width: `${percentage}%`,
+                      backgroundColor: item.color,
+                      borderRadius: "4px",
+                      transition: "width 0.3s ease",
+                      height: "20px",
+                      minWidth: "4px",
+                    }}></div>
+                </div>
+                <div
+                  className="bar-value"
+                  style={{
+                    fontSize: "11px",
+                    fontWeight: "600",
+                    color: "#ffffff",
+                    textAlign: "right",
+                  }}>
+                  {formatNumber(item.anomalias)} anomalías
+                </div>
               </div>
-              <div className="bar-value">{formatNumber(item.anomalias)}</div>
+            );
+          })}
+        </div>
+
+        {/* Summary information */}
+        <div className="mt-3 p-3 bg-light rounded" style={{fontSize: "12px"}}>
+          <div className="row text-center">
+            <div className="col-4">
+              <div className="fw-bold text-primary">{chartData.length}</div>
+              <div className="text-muted">Líneas</div>
             </div>
-          );
-        })}
+            <div className="col-4">
+              <div className="fw-bold text-success">
+                {formatNumber(chartData.reduce((sum, item) => sum + item.anomalias, 0))}
+              </div>
+              <div className="text-muted">Total Anomalías</div>
+            </div>
+            <div className="col-4">
+              <div className="fw-bold text-info">
+                <i className="fa fa-scroll me-1"></i>
+                Scroll
+              </div>
+              <div className="text-muted">Disponible</div>
+            </div>
+          </div>
+
+          {/* Info about scrollable content */}
+          <div className="mt-2 text-center">
+            <small className="text-muted">
+              <i className="fa fa-info-circle me-1"></i>
+              Mostrando todas las {chartData.length} líneas de transporte
+            </small>
+          </div>
+        </div>
       </div>
     );
   };
@@ -790,38 +1087,115 @@ const AnomaliasDashboardPage = () => {
       );
     }
 
-    // Sort by anomalies count (descending) and limit to top 10
+    // Sort by anomalies count (descending) and show ALL data for scrollable view
     // If a specific operator is selected, show only that one
     const chartData =
       appliedOperadorFilter !== "all"
         ? filteredStats.filter((stat) => stat.operador === appliedOperadorFilter)
-        : filteredStats.sort((a, b) => b.anomalias - a.anomalias).slice(0, 10);
+        : filteredStats.sort((a, b) => b.anomalias - a.anomalias);
 
     const maxAnomalias = Math.max(...chartData.map((item) => item.anomalias));
 
     return (
-      <div className="custom-bar-chart">
-        {chartData.map((item, index) => {
-          const percentage = maxAnomalias > 0 ? (item.anomalias / maxAnomalias) * 100 : 0;
-          return (
-            <div
-              key={index}
-              className="bar-row"
-              onClick={() => handleOperadorClick({operador: item.operador})}
-              style={{cursor: "pointer"}}>
-              <div className="bar-label">{item.operador}</div>
-              <div className="bar-container">
+      <div>
+        <div
+          className="custom-bar-chart"
+          style={{
+            maxHeight: "300px",
+            overflowY: "auto",
+            paddingRight: "8px",
+          }}>
+          {chartData.map((item, index) => {
+            const percentage = maxAnomalias > 0 ? (item.anomalias / maxAnomalias) * 100 : 0;
+            return (
+              <div
+                key={index}
+                className="bar-row"
+                onClick={() => handleOperadorClick({operador: item.operador})}
+                style={{
+                  cursor: "pointer",
+                  padding: "8px 12px",
+                  marginBottom: "8px",
+                  borderRadius: "6px",
+                  transition: "all 0.2s ease",
+                  position: "relative",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = "rgba(255, 255, 255, 0.1)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = "transparent";
+                }}
+                title={`${item.operador}: ${formatNumber(item.anomalias)} anomalías`}>
                 <div
-                  className="bar-fill"
+                  className="bar-label"
                   style={{
-                    width: `${percentage}%`,
-                    backgroundColor: item.color,
-                  }}></div>
+                    fontSize: "11px",
+                    fontWeight: "500",
+                    color: "#ffffff",
+                    marginBottom: "4px",
+                  }}>
+                  {item.operador.length > 25
+                    ? item.operador.substring(0, 25) + "..."
+                    : item.operador}
+                </div>
+                <div className="bar-container" style={{marginBottom: "4px"}}>
+                  <div
+                    className="bar-fill"
+                    style={{
+                      width: `${percentage}%`,
+                      backgroundColor: item.color,
+                      borderRadius: "4px",
+                      transition: "width 0.3s ease",
+                      height: "20px",
+                      minWidth: "4px",
+                    }}></div>
+                </div>
+                <div
+                  className="bar-value"
+                  style={{
+                    fontSize: "11px",
+                    fontWeight: "600",
+                    color: "#ffffff",
+                    textAlign: "right",
+                  }}>
+                  {formatNumber(item.anomalias)} anomalías
+                </div>
               </div>
-              <div className="bar-value">{formatNumber(item.anomalias)}</div>
+            );
+          })}
+        </div>
+
+        {/* Summary information */}
+        <div className="mt-3 p-3 bg-light rounded" style={{fontSize: "12px"}}>
+          <div className="row text-center">
+            <div className="col-4">
+              <div className="fw-bold text-primary">{chartData.length}</div>
+              <div className="text-muted">Operadores</div>
             </div>
-          );
-        })}
+            <div className="col-4">
+              <div className="fw-bold text-success">
+                {formatNumber(chartData.reduce((sum, item) => sum + item.anomalias, 0))}
+              </div>
+              <div className="text-muted">Total Anomalías</div>
+            </div>
+            <div className="col-4">
+              <div className="fw-bold text-info">
+                <i className="fa fa-scroll me-1"></i>
+                Scroll
+              </div>
+              <div className="text-muted">Disponible</div>
+            </div>
+          </div>
+
+          {/* Info about scrollable content */}
+          <div className="mt-2 text-center">
+            <small className="text-muted">
+              <i className="fa fa-info-circle me-1"></i>
+              Mostrando todos los {chartData.length} operadores
+            </small>
+          </div>
+        </div>
       </div>
     );
   };
