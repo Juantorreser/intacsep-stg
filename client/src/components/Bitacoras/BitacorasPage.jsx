@@ -834,7 +834,8 @@ const BitacorasPage = () => {
                             onChange={(e) => handleOperadorFilterChange(e.target.value)}>
                             <option value="">Todos los operadores</option>
                             {operadores
-                              .sort((a, b) => a.name.localeCompare(b.name))
+                              .filter((operador) => operador && operador.name) // Filter out undefined/null items
+                              .sort((a, b) => (a.name || "").localeCompare(b.name || ""))
                               .map((operador, id) => (
                                 <option key={id} value={operador.name}>
                                   {operador.name}
