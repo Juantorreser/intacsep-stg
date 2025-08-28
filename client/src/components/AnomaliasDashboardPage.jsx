@@ -43,6 +43,10 @@ const AnomaliasDashboardPage = () => {
   const [loadingOperadores, setLoadingOperadores] = useState(false);
   const [eventCategoriesStats, setEventCategoriesStats] = useState([]);
 
+  // Estados para controlar las vistas de las gráficas
+  const [lineasViewMode, setLineasViewMode] = useState("pie"); // 'pie' or 'bar'
+  const [operadoresViewMode, setOperadoresViewMode] = useState("pie"); // 'pie' or 'bar'
+
   const baseUrl = import.meta.env.VITE_BASE_URL || "http://localhost:3001";
 
   // Function to fetch transport lines filtered by client
@@ -1458,10 +1462,10 @@ const AnomaliasDashboardPage = () => {
               </div>
             </div>
 
-            {/* Líneas de Transporte - Solo mostrar si hay cliente seleccionado */}
-            {appliedClientFilter !== "all" && (
-              <div className="row mb-3 mb-md-4">
-                {/* Pie Chart - Líneas de Transporte */}
+            {/* Líneas de Transporte y Operadores - Unificadas en una fila */}
+            <div className="row mb-3 mb-md-4">
+              {/* Líneas de Transporte - Solo mostrar si hay cliente seleccionado */}
+              {appliedClientFilter !== "all" && (
                 <div className="col-12 col-lg-6">
                   <div className="chart-card">
                     <div className="chart-header d-flex justify-content-between align-items-center">
@@ -1482,7 +1486,27 @@ const AnomaliasDashboardPage = () => {
                         )}
                       </div>
                       <div className="d-flex align-items-center gap-2">
-                        <i className="fa fa-pie-chart text-primary"></i>
+                        {/* Botón de switch para cambiar vista */}
+                        <div className="btn-group btn-group-sm" role="group">
+                          <button
+                            type="button"
+                            className={`btn ${
+                              lineasViewMode === "pie" ? "btn-primary" : "btn-outline-primary"
+                            }`}
+                            onClick={() => setLineasViewMode("pie")}
+                            title="Vista de gráfico circular">
+                            <i className="fa fa-pie-chart"></i>
+                          </button>
+                          <button
+                            type="button"
+                            className={`btn ${
+                              lineasViewMode === "bar" ? "btn-primary" : "btn-outline-primary"
+                            }`}
+                            onClick={() => setLineasViewMode("bar")}
+                            title="Vista de barras">
+                            <i className="fa fa-bar-chart"></i>
+                          </button>
+                        </div>
                       </div>
                     </div>
                     <div className="chart-body">
@@ -1505,52 +1529,22 @@ const AnomaliasDashboardPage = () => {
                         </div>
                       )}
                       <div className="chart-subheader small text-muted mb-3">
-                        Haz clic en un segmento para filtrar por esa línea
+                        {lineasViewMode === "pie"
+                          ? "Haz clic en un segmento para filtrar por esa línea"
+                          : "Vista de barras horizontales"}
                       </div>
-                      <div className="overflow-auto">{renderLineasTransportePieChart()}</div>
+                      <div className="overflow-auto">
+                        {lineasViewMode === "pie"
+                          ? renderLineasTransportePieChart()
+                          : renderLineasTransporteBarChart()}
+                      </div>
                     </div>
                   </div>
                 </div>
+              )}
 
-                {/* Bar Chart - Líneas de Transporte */}
-                <div className="col-12 col-lg-6">
-                  <div className="chart-card">
-                    <div className="chart-header d-flex justify-content-between align-items-center">
-                      <div className="d-flex align-items-center gap-2">
-                        <h6 className="mb-0">
-                          Anomalías por Línea de Transporte (Barras)
-                          {appliedClientFilter !== "all" ? ` - ${appliedClientFilter}` : ""}
-                        </h6>
-                        {(appliedClientFilter !== "all" ||
-                          appliedLineaTransporteFilter !== "all" ||
-                          appliedOperadorFilter !== "all" ||
-                          appliedFechaDesde ||
-                          appliedFechaHasta !== new Date().toISOString().split("T")[0]) && (
-                          <span className="badge bg-info" style={{fontSize: "10px"}}>
-                            <i className="fa fa-filter me-1"></i>
-                            Filtrado
-                          </span>
-                        )}
-                      </div>
-                      <div className="d-flex align-items-center gap-2">
-                        <i className="fa fa-bar-chart text-primary"></i>
-                      </div>
-                    </div>
-                    <div className="chart-body">
-                      <div className="chart-subheader small text-muted mb-3">
-                        Vista de barras horizontales
-                      </div>
-                      <div className="overflow-auto">{renderLineasTransporteBarChart()}</div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Operadores - Solo mostrar si hay cliente y línea de transporte seleccionados */}
-            {appliedClientFilter !== "all" && appliedLineaTransporteFilter !== "all" && (
-              <div className="row mb-3 mb-md-4">
-                {/* Pie Chart - Operadores */}
+              {/* Operadores - Solo mostrar si hay cliente y línea de transporte seleccionados */}
+              {appliedClientFilter !== "all" && appliedLineaTransporteFilter !== "all" && (
                 <div className="col-12 col-lg-6">
                   <div className="chart-card">
                     <div className="chart-header d-flex justify-content-between align-items-center">
@@ -1575,7 +1569,27 @@ const AnomaliasDashboardPage = () => {
                         )}
                       </div>
                       <div className="d-flex align-items-center gap-2">
-                        <i className="fa fa-pie-chart text-primary"></i>
+                        {/* Botón de switch para cambiar vista */}
+                        <div className="btn-group btn-group-sm" role="group">
+                          <button
+                            type="button"
+                            className={`btn ${
+                              operadoresViewMode === "pie" ? "btn-primary" : "btn-outline-primary"
+                            }`}
+                            onClick={() => setOperadoresViewMode("pie")}
+                            title="Vista de gráfico circular">
+                            <i className="fa fa-pie-chart"></i>
+                          </button>
+                          <button
+                            type="button"
+                            className={`btn ${
+                              operadoresViewMode === "bar" ? "btn-primary" : "btn-outline-primary"
+                            }`}
+                            onClick={() => setOperadoresViewMode("bar")}
+                            title="Vista de barras">
+                            <i className="fa fa-bar-chart"></i>
+                          </button>
+                        </div>
                       </div>
                     </div>
                     <div className="chart-body">
@@ -1598,51 +1612,20 @@ const AnomaliasDashboardPage = () => {
                         </div>
                       )}
                       <div className="chart-subheader small text-muted mb-3">
-                        Haz clic en un segmento para filtrar por ese operador
+                        {operadoresViewMode === "pie"
+                          ? "Haz clic en un segmento para filtrar por ese operador"
+                          : "Vista de barras horizontales"}
                       </div>
-                      <div className="overflow-auto">{renderOperadoresPieChart()}</div>
+                      <div className="overflow-auto">
+                        {operadoresViewMode === "pie"
+                          ? renderOperadoresPieChart()
+                          : renderOperadoresBarChart()}
+                      </div>
                     </div>
                   </div>
                 </div>
-
-                {/* Bar Chart - Operadores */}
-                <div className="col-12 col-lg-6">
-                  <div className="chart-card">
-                    <div className="chart-header d-flex justify-content-between align-items-center">
-                      <div className="d-flex align-items-center gap-2">
-                        <h6 className="mb-0">
-                          Anomalías por Operador (Barras)
-                          {appliedClientFilter !== "all" && appliedLineaTransporteFilter !== "all"
-                            ? ` - ${appliedClientFilter} / ${appliedLineaTransporteFilter}`
-                            : appliedClientFilter !== "all"
-                            ? ` - ${appliedClientFilter}`
-                            : ""}
-                        </h6>
-                        {(appliedClientFilter !== "all" ||
-                          appliedLineaTransporteFilter !== "all" ||
-                          appliedOperadorFilter !== "all" ||
-                          appliedFechaDesde ||
-                          appliedFechaHasta !== new Date().toISOString().split("T")[0]) && (
-                          <span className="badge bg-info" style={{fontSize: "10px"}}>
-                            <i className="fa fa-filter me-1"></i>
-                            Filtrado
-                          </span>
-                        )}
-                      </div>
-                      <div className="d-flex align-items-center gap-2">
-                        <i className="fa fa-bar-chart text-primary"></i>
-                      </div>
-                    </div>
-                    <div className="chart-body">
-                      <div className="chart-subheader small text-muted mb-3">
-                        Vista de barras horizontales
-                      </div>
-                      <div className="overflow-auto">{renderOperadoresBarChart()}</div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
+              )}
+            </div>
 
             {/* Tipos de Anomalías */}
             <div className="row mb-3 mb-md-4">
