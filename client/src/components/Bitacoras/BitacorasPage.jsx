@@ -6,7 +6,8 @@ import {useNavigate} from "react-router-dom";
 import Header from "../Header";
 import Sidebar from "../Sidebar";
 import "jspdf-autotable"; // For table support in jsPDF
-import {sortBitacoras} from "../../utils/utils"; // Assume these functions exist
+import {sortBitacoras, convertToUpperCase} from "../../utils/utils"; // Assume these functions exist
+import {filterBitacorasByClientPermissions, getAllowedClients} from "../../utils/clientPermissions";
 import BitacoraDetail from "./BitacoraDetail";
 import OldBitacoraDetail from "./OldBitacoraPDF";
 import ModalTemplate from "../ModalTemplate";
@@ -137,8 +138,14 @@ const BitacorasPage = () => {
           destinosData,
           operadoresData,
         ] = await Promise.all([
-          fetchBitacoras(currentPage, itemsPerPage, shouldReadAll ? "" : operadorFullName, filters),
-          fetchClients(),
+          fetchBitacoras(
+            currentPage,
+            itemsPerPage,
+            shouldReadAll ? "" : operadorFullName,
+            filters,
+            roleData
+          ),
+          fetchClients(roleData),
           fetchMonitoreos(),
           fetchUsers(),
           fetchOrigenes(),
@@ -266,11 +273,24 @@ const BitacorasPage = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
+      // Convert text fields to uppercase before sending
+      // Exclude certain fields that should remain as-is
+      const excludeFields = [
+        "status",
+        "inicioMonitoreo",
+        "finalMonitoreo",
+        "telefono",
+        "_id",
+        "createdAt",
+        "updatedAt",
+      ];
+      const uppercaseFormData = convertToUpperCase(formData, excludeFields);
+
       const response = await fetch(`${baseUrl}/bitacora`, {
         method: "POST",
         headers: {"content-type": "application/json"},
         credentials: "include",
-        body: JSON.stringify(formData),
+        body: JSON.stringify(uppercaseFormData),
       });
       if (response.ok) {
         // After successful creation, you might want to refetch bitacoras
@@ -315,9 +335,10 @@ const BitacorasPage = () => {
               currentPage,
               itemsPerPage,
               shouldReadAll ? "" : operadorFullName,
-              filters
+              filters,
+              roleData
             ),
-            fetchClients(),
+            fetchClients(roleData),
             fetchMonitoreos(),
             fetchUsers(),
             fetchOrigenes(),

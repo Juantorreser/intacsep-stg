@@ -3,6 +3,7 @@ import Sidebar from "../Sidebar";
 import ModalTemplate from "../ModalTemplate";
 import {useAuth} from "../../context/AuthContext";
 import {useSidebar} from "../../context/SidebarContext";
+import {convertToUpperCase} from "../../utils/utils";
 
 const OrigenPage = () => {
   const [origenes, setOrigenes] = useState([]);
@@ -224,10 +225,14 @@ const OrigenPage = () => {
   const handleCreate = async (e) => {
     e.preventDefault();
     try {
+      // Convert text fields to uppercase before sending
+      const excludeFields = ['_id', 'createdAt', 'updatedAt'];
+      const uppercaseFormData = convertToUpperCase(formData, excludeFields);
+      
       const response = await fetch(`${baseUrl}/origenes`, {
         method: "POST",
         headers: {"Content-Type": "application/json"},
-        body: JSON.stringify(formData),
+        body: JSON.stringify(uppercaseFormData),
         credentials: "include",
       });
 

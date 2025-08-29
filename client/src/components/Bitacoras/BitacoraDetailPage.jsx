@@ -10,6 +10,7 @@ import CreateTransporteModal from "./Transportes/CreateTransporteModal";
 import NewEventModal from "./Eventos/NewEventModal";
 import {generateAuditoriasFromChanges} from "../../utils/auditoria";
 import {getLocationText} from "../../utils/api";
+import {convertToUpperCase} from "../../utils/utils";
 import {useMemo} from "react";
 import ModalTemplate from "../../components/ModalTemplate"; // make sure path is valid
 import {useSidebar} from "../../context/SidebarContext";
@@ -981,12 +982,17 @@ const BitacoraDetailPage = ({edited}) => {
         destino: submitBitacora.destino,
       };
 
+      // Convert text fields to uppercase before sending
+      // Exclude certain fields that should remain as-is
+      const excludeFields = ['_id', 'createdAt', 'updatedAt'];
+      const uppercaseUpdate = convertToUpperCase(minimalUpdate, excludeFields);
+
       const response = await fetch(`${baseUrl}/bitacora/${id}`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(minimalUpdate),
+        body: JSON.stringify(uppercaseUpdate),
 
         credentials: "include",
       });

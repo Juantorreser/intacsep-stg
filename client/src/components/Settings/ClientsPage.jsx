@@ -4,6 +4,7 @@ import ClientCard from "./ClientCard";
 import ModalTemplate from "../ModalTemplate";
 import {useAuth} from "../../context/AuthContext";
 import {useSidebar} from "../../context/SidebarContext";
+import {convertToUpperCase} from "../../utils/utils";
 
 const ClientsPage = () => {
   const [clients, setClients] = useState([]);
@@ -182,11 +183,16 @@ const ClientsPage = () => {
       const method = isEditing ? "PUT" : "POST"; // Determine method based on edit mode
       const url = isEditing ? `${baseUrl}/clients/${currentClient._id}` : `${baseUrl}/clients`;
 
+      // Convert text fields to uppercase before sending
+      // Exclude certain fields that should remain as-is (emails, phones, etc.)
+      const excludeFields = ['_id', 'createdAt', 'updatedAt', 'contacto.email', 'contacto.telefono'];
+      const uppercaseFormData = convertToUpperCase(formData, excludeFields);
+
       const response = await fetch(url, {
         method: method,
         headers: {"Content-Type": "application/json"},
         credentials: "include",
-        body: JSON.stringify(formData),
+        body: JSON.stringify(uppercaseFormData),
       });
 
       if (response.ok) {

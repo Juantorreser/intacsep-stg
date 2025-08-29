@@ -1,11 +1,13 @@
-import React, {useState, useEffect} from "react";
+import {useState, useEffect} from "react";
 import Sidebar from "../Sidebar";
 import ModalTemplate from "../ModalTemplate";
 import {useAuth} from "../../context/AuthContext";
 import {useSidebar} from "../../context/SidebarContext";
+import {useNavigate} from "react-router-dom";
 
 const RolePage = () => {
   const [roles, setRoles] = useState([]);
+  const [clients, setClients] = useState([]); // Lista de todos los clientes disponibles
   const [newRole, setNewRole] = useState({
     name: "",
     bitacoras: {create: false, read: false, read_all: false, update: false, delete: false},
@@ -28,6 +30,9 @@ const RolePage = () => {
     tracto: {create: false, read: false, update: false, delete: false},
     remolque: {create: false, read: false, update: false, delete: false},
     operador: {create: false, read: false, update: false, delete: false},
+    // Permisos de acceso a clientes
+    client_access: "all", // 'all' o 'specific'
+    allowed_clients: [], // Array de clientes permitidos
   });
 
   const [editRole, setEditRole] = useState(null);
@@ -53,6 +58,9 @@ const RolePage = () => {
     tracto: {create: false, read: false, update: false, delete: false},
     remolque: {create: false, read: false, update: false, delete: false},
     operador: {create: false, read: false, update: false, delete: false},
+    // Permisos de acceso a clientes
+    client_access: "all", // 'all' o 'specific'
+    allowed_clients: [], // Array de clientes permitidos
   });
 
   const [showModal, setShowModal] = useState(false);
@@ -64,6 +72,7 @@ const RolePage = () => {
   const {user, verifyToken, setUser} = useAuth();
   const [roleData, setRoleData] = useState(null);
   const {isSidebarCollapsed} = useSidebar();
+  const navigate = useNavigate();
 
   useEffect(() => {
     const init = async () => {
@@ -115,6 +124,28 @@ const RolePage = () => {
     };
 
     fetchRoles();
+  }, [baseUrl]);
+
+  // Fetch clients for client permissions
+  useEffect(() => {
+    const fetchClients = async () => {
+      try {
+        const response = await fetch(`${baseUrl}/clients`, {
+          method: "GET",
+          credentials: "include",
+        });
+        if (response.ok) {
+          const data = await response.json();
+          setClients(data);
+        } else {
+          console.error("Failed to fetch clients:", response.statusText);
+        }
+      } catch (e) {
+        console.error("Error fetching clients:", e);
+      }
+    };
+
+    fetchClients();
   }, [baseUrl]);
 
   // Handle role deletion
@@ -239,6 +270,39 @@ const RolePage = () => {
     }));
   };
 
+  // Handle client access type change
+  const handleClientAccessChange = (value, setter) => {
+    setter((prevState) => ({
+      ...prevState,
+      client_access: value,
+      allowed_clients: value === "all" ? [] : prevState.allowed_clients,
+    }));
+  };
+
+  // Handle adding client to allowed list
+  const handleAddAllowedClient = (clientId, clientName, setter) => {
+    setter((prevState) => {
+      const isAlreadyAdded = prevState.allowed_clients.some((c) => c.client_id === clientId);
+      if (isAlreadyAdded) return prevState;
+
+      return {
+        ...prevState,
+        allowed_clients: [
+          ...prevState.allowed_clients,
+          {client_id: clientId, client_name: clientName},
+        ],
+      };
+    });
+  };
+
+  // Handle removing client from allowed list
+  const handleRemoveAllowedClient = (clientId, setter) => {
+    setter((prevState) => ({
+      ...prevState,
+      allowed_clients: prevState.allowed_clients.filter((c) => c.client_id !== clientId),
+    }));
+  };
+
   const disabledPermissions = {
     bit_detalles: {
       create: true,
@@ -278,14 +342,6 @@ const RolePage = () => {
       key === "bitacoras"
         ? ["create", "read", "update", "delete", "read_all"]
         : ["create", "read", "update", "delete"];
-
-    const headersMap = {
-      create: "Crear",
-      read: "Ver",
-      update: "Editar",
-      delete: "Eliminar",
-      read_all: "Ver Todos",
-    };
 
     return (
       <tr key={key}>
@@ -401,73 +457,214 @@ const RolePage = () => {
               </div>
 
               {editRole && (
-                <div className="table-wrapper">
-                  <div className="table-responsive" style={{maxHeight: "650px", overflowY: "auto"}}>
-                    <table className="table">
-                      <thead
-                        className="table-light"
-                        style={{position: "sticky", top: 0, zIndex: 1, backgroundColor: "#f8f9fa"}}>
-                        <tr>
-                          <th>Módulo</th>
-                          <th className="text-center">Crear</th>
-                          <th className="text-center">Ver</th>
-                          <th className="text-center">Editar</th>
-                          <th className="text-center">Eliminar</th>
-                          <th className="text-center">Ver Todo</th>
-                        </tr>
-                      </thead>
+                <>
+                  <div className="table-wrapper">
+                    <div
+                      className="table-responsive"
+                      style={{maxHeight: "650px", overflowY: "auto"}}>
+                      <table className="table">
+                        <thead
+                          className="table-light"
+                          style={{
+                            position: "sticky",
+                            top: 0,
+                            zIndex: 1,
+                            backgroundColor: "#f8f9fa",
+                          }}>
+                          <tr>
+                            <th>Módulo</th>
+                            <th className="text-center">Crear</th>
+                            <th className="text-center">Ver</th>
+                            <th className="text-center">Editar</th>
+                            <th className="text-center">Eliminar</th>
+                            <th className="text-center">Ver Todo</th>
+                          </tr>
+                        </thead>
 
-                      <tbody>
-                        {/* PANEL 1: Monitoreo */}
-                        <tr className="table-group-divider fw-bold bg-secondary text-white">
-                          <td colSpan="5">Monitoreo</td>
-                        </tr>
-                        {["bitacoras"].map((key) =>
-                          renderPermissionRow(key, editRoleData, setEditRoleData)
-                        )}
-                        <tr className="table-group-divider fw-bold bg-secondary text-white">
-                          <td colSpan="5">Monitoreo &gt; Bitácoras &gt; Datos Bitácora</td>
-                        </tr>
-                        {["bit_detalles", "bit_transportes", "bit_eventos"].map((key) =>
-                          renderPermissionRow(key, editRoleData, setEditRoleData)
-                        )}
+                        <tbody>
+                          {/* PANEL 1: Monitoreo */}
+                          <tr className="table-group-divider fw-bold bg-secondary text-white">
+                            <td colSpan="5">Monitoreo</td>
+                          </tr>
+                          {["bitacoras"].map((key) =>
+                            renderPermissionRow(key, editRoleData, setEditRoleData)
+                          )}
+                          <tr className="table-group-divider fw-bold bg-secondary text-white">
+                            <td colSpan="5">Monitoreo &gt; Bitácoras &gt; Datos Bitácora</td>
+                          </tr>
+                          {["bit_detalles", "bit_transportes", "bit_eventos"].map((key) =>
+                            renderPermissionRow(key, editRoleData, setEditRoleData)
+                          )}
 
-                        <tr className="table-group-divider fw-bold bg-secondary text-white">
-                          <td colSpan="5">
-                            Monitoreo &gt; Bitácoras &gt; Datos Bitácora &gt; Datos Transportes
-                          </td>
-                        </tr>
-                        {["gps_id", "remolque", "tracto", "operador"].map((key) =>
-                          renderPermissionRow(key, editRoleData, setEditRoleData)
-                        )}
+                          <tr className="table-group-divider fw-bold bg-secondary text-white">
+                            <td colSpan="5">
+                              Monitoreo &gt; Bitácoras &gt; Datos Bitácora &gt; Datos Transportes
+                            </td>
+                          </tr>
+                          {["gps_id", "remolque", "tracto", "operador"].map((key) =>
+                            renderPermissionRow(key, editRoleData, setEditRoleData)
+                          )}
 
-                        {/* PANEL 2: Configuración > Catálogos */}
-                        <tr className="table-group-divider fw-bold bg-secondary text-white">
-                          <td colSpan="5">Configuración &gt; Catálogos</td>
-                        </tr>
-                        {["tipos_de_monitoreo", "eventos", "clientes", "origenes", "destinos"].map(
-                          (key) => renderPermissionRow(key, editRoleData, setEditRoleData)
-                        )}
+                          {/* PANEL 2: Configuración > Catálogos */}
+                          <tr className="table-group-divider fw-bold bg-secondary text-white">
+                            <td colSpan="5">Configuración &gt; Catálogos</td>
+                          </tr>
+                          {[
+                            "tipos_de_monitoreo",
+                            "eventos",
+                            "clientes",
+                            "origenes",
+                            "destinos",
+                          ].map((key) => renderPermissionRow(key, editRoleData, setEditRoleData))}
 
-                        {/* PANEL 2: Configuración > Sistema */}
-                        <tr className="fw-bold bg-secondary text-white">
-                          <td colSpan="5">Configuración &gt; Sistema</td>
-                        </tr>
-                        {["usuarios", "roles", "inactividad"].map((key) =>
-                          renderPermissionRow(key, editRoleData, setEditRoleData)
-                        )}
+                          {/* PANEL 2: Configuración > Sistema */}
+                          <tr className="fw-bold bg-secondary text-white">
+                            <td colSpan="5">Configuración &gt; Sistema</td>
+                          </tr>
+                          {["usuarios", "roles", "inactividad"].map((key) =>
+                            renderPermissionRow(key, editRoleData, setEditRoleData)
+                          )}
 
-                        {/* PANEL 3: Auditoría */}
-                        <tr className="table-group-divider fw-bold bg-secondary text-white">
-                          <td colSpan="5">Auditoría</td>
-                        </tr>
-                        {["auditoria_bitacora"].map((key) =>
-                          renderPermissionRow(key, editRoleData, setEditRoleData)
+                          {/* PANEL 3: Auditoría */}
+                          <tr className="table-group-divider fw-bold bg-secondary text-white">
+                            <td colSpan="5">Auditoría</td>
+                          </tr>
+                          {["auditoria_bitacora"].map((key) =>
+                            renderPermissionRow(key, editRoleData, setEditRoleData)
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* Sección de Permisos de Clientes */}
+                    <div className="mt-3 pt-3 border-top">
+                      <h6 className="mb-2 text-secondary">Permisos de Acceso a Clientes</h6>
+
+                      <div className="bg-light p-3 rounded">
+                        {/* Tipo de acceso - inline radio buttons */}
+                        <div className="d-flex align-items-center mb-2">
+                          <span className="fw-semibold me-3" style={{minWidth: "120px"}}>
+                            Tipo de Acceso:
+                          </span>
+                          <div className="form-check form-check-inline me-3">
+                            <input
+                              className="form-check-input"
+                              type="radio"
+                              name="client_access"
+                              id="access_all"
+                              value="all"
+                              checked={editRoleData.client_access === "all"}
+                              disabled={!isEditing}
+                              onChange={(e) =>
+                                handleClientAccessChange(e.target.value, setEditRoleData)
+                              }
+                            />
+                            <label className="form-check-label" htmlFor="access_all">
+                              Todos los clientes
+                            </label>
+                          </div>
+                          <div className="form-check form-check-inline">
+                            <input
+                              className="form-check-input"
+                              type="radio"
+                              name="client_access"
+                              id="access_specific"
+                              value="specific"
+                              checked={editRoleData.client_access === "specific"}
+                              disabled={!isEditing}
+                              onChange={(e) =>
+                                handleClientAccessChange(e.target.value, setEditRoleData)
+                              }
+                            />
+                            <label className="form-check-label" htmlFor="access_specific">
+                              Clientes específicos
+                            </label>
+                          </div>
+                        </div>
+
+                        {/* Sección de clientes específicos */}
+                        {editRoleData.client_access === "specific" && (
+                          <>
+                            {/* Selector de clientes */}
+                            {isEditing && (
+                              <div className="d-flex align-items-center mb-2">
+                                <span className="fw-semibold me-3" style={{minWidth: "120px"}}>
+                                  Agregar Cliente:
+                                </span>
+                                <select
+                                  className="form-select form-select-sm"
+                                  style={{maxWidth: "300px"}}
+                                  onChange={(e) => {
+                                    const clientId = e.target.value;
+                                    const clientName =
+                                      e.target.options[e.target.selectedIndex].text;
+                                    if (clientId) {
+                                      handleAddAllowedClient(clientId, clientName, setEditRoleData);
+                                      e.target.value = "";
+                                    }
+                                  }}>
+                                  <option value="">-- Seleccionar Cliente --</option>
+                                  {clients
+                                    .filter(
+                                      (client) =>
+                                        !editRoleData.allowed_clients?.some(
+                                          (ac) => ac.client_id === client._id
+                                        )
+                                    )
+                                    .map((client) => (
+                                      <option key={client._id} value={client._id}>
+                                        {client.razon_social || client.name}
+                                      </option>
+                                    ))}
+                                </select>
+                              </div>
+                            )}
+
+                            {/* Lista de clientes permitidos */}
+                            <div className="d-flex align-items-start">
+                              <span
+                                className="fw-semibold me-3"
+                                style={{minWidth: "120px", paddingTop: "2px"}}>
+                                Clientes Permitidos:
+                              </span>
+                              <div className="flex-grow-1">
+                                {editRoleData.allowed_clients?.length > 0 ? (
+                                  <div className="d-flex flex-wrap gap-1">
+                                    {editRoleData.allowed_clients.map((allowedClient) => (
+                                      <span
+                                        key={allowedClient.client_id}
+                                        className="badge bg-primary d-flex align-items-center gap-1"
+                                        style={{fontSize: "11px", padding: "4px 8px"}}>
+                                        {allowedClient.client_name}
+                                        {isEditing && (
+                                          <button
+                                            type="button"
+                                            className="btn-close btn-close-white"
+                                            style={{fontSize: "8px", width: "8px", height: "8px"}}
+                                            onClick={() =>
+                                              handleRemoveAllowedClient(
+                                                allowedClient.client_id,
+                                                setEditRoleData
+                                              )
+                                            }
+                                            aria-label="Remover"></button>
+                                        )}
+                                      </span>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <span className="text-muted fst-italic small">
+                                    No hay clientes seleccionados
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </>
                         )}
-                      </tbody>
-                    </table>
+                      </div>
+                    </div>
                   </div>
-                </div>
+                </>
               )}
             </div>
           )}
@@ -511,8 +708,8 @@ const RolePage = () => {
                 </thead>
                 <tbody>
                   {Object.entries(newRole)
-                    .filter(([key, val]) => typeof val === "object" && "create" in val)
-                    .map(([key, perms]) => (
+                    .filter(([, val]) => typeof val === "object" && "create" in val)
+                    .map(([key]) => (
                       <tr key={key}>
                         <td className="text-capitalize">{key.replace(/_/g, " ")}</td>
                         {["create", "read", "update", "delete"].map((action) => (

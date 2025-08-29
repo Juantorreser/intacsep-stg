@@ -23,6 +23,7 @@ import crypto from "crypto";
 import Auditoria from "./models/Auditoria.js";
 import LineaTransporte from "./models/LineaTransporte.js";
 import { auditCreation, auditUpdate, auditDeletion } from "./auditoriaUtils.js";
+import { convertToUpperCase } from "./utils/textUtils.js";
 
 dotenv.config();
 
@@ -449,18 +450,35 @@ app.get("/bitacoras", async (req, res) => {
     const idFilter = req.query.idFilter;
     const sortField = req.query.sortField || "createdAt";
     const sortOrder = req.query.sortOrder || "desc";
+    const allowedClients = req.query.allowed_clients; // Nuevo parámetro para filtrar por permisos de cliente
 
     const query = {};
 
     // Exclude soft deleted bitacoras
     query.deleted = { $ne: true };
 
+    // Apply client permissions filtering FIRST (most restrictive)
+    if (allowedClients) {
+      const clientsList = allowedClients.split(',').map(c => c.trim().toUpperCase());
+      query.cliente = { $in: clientsList };
+    }
+
     // Build query based on filters
     if (operador) query.operador = operador;
     if (statusFilter) query.status = statusFilter;
-    if (clienteFilter) query.cliente = clienteFilter;
-    if (monitoreoFilter) query.monitoreo = monitoreoFilter;
-    if (operadorFilter) query.operador = operadorFilter;
+    if (clienteFilter) {
+      // Si ya hay filtro de clientes permitidos, hacer intersección
+      if (query.cliente && query.cliente.$in) {
+        const filteredClients = query.cliente.$in.filter(c =>
+          c.toUpperCase().includes(clienteFilter.toUpperCase())
+        );
+        query.cliente = { $in: filteredClients };
+      } else {
+        query.cliente = { $regex: clienteFilter, $options: "i" };
+      }
+    }
+    if (monitoreoFilter) query.monitoreo = { $regex: monitoreoFilter, $options: "i" };
+    if (operadorFilter) query.operador = { $regex: operadorFilter, $options: "i" };
     if (idFilter) query.bitacora_id = { $regex: idFilter, $options: "i" };
     if (creationDateFilter) {
       const startDate = new Date(creationDateFilter);
@@ -1416,7 +1434,9 @@ app.get("/bitacoras/download-user/:userName", async (req, res) => {
 });
 
 app.post("/bitacora", async (req, res) => {
-  const data = req.body;
+  // Convertir campos de texto a mayúsculas antes de procesar
+  const excludeFields = ['status', 'inicioMonitoreo', 'finalMonitoreo', 'telefono', '_id', 'createdAt', 'updatedAt', 'bitacora_id', 'capacidad'];
+  const data = convertToUpperCase(req.body, excludeFields);
 
   try {
     const sequence = await BitSequence.findOneAndUpdate(
@@ -1583,7 +1603,9 @@ app.patch("/bitacora/:id/event", async (req, res) => {
 app.patch("/bitacora/:id", async (req, res) => {
   const { id } = req.params;
 
-  const updatedData = req.body;
+  // Convertir campos de texto a mayúsculas antes de procesar
+  const excludeFields = ['status', 'inicioMonitoreo', 'finalMonitoreo', 'telefono', '_id', 'createdAt', 'updatedAt', 'bitacora_id', 'capacidad'];
+  const updatedData = convertToUpperCase(req.body, excludeFields);
   console.log(updatedData);
 
   try {
@@ -1996,8 +2018,9 @@ app.post("/clients", async (req, res) => {
     // Format the ID as a 6-digit number with leading zeros
     const formattedID = nextID.sequence_value.toString().padStart(6, "0");
 
-    // Add formatted ID to request body
-    const clientData = { ...req.body, ID_Cliente: formattedID };
+    // Add formatted ID to request body and convert to uppercase
+    const excludeFields = ['_id', 'createdAt', 'updatedAt', 'ID_Cliente'];
+    const clientData = { ...convertToUpperCase(req.body, excludeFields), ID_Cliente: formattedID };
 
     // Create new client with ID_Cliente
     const client = new Client(clientData);
@@ -2016,7 +2039,12 @@ app.put("/clients/:id", async (req, res) => {
     const prevClient = await Client.findById(req.params.id);
     if (!prevClient) return res.status(404).json({ message: "Client not found" });
     const oldData = prevClient.toObject();
-    const updatedClient = await Client.findByIdAndUpdate(req.params.id, req.body, { new: true });
+
+    // Convertir campos de texto a mayúsculas antes de actualizar
+    const excludeFields = ['_id', 'createdAt', 'updatedAt', 'ID_Cliente'];
+    const uppercaseData = convertToUpperCase(req.body, excludeFields);
+
+    const updatedClient = await Client.findByIdAndUpdate(req.params.id, uppercaseData, { new: true });
     await auditUpdate({ oldData, newData: req.body, modelId: req.params.id, user: req.session.user || {}, seccion: "Cliente" });
     res.json(updatedClient);
   } catch (error) {
@@ -2184,6 +2212,111 @@ app.delete("/roles/:id", async (req, res) => {
   }
 });
 
+// ENDPOINTS PARA PERMISOS DE CLIENTES POR ROL
+
+// GET clientes permitidos para un rol específico
+app.get("/roles/:roleId/allowed-clients", async (req, res) => {
+  try {
+    const role = await Role.findById(req.params.roleId);
+    if (!role) {
+      return res.status(404).json({ message: "Role not found" });
+    }
+
+    res.json({
+      client_access: role.client_access,
+      allowed_clients: role.allowed_clients || []
+    });
+  } catch (error) {
+    console.error("Error fetching allowed clients:", error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+});
+
+// PUT actualizar permisos de clientes para un rol
+app.put("/roles/:roleId/allowed-clients", async (req, res) => {
+  try {
+    const { client_access, allowed_clients } = req.body;
+
+    // Validar que client_access sea válido
+    if (!['all', 'specific'].includes(client_access)) {
+      return res.status(400).json({ message: "client_access must be 'all' or 'specific'" });
+    }
+
+    // Si es 'specific', validar que se proporcionen clientes
+    if (client_access === 'specific' && (!allowed_clients || allowed_clients.length === 0)) {
+      return res.status(400).json({ message: "When client_access is 'specific', allowed_clients must be provided" });
+    }
+
+    const prevRole = await Role.findById(req.params.roleId);
+    if (!prevRole) return res.status(404).json({ message: "Role not found" });
+
+    const oldData = prevRole.toObject();
+
+    const updatedRole = await Role.findByIdAndUpdate(
+      req.params.roleId,
+      {
+        client_access: client_access,
+        allowed_clients: client_access === 'all' ? [] : allowed_clients
+      },
+      {
+        new: true,
+        runValidators: true,
+      }
+    );
+
+    await auditUpdate({
+      oldData,
+      newData: { client_access, allowed_clients },
+      modelId: req.params.roleId,
+      user: req.session.user || {},
+      seccion: "Rol - Permisos de Clientes"
+    });
+
+    res.json(updatedRole);
+  } catch (error) {
+    console.error("Error updating allowed clients:", error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+});
+
+// GET clientes filtrados según permisos del usuario actual
+app.get("/clients/filtered", async (req, res) => {
+  try {
+    const userRole = req.session?.user?.role;
+
+    if (!userRole) {
+      return res.status(401).json({ message: "User role not found" });
+    }
+
+    // Buscar el rol del usuario
+    const role = await Role.findOne({ name: userRole });
+    if (!role) {
+      return res.status(404).json({ message: "Role not found" });
+    }
+
+    let clients;
+
+    if (role.client_access === 'all') {
+      // Si tiene acceso a todos los clientes, devolver todos
+      clients = await Client.find().sort({ razon_social: 1 });
+    } else if (role.client_access === 'specific') {
+      // Si tiene acceso a clientes específicos, filtrar por los permitidos
+      const allowedClientIds = role.allowed_clients.map(ac => ac.client_id);
+      clients = await Client.find({
+        _id: { $in: allowedClientIds }
+      }).sort({ razon_social: 1 });
+    } else {
+      // Fallback: no devolver ningún cliente
+      clients = [];
+    }
+
+    res.json(clients);
+  } catch (error) {
+    console.error("Error fetching filtered clients:", error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+});
+
 //ORIGENES
 // Fetch all origenes
 app.get("/origenes", async (req, res) => {
@@ -2206,7 +2339,10 @@ app.get("/origenes", async (req, res) => {
 // Create a new origen
 app.post("/origenes", async (req, res) => {
   try {
-    const { estado, municipio: cliente, nombre } = req.body;
+    // Convertir campos de texto a mayúsculas
+    const excludeFields = ['_id', 'createdAt', 'updatedAt'];
+    const uppercaseData = convertToUpperCase(req.body, excludeFields);
+    const { estado, municipio: cliente, nombre } = uppercaseData;
     const newOrigen = new Origen({ estado, cliente, nombre });
     const savedOrigen = await newOrigen.save();
     await auditCreation({ newData: savedOrigen.toObject(), modelId: savedOrigen._id, user: req.session.user || {}, seccion: "Origen" });
@@ -2270,7 +2406,10 @@ app.get("/destinos", async (req, res) => {
 // Create a new destino
 app.post("/destinos", async (req, res) => {
   try {
-    const { estado, municipio: cliente, nombre } = req.body;
+    // Convertir campos de texto a mayúsculas
+    const excludeFields = ['_id', 'createdAt', 'updatedAt'];
+    const uppercaseData = convertToUpperCase(req.body, excludeFields);
+    const { estado, municipio: cliente, nombre } = uppercaseData;
     const newDestino = new Destino({ estado, cliente, nombre });
     const savedDestino = await newDestino.save();
     await auditCreation({ newData: savedDestino.toObject(), modelId: savedDestino._id, user: req.session.user || {}, seccion: "Destino" });
@@ -2471,7 +2610,10 @@ app.delete("/lineas-transporte/:id", async (req, res) => {
 // Create a new operador
 app.post("/operadores", async (req, res) => {
   try {
-    const newOperador = new Operador(req.body);
+    // Convertir campos de texto a mayúsculas
+    const excludeFields = ['_id', 'createdAt', 'updatedAt', 'telefono'];
+    const uppercaseData = convertToUpperCase(req.body, excludeFields);
+    const newOperador = new Operador(uppercaseData);
     const savedOperador = await newOperador.save();
     await auditCreation({ newData: savedOperador.toObject(), modelId: savedOperador._id, user: req.session.user || {}, seccion: "Operador" });
     res.status(201).json(savedOperador);

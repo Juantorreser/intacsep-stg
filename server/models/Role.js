@@ -33,6 +33,24 @@ const RoleSchema = new mongoose.Schema({
   auditoria_bitacora: permissionSchema,
   dashboard: permissionSchema,
 
+  // Sistema de permisos de clientes
+  client_access: {
+    type: String,
+    enum: ['all', 'specific'], // 'all' = acceso a todos los clientes, 'specific' = solo clientes específicos
+    default: 'all'
+  },
+  allowed_clients: [{
+    client_id: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Cliente',
+      required: true
+    },
+    client_name: {
+      type: String,
+      required: true
+    } // Guardamos también el nombre para facilitar consultas
+  }]
+
 }, { timestamps: true });
 
 export default mongoose.model("Role", RoleSchema);

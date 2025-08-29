@@ -3,11 +3,14 @@ import {useAuth} from "../context/AuthContext";
 import {useSidebar} from "../context/SidebarContext";
 import {useNavigate} from "react-router-dom";
 import Sidebar from "./Sidebar";
+import {getAllowedClients} from "../utils/clientPermissions";
 
 const DashboardPage = () => {
   const {user} = useAuth();
   const {isSidebarCollapsed} = useSidebar();
   const navigate = useNavigate();
+
+  const [roleData, setRoleData] = useState(null);
 
   const [dashboardStats, setDashboardStats] = useState({
     totalBitacoras: 0,
@@ -817,14 +820,16 @@ const DashboardPage = () => {
     try {
       setLoading(true);
 
-      // Fetch available clients for filter
+      // Fetch available clients for filter with role permissions
       const clientsResponse = await fetch(`${baseUrl}/clients`, {
         method: "GET",
         credentials: "include",
       });
       if (clientsResponse.ok) {
-        const clientsData = await clientsResponse.json();
-        setAvailableClients(clientsData);
+        const allClientsData = await clientsResponse.json();
+        // Apply client permissions filtering
+        const allowedClientsData = getAllowedClients(roleData, allClientsData);
+        setAvailableClients(allowedClientsData);
       }
 
       // Fetch available transport lines for filter based on selected client
@@ -878,7 +883,10 @@ const DashboardPage = () => {
           eventCategoriesStats: statsData.eventCategoriesStats?.length || 0,
         });
         console.log("📋 Event Categories Sample:", statsData.eventCategoriesStats?.slice(0, 3));
-        setDashboardStats(statsData);
+        setDashboardStats((prev) => ({
+          ...prev,
+          ...statsData,
+        }));
       }
 
       // Fetch additional data for geographic analysis and other charts
@@ -925,6 +933,26 @@ const DashboardPage = () => {
     fetchLineasTransporte,
     fetchOperadores,
   ]);
+
+  // Fetch role permissions
+  useEffect(() => {
+    const fetchRolePermissions = async () => {
+      try {
+        const response = await fetch(`${baseUrl}/roles/${user.role}`, {
+          method: "GET",
+          credentials: "include",
+        });
+        const data = await response.json();
+        setRoleData(data);
+      } catch (e) {
+        console.log("Error fetching role permissions:", e);
+      }
+    };
+
+    if (user?.role) {
+      fetchRolePermissions();
+    }
+  }, [user]);
 
   useEffect(() => {
     if (!user) {
@@ -1000,7 +1028,7 @@ const DashboardPage = () => {
     const monthlyData = dashboardStats.monthlyData || [];
 
     // Si no hay datos, mostrar mensaje
-    if (monthlyData.length === 0) {
+    if (!monthlyData || monthlyData.length === 0) {
       return (
         <div className="text-center text-muted">
           No hay datos disponibles para el período seleccionado
@@ -1127,7 +1155,7 @@ const DashboardPage = () => {
     const geographicData = dashboardStats.geographicData || [];
     const paginatedGeographic = getPaginatedGeographicData();
 
-    if (geographicData.length === 0) {
+    if (!geographicData || geographicData.length === 0) {
       return <div className="text-center text-muted">No hay datos disponibles</div>;
     }
 
@@ -2016,7 +2044,7 @@ const DashboardPage = () => {
   const renderGeographicBarChart = () => {
     const geographicData = dashboardStats.geographicData || [];
 
-    if (geographicData.length === 0) {
+    if (!geographicData || geographicData.length === 0) {
       return <div className="text-center text-muted">No hay datos geográficos disponibles</div>;
     }
 
@@ -3187,7 +3215,7 @@ const DashboardPage = () => {
   const renderUsuariosBarChart = () => {
     const {topOperadores} = dashboardStats;
 
-    if (topOperadores.length === 0) {
+    if (!topOperadores || topOperadores.length === 0) {
       return <div className="text-center text-muted">No hay datos de usuarios disponibles</div>;
     }
 
@@ -3354,7 +3382,7 @@ const DashboardPage = () => {
   const renderLineasTransporteBarChart = () => {
     const {topLineasTransporte} = dashboardStats;
 
-    if (topLineasTransporte.length === 0) {
+    if (!topLineasTransporte || topLineasTransporte.length === 0) {
       return (
         <div className="text-center text-muted">
           No hay datos de líneas de transporte disponibles
@@ -3458,7 +3486,7 @@ const DashboardPage = () => {
   const renderOperadoresTransportesBarChart = () => {
     const {topOperadoresTransportes} = dashboardStats;
 
-    if (topOperadoresTransportes.length === 0) {
+    if (!topOperadoresTransportes || topOperadoresTransportes.length === 0) {
       return (
         <div className="text-center text-muted">
           No hay datos de operadores de transportes disponibles

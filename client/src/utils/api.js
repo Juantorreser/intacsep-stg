@@ -8,7 +8,7 @@ export const fetchOrigenes = async (cliente = null) => {
     if (cliente && cliente !== "all") {
       url += `?cliente=${encodeURIComponent(cliente)}`;
     }
-    
+
     const response = await fetch(url, {
       method: "GET",
       credentials: "include",
@@ -27,7 +27,7 @@ export const fetchDestinos = async (cliente = null) => {
     if (cliente && cliente !== "all") {
       url += `?cliente=${encodeURIComponent(cliente)}`;
     }
-    
+
     const response = await fetch(url, {
       method: "GET",
       credentials: "include",
@@ -46,7 +46,7 @@ export const fetchOperadores = async (lineaTransporte = null) => {
     if (lineaTransporte && lineaTransporte !== "all") {
       url += `?lineaTransporte=${encodeURIComponent(lineaTransporte)}`;
     }
-    
+
     const response = await fetch(url, {
       method: "GET",
       credentials: "include",
@@ -65,7 +65,7 @@ export const fetchLineasTransporte = async (cliente = null) => {
     if (cliente && cliente !== "all") {
       url += `?cliente=${encodeURIComponent(cliente)}`;
     }
-    
+
     const response = await fetch(url, {
       method: "GET",
       credentials: "include",
@@ -97,10 +97,17 @@ export const fetchBitacoras = async (
   page = 1,
   limit = 25,
   operador = "",
-  filters = {}
+  filters = {},
+  userRoleData = null
 ) => {
   const params = new URLSearchParams({ page, limit });
   if (operador) params.append("operador", operador);
+
+  // Add client permissions filter if user has specific client access
+  if (userRoleData && userRoleData.client_access === 'specific' && userRoleData.allowed_clients) {
+    const allowedClientNames = userRoleData.allowed_clients.map(ac => ac.client_name);
+    params.append("allowed_clients", allowedClientNames.join(','));
+  }
 
   // Add all filter parameters
   if (filters.statusFilter) params.append("statusFilter", filters.statusFilter);
@@ -121,14 +128,22 @@ export const fetchBitacoras = async (
 };
 
 
-export const fetchClients = async () => {
+export const fetchClients = async (userRoleData = null) => {
   try {
     const response = await fetch(`${baseUrl}/clients`, {
       method: "GET",
       credentials: "include",
     });
     if (!response.ok) throw new Error("Failed to fetch clients");
-    return await response.json();
+    const allClients = await response.json();
+
+    // Apply client permissions filtering
+    if (userRoleData && userRoleData.client_access === 'specific' && userRoleData.allowed_clients) {
+      const allowedClientIds = userRoleData.allowed_clients.map(ac => ac.client_id);
+      return allClients.filter(client => allowedClientIds.includes(client._id));
+    }
+
+    return allClients;
   } catch (e) {
     console.error("Error fetching clients:", e);
     return [];
