@@ -1998,7 +1998,35 @@ app.put("/users/:id", async (req, res) => {
 // Get all clients
 app.get("/clients", async (req, res) => {
   try {
-    const clients = await Client.find();
+    // Get user from session
+    const user = req.session.user;
+    if (!user) {
+      return res.status(401).json({ message: 'User not found' });
+    }
+
+    // Get role permissions
+    const role = await Role.findOne({ name: user.role });
+    if (!role) {
+      return res.status(401).json({ message: 'Role not found' });
+    }
+
+    let clients;
+
+    // Apply client permissions based on role
+    if (role.client_access === 'specific' && role.allowed_clients && role.allowed_clients.length > 0) {
+      // User can only access specific clients
+      const allowedClientNames = role.allowed_clients.map(ac => ac.client_name);
+      clients = await Client.find({
+        $or: [
+          { razon_social: { $in: allowedClientNames } },
+          { name: { $in: allowedClientNames } }
+        ]
+      });
+    } else {
+      // User has access to all clients
+      clients = await Client.find();
+    }
+
     res.json(clients);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -4110,9 +4138,26 @@ app.get('/dashboard/anomalias-stats', async (req, res) => {
     // Build filters based on user permissions
     let bitacoraFilter = { deleted: { $ne: true } }; // Exclude deleted bitacoras
 
-    // Add client filter
-    if (clientFilter !== 'all') {
-      bitacoraFilter.cliente = clientFilter;
+    // Apply client permissions based on role
+    if (role.client_access === 'specific' && role.allowed_clients && role.allowed_clients.length > 0) {
+      // User can only access specific clients
+      const allowedClientNames = role.allowed_clients.map(ac => ac.client_name);
+
+      if (clientFilter !== 'all') {
+        // If a specific client is selected, verify it's in the allowed list
+        if (!allowedClientNames.includes(clientFilter)) {
+          return res.status(403).json({ message: 'Access denied to this client' });
+        }
+        bitacoraFilter.cliente = clientFilter;
+      } else {
+        // If no specific client is selected, filter by all allowed clients
+        bitacoraFilter.cliente = { $in: allowedClientNames };
+      }
+    } else {
+      // User has access to all clients
+      if (clientFilter !== 'all') {
+        bitacoraFilter.cliente = clientFilter;
+      }
     }
 
     // Add date range filter
@@ -5047,13 +5092,30 @@ app.get('/dashboard/bitacoras-anomalias', async (req, res) => {
       }
     }
 
-    // Filtro de cliente
-    if (clientFilter !== 'all') {
-      bitacoraFilter.cliente = clientFilter;
-    }
-
     // Note: lineaTransporte and operador filters are applied in the aggregation pipeline
     // after $unwind: '$eventos.transportes' to ensure correct nested field matching
+
+    // Apply client permissions based on role
+    if (role.client_access === 'specific' && role.allowed_clients && role.allowed_clients.length > 0) {
+      // User can only access specific clients
+      const allowedClientNames = role.allowed_clients.map(ac => ac.client_name);
+
+      if (clientFilter !== 'all') {
+        // If a specific client is selected, verify it's in the allowed list
+        if (!allowedClientNames.includes(clientFilter)) {
+          return res.status(403).json({ message: 'Access denied to this client' });
+        }
+        bitacoraFilter.cliente = clientFilter;
+      } else {
+        // If no specific client is selected, filter by all allowed clients
+        bitacoraFilter.cliente = { $in: allowedClientNames };
+      }
+    } else {
+      // User has access to all clients
+      if (clientFilter !== 'all') {
+        bitacoraFilter.cliente = clientFilter;
+      }
+    }
 
     // Filtro de permisos de usuario para bitacoras anomalias
     if (!role.bitacoras?.read_all) {

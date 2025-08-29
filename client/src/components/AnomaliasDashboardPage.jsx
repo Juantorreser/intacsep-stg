@@ -25,7 +25,29 @@ const AnomaliasDashboardPage = () => {
   const {isSidebarCollapsed} = useSidebar();
   const navigate = useNavigate();
 
+  const baseUrl = import.meta.env.VITE_BASE_URL || "http://localhost:3001";
+
   const [roleData, setRoleData] = useState(null);
+
+  // Fetch role permissions
+  useEffect(() => {
+    const fetchRolePermissions = async () => {
+      try {
+        const response = await fetch(`${baseUrl}/roles/${user.role}`, {
+          method: "GET",
+          credentials: "include",
+        });
+        const data = await response.json();
+        setRoleData(data);
+      } catch (e) {
+        console.log("Error fetching role permissions:", e);
+      }
+    };
+
+    if (user?.role) {
+      fetchRolePermissions();
+    }
+  }, [user, baseUrl]);
 
   const [dashboardStats, setDashboardStats] = useState({
     eventCategoriesStats: [],
@@ -50,8 +72,6 @@ const AnomaliasDashboardPage = () => {
   // Estados para controlar las vistas de las gráficas
   const [lineasViewMode, setLineasViewMode] = useState("pie"); // 'pie' or 'bar'
   const [operadoresViewMode, setOperadoresViewMode] = useState("pie"); // 'pie' or 'bar'
-
-  const baseUrl = import.meta.env.VITE_BASE_URL || "http://localhost:3001";
 
   // Function to fetch transport lines filtered by client
   const fetchLineasTransporte = useCallback(
@@ -278,8 +298,10 @@ const AnomaliasDashboardPage = () => {
             credentials: "include",
           });
           if (clientsResponse.ok) {
-            const clientsData = await clientsResponse.json();
-            setAvailableClients(clientsData);
+            const allClientsData = await clientsResponse.json();
+            // Apply client permissions filtering
+            const allowedClientsData = getAllowedClients(roleData, allClientsData);
+            setAvailableClients(allowedClientsData);
           }
         }
 
