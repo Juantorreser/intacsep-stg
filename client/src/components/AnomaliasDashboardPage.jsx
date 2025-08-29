@@ -33,6 +33,7 @@ const AnomaliasDashboardPage = () => {
     operadoresStats: [],
     totalAnomalias: 0,
     totalBitacoras: 0,
+    totalBitacorasConAnomalias: 0,
   });
   const [oncEventsData, setOncEventsData] = useState([]);
   const [bitacorasAnomalias, setBitacorasAnomalias] = useState([]);
@@ -676,9 +677,7 @@ const AnomaliasDashboardPage = () => {
                 <div className="text-muted">Categorías</div>
               </div>
               <div className="col-4">
-                <div className="fw-bold text-success">
-                  {chartData.reduce((sum, item) => sum + item.value, 0)}
-                </div>
+                <div className="fw-bold text-success">{filteredAnomaliasData.length}</div>
                 <div className="text-muted">Total Bitácoras</div>
               </div>
               <div className="col-4">
@@ -877,9 +876,7 @@ const AnomaliasDashboardPage = () => {
                 <div className="text-muted">Categorías</div>
               </div>
               <div className="col-4">
-                <div className="fw-bold text-success">
-                  {chartData.reduce((sum, item) => sum + item.value, 0)}
-                </div>
+                <div className="fw-bold text-success">{filteredAnomaliasData.length}</div>
                 <div className="text-muted">Total Bitácoras</div>
               </div>
               <div className="col-4">
@@ -1015,9 +1012,7 @@ const AnomaliasDashboardPage = () => {
               <div className="text-muted">Líneas</div>
             </div>
             <div className="col-4">
-              <div className="fw-bold text-success">
-                {formatNumber(chartData.reduce((sum, item) => sum + item.bitacoras, 0))}
-              </div>
+              <div className="fw-bold text-success">{filteredAnomaliasData.length}</div>
               <div className="text-muted">Total Bitácoras</div>
             </div>
             <div className="col-4">
@@ -1179,9 +1174,7 @@ const AnomaliasDashboardPage = () => {
               <div className="text-muted">Operadores</div>
             </div>
             <div className="col-4">
-              <div className="fw-bold text-success">
-                {formatNumber(chartData.reduce((sum, item) => sum + item.bitacoras, 0))}
-              </div>
+              <div className="fw-bold text-success">{filteredAnomaliasData.length}</div>
               <div className="text-muted">Total Bitácoras</div>
             </div>
             <div className="col-4">
@@ -1852,25 +1845,15 @@ const AnomaliasDashboardPage = () => {
                     <i className="fa fa-exclamation-triangle"></i>
                   </div>
                   <div className="stat-content">
-                    <div className="stat-value fs-4 fs-md-3">
-                      {formatNumber(
-                        eventCategoriesStats && eventCategoriesStats.length > 0
-                          ? eventCategoriesStats.reduce((sum, category) => sum + category.count, 0)
-                          : 0
-                      )}
-                    </div>
+                    <div className="stat-value fs-4 fs-md-3">{filteredAnomaliasData.length}</div>
                     <div className="stat-label small">Con Anomalías</div>
                     <div
                       className="stat-percentage small"
                       style={{color: "#f59e0b", fontWeight: "600"}}>
                       {dashboardStats.totalBitacoras > 0 &&
-                      eventCategoriesStats &&
-                      eventCategoriesStats.length > 0
+                      dashboardStats.totalBitacorasConAnomalias
                         ? Math.round(
-                            (eventCategoriesStats.reduce(
-                              (sum, category) => sum + category.count,
-                              0
-                            ) /
+                            (dashboardStats.totalBitacorasConAnomalias /
                               dashboardStats.totalBitacoras) *
                               100
                           )

@@ -4175,6 +4175,7 @@ app.get('/dashboard/anomalias-stats', async (req, res) => {
     // Get event categories statistics for pie chart (excluding "General")
     // Apply the same strict catalog validation as other anomaly endpoints
     let eventCategoriesStats = [];
+    let totalBitacorasConAnomalias = 0;
     try {
       console.log('=== DEBUG: Starting eventCategoriesStats aggregation ===');
       console.log('bitacoraFilter for eventCategoriesStats:', JSON.stringify(bitacoraFilter, null, 2));
@@ -4183,7 +4184,88 @@ app.get('/dashboard/anomalias-stats', async (req, res) => {
       const eventTypes = await EventType.find({ categoria: { $in: ['ENA', 'ONC', 'DR', 'FM'] } });
       console.log('Found eventTypes:', eventTypes.map(et => ({ evento: et.evento, categoria: et.categoria })));
 
-      // Now aggregate by event names that belong to our categories with full catalog validation
+      // First, get the total count of unique bitacoras with anomalies
+      const totalBitacorasConAnomaliasResult = await Bitacora.aggregate([
+        { $match: bitacoraFilter },
+        { $unwind: '$eventos' },
+        {
+          $match: {
+            'eventos.nombre': {
+              $in: eventTypes.map(et => et.evento)
+            }
+          }
+        },
+        // Unwind the transportes array within each evento
+        { $unwind: '$eventos.transportes' },
+        // Verify that the transport line exists in the official catalog
+        {
+          $lookup: {
+            from: 'lineatransportes',
+            let: {
+              lineaTransporte: '$eventos.transportes.lineaTransporte',
+              cliente: '$cliente'
+            },
+            pipeline: [
+              {
+                $match: {
+                  $expr: {
+                    $and: [
+                      { $eq: [{ $toLower: { $trim: { input: '$nombre' } } }, { $toLower: { $trim: { input: '$$lineaTransporte' } } }] },
+                      { $eq: [{ $toLower: { $trim: { input: '$cliente' } } }, { $toLower: { $trim: { input: '$$cliente' } } }] }
+                    ]
+                  }
+                }
+              }
+            ],
+            as: 'lineaTransporteInfo'
+          }
+        },
+        // Verify that the operator exists in the official catalog and is linked to the transport line
+        {
+          $lookup: {
+            from: 'operadores',
+            let: {
+              operador: '$eventos.transportes.operador',
+              lineaTransporte: '$eventos.transportes.lineaTransporte'
+            },
+            pipeline: [
+              {
+                $match: {
+                  $expr: {
+                    $and: [
+                      { $eq: [{ $toLower: { $trim: { input: '$nombre' } } }, { $toLower: { $trim: { input: '$$operador' } } }] },
+                      { $eq: [{ $toLower: { $trim: { input: '$lineaTransporte' } } }, { $toLower: { $trim: { input: '$$lineaTransporte' } } }] }
+                    ]
+                  }
+                }
+              }
+            ],
+            as: 'operadorInfo'
+          }
+        },
+        // Only include if both transport line and operator exist in the official catalog
+        {
+          $match: {
+            $and: [
+              { 'lineaTransporteInfo': { $ne: [] } },
+              { 'operadorInfo': { $ne: [] } }
+            ]
+          }
+        },
+        // Group by bitacora ID to count unique bitacoras
+        {
+          $group: {
+            _id: '$_id'
+          }
+        },
+        {
+          $count: 'total'
+        }
+      ]);
+
+      totalBitacorasConAnomalias = totalBitacorasConAnomaliasResult.length > 0 ? totalBitacorasConAnomaliasResult[0].total : 0;
+
+      // Now aggregate by event categories with full catalog validation
       eventCategoriesStats = await Bitacora.aggregate([
         { $match: bitacoraFilter },
         { $unwind: '$eventos' },
@@ -4259,9 +4341,19 @@ app.get('/dashboard/anomalias-stats', async (req, res) => {
             as: 'eventTypeInfo'
           }
         },
+        // Group by bitacora ID and category to count unique bitacoras per category
         {
           $group: {
-            _id: { $arrayElemAt: ['$eventTypeInfo.categoria', 0] },
+            _id: {
+              bitacoraId: '$_id',
+              categoria: { $arrayElemAt: ['$eventTypeInfo.categoria', 0] }
+            }
+          }
+        },
+        // Now group by category to get the count of unique bitacoras per category
+        {
+          $group: {
+            _id: '$_id.categoria',
             count: { $sum: 1 }
           }
         },
@@ -4301,6 +4393,7 @@ app.get('/dashboard/anomalias-stats', async (req, res) => {
       nuevasBitacoras,
       enProcesoBitacoras,
       cerradasBitacoras,
+      totalBitacorasConAnomalias,
       eventCategoriesStats
     };
 
