@@ -1497,7 +1497,122 @@ app.post("/bitacora", async (req, res) => {
 
     await newItem.save();
     await auditCreation({ newData: newItem.toObject(), modelId: newItem._id, user: req.session.user || {}, seccion: "Bitacora" });
-    res.status(201).send(newItem);
+
+    // Use aggregation to resolve origen and destino names in the response
+    const resolvedBitacora = await Bitacora.aggregate([
+      {
+        $match: {
+          _id: newItem._id,
+          deleted: { $ne: true }
+        }
+      },
+      // Add fields to handle ObjectId conversion for lookups
+      {
+        $addFields: {
+          origenForLookup: {
+            $cond: {
+              if: {
+                $and: [
+                  { $eq: [{ $type: '$origen' }, 'string'] },
+                  { $regexMatch: { input: '$origen', regex: '^[0-9a-fA-F]{24}$' } }
+                ]
+              },
+              then: { $toObjectId: '$origen' },
+              else: '$origen'
+            }
+          },
+          destinoForLookup: {
+            $cond: {
+              if: {
+                $and: [
+                  { $eq: [{ $type: '$destino' }, 'string'] },
+                  { $regexMatch: { input: '$destino', regex: '^[0-9a-fA-F]{24}$' } }
+                ]
+              },
+              then: { $toObjectId: '$destino' },
+              else: '$destino'
+            }
+          }
+        }
+      },
+      // Lookups with ObjectId conversion
+      {
+        $lookup: {
+          from: 'origens',
+          localField: 'origenForLookup',
+          foreignField: '_id',
+          as: 'origenInfoById'
+        }
+      },
+      {
+        $lookup: {
+          from: 'origens',
+          localField: 'origen',
+          foreignField: 'nombre',
+          as: 'origenInfoByName'
+        }
+      },
+      {
+        $lookup: {
+          from: 'destinos',
+          localField: 'destinoForLookup',
+          foreignField: '_id',
+          as: 'destinoInfoById'
+        }
+      },
+      {
+        $lookup: {
+          from: 'destinos',
+          localField: 'destino',
+          foreignField: 'nombre',
+          as: 'destinoInfoByName'
+        }
+      },
+      // Combine results - prefer _id match over nombre match
+      {
+        $addFields: {
+          origen: {
+            $cond: {
+              if: { $gt: [{ $size: '$origenInfoById' }, 0] },
+              then: { $arrayElemAt: ['$origenInfoById.nombre', 0] },
+              else: {
+                $cond: {
+                  if: { $gt: [{ $size: '$origenInfoByName' }, 0] },
+                  then: { $arrayElemAt: ['$origenInfoByName.nombre', 0] },
+                  else: 'Ubicación no encontrada'
+                }
+              }
+            }
+          },
+          destino: {
+            $cond: {
+              if: { $gt: [{ $size: '$destinoInfoById' }, 0] },
+              then: { $arrayElemAt: ['$destinoInfoById.nombre', 0] },
+              else: {
+                $cond: {
+                  if: { $gt: [{ $size: '$destinoInfoByName' }, 0] },
+                  then: { $arrayElemAt: ['$destinoInfoByName.nombre', 0] },
+                  else: 'Ubicación no encontrada'
+                }
+              }
+            }
+          }
+        }
+      },
+      // Remove the lookup arrays to clean up the response
+      {
+        $project: {
+          origenInfoById: 0,
+          origenInfoByName: 0,
+          destinoInfoById: 0,
+          destinoInfoByName: 0,
+          origenForLookup: 0,
+          destinoForLookup: 0
+        }
+      }
+    ]);
+
+    res.status(201).send(resolvedBitacora[0]);
   } catch (err) {
     console.error("Error creating bitacora:", err);
     res.status(500).send("Error creating bitacora");
@@ -1536,15 +1651,127 @@ app.get("/bitacoras/deleted", async (req, res) => {
 
 app.get("/bitacora/:id", async (req, res) => {
   try {
-    const bitacora = await Bitacora.findOne({
-      _id: req.params.id,
-      deleted: { $ne: true }
-    });
-    if (!bitacora) {
+    // Use aggregation to resolve origen and destino names
+    const bitacoras = await Bitacora.aggregate([
+      {
+        $match: {
+          _id: new mongoose.Types.ObjectId(req.params.id),
+          deleted: { $ne: true }
+        }
+      },
+      // Add fields to handle ObjectId conversion for lookups
+      {
+        $addFields: {
+          origenForLookup: {
+            $cond: {
+              if: {
+                $and: [
+                  { $eq: [{ $type: '$origen' }, 'string'] },
+                  { $regexMatch: { input: '$origen', regex: '^[0-9a-fA-F]{24}$' } }
+                ]
+              },
+              then: { $toObjectId: '$origen' },
+              else: '$origen'
+            }
+          },
+          destinoForLookup: {
+            $cond: {
+              if: {
+                $and: [
+                  { $eq: [{ $type: '$destino' }, 'string'] },
+                  { $regexMatch: { input: '$destino', regex: '^[0-9a-fA-F]{24}$' } }
+                ]
+              },
+              then: { $toObjectId: '$destino' },
+              else: '$destino'
+            }
+          }
+        }
+      },
+      // Lookups with ObjectId conversion
+      {
+        $lookup: {
+          from: 'origens',
+          localField: 'origenForLookup',
+          foreignField: '_id',
+          as: 'origenInfoById'
+        }
+      },
+      {
+        $lookup: {
+          from: 'origens',
+          localField: 'origen',
+          foreignField: 'nombre',
+          as: 'origenInfoByName'
+        }
+      },
+      {
+        $lookup: {
+          from: 'destinos',
+          localField: 'destinoForLookup',
+          foreignField: '_id',
+          as: 'destinoInfoById'
+        }
+      },
+      {
+        $lookup: {
+          from: 'destinos',
+          localField: 'destino',
+          foreignField: 'nombre',
+          as: 'destinoInfoByName'
+        }
+      },
+      // Combine results - prefer _id match over nombre match
+      {
+        $addFields: {
+          origen: {
+            $cond: {
+              if: { $gt: [{ $size: '$origenInfoById' }, 0] },
+              then: { $arrayElemAt: ['$origenInfoById.nombre', 0] },
+              else: {
+                $cond: {
+                  if: { $gt: [{ $size: '$origenInfoByName' }, 0] },
+                  then: { $arrayElemAt: ['$origenInfoByName.nombre', 0] },
+                  else: 'Ubicación no encontrada'
+                }
+              }
+            }
+          },
+          destino: {
+            $cond: {
+              if: { $gt: [{ $size: '$destinoInfoById' }, 0] },
+              then: { $arrayElemAt: ['$destinoInfoById.nombre', 0] },
+              else: {
+                $cond: {
+                  if: { $gt: [{ $size: '$destinoInfoByName' }, 0] },
+                  then: { $arrayElemAt: ['$destinoInfoByName.nombre', 0] },
+                  else: 'Ubicación no encontrada'
+                }
+              }
+            }
+          }
+        }
+      },
+      // Remove the lookup arrays to clean up the response
+      {
+        $project: {
+          origenInfoById: 0,
+          origenInfoByName: 0,
+          destinoInfoById: 0,
+          destinoInfoByName: 0,
+          origenForLookup: 0,
+          destinoForLookup: 0
+        }
+      }
+    ]);
+
+    if (bitacoras.length === 0) {
       return res.status(404).json({ message: "Bitacora not found" });
     }
-    res.json(bitacora);
+
+    res.json(bitacoras[0]);
   } catch (error) {
+    console.error("Error fetching bitacora:", error);
     res.status(500).json({ message: "Server error" });
   }
 });
@@ -1622,7 +1849,122 @@ app.patch("/bitacora/:id", async (req, res) => {
 
     const updatedBitacora = await bitacora.save();
     await auditUpdate({ oldData: bitacora.toObject(), newData: updatedData, modelId: id, user: req.session.user || {}, seccion: "Bitacora" });
-    res.json(updatedBitacora);
+
+    // Use aggregation to resolve origen and destino names in the response
+    const resolvedBitacora = await Bitacora.aggregate([
+      {
+        $match: {
+          _id: new mongoose.Types.ObjectId(id),
+          deleted: { $ne: true }
+        }
+      },
+      // Add fields to handle ObjectId conversion for lookups
+      {
+        $addFields: {
+          origenForLookup: {
+            $cond: {
+              if: {
+                $and: [
+                  { $eq: [{ $type: '$origen' }, 'string'] },
+                  { $regexMatch: { input: '$origen', regex: '^[0-9a-fA-F]{24}$' } }
+                ]
+              },
+              then: { $toObjectId: '$origen' },
+              else: '$origen'
+            }
+          },
+          destinoForLookup: {
+            $cond: {
+              if: {
+                $and: [
+                  { $eq: [{ $type: '$destino' }, 'string'] },
+                  { $regexMatch: { input: '$destino', regex: '^[0-9a-fA-F]{24}$' } }
+                ]
+              },
+              then: { $toObjectId: '$destino' },
+              else: '$destino'
+            }
+          }
+        }
+      },
+      // Lookups with ObjectId conversion
+      {
+        $lookup: {
+          from: 'origens',
+          localField: 'origenForLookup',
+          foreignField: '_id',
+          as: 'origenInfoById'
+        }
+      },
+      {
+        $lookup: {
+          from: 'origens',
+          localField: 'origen',
+          foreignField: 'nombre',
+          as: 'origenInfoByName'
+        }
+      },
+      {
+        $lookup: {
+          from: 'destinos',
+          localField: 'destinoForLookup',
+          foreignField: '_id',
+          as: 'destinoInfoById'
+        }
+      },
+      {
+        $lookup: {
+          from: 'destinos',
+          localField: 'destino',
+          foreignField: 'nombre',
+          as: 'destinoInfoByName'
+        }
+      },
+      // Combine results - prefer _id match over nombre match
+      {
+        $addFields: {
+          origen: {
+            $cond: {
+              if: { $gt: [{ $size: '$origenInfoById' }, 0] },
+              then: { $arrayElemAt: ['$origenInfoById.nombre', 0] },
+              else: {
+                $cond: {
+                  if: { $gt: [{ $size: '$origenInfoByName' }, 0] },
+                  then: { $arrayElemAt: ['$origenInfoByName.nombre', 0] },
+                  else: 'Ubicación no encontrada'
+                }
+              }
+            }
+          },
+          destino: {
+            $cond: {
+              if: { $gt: [{ $size: '$destinoInfoById' }, 0] },
+              then: { $arrayElemAt: ['$destinoInfoById.nombre', 0] },
+              else: {
+                $cond: {
+                  if: { $gt: [{ $size: '$destinoInfoByName' }, 0] },
+                  then: { $arrayElemAt: ['$destinoInfoByName.nombre', 0] },
+                  else: 'Ubicación no encontrada'
+                }
+              }
+            }
+          }
+        }
+      },
+      // Remove the lookup arrays to clean up the response
+      {
+        $project: {
+          origenInfoById: 0,
+          origenInfoByName: 0,
+          destinoInfoById: 0,
+          destinoInfoByName: 0,
+          origenForLookup: 0,
+          destinoForLookup: 0
+        }
+      }
+    ]);
+
+    res.json(resolvedBitacora[0]);
   } catch (error) {
     console.error("Error updating bitacora:", error);
     res.status(500).json({ message: "Internal server error" });
