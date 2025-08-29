@@ -67,7 +67,6 @@ const AnomaliasDashboardPage = () => {
   const [applyFiltersTrigger, setApplyFiltersTrigger] = useState(0);
   const [loadingLineasTransporte, setLoadingLineasTransporte] = useState(false);
   const [loadingOperadores, setLoadingOperadores] = useState(false);
-  const [eventCategoriesStats, setEventCategoriesStats] = useState([]);
 
   // Estados para controlar las vistas de las gráficas
   const [lineasViewMode, setLineasViewMode] = useState("pie"); // 'pie' or 'bar'
@@ -384,7 +383,10 @@ const AnomaliasDashboardPage = () => {
 
         if (eventCategoriesStatsResponse.ok) {
           const eventCategoriesStatsData = await eventCategoriesStatsResponse.json();
-          setEventCategoriesStats(eventCategoriesStatsData);
+          setDashboardStats((prev) => ({
+            ...prev,
+            eventCategoriesStats: eventCategoriesStatsData,
+          }));
         }
 
         // Fetch ONC events data for bar chart
@@ -451,14 +453,17 @@ const AnomaliasDashboardPage = () => {
       navigate("/login");
       return;
     }
-    // Initial load
-    if (applyFiltersTrigger === 0) {
-      fetchDashboardData(true);
-    } else {
-      // Filter updates
-      fetchDashboardData(false);
+    // Only fetch dashboard data when roleData is available
+    if (roleData) {
+      // Initial load
+      if (applyFiltersTrigger === 0) {
+        fetchDashboardData(true);
+      } else {
+        // Filter updates
+        fetchDashboardData(false);
+      }
     }
-  }, [user, navigate, fetchDashboardData, applyFiltersTrigger]);
+  }, [user, navigate, fetchDashboardData, applyFiltersTrigger, roleData]);
 
   // Update transport lines when client filter changes
   useEffect(() => {
@@ -1222,7 +1227,7 @@ const AnomaliasDashboardPage = () => {
 
   // Render event categories bar chart
   const renderEventCategoriesBarChart = () => {
-    const eventCategoriesStatsData = eventCategoriesStats || [];
+    const eventCategoriesStatsData = dashboardStats.eventCategoriesStats || [];
 
     if (eventCategoriesStatsData.length === 0) {
       return (
@@ -1274,7 +1279,7 @@ const AnomaliasDashboardPage = () => {
 
   // Render event categories pie chart
   const renderEventCategoriesPieChart = () => {
-    const eventCategoriesStatsData = eventCategoriesStats || [];
+    const eventCategoriesStatsData = dashboardStats.eventCategoriesStats || [];
 
     if (eventCategoriesStatsData.length === 0) {
       return (
@@ -1867,15 +1872,29 @@ const AnomaliasDashboardPage = () => {
                     <i className="fa fa-exclamation-triangle"></i>
                   </div>
                   <div className="stat-content">
-                    <div className="stat-value fs-4 fs-md-3">{filteredAnomaliasData.length}</div>
+                    <div className="stat-value fs-4 fs-md-3">
+                      {formatNumber(
+                        dashboardStats.eventCategoriesStats &&
+                          dashboardStats.eventCategoriesStats.length > 0
+                          ? dashboardStats.eventCategoriesStats.reduce(
+                              (sum, category) => sum + category.count,
+                              0
+                            )
+                          : 0
+                      )}
+                    </div>
                     <div className="stat-label small">Con Anomalías</div>
                     <div
                       className="stat-percentage small"
                       style={{color: "#f59e0b", fontWeight: "600"}}>
                       {dashboardStats.totalBitacoras > 0 &&
-                      dashboardStats.totalBitacorasConAnomalias
+                      dashboardStats.eventCategoriesStats &&
+                      dashboardStats.eventCategoriesStats.length > 0
                         ? Math.round(
-                            (dashboardStats.totalBitacorasConAnomalias /
+                            (dashboardStats.eventCategoriesStats.reduce(
+                              (sum, category) => sum + category.count,
+                              0
+                            ) /
                               dashboardStats.totalBitacoras) *
                               100
                           )

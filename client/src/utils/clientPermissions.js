@@ -7,7 +7,12 @@
  * @returns {Array} - Lista de clientes permitidos
  */
 export const getAllowedClients = (userRoleData, allClients) => {
-    if (!userRoleData || !allClients) return [];
+    if (!allClients) return [];
+
+    // Si no hay datos de rol, devolver todos los clientes por defecto
+    if (!userRoleData) {
+        return allClients;
+    }
 
     // Si el rol tiene acceso a todos los clientes
     if (userRoleData.client_access === 'all') {
@@ -31,7 +36,12 @@ export const getAllowedClients = (userRoleData, allClients) => {
  * @returns {boolean} - true si puede acceder, false si no
  */
 export const canAccessClient = (userRoleData, clientId) => {
-    if (!userRoleData || !clientId) return false;
+    if (!clientId) return false;
+
+    // Si no hay datos de rol, permitir acceso por defecto
+    if (!userRoleData) {
+        return true;
+    }
 
     // Si el rol tiene acceso a todos los clientes
     if (userRoleData.client_access === 'all') {
@@ -55,7 +65,12 @@ export const canAccessClient = (userRoleData, clientId) => {
  * @returns {Array} - Bitácoras filtradas
  */
 export const filterBitacorasByClientPermissions = (bitacoras, userRoleData) => {
-    if (!userRoleData || !bitacoras) return bitacoras;
+    if (!bitacoras) return bitacoras;
+
+    // Si no hay datos de rol, no filtrar (devolver todas las bitácoras)
+    if (!userRoleData) {
+        return bitacoras;
+    }
 
     // Si el rol tiene acceso a todos los clientes, no filtrar
     if (userRoleData.client_access === 'all') {
@@ -81,7 +96,10 @@ export const filterBitacorasByClientPermissions = (bitacoras, userRoleData) => {
  * @returns {Object} - Parámetros de consulta
  */
 export const getClientFilterParams = (userRoleData) => {
-    if (!userRoleData) return {};
+    // Si no hay datos de rol, no agregar filtros (acceso completo)
+    if (!userRoleData) {
+        return {};
+    }
 
     // Si el rol tiene acceso a todos los clientes, no agregar filtros
     if (userRoleData.client_access === 'all') {
