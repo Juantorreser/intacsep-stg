@@ -273,7 +273,7 @@ const AnomaliasDashboardPage = () => {
     ];
     worksheet["!cols"] = columnWidths;
 
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Bitácoras con Anomalías");
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Anomalías");
 
     const currentDate = new Date().toISOString().split("T")[0];
     const filename = `Bitacoras_Anomalias_${currentDate}.xlsx`;
@@ -409,7 +409,7 @@ const AnomaliasDashboardPage = () => {
           setOncEventsData(oncData);
         }
 
-        // Fetch bitácoras con anomalías
+        // Fetch anomalías
         const anomaliasResponse = await fetch(
           `${baseUrl}/dashboard/bitacoras-anomalias?clientFilter=${encodeURIComponent(
             appliedClientFilter
@@ -516,7 +516,7 @@ const AnomaliasDashboardPage = () => {
             boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
           }}>
           <div className="small text-muted">{label}</div>
-          <div className="h6 text-primary">{formatNumber(payload[0].value)} bitácoras</div>
+          <div className="h6 text-primary">{formatNumber(payload[0].value)} anomalías</div>
           <div className="small text-muted">
             {totalAnomalias > 0 ? ((payload[0].value / totalAnomalias) * 100).toFixed(1) : 0}% del
             total
@@ -688,7 +688,7 @@ const AnomaliasDashboardPage = () => {
                       {entry.name.length > 20 ? entry.name.substring(0, 20) + "..." : entry.name}
                     </div>
                     <div className="text-muted" style={{fontSize: "10px"}}>
-                      {entry.value} bitácoras
+                      {entry.value} anomalías
                     </div>
                   </div>
                 </div>
@@ -704,8 +704,10 @@ const AnomaliasDashboardPage = () => {
                 <div className="text-muted">Categorías</div>
               </div>
               <div className="col-4">
-                <div className="fw-bold text-success">{filteredAnomaliasData.length}</div>
-                <div className="text-muted">Total Bitácoras</div>
+                <div className="fw-bold text-success">
+                  {chartData.reduce((sum, item) => sum + item.value, 0)}
+                </div>
+                <div className="text-muted">Total Anomalías</div>
               </div>
               <div className="col-4">
                 <div className="fw-bold text-info">
@@ -903,8 +905,10 @@ const AnomaliasDashboardPage = () => {
                 <div className="text-muted">Categorías</div>
               </div>
               <div className="col-4">
-                <div className="fw-bold text-success">{filteredAnomaliasData.length}</div>
-                <div className="text-muted">Total Bitácoras</div>
+                <div className="fw-bold text-success">
+                  {chartData.reduce((sum, item) => sum + item.value, 0)}
+                </div>
+                <div className="text-muted">Total Anomalías</div>
               </div>
               <div className="col-4">
                 <div className="fw-bold text-info">
@@ -989,9 +993,7 @@ const AnomaliasDashboardPage = () => {
                 onMouseLeave={(e) => {
                   e.currentTarget.style.backgroundColor = "transparent";
                 }}
-                title={`${item.lineaTransporte}: ${formatNumber(
-                  item.bitacoras
-                )} bitácoras con anomalías`}>
+                title={`${item.lineaTransporte}: ${formatNumber(item.bitacoras)} anomalías`}>
                 <div
                   className="bar-label"
                   style={{
@@ -1024,7 +1026,7 @@ const AnomaliasDashboardPage = () => {
                     color: "#ffffff",
                     textAlign: "right",
                   }}>
-                  {formatNumber(item.bitacoras)} bitácoras
+                  {formatNumber(item.bitacoras)} anomalías
                 </div>
               </div>
             );
@@ -1039,8 +1041,10 @@ const AnomaliasDashboardPage = () => {
               <div className="text-muted">Líneas</div>
             </div>
             <div className="col-4">
-              <div className="fw-bold text-success">{filteredAnomaliasData.length}</div>
-              <div className="text-muted">Total Bitácoras</div>
+              <div className="fw-bold text-success">
+                {chartData.reduce((sum, item) => sum + item.bitacoras, 0)}
+              </div>
+              <div className="text-muted">Total Anomalías</div>
             </div>
             <div className="col-4">
               <div className="fw-bold text-info">
@@ -1153,7 +1157,7 @@ const AnomaliasDashboardPage = () => {
                 onMouseLeave={(e) => {
                   e.currentTarget.style.backgroundColor = "transparent";
                 }}
-                title={`${item.operador}: ${formatNumber(item.bitacoras)} bitácoras con anomalías`}>
+                title={`${item.operador}: ${formatNumber(item.bitacoras)} anomalías`}>
                 <div
                   className="bar-label"
                   style={{
@@ -1186,7 +1190,7 @@ const AnomaliasDashboardPage = () => {
                     color: "#ffffff",
                     textAlign: "right",
                   }}>
-                  {formatNumber(item.bitacoras)} bitácoras
+                  {formatNumber(item.bitacoras)} anomalías
                 </div>
               </div>
             );
@@ -1201,8 +1205,10 @@ const AnomaliasDashboardPage = () => {
               <div className="text-muted">Operadores</div>
             </div>
             <div className="col-4">
-              <div className="fw-bold text-success">{filteredAnomaliasData.length}</div>
-              <div className="text-muted">Total Bitácoras</div>
+              <div className="fw-bold text-success">
+                {chartData.reduce((sum, item) => sum + item.bitacoras, 0)}
+              </div>
+              <div className="text-muted">Total Anomalías</div>
             </div>
             <div className="col-4">
               <div className="fw-bold text-info">
@@ -1381,7 +1387,7 @@ const AnomaliasDashboardPage = () => {
         <div className="text-center text-muted py-5">
           <i className="fa fa-check-circle fa-3x mb-3" style={{opacity: 0.3}}></i>
           <h6>Sin Anomalías Registradas</h6>
-          <p className="small">No hay bitácoras con anomalías en el período seleccionado</p>
+          <p className="small">No hay anomalías en el período seleccionado</p>
         </div>
       );
     }
@@ -1486,7 +1492,7 @@ const AnomaliasDashboardPage = () => {
               <option value={50}>50</option>
             </select>
             <span className="small text-white">
-              Total: {filteredAnomaliasData.length} bitácoras
+              Total: {filteredAnomaliasData.length} anomalías
             </span>
           </div>
           <div className="d-flex align-items-center gap-2">
@@ -1872,17 +1878,7 @@ const AnomaliasDashboardPage = () => {
                     <i className="fa fa-exclamation-triangle"></i>
                   </div>
                   <div className="stat-content">
-                    <div className="stat-value fs-4 fs-md-3">
-                      {formatNumber(
-                        dashboardStats.eventCategoriesStats &&
-                          dashboardStats.eventCategoriesStats.length > 0
-                          ? dashboardStats.eventCategoriesStats.reduce(
-                              (sum, category) => sum + category.count,
-                              0
-                            )
-                          : 0
-                      )}
-                    </div>
+                    <div className="stat-value fs-4 fs-md-3">{filteredAnomaliasData.length}</div>
                     <div className="stat-label small">Con Anomalías</div>
                     <div
                       className="stat-percentage small"
@@ -2203,7 +2199,7 @@ const AnomaliasDashboardPage = () => {
                 <div className="chart-card">
                   <div className="chart-header d-flex justify-content-between align-items-center">
                     <div className="d-flex align-items-center gap-2">
-                      <h6 className="mb-0">Bitácoras con Anomalías</h6>
+                      <h6 className="mb-0">Anomalías</h6>
                       {(appliedClientFilter !== "all" ||
                         appliedLineaTransporteFilter !== "all" ||
                         appliedOperadorFilter !== "all" ||
