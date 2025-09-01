@@ -493,6 +493,32 @@ const AnomaliasDashboardPage = () => {
     appliedOperadorFilter,
   ]);
 
+  // Helper function to calculate total anomalies based on applied filters
+  const getTotalAnomalias = useCallback(() => {
+    const lineasTransporteStats = dashboardStats.lineasTransporteStats || [];
+    let statsToUse = lineasTransporteStats;
+
+    // Aplicar los mismos filtros que se usan en los gráficos
+    if (appliedClientFilter !== "all") {
+      statsToUse = statsToUse.filter((stat) => stat.cliente === appliedClientFilter);
+    }
+    if (appliedLineaTransporteFilter !== "all") {
+      statsToUse = statsToUse.filter(
+        (stat) => stat.lineaTransporte === appliedLineaTransporteFilter
+      );
+    }
+    if (appliedOperadorFilter !== "all") {
+      statsToUse = statsToUse.filter((stat) => stat.operador === appliedOperadorFilter);
+    }
+
+    return statsToUse.reduce((sum, stat) => sum + stat.bitacoras, 0);
+  }, [
+    dashboardStats.lineasTransporteStats,
+    appliedClientFilter,
+    appliedLineaTransporteFilter,
+    appliedOperadorFilter,
+  ]);
+
   // Pagination for filtered data
   const paginatedData = useMemo(() => {
     const startIndex = page * rowsPerPage;
@@ -516,7 +542,7 @@ const AnomaliasDashboardPage = () => {
             boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
           }}>
           <div className="small text-muted">{label}</div>
-          <div className="h6 text-primary">{formatNumber(payload[0].value)} anomalías</div>
+          <div className="h6 text-primary">{formatNumber(payload[0].value)} bitácoras</div>
           <div className="small text-muted">
             {totalAnomalias > 0 ? ((payload[0].value / totalAnomalias) * 100).toFixed(1) : 0}% del
             total
@@ -688,7 +714,7 @@ const AnomaliasDashboardPage = () => {
                       {entry.name.length > 20 ? entry.name.substring(0, 20) + "..." : entry.name}
                     </div>
                     <div className="text-muted" style={{fontSize: "10px"}}>
-                      {entry.value} anomalías
+                      {entry.value} bitácoras
                     </div>
                   </div>
                 </div>
@@ -705,9 +731,9 @@ const AnomaliasDashboardPage = () => {
               </div>
               <div className="col-4">
                 <div className="fw-bold text-success">
-                  {chartData.reduce((sum, item) => sum + item.value, 0)}
+                  {statsToUse.reduce((sum, stat) => sum + stat.bitacoras, 0)}
                 </div>
-                <div className="text-muted">Total Anomalías</div>
+                <div className="text-muted">Total Bitácoras con Anomalías</div>
               </div>
               <div className="col-4">
                 <div className="fw-bold text-info">
@@ -906,9 +932,9 @@ const AnomaliasDashboardPage = () => {
               </div>
               <div className="col-4">
                 <div className="fw-bold text-success">
-                  {chartData.reduce((sum, item) => sum + item.value, 0)}
+                  {statsToUse.reduce((sum, stat) => sum + stat.bitacoras, 0)}
                 </div>
-                <div className="text-muted">Total Anomalías</div>
+                <div className="text-muted">Total Bitácoras con Anomalías</div>
               </div>
               <div className="col-4">
                 <div className="fw-bold text-info">
@@ -993,7 +1019,9 @@ const AnomaliasDashboardPage = () => {
                 onMouseLeave={(e) => {
                   e.currentTarget.style.backgroundColor = "transparent";
                 }}
-                title={`${item.lineaTransporte}: ${formatNumber(item.bitacoras)} anomalías`}>
+                title={`${item.lineaTransporte}: ${formatNumber(
+                  item.bitacoras
+                )} bitácoras con anomalías`}>
                 <div
                   className="bar-label"
                   style={{
@@ -1044,7 +1072,7 @@ const AnomaliasDashboardPage = () => {
               <div className="fw-bold text-success">
                 {chartData.reduce((sum, item) => sum + item.bitacoras, 0)}
               </div>
-              <div className="text-muted">Total Anomalías</div>
+              <div className="text-muted">Total Bitácoras con Anomalías</div>
             </div>
             <div className="col-4">
               <div className="fw-bold text-info">
@@ -1157,7 +1185,7 @@ const AnomaliasDashboardPage = () => {
                 onMouseLeave={(e) => {
                   e.currentTarget.style.backgroundColor = "transparent";
                 }}
-                title={`${item.operador}: ${formatNumber(item.bitacoras)} anomalías`}>
+                title={`${item.operador}: ${formatNumber(item.bitacoras)} bitácoras con anomalías`}>
                 <div
                   className="bar-label"
                   style={{
@@ -1208,7 +1236,7 @@ const AnomaliasDashboardPage = () => {
               <div className="fw-bold text-success">
                 {chartData.reduce((sum, item) => sum + item.bitacoras, 0)}
               </div>
-              <div className="text-muted">Total Anomalías</div>
+              <div className="text-muted">Total Bitácoras con Anomalías</div>
             </div>
             <div className="col-4">
               <div className="fw-bold text-info">
@@ -1491,15 +1519,12 @@ const AnomaliasDashboardPage = () => {
               <option value={25}>25</option>
               <option value={50}>50</option>
             </select>
-            <span className="small text-white">
-              Total: {filteredAnomaliasData.length} anomalías
-            </span>
+            <span className="small text-white">Total: {getTotalAnomalias()} anomalías</span>
           </div>
           <div className="d-flex align-items-center gap-2">
             <span className="small text-white">
-              {page * rowsPerPage + 1}-
-              {Math.min((page + 1) * rowsPerPage, filteredAnomaliasData.length)} de{" "}
-              {filteredAnomaliasData.length}
+              {page * rowsPerPage + 1}-{Math.min((page + 1) * rowsPerPage, getTotalAnomalias())} de{" "}
+              {getTotalAnomalias()}
             </span>
             <div className="btn-group btn-group-sm">
               <button
@@ -1511,7 +1536,7 @@ const AnomaliasDashboardPage = () => {
               <button
                 className="btn btn-outline-secondary"
                 onClick={() => setPage(page + 1)}
-                disabled={(page + 1) * rowsPerPage >= filteredAnomaliasData.length}>
+                disabled={(page + 1) * rowsPerPage >= getTotalAnomalias()}>
                 <i className="fa fa-chevron-right"></i>
               </button>
             </div>
@@ -1562,7 +1587,7 @@ const AnomaliasDashboardPage = () => {
                 <div className="welcome-card">
                   <div className="welcome-content">
                     <div className="welcome-icon">
-                      <i className="fa fa-exclamation-triangle"></i>
+                      <i className="fa fa-exclamation-triangle" style={{color: "#f59e0b"}}></i>
                     </div>
                     <div className="welcome-text">
                       <h4 className="fs-5 fs-md-4">
@@ -1878,22 +1903,15 @@ const AnomaliasDashboardPage = () => {
                     <i className="fa fa-exclamation-triangle"></i>
                   </div>
                   <div className="stat-content">
-                    <div className="stat-value fs-4 fs-md-3">{filteredAnomaliasData.length}</div>
+                    <div className="stat-value fs-4 fs-md-3">
+                      {formatNumber(getTotalAnomalias())}
+                    </div>
                     <div className="stat-label small">Con Anomalías</div>
                     <div
                       className="stat-percentage small"
                       style={{color: "#f59e0b", fontWeight: "600"}}>
-                      {dashboardStats.totalBitacoras > 0 &&
-                      dashboardStats.eventCategoriesStats &&
-                      dashboardStats.eventCategoriesStats.length > 0
-                        ? Math.round(
-                            (dashboardStats.eventCategoriesStats.reduce(
-                              (sum, category) => sum + category.count,
-                              0
-                            ) /
-                              dashboardStats.totalBitacoras) *
-                              100
-                          )
+                      {dashboardStats.totalBitacoras > 0
+                        ? Math.round((getTotalAnomalias() / dashboardStats.totalBitacoras) * 100)
                         : 0}
                       %
                     </div>

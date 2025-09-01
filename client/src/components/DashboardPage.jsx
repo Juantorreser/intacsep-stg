@@ -3628,7 +3628,7 @@ const DashboardPage = () => {
                 <div className="welcome-card">
                   <div className="welcome-content">
                     <div className="welcome-icon">
-                      <i className="fa fa-tachometer-alt"></i>
+                      <i className="fa fa-chart-line"></i>
                     </div>
                     <div className="welcome-text">
                       <h4 className="fs-5 fs-md-4">
@@ -3840,7 +3840,7 @@ const DashboardPage = () => {
                 <div className="stat-card h-100">
                   <div
                     className="stat-icon"
-                    style={{backgroundColor: "#6b7280 !important", color: "#fff"}}>
+                    style={{backgroundColor: "#3b82f6 !important", color: "#fff"}}>
                     <i className="fa fa-book"></i>
                   </div>
                   <div className="stat-content">
@@ -3850,7 +3850,7 @@ const DashboardPage = () => {
                     <div className="stat-label small">Total Bitácoras</div>
                     <div
                       className="stat-percentage small"
-                      style={{color: "#6b7280", fontWeight: "600"}}>
+                      style={{color: "#3b82f6", fontWeight: "600"}}>
                       100%
                     </div>
                   </div>
