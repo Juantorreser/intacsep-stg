@@ -1837,12 +1837,15 @@ const AnomaliasDashboardPage = () => {
               <option value={25}>25</option>
               <option value={50}>50</option>
             </select>
-            <span className="small text-white">Total: {getTotalAnomalias()} anomalías</span>
+            <span className="small text-white">
+              Total: {filteredAnomaliasData.length} bitácoras
+            </span>
           </div>
           <div className="d-flex align-items-center gap-2">
             <span className="small text-white">
-              {page * rowsPerPage + 1}-{Math.min((page + 1) * rowsPerPage, getTotalAnomalias())} de{" "}
-              {getTotalAnomalias()}
+              {page * rowsPerPage + 1}-
+              {Math.min((page + 1) * rowsPerPage, filteredAnomaliasData.length)} de{" "}
+              {filteredAnomaliasData.length}
             </span>
             <div className="btn-group btn-group-sm">
               <button
@@ -1854,7 +1857,7 @@ const AnomaliasDashboardPage = () => {
               <button
                 className="btn btn-outline-secondary"
                 onClick={() => setPage(page + 1)}
-                disabled={(page + 1) * rowsPerPage >= getTotalAnomalias()}>
+                disabled={(page + 1) * rowsPerPage >= filteredAnomaliasData.length}>
                 <i className="fa fa-chevron-right"></i>
               </button>
             </div>
@@ -2114,7 +2117,7 @@ const AnomaliasDashboardPage = () => {
                 </div>
               )}
               {/* Total Bitácoras */}
-              <div className="col-6 col-lg mb-2 mb-lg-0">
+              <div className="col-6 col-md-4 col-lg-2 mb-2 mb-lg-0">
                 <div className="stat-card h-100">
                   <div
                     className="stat-icon"
@@ -2136,7 +2139,7 @@ const AnomaliasDashboardPage = () => {
               </div>
 
               {/* Nuevas */}
-              <div className="col-6 col-lg mb-2 mb-lg-0">
+              <div className="col-6 col-md-4 col-lg-2 mb-2 mb-lg-0">
                 <div className="stat-card h-100">
                   <div className="stat-icon new">
                     <i className="fa fa-plus-circle"></i>
@@ -2162,7 +2165,7 @@ const AnomaliasDashboardPage = () => {
               </div>
 
               {/* En Proceso */}
-              <div className="col-6 col-lg mb-2 mb-lg-0">
+              <div className="col-6 col-md-4 col-lg-2 mb-2 mb-lg-0">
                 <div className="stat-card h-100">
                   <div className="stat-icon pending">
                     <i className="fa fa-clock"></i>
@@ -2189,7 +2192,7 @@ const AnomaliasDashboardPage = () => {
               </div>
 
               {/* Cerradas */}
-              <div className="col-6 col-lg mb-2 mb-lg-0">
+              <div className="col-6 col-md-4 col-lg-2 mb-2 mb-lg-0">
                 <div className="stat-card h-100">
                   <div className="stat-icon closed">
                     <i className="fa fa-lock"></i>
@@ -2214,11 +2217,38 @@ const AnomaliasDashboardPage = () => {
                 </div>
               </div>
 
-              {/* Con Anomalías */}
-              <div className="col-6 col-lg mb-2 mb-lg-0">
+              {/* Bitácoras con Anomalías */}
+              <div className="col-6 col-md-4 col-lg-2 mb-2 mb-lg-0">
                 <div className="stat-card h-100">
                   <div className="stat-icon anomalia">
                     <i className="fa fa-exclamation-triangle"></i>
+                  </div>
+                  <div className="stat-content">
+                    <div className="stat-value fs-4 fs-md-3">
+                      {formatNumber(dashboardStats.totalBitacorasConAnomalias || 0)}
+                    </div>
+                    <div className="stat-label small">Bitácoras con Anomalías</div>
+                    <div
+                      className="stat-percentage small"
+                      style={{color: "#f59e0b", fontWeight: "600"}}>
+                      {dashboardStats.totalBitacoras > 0
+                        ? Math.round(
+                            ((dashboardStats.totalBitacorasConAnomalias || 0) /
+                              dashboardStats.totalBitacoras) *
+                              100
+                          )
+                        : 0}
+                      %
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Total Anomalías */}
+              <div className="col-6 col-md-4 col-lg-2 mb-2 mb-lg-0">
+                <div className="stat-card h-100">
+                  <div className="stat-icon" style={{backgroundColor: "#8b5cf6", color: "#fff"}}>
+                    <i className="fa fa-bug"></i>
                   </div>
                   <div className="stat-content">
                     <div className="stat-value fs-4 fs-md-3">
@@ -2227,9 +2257,13 @@ const AnomaliasDashboardPage = () => {
                     <div className="stat-label small">Total Anomalías</div>
                     <div
                       className="stat-percentage small"
-                      style={{color: "#f59e0b", fontWeight: "600"}}>
-                      {dashboardStats.totalBitacoras > 0
-                        ? Math.round((getTotalAnomalias() / dashboardStats.totalBitacoras) * 100)
+                      style={{color: "#8b5cf6", fontWeight: "600"}}>
+                      {dashboardStats.totalBitacorasConAnomalias > 0
+                        ? Math.round(
+                            (getTotalAnomalias() /
+                              (dashboardStats.totalBitacorasConAnomalias || 1)) *
+                              100
+                          )
                         : 0}
                       %
                     </div>

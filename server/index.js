@@ -4657,6 +4657,7 @@ app.get('/dashboard/anomalias-stats', async (req, res) => {
 
       // First, get the total count of unique bitacoras with anomalies
       // This should count bitacoras that have at least one event with categoria != "general"
+      // Apply the same filters as the bitacoras-anomalias endpoint
       const totalBitacorasConAnomaliasResult = await Bitacora.aggregate([
         { $match: bitacoraFilter },
         { $unwind: '$eventos' },
@@ -4673,6 +4674,30 @@ app.get('/dashboard/anomalias-stats', async (req, res) => {
             'eventTypeInfo.categoria': { $ne: 'General' }
           }
         },
+        // Unwind the transportes array within each evento (same as bitacoras-anomalias endpoint)
+        { $unwind: '$eventos.transportes' },
+        // Apply transport line filter if specified (case-insensitive) - same as bitacoras-anomalias endpoint
+        ...(lineaTransporte !== 'all' ? [{
+          $match: {
+            $expr: {
+              $eq: [
+                { $toLower: { $trim: { input: '$eventos.transportes.lineaTransporte' } } },
+                { $toLower: { $trim: { input: lineaTransporte } } }
+              ]
+            }
+          }
+        }] : []),
+        // Apply operator filter if specified (case-insensitive) - same as bitacoras-anomalias endpoint
+        ...(operador !== 'all' ? [{
+          $match: {
+            $expr: {
+              $eq: [
+                { $toLower: { $trim: { input: '$eventos.transportes.operador' } } },
+                { $toLower: { $trim: { input: operador } } }
+              ]
+            }
+          }
+        }] : []),
         // Group by bitacora ID to count unique bitacoras
         {
           $group: {
@@ -5499,7 +5524,7 @@ app.get('/dashboard/bitacoras-anomalias', async (req, res) => {
     } = req.query;
 
     // Construir filtros de bitácora
-    let bitacoraFilter = {};
+    let bitacoraFilter = { deleted: { $ne: true } }; // Exclude deleted bitacoras
 
     // Filtro de fechas
     console.log('Bitacoras Anomalias Date filter values:', { fechaDesde, fechaHasta, fechaDesdeType: typeof fechaDesde, fechaHastaType: typeof fechaHasta });
@@ -5545,6 +5570,10 @@ app.get('/dashboard/bitacoras-anomalias', async (req, res) => {
     }
 
     // Filtro de permisos de usuario para bitacoras anomalias
+    // NOTE: For the anomalies dashboard, we want to show ALL bitacoras with anomalies,
+    // not just the ones where the current user is the operator
+    // This allows users to see the complete picture of anomalies in the system
+    /*
     if (!role.bitacoras?.read_all) {
       const userFullName = `${user.firstName} ${user.lastName}`;
       // Always apply user permission filter, but if a specific operator is selected, 
@@ -5592,6 +5621,7 @@ app.get('/dashboard/bitacoras-anomalias', async (req, res) => {
         ];
       }
     }
+    */
 
     // Obtener bitácoras que tengan al menos un evento de categoría diferente a "General"
     console.log('Starting aggregation for bitacoras con anomalias...');
@@ -5815,6 +5845,24 @@ app.get('/dashboard/bitacoras-anomalias', async (req, res) => {
                 else: '$destinoInfoByName'
               }
             }
+          }
+        },
+        // Group by bitacora ID to get unique bitacoras
+        {
+          $group: {
+            _id: '$_id',
+            bitacora_id: { $first: '$bitacora_id' },
+            cliente: { $first: '$cliente' },
+            transportes: { $addToSet: '$transportes' },
+            origen: { $first: '$origen' },
+            destino: { $first: '$destino' },
+            status: { $first: '$status' },
+            createdAt: { $first: '$createdAt' },
+            eventos: { $addToSet: '$eventos' },
+            eventTypes: { $addToSet: '$eventTypeInfo' },
+            origenInfo: { $first: '$origenInfo' },
+            destinoInfo: { $first: '$destinoInfo' },
+            passedCatalogValidation: { $first: '$passedCatalogValidation' }
           }
         },
         { $sort: { createdAt: -1 } }
