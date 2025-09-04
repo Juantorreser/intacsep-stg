@@ -18,6 +18,8 @@ const DashboardPage = () => {
     enProcesoBitacoras: 0,
     cerradasBitacoras: 0,
     eventCategoriesStats: [],
+    lineasTransporteStats: [],
+    totalBitacorasConAnomalias: 0,
     totalUsers: 0,
     totalClients: 0,
     recentActivity: [],
@@ -263,6 +265,12 @@ const DashboardPage = () => {
     if (num === null || num === undefined) return "0";
     return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
   };
+
+  // Helper function to get total anomalies from the anomalies endpoint
+  const getTotalAnomalias = useCallback(() => {
+    // Use the totalBitacorasConAnomalias from the anomalies endpoint which has strict validation
+    return dashboardStats.totalBitacorasConAnomalias || 0;
+  }, [dashboardStats.totalBitacorasConAnomalias]);
 
   // Función para cargar las bitácoras de un cliente específico con paginación
   const fetchClientBitacoras = async (clienteNombre, page = 1, customLimit = null) => {
@@ -850,8 +858,8 @@ const DashboardPage = () => {
         setAvailableOperadores([]);
       }
 
-      // Fetch dashboard statistics with filters - using the same approach as AnomaliasDashboardPage
-      const statsUrl = `${baseUrl}/dashboard/anomalias-stats?clientFilter=${encodeURIComponent(
+      // Fetch basic dashboard statistics with filters - using the regular dashboard stats endpoint
+      const statsUrl = `${baseUrl}/dashboard/stats?clientFilter=${encodeURIComponent(
         appliedClientFilter
       )}&fechaDesde=${encodeURIComponent(appliedFechaDesde)}&fechaHasta=${encodeURIComponent(
         appliedFechaHasta
@@ -880,12 +888,35 @@ const DashboardPage = () => {
           nuevasBitacoras: statsData.nuevasBitacoras || 0,
           enProcesoBitacoras: statsData.enProcesoBitacoras || 0,
           cerradasBitacoras: statsData.cerradasBitacoras || 0,
+          totalBitacorasConAnomalias: statsData.totalBitacorasConAnomalias || 0,
           eventCategoriesStats: statsData.eventCategoriesStats?.length || 0,
         });
         console.log("📋 Event Categories Sample:", statsData.eventCategoriesStats?.slice(0, 3));
         setDashboardStats((prev) => ({
           ...prev,
           ...statsData,
+        }));
+      }
+
+      // Fetch transport lines anomalies statistics (same as AnomaliasDashboardPage)
+      const lineasTransporteStatsUrl = `${baseUrl}/dashboard/lineas-transporte-stats?clientFilter=${encodeURIComponent(
+        appliedClientFilter
+      )}&fechaDesde=${encodeURIComponent(appliedFechaDesde)}&fechaHasta=${encodeURIComponent(
+        appliedFechaHasta
+      )}&lineaTransporte=${encodeURIComponent(
+        appliedLineaTransporteFilter
+      )}&operador=${encodeURIComponent(appliedOperadorFilter)}`;
+
+      const lineasTransporteStatsResponse = await fetch(lineasTransporteStatsUrl, {
+        method: "GET",
+        credentials: "include",
+      });
+
+      if (lineasTransporteStatsResponse.ok) {
+        const lineasTransporteStatsData = await lineasTransporteStatsResponse.json();
+        setDashboardStats((prev) => ({
+          ...prev,
+          lineasTransporteStats: lineasTransporteStatsData,
         }));
       }
 
@@ -3840,7 +3871,7 @@ const DashboardPage = () => {
                 <div className="stat-card h-100">
                   <div
                     className="stat-icon"
-                    style={{backgroundColor: "#3b82f6 !important", color: "#fff"}}>
+                    style={{backgroundColor: "#6b7280 !important", color: "#fff"}}>
                     <i className="fa fa-book"></i>
                   </div>
                   <div className="stat-content">
@@ -3850,7 +3881,7 @@ const DashboardPage = () => {
                     <div className="stat-label small">Total Bitácoras</div>
                     <div
                       className="stat-percentage small"
-                      style={{color: "#3b82f6", fontWeight: "600"}}>
+                      style={{color: "#6b7280", fontWeight: "600"}}>
                       100%
                     </div>
                   </div>
@@ -3944,31 +3975,14 @@ const DashboardPage = () => {
                   </div>
                   <div className="stat-content">
                     <div className="stat-value fs-4 fs-md-3">
-                      {formatNumber(
-                        dashboardStats.eventCategoriesStats &&
-                          dashboardStats.eventCategoriesStats.length > 0
-                          ? dashboardStats.eventCategoriesStats.reduce(
-                              (sum, category) => sum + category.count,
-                              0
-                            )
-                          : 0
-                      )}
+                      {formatNumber(getTotalAnomalias())}
                     </div>
                     <div className="stat-label small">Con Anomalías</div>
                     <div
                       className="stat-percentage small"
                       style={{color: "#f59e0b", fontWeight: "600"}}>
-                      {dashboardStats.totalBitacoras > 0 &&
-                      dashboardStats.eventCategoriesStats &&
-                      dashboardStats.eventCategoriesStats.length > 0
-                        ? Math.round(
-                            (dashboardStats.eventCategoriesStats.reduce(
-                              (sum, category) => sum + category.count,
-                              0
-                            ) /
-                              dashboardStats.totalBitacoras) *
-                              100
-                          )
+                      {dashboardStats.totalBitacoras > 0
+                        ? Math.round((getTotalAnomalias() / dashboardStats.totalBitacoras) * 100)
                         : 0}
                       %
                     </div>

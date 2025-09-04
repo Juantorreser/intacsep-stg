@@ -3602,20 +3602,15 @@ app.get('/dashboard/stats', async (req, res) => {
     }
 
     // Add date range filter (priority over timeFilter and yearFilter)
-
-
     if (fechaDesde && fechaHasta && fechaDesde.trim() !== '' && fechaHasta.trim() !== '') {
       const startDate = new Date(fechaDesde);
       const endDate = new Date(fechaHasta + 'T23:59:59.999Z');
-
-
 
       if (!isNaN(startDate) && !isNaN(endDate)) {
         bitacoraFilter.createdAt = {
           $gte: startDate,
           $lte: endDate
         };
-
       }
     }
 
@@ -3762,10 +3757,23 @@ app.get('/dashboard/stats', async (req, res) => {
 
 
     // Get bitacora statistics
-    let totalBitacoras = await Bitacora.countDocuments(bitacoraFilter);
-    const nuevasBitacoras = await Bitacora.countDocuments({ ...bitacoraFilter, status: 'nueva' });
-    const enProcesoBitacoras = await Bitacora.countDocuments({ ...bitacoraFilter, status: { $in: ['validada', 'iniciada'] } });
-    const cerradasBitacoras = await Bitacora.countDocuments({ ...bitacoraFilter, status: { $in: ['cerrada', 'finalizada'] } });
+    // For total cards, use January 2024 as default start date if no date filters are provided
+    let totalCardsFilter = { ...bitacoraFilter };
+    if (!fechaDesde || !fechaHasta || fechaDesde.trim() === '' || fechaHasta.trim() === '') {
+      // Default to January 2024 for total cards when no date filters are provided
+      const defaultStartDate = new Date('2024-01-01');
+      const defaultEndDate = new Date(); // Current date
+
+      totalCardsFilter.createdAt = {
+        $gte: defaultStartDate,
+        $lte: defaultEndDate
+      };
+    }
+
+    let totalBitacoras = await Bitacora.countDocuments(totalCardsFilter);
+    const nuevasBitacoras = await Bitacora.countDocuments({ ...totalCardsFilter, status: 'nueva' });
+    const enProcesoBitacoras = await Bitacora.countDocuments({ ...totalCardsFilter, status: { $in: ['validada', 'iniciada'] } });
+    const cerradasBitacoras = await Bitacora.countDocuments({ ...totalCardsFilter, status: { $in: ['cerrada', 'finalizada'] } });
 
     // Get user and client counts (only if user has permission)
     let totalUsers = 0;
@@ -3896,6 +3904,8 @@ app.get('/dashboard/stats', async (req, res) => {
         totalBitacoras = monthlySum;
       }
     }
+    // Note: When no date filters are applied, totalBitacoras uses January 2024 default,
+    // while monthly data shows last 12 months, so they may differ intentionally
 
     // Get status trends data
     const statusTrends = [
@@ -4053,6 +4063,43 @@ app.get('/dashboard/stats', async (req, res) => {
     } catch (error) {
       console.log('Error fetching event categories stats:', error);
       eventCategoriesStats = [];
+    }
+
+    // Get total bitacoras with anomalies count
+    let totalBitacorasConAnomalias = 0;
+    try {
+      const totalBitacorasConAnomaliasResult = await Bitacora.aggregate([
+        { $match: bitacoraFilter },
+        { $unwind: '$eventos' },
+        {
+          $lookup: {
+            from: 'eventtypes',
+            localField: 'eventos.nombre',
+            foreignField: 'evento',
+            as: 'eventTypeInfo'
+          }
+        },
+        {
+          $match: {
+            'eventTypeInfo.categoria': { $ne: 'General' }
+          }
+        },
+        // Group by bitacora ID to count unique bitacoras
+        {
+          $group: {
+            _id: '$_id'
+          }
+        },
+        {
+          $count: 'total'
+        }
+      ]);
+
+      totalBitacorasConAnomalias = totalBitacorasConAnomaliasResult.length > 0 ? totalBitacorasConAnomaliasResult[0].total : 0;
+      console.log('Total bitacoras con anomalias:', totalBitacorasConAnomalias);
+    } catch (error) {
+      console.log('Error fetching total bitacoras con anomalias:', error);
+      totalBitacorasConAnomalias = 0;
     }
 
     // Get geographic data
@@ -4426,6 +4473,7 @@ app.get('/dashboard/stats', async (req, res) => {
       nuevasBitacoras,
       enProcesoBitacoras,
       cerradasBitacoras,
+      totalBitacorasConAnomalias,
       totalUsers,
       totalClients,
       recentActivity: formattedActivity,
@@ -4553,11 +4601,24 @@ app.get('/dashboard/anomalias-stats', async (req, res) => {
       }
     }
 
-    // Get bitacora statistics (NO default time filters applied)
-    let totalBitacoras = await Bitacora.countDocuments(bitacoraFilter);
-    const nuevasBitacoras = await Bitacora.countDocuments({ ...bitacoraFilter, status: 'nueva' });
-    const enProcesoBitacoras = await Bitacora.countDocuments({ ...bitacoraFilter, status: { $in: ['validada', 'iniciada'] } });
-    const cerradasBitacoras = await Bitacora.countDocuments({ ...bitacoraFilter, status: { $in: ['cerrada', 'finalizada'] } });
+    // Get bitacora statistics
+    // For total cards, use January 2024 as default start date if no date filters are provided
+    let totalCardsFilter = { ...bitacoraFilter };
+    if (!fechaDesde || !fechaHasta || fechaDesde.trim() === '' || fechaHasta.trim() === '') {
+      // Default to January 2024 for total cards when no date filters are provided
+      const defaultStartDate = new Date('2024-01-01');
+      const defaultEndDate = new Date(); // Current date
+
+      totalCardsFilter.createdAt = {
+        $gte: defaultStartDate,
+        $lte: defaultEndDate
+      };
+    }
+
+    let totalBitacoras = await Bitacora.countDocuments(totalCardsFilter);
+    const nuevasBitacoras = await Bitacora.countDocuments({ ...totalCardsFilter, status: 'nueva' });
+    const enProcesoBitacoras = await Bitacora.countDocuments({ ...totalCardsFilter, status: { $in: ['validada', 'iniciada'] } });
+    const cerradasBitacoras = await Bitacora.countDocuments({ ...totalCardsFilter, status: { $in: ['cerrada', 'finalizada'] } });
 
     // Get event categories statistics for pie chart (excluding "General")
     // Apply the same strict catalog validation as other anomaly endpoints
@@ -4572,71 +4633,21 @@ app.get('/dashboard/anomalias-stats', async (req, res) => {
       console.log('Found eventTypes:', eventTypes.map(et => ({ evento: et.evento, categoria: et.categoria })));
 
       // First, get the total count of unique bitacoras with anomalies
+      // This should count bitacoras that have at least one event with categoria != "general"
       const totalBitacorasConAnomaliasResult = await Bitacora.aggregate([
         { $match: bitacoraFilter },
         { $unwind: '$eventos' },
         {
-          $match: {
-            'eventos.nombre': {
-              $in: eventTypes.map(et => et.evento)
-            }
-          }
-        },
-        // Unwind the transportes array within each evento
-        { $unwind: '$eventos.transportes' },
-        // Verify that the transport line exists in the official catalog
-        {
           $lookup: {
-            from: 'lineatransportes',
-            let: {
-              lineaTransporte: '$eventos.transportes.lineaTransporte',
-              cliente: '$cliente'
-            },
-            pipeline: [
-              {
-                $match: {
-                  $expr: {
-                    $and: [
-                      { $eq: [{ $toLower: { $trim: { input: '$nombre' } } }, { $toLower: { $trim: { input: '$$lineaTransporte' } } }] },
-                      { $eq: [{ $toLower: { $trim: { input: '$cliente' } } }, { $toLower: { $trim: { input: '$$cliente' } } }] }
-                    ]
-                  }
-                }
-              }
-            ],
-            as: 'lineaTransporteInfo'
+            from: 'eventtypes',
+            localField: 'eventos.nombre',
+            foreignField: 'evento',
+            as: 'eventTypeInfo'
           }
         },
-        // Verify that the operator exists in the official catalog and is linked to the transport line
-        {
-          $lookup: {
-            from: 'operadores',
-            let: {
-              operador: '$eventos.transportes.operador',
-              lineaTransporte: '$eventos.transportes.lineaTransporte'
-            },
-            pipeline: [
-              {
-                $match: {
-                  $expr: {
-                    $and: [
-                      { $eq: [{ $toLower: { $trim: { input: '$nombre' } } }, { $toLower: { $trim: { input: '$$operador' } } }] },
-                      { $eq: [{ $toLower: { $trim: { input: '$lineaTransporte' } } }, { $toLower: { $trim: { input: '$$lineaTransporte' } } }] }
-                    ]
-                  }
-                }
-              }
-            ],
-            as: 'operadorInfo'
-          }
-        },
-        // Only include if both transport line and operator exist in the official catalog
         {
           $match: {
-            $and: [
-              { 'lineaTransporteInfo': { $ne: [] } },
-              { 'operadorInfo': { $ne: [] } }
-            ]
+            'eventTypeInfo.categoria': { $ne: 'General' }
           }
         },
         // Group by bitacora ID to count unique bitacoras
