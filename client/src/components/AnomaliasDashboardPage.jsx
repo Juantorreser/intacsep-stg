@@ -702,11 +702,23 @@ const AnomaliasDashboardPage = () => {
   ]);
 
   // Helper function to calculate total anomalies based on applied filters
+  // This function provides a unified way to calculate total anomalies across all sections
   const getTotalAnomalias = useCallback(() => {
+    // Use the most comprehensive data source available
+    // Prefer operadoresStats as it includes both transport line and operator information
+    const operadoresStats = dashboardStats.operadoresStats || [];
     const lineasTransporteStats = dashboardStats.lineasTransporteStats || [];
-    let statsToUse = lineasTransporteStats;
 
-    // Aplicar los mismos filtros que se usan en los gráficos
+    let statsToUse = [];
+
+    // If we have operator stats, use them as they're more granular
+    if (operadoresStats.length > 0) {
+      statsToUse = operadoresStats;
+    } else if (lineasTransporteStats.length > 0) {
+      statsToUse = lineasTransporteStats;
+    }
+
+    // Apply the same filters that are used in the charts
     if (appliedClientFilter !== "all") {
       statsToUse = statsToUse.filter((stat) => stat.cliente === appliedClientFilter);
     }
@@ -721,6 +733,7 @@ const AnomaliasDashboardPage = () => {
 
     return statsToUse.reduce((sum, stat) => sum + stat.anomalias, 0);
   }, [
+    dashboardStats.operadoresStats,
     dashboardStats.lineasTransporteStats,
     appliedClientFilter,
     appliedLineaTransporteFilter,
@@ -938,9 +951,7 @@ const AnomaliasDashboardPage = () => {
                 <div className="text-muted">Categorías</div>
               </div>
               <div className="col-4">
-                <div className="fw-bold text-success">
-                  {statsToUse.reduce((sum, stat) => sum + stat.anomalias, 0)}
-                </div>
+                <div className="fw-bold text-success">{getTotalAnomalias()}</div>
                 <div className="text-muted">Total Anomalías</div>
               </div>
               <div className="col-4">
@@ -1139,9 +1150,7 @@ const AnomaliasDashboardPage = () => {
                 <div className="text-muted">Categorías</div>
               </div>
               <div className="col-4">
-                <div className="fw-bold text-success">
-                  {statsToUse.reduce((sum, stat) => sum + stat.anomalias, 0)}
-                </div>
+                <div className="fw-bold text-success">{getTotalAnomalias()}</div>
                 <div className="text-muted">Total Anomalías</div>
               </div>
               <div className="col-4">
@@ -1278,7 +1287,7 @@ const AnomaliasDashboardPage = () => {
               <div className="fw-bold text-success">
                 {chartData.reduce((sum, item) => sum + item.anomalias, 0)}
               </div>
-              <div className="text-muted">Total Bitácoras con Anomalías</div>
+              <div className="text-muted">Total Anomalías</div>
             </div>
             <div className="col-4">
               <div className="fw-bold text-info">
@@ -1442,7 +1451,7 @@ const AnomaliasDashboardPage = () => {
               <div className="fw-bold text-success">
                 {chartData.reduce((sum, item) => sum + item.anomalias, 0)}
               </div>
-              <div className="text-muted">Total Bitácoras con Anomalías</div>
+              <div className="text-muted">Total Anomalías</div>
             </div>
             <div className="col-4">
               <div className="fw-bold text-info">
@@ -2215,7 +2224,7 @@ const AnomaliasDashboardPage = () => {
                     <div className="stat-value fs-4 fs-md-3">
                       {formatNumber(getTotalAnomalias())}
                     </div>
-                    <div className="stat-label small">Con Anomalías</div>
+                    <div className="stat-label small">Total Anomalías</div>
                     <div
                       className="stat-percentage small"
                       style={{color: "#f59e0b", fontWeight: "600"}}>
