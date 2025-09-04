@@ -5647,100 +5647,6 @@ app.get('/dashboard/bitacoras-anomalias', async (req, res) => {
             'eventTypeInfo.categoria': { $ne: 'General' }
           }
         },
-        // Unwind the transportes array within each evento
-        { $unwind: '$eventos.transportes' },
-        // Apply transport line filter if specified (case-insensitive)
-        ...(lineaTransporte !== 'all' ? [{
-          $match: {
-            $expr: {
-              $eq: [
-                { $toLower: { $trim: { input: '$eventos.transportes.lineaTransporte' } } },
-                { $toLower: { $trim: { input: lineaTransporte } } }
-              ]
-            }
-          }
-        }] : []),
-        // Apply operator filter if specified (case-insensitive)
-        ...(operador !== 'all' ? [{
-          $match: {
-            $expr: {
-              $eq: [
-                { $toLower: { $trim: { input: '$eventos.transportes.operador' } } },
-                { $toLower: { $trim: { input: operador } } }
-              ]
-            }
-          }
-        }] : []),
-        // Add a stage to count documents at this point for debugging
-        {
-          $addFields: {
-            debugStage: 'after_transport_filters'
-          }
-        },
-        // Verify that the transport line exists in the official catalog
-        {
-          $lookup: {
-            from: 'lineatransportes',
-            let: {
-              lineaTransporte: '$eventos.transportes.lineaTransporte',
-              cliente: '$cliente'
-            },
-            pipeline: [
-              {
-                $match: {
-                  $expr: {
-                    $and: [
-                      { $eq: [{ $toLower: { $trim: { input: '$nombre' } } }, { $toLower: { $trim: { input: '$$lineaTransporte' } } }] },
-                      { $eq: [{ $toLower: { $trim: { input: '$cliente' } } }, { $toLower: { $trim: { input: '$$cliente' } } }] }
-                    ]
-                  }
-                }
-              }
-            ],
-            as: 'lineaTransporteInfo'
-          }
-        },
-        // Verify that the operator exists in the official catalog and is linked to the transport line
-        {
-          $lookup: {
-            from: 'operadores',
-            let: {
-              operador: '$eventos.transportes.operador',
-              lineaTransporte: '$eventos.transportes.lineaTransporte'
-            },
-            pipeline: [
-              {
-                $match: {
-                  $expr: {
-                    $and: [
-                      { $eq: [{ $toLower: { $trim: { input: '$nombre' } } }, { $toLower: { $trim: { input: '$$operador' } } }] },
-                      { $eq: [{ $toLower: { $trim: { input: '$lineaTransporte' } } }, { $toLower: { $trim: { input: '$$lineaTransporte' } } }] }
-                    ]
-                  }
-                }
-              }
-            ],
-            as: 'operadorInfo'
-          }
-        },
-        // Only include if transport line exists in the official catalog (less restrictive)
-        {
-          $match: {
-            'lineaTransporteInfo': { $ne: [] }
-          }
-        },
-        // Add a stage to count documents after catalog validation
-        {
-          $addFields: {
-            debugStage: 'after_catalog_validation'
-          }
-        },
-        // Add a field to mark that this bitácora has passed catalog validation
-        {
-          $addFields: {
-            passedCatalogValidation: true
-          }
-        },
         {
           $group: {
             _id: '$_id',
@@ -5754,16 +5660,7 @@ app.get('/dashboard/bitacoras-anomalias', async (req, res) => {
             createdAt: { $first: '$createdAt' },
             transportes: { $first: '$transportes' },
             eventos: { $push: '$eventos' },
-            eventTypes: { $push: '$eventTypeInfo' },
-            passedCatalogValidation: { $first: '$passedCatalogValidation' },
-            // Count how many events passed catalog validation
-            validEventCount: { $sum: 1 }
-          }
-        },
-        // Only include bitácoras that have at least one event that passed catalog validation
-        {
-          $match: {
-            validEventCount: { $gt: 0 }
+            eventTypes: { $push: '$eventTypeInfo' }
           }
         },
         // Add fields to handle ObjectId conversion for lookups
@@ -5847,36 +5744,10 @@ app.get('/dashboard/bitacoras-anomalias', async (req, res) => {
             }
           }
         },
-        // Group by bitacora ID to get unique bitacoras
-        {
-          $group: {
-            _id: '$_id',
-            bitacora_id: { $first: '$bitacora_id' },
-            cliente: { $first: '$cliente' },
-            transportes: { $addToSet: '$transportes' },
-            origen: { $first: '$origen' },
-            destino: { $first: '$destino' },
-            status: { $first: '$status' },
-            createdAt: { $first: '$createdAt' },
-            eventos: { $addToSet: '$eventos' },
-            eventTypes: { $addToSet: '$eventTypeInfo' },
-            origenInfo: { $first: '$origenInfo' },
-            destinoInfo: { $first: '$destinoInfo' },
-            passedCatalogValidation: { $first: '$passedCatalogValidation' }
-          }
-        },
         { $sort: { createdAt: -1 } }
       ]);
 
       console.log(`=== DEBUG: Aggregation completed. Found ${bitacorasConAnomalias.length} bitacoras with anomalies.`);
-      console.log(`=== DEBUG: Bitacoras that passed catalog validation: ${bitacorasConAnomalias.filter(b => b.passedCatalogValidation).length}`);
-      console.log(`=== DEBUG: Bitacoras with valid events: ${bitacorasConAnomalias.filter(b => b.validEventCount > 0).length}`);
-
-      // Count documents at each debug stage
-      const afterTransportFilters = bitacorasConAnomalias.filter(b => b.debugStage === 'after_transport_filters').length;
-      const afterCatalogValidation = bitacorasConAnomalias.filter(b => b.debugStage === 'after_catalog_validation').length;
-      console.log(`=== DEBUG: Documents after transport filters: ${afterTransportFilters}`);
-      console.log(`=== DEBUG: Documents after catalog validation: ${afterCatalogValidation}`);
 
       if (bitacorasConAnomalias.length > 0) {
         console.log('First bitacora sample:', JSON.stringify(bitacorasConAnomalias[0], null, 2));
