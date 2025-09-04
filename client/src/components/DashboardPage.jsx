@@ -3658,7 +3658,7 @@ const DashboardPage = () => {
               <div className="col-12">
                 <div className="welcome-card">
                   <div className="welcome-content">
-                    <div className="welcome-icon">
+                    <div className="welcome-icon dashboard-general">
                       <i className="fa fa-chart-line"></i>
                     </div>
                     <div className="welcome-text">

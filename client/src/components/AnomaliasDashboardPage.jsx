@@ -511,7 +511,7 @@ const AnomaliasDashboardPage = () => {
       statsToUse = statsToUse.filter((stat) => stat.operador === appliedOperadorFilter);
     }
 
-    return statsToUse.reduce((sum, stat) => sum + stat.bitacoras, 0);
+    return statsToUse.reduce((sum, stat) => sum + stat.anomalias, 0);
   }, [
     dashboardStats.lineasTransporteStats,
     appliedClientFilter,
@@ -542,7 +542,7 @@ const AnomaliasDashboardPage = () => {
             boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
           }}>
           <div className="small text-muted">{label}</div>
-          <div className="h6 text-primary">{formatNumber(payload[0].value)} bitácoras</div>
+          <div className="h6 text-primary">{formatNumber(payload[0].value)} anomalías</div>
           <div className="small text-muted">
             {totalAnomalias > 0 ? ((payload[0].value / totalAnomalias) * 100).toFixed(1) : 0}% del
             total
@@ -605,29 +605,29 @@ const AnomaliasDashboardPage = () => {
       );
     }
 
-    // Sort by bitacoras count (descending) and limit to top 15 for better visualization
-    const sortedStats = statsToUse.sort((a, b) => b.bitacoras - a.bitacoras).slice(0, 15);
+    // Sort by anomalias count (descending) and limit to top 15 for better visualization
+    const sortedStats = statsToUse.sort((a, b) => b.anomalias - a.anomalias).slice(0, 15);
 
     // Group remaining transport lines into "Otros" category if there are more than 15
     let chartData = sortedStats.map((stat) => ({
       name: stat.lineaTransporte,
-      value: stat.bitacoras, // Usar bitacoras únicas en lugar de anomalias totales
+      value: stat.anomalias, // Usar anomalias totales en lugar de bitacoras únicas
       color: stat.color,
       lineaTransporte: stat.lineaTransporte,
-      totalAnomalias: statsToUse.reduce((sum, s) => sum + s.bitacoras, 0), // Usar bitacoras únicas
+      totalAnomalias: statsToUse.reduce((sum, s) => sum + s.anomalias, 0), // Usar anomalias totales
     }));
 
     // Add "Otros" category if there are more than 15 transport lines
     if (statsToUse.length > 15) {
-      const othersBitacoras = statsToUse.slice(15).reduce((sum, stat) => sum + stat.bitacoras, 0);
+      const othersAnomalias = statsToUse.slice(15).reduce((sum, stat) => sum + stat.anomalias, 0);
 
-      if (othersBitacoras > 0) {
+      if (othersAnomalias > 0) {
         chartData.push({
           name: `Otros (${statsToUse.length - 15} líneas)`,
-          value: othersBitacoras,
+          value: othersAnomalias,
           color: "#94a3b8", // Gray color for "Others"
           lineaTransporte: "otros",
-          totalAnomalias: statsToUse.reduce((sum, s) => sum + s.bitacoras, 0),
+          totalAnomalias: statsToUse.reduce((sum, s) => sum + s.anomalias, 0),
         });
       }
     }
@@ -714,7 +714,7 @@ const AnomaliasDashboardPage = () => {
                       {entry.name.length > 20 ? entry.name.substring(0, 20) + "..." : entry.name}
                     </div>
                     <div className="text-muted" style={{fontSize: "10px"}}>
-                      {entry.value} bitácoras
+                      {entry.value} anomalías
                     </div>
                   </div>
                 </div>
@@ -731,9 +731,9 @@ const AnomaliasDashboardPage = () => {
               </div>
               <div className="col-4">
                 <div className="fw-bold text-success">
-                  {statsToUse.reduce((sum, stat) => sum + stat.bitacoras, 0)}
+                  {statsToUse.reduce((sum, stat) => sum + stat.anomalias, 0)}
                 </div>
-                <div className="text-muted">Total Bitácoras con Anomalías</div>
+                <div className="text-muted">Total Anomalías</div>
               </div>
               <div className="col-4">
                 <div className="fw-bold text-info">
@@ -806,29 +806,29 @@ const AnomaliasDashboardPage = () => {
         ? filteredStats.filter((stat) => stat.operador === appliedOperadorFilter)
         : filteredStats;
 
-    // Sort by bitacoras count (descending) and limit to top 15 for better visualization
-    const sortedStats = statsToUse.sort((a, b) => b.bitacoras - a.bitacoras).slice(0, 15);
+    // Sort by anomalias count (descending) and limit to top 15 for better visualization
+    const sortedStats = statsToUse.sort((a, b) => b.anomalias - a.anomalias).slice(0, 15);
 
     // Group remaining operators into "Otros" category if there are more than 15
     let chartData = sortedStats.map((stat) => ({
       name: stat.operador,
-      value: stat.bitacoras, // Usar bitacoras únicas en lugar de anomalias totales
+      value: stat.anomalias, // Usar anomalias totales en lugar de bitacoras únicas
       color: stat.color,
       operador: stat.operador,
-      totalAnomalias: statsToUse.reduce((sum, s) => sum + s.bitacoras, 0), // Usar bitacoras únicas
+      totalAnomalias: statsToUse.reduce((sum, s) => sum + s.anomalias, 0), // Usar anomalias totales
     }));
 
     // Add "Otros" category if there are more than 15 operators
     if (statsToUse.length > 15) {
-      const othersBitacoras = statsToUse.slice(15).reduce((sum, stat) => sum + stat.bitacoras, 0);
+      const othersAnomalias = statsToUse.slice(15).reduce((sum, stat) => sum + stat.anomalias, 0);
 
-      if (othersBitacoras > 0) {
+      if (othersAnomalias > 0) {
         chartData.push({
           name: `Otros (${statsToUse.length - 15} operadores)`,
-          value: othersBitacoras,
+          value: othersAnomalias,
           color: "#94a3b8", // Gray color for "Others"
           operador: "otros",
-          totalAnomalias: statsToUse.reduce((sum, s) => sum + s.bitacoras, 0),
+          totalAnomalias: statsToUse.reduce((sum, s) => sum + s.anomalias, 0),
         });
       }
     }
@@ -915,7 +915,7 @@ const AnomaliasDashboardPage = () => {
                       {entry.name.length > 20 ? entry.name.substring(0, 20) + "..." : entry.name}
                     </div>
                     <div className="text-muted" style={{fontSize: "10px"}}>
-                      {entry.value} bitácoras
+                      {entry.value} anomalías
                     </div>
                   </div>
                 </div>
@@ -932,9 +932,9 @@ const AnomaliasDashboardPage = () => {
               </div>
               <div className="col-4">
                 <div className="fw-bold text-success">
-                  {statsToUse.reduce((sum, stat) => sum + stat.bitacoras, 0)}
+                  {statsToUse.reduce((sum, stat) => sum + stat.anomalias, 0)}
                 </div>
-                <div className="text-muted">Total Bitácoras con Anomalías</div>
+                <div className="text-muted">Total Anomalías</div>
               </div>
               <div className="col-4">
                 <div className="fw-bold text-info">
@@ -984,10 +984,10 @@ const AnomaliasDashboardPage = () => {
       );
     }
 
-    // Sort by bitacoras count (descending) and show ALL data for scrollable view
-    const chartData = statsToUse.sort((a, b) => b.bitacoras - a.bitacoras);
+    // Sort by anomalias count (descending) and show ALL data for scrollable view
+    const chartData = statsToUse.sort((a, b) => b.anomalias - a.anomalias);
 
-    const maxBitacoras = Math.max(...chartData.map((item) => item.bitacoras));
+    const maxAnomalias = Math.max(...chartData.map((item) => item.anomalias));
 
     return (
       <div>
@@ -999,7 +999,7 @@ const AnomaliasDashboardPage = () => {
             paddingRight: "8px",
           }}>
           {chartData.map((item, index) => {
-            const percentage = maxBitacoras > 0 ? (item.bitacoras / maxBitacoras) * 100 : 0;
+            const percentage = maxAnomalias > 0 ? (item.anomalias / maxAnomalias) * 100 : 0;
             return (
               <div
                 key={index}
@@ -1019,9 +1019,7 @@ const AnomaliasDashboardPage = () => {
                 onMouseLeave={(e) => {
                   e.currentTarget.style.backgroundColor = "transparent";
                 }}
-                title={`${item.lineaTransporte}: ${formatNumber(
-                  item.bitacoras
-                )} bitácoras con anomalías`}>
+                title={`${item.lineaTransporte}: ${formatNumber(item.anomalias)} anomalías`}>
                 <div
                   className="bar-label"
                   style={{
@@ -1054,7 +1052,7 @@ const AnomaliasDashboardPage = () => {
                     color: "#ffffff",
                     textAlign: "right",
                   }}>
-                  {formatNumber(item.bitacoras)} anomalías
+                  {formatNumber(item.anomalias)} anomalías
                 </div>
               </div>
             );
@@ -1070,7 +1068,7 @@ const AnomaliasDashboardPage = () => {
             </div>
             <div className="col-4">
               <div className="fw-bold text-success">
-                {chartData.reduce((sum, item) => sum + item.bitacoras, 0)}
+                {chartData.reduce((sum, item) => sum + item.anomalias, 0)}
               </div>
               <div className="text-muted">Total Bitácoras con Anomalías</div>
             </div>
@@ -1151,9 +1149,9 @@ const AnomaliasDashboardPage = () => {
     const chartData =
       appliedOperadorFilter !== "all"
         ? filteredStats.filter((stat) => stat.operador === appliedOperadorFilter)
-        : filteredStats.sort((a, b) => b.bitacoras - a.bitacoras);
+        : filteredStats.sort((a, b) => b.anomalias - a.anomalias);
 
-    const maxBitacoras = Math.max(...chartData.map((item) => item.bitacoras));
+    const maxAnomalias = Math.max(...chartData.map((item) => item.anomalias));
 
     return (
       <div>
@@ -1165,7 +1163,7 @@ const AnomaliasDashboardPage = () => {
             paddingRight: "8px",
           }}>
           {chartData.map((item, index) => {
-            const percentage = maxBitacoras > 0 ? (item.bitacoras / maxBitacoras) * 100 : 0;
+            const percentage = maxAnomalias > 0 ? (item.anomalias / maxAnomalias) * 100 : 0;
             return (
               <div
                 key={index}
@@ -1185,7 +1183,7 @@ const AnomaliasDashboardPage = () => {
                 onMouseLeave={(e) => {
                   e.currentTarget.style.backgroundColor = "transparent";
                 }}
-                title={`${item.operador}: ${formatNumber(item.bitacoras)} bitácoras con anomalías`}>
+                title={`${item.operador}: ${formatNumber(item.anomalias)} anomalías`}>
                 <div
                   className="bar-label"
                   style={{
@@ -1218,7 +1216,7 @@ const AnomaliasDashboardPage = () => {
                     color: "#ffffff",
                     textAlign: "right",
                   }}>
-                  {formatNumber(item.bitacoras)} anomalías
+                  {formatNumber(item.anomalias)} anomalías
                 </div>
               </div>
             );
@@ -1234,7 +1232,7 @@ const AnomaliasDashboardPage = () => {
             </div>
             <div className="col-4">
               <div className="fw-bold text-success">
-                {chartData.reduce((sum, item) => sum + item.bitacoras, 0)}
+                {chartData.reduce((sum, item) => sum + item.anomalias, 0)}
               </div>
               <div className="text-muted">Total Bitácoras con Anomalías</div>
             </div>
@@ -1586,8 +1584,8 @@ const AnomaliasDashboardPage = () => {
               <div className="col-12">
                 <div className="welcome-card">
                   <div className="welcome-content">
-                    <div className="welcome-icon">
-                      <i className="fa fa-exclamation-triangle" style={{color: "#f59e0b"}}></i>
+                    <div className="welcome-icon dashboard-anomalias">
+                      <i className="fa fa-exclamation-triangle"></i>
                     </div>
                     <div className="welcome-text">
                       <h4 className="fs-5 fs-md-4">
