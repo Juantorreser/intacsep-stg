@@ -5626,6 +5626,7 @@ app.get('/dashboard/bitacoras-anomalias', async (req, res) => {
     // Obtener bitácoras que tengan al menos un evento de categoría diferente a "General"
     console.log('Starting aggregation for bitacoras con anomalias...');
     console.log('Final bitacoraFilter:', JSON.stringify(bitacoraFilter, null, 2));
+    console.log('Transport filters:', { lineaTransporte, operador });
     let bitacorasConAnomalias;
     try {
       console.log('=== DEBUG: /dashboard/bitacoras-anomalias ===');
@@ -5663,6 +5664,40 @@ app.get('/dashboard/bitacoras-anomalias', async (req, res) => {
             eventTypes: { $push: '$eventTypeInfo' }
           }
         },
+        // Apply transport line filter if specified (case-insensitive)
+        ...(lineaTransporte !== 'all' ? [{
+          $match: {
+            $expr: {
+              $in: [
+                { $toLower: { $trim: { input: lineaTransporte } } },
+                {
+                  $map: {
+                    input: '$transportes',
+                    as: 'transporte',
+                    in: { $toLower: { $trim: { input: '$$transporte.lineaTransporte' } } }
+                  }
+                }
+              ]
+            }
+          }
+        }] : []),
+        // Apply operator filter if specified (case-insensitive)
+        ...(operador !== 'all' ? [{
+          $match: {
+            $expr: {
+              $in: [
+                { $toLower: { $trim: { input: operador } } },
+                {
+                  $map: {
+                    input: '$transportes',
+                    as: 'transporte',
+                    in: { $toLower: { $trim: { input: '$$transporte.operador' } } }
+                  }
+                }
+              ]
+            }
+          }
+        }] : []),
         // Add fields to handle ObjectId conversion for lookups
         {
           $addFields: {
@@ -6250,40 +6285,10 @@ app.get('/dashboard/lineas-transporte-stats', async (req, res) => {
       lineasTransporte = await LineaTransporte.find({}).select('nombre');
     }
 
-    // Obtener estadísticas por línea de transporte
-    // Necesitamos descomponer el array transportes para obtener las líneas de transporte
+    // Obtener estadísticas por línea de transporte usando la misma lógica que bitacoras-anomalias
     const transportLineStats = await Bitacora.aggregate([
       { $match: bitacoraFilter },
       { $unwind: '$eventos' },
-      {
-        $match: {
-          'eventos.nombre': { $in: allEventNames }
-        }
-      },
-      // Unwind the transportes array within each evento
-      { $unwind: '$eventos.transportes' },
-      // Filtrar solo transportes que tienen lineaTransporte válido (no null, undefined o vacío)
-      {
-        $match: {
-          'eventos.transportes.lineaTransporte': {
-            $exists: true,
-            $ne: null,
-            $ne: '',
-            $ne: 'N/A'
-          }
-        }
-      },
-      // Si se especifica una línea de transporte específica, filtrar por ella (case-insensitive)
-      ...(lineaTransporte !== 'all' ? [{
-        $match: {
-          $expr: {
-            $eq: [
-              { $toLower: { $trim: { input: '$eventos.transportes.lineaTransporte' } } },
-              { $toLower: { $trim: { input: lineaTransporte } } }
-            ]
-          }
-        }
-      }] : []),
       {
         $lookup: {
           from: 'eventtypes',
@@ -6293,9 +6298,71 @@ app.get('/dashboard/lineas-transporte-stats', async (req, res) => {
         }
       },
       {
+        $match: {
+          'eventTypeInfo.categoria': { $ne: 'General' }
+        }
+      },
+      {
+        $group: {
+          _id: '$_id',
+          bitacora_id: { $first: '$bitacora_id' },
+          cliente: { $first: '$cliente' },
+          transportes: { $first: '$transportes' },
+          eventos: { $push: '$eventos' },
+          eventTypes: { $push: '$eventTypeInfo' }
+        }
+      },
+      // Apply transport line filter if specified (case-insensitive)
+      ...(lineaTransporte !== 'all' ? [{
+        $match: {
+          $expr: {
+            $in: [
+              { $toLower: { $trim: { input: lineaTransporte } } },
+              {
+                $map: {
+                  input: '$transportes',
+                  as: 'transporte',
+                  in: { $toLower: { $trim: { input: '$$transporte.lineaTransporte' } } }
+                }
+              }
+            ]
+          }
+        }
+      }] : []),
+      // Apply operator filter if specified (case-insensitive)
+      ...(operador !== 'all' ? [{
+        $match: {
+          $expr: {
+            $in: [
+              { $toLower: { $trim: { input: operador } } },
+              {
+                $map: {
+                  input: '$transportes',
+                  as: 'transporte',
+                  in: { $toLower: { $trim: { input: '$$transporte.operador' } } }
+                }
+              }
+            ]
+          }
+        }
+      }] : []),
+      // Unwind transportes to get individual transport lines
+      { $unwind: '$transportes' },
+      // Filter out invalid transport lines
+      {
+        $match: {
+          'transportes.lineaTransporte': {
+            $exists: true,
+            $ne: null,
+            $ne: '',
+            $ne: 'N/A'
+          }
+        }
+      },
+      {
         $group: {
           _id: {
-            lineaTransporte: '$eventos.transportes.lineaTransporte',
+            lineaTransporte: '$transportes.lineaTransporte',
             cliente: '$cliente'
           },
           anomalias: { $sum: 1 },
@@ -6520,40 +6587,10 @@ app.get('/dashboard/operadores-stats', async (req, res) => {
       operadores = await Operador.find({}).select('nombre');
     }
 
-    // Obtener estadísticas por operador
-    // Necesitamos descomponer el array transportes para obtener los operadores
+    // Obtener estadísticas por operador usando la misma lógica que bitacoras-anomalias
     const operatorStats = await Bitacora.aggregate([
       { $match: bitacoraFilter },
       { $unwind: '$eventos' },
-      {
-        $match: {
-          'eventos.nombre': { $in: allEventNames }
-        }
-      },
-      // Unwind the transportes array within each evento
-      { $unwind: '$eventos.transportes' },
-      // Filtrar solo transportes que tienen operador válido (no null, undefined o vacío)
-      {
-        $match: {
-          'eventos.transportes.operador': {
-            $exists: true,
-            $ne: null,
-            $ne: '',
-            $ne: 'N/A'
-          }
-        }
-      },
-      // Si se especifica un operador específico, filtrar por él (case-insensitive)
-      ...(operador !== 'all' ? [{
-        $match: {
-          $expr: {
-            $eq: [
-              { $toLower: { $trim: { input: '$eventos.transportes.operador' } } },
-              { $toLower: { $trim: { input: operador } } }
-            ]
-          }
-        }
-      }] : []),
       {
         $lookup: {
           from: 'eventtypes',
@@ -6563,11 +6600,73 @@ app.get('/dashboard/operadores-stats', async (req, res) => {
         }
       },
       {
+        $match: {
+          'eventTypeInfo.categoria': { $ne: 'General' }
+        }
+      },
+      {
+        $group: {
+          _id: '$_id',
+          bitacora_id: { $first: '$bitacora_id' },
+          cliente: { $first: '$cliente' },
+          transportes: { $first: '$transportes' },
+          eventos: { $push: '$eventos' },
+          eventTypes: { $push: '$eventTypeInfo' }
+        }
+      },
+      // Apply transport line filter if specified (case-insensitive)
+      ...(lineaTransporte !== 'all' ? [{
+        $match: {
+          $expr: {
+            $in: [
+              { $toLower: { $trim: { input: lineaTransporte } } },
+              {
+                $map: {
+                  input: '$transportes',
+                  as: 'transporte',
+                  in: { $toLower: { $trim: { input: '$$transporte.lineaTransporte' } } }
+                }
+              }
+            ]
+          }
+        }
+      }] : []),
+      // Apply operator filter if specified (case-insensitive)
+      ...(operador !== 'all' ? [{
+        $match: {
+          $expr: {
+            $in: [
+              { $toLower: { $trim: { input: operador } } },
+              {
+                $map: {
+                  input: '$transportes',
+                  as: 'transporte',
+                  in: { $toLower: { $trim: { input: '$$transporte.operador' } } }
+                }
+              }
+            ]
+          }
+        }
+      }] : []),
+      // Unwind transportes to get individual operators
+      { $unwind: '$transportes' },
+      // Filter out invalid operators
+      {
+        $match: {
+          'transportes.operador': {
+            $exists: true,
+            $ne: null,
+            $ne: '',
+            $ne: 'N/A'
+          }
+        }
+      },
+      {
         $group: {
           _id: {
-            operador: '$eventos.transportes.operador',
+            operador: '$transportes.operador',
             cliente: '$cliente',
-            lineaTransporte: '$eventos.transportes.lineaTransporte'
+            lineaTransporte: '$transportes.lineaTransporte'
           },
           anomalias: { $sum: 1 },
           bitacoras: { $addToSet: '$_id' }
