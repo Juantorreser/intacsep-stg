@@ -182,6 +182,29 @@ const AnomaliasDashboardPage = () => {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
 
+  // Table filters
+  const [tableFilters, setTableFilters] = useState({
+    bitacoraId: "",
+    cliente: "",
+    anomalias: "",
+    lineaTransporte: "",
+    operador: "",
+    origen: "",
+    destino: "",
+    estado: "",
+  });
+
+  // Autocomplete states for each field
+  const [autocompleteStates, setAutocompleteStates] = useState({
+    cliente: {isOpen: false, searchTerm: ""},
+    anomalias: {isOpen: false, searchTerm: ""},
+    lineaTransporte: {isOpen: false, searchTerm: ""},
+    operador: {isOpen: false, searchTerm: ""},
+    origen: {isOpen: false, searchTerm: ""},
+    destino: {isOpen: false, searchTerm: ""},
+    estado: {isOpen: false, searchTerm: ""},
+  });
+
   // Function to apply filters when check button is pressed
   const applyFilters = () => {
     setAppliedClientFilter(clientFilter);
@@ -201,6 +224,124 @@ const AnomaliasDashboardPage = () => {
     setFechaHasta(today);
     setLineaTransporteFilter("all");
     setOperadorFilter("all");
+  };
+
+  // Function to handle table filter changes
+  const handleTableFilterChange = (field, value) => {
+    setTableFilters((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
+    setPage(0); // Reset pagination when filters change
+  };
+
+  // Function to clear all table filters
+  const clearTableFilters = () => {
+    setTableFilters({
+      bitacoraId: "",
+      cliente: "",
+      anomalias: "",
+      lineaTransporte: "",
+      operador: "",
+      origen: "",
+      destino: "",
+      estado: "",
+    });
+    setAutocompleteStates({
+      cliente: {isOpen: false, searchTerm: ""},
+      anomalias: {isOpen: false, searchTerm: ""},
+      lineaTransporte: {isOpen: false, searchTerm: ""},
+      operador: {isOpen: false, searchTerm: ""},
+      origen: {isOpen: false, searchTerm: ""},
+      destino: {isOpen: false, searchTerm: ""},
+      estado: {isOpen: false, searchTerm: ""},
+    });
+    setPage(0);
+  };
+
+  // Handle autocomplete input change
+  const handleAutocompleteInput = (field, value) => {
+    setAutocompleteStates((prev) => ({
+      ...prev,
+      [field]: {
+        ...prev[field],
+        searchTerm: value,
+        isOpen: true,
+      },
+    }));
+  };
+
+  // Handle autocomplete selection
+  const handleAutocompleteSelect = (field, value) => {
+    setTableFilters((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
+    setAutocompleteStates((prev) => ({
+      ...prev,
+      [field]: {
+        isOpen: false,
+        searchTerm: "",
+      },
+    }));
+    setPage(0);
+  };
+
+  // Toggle autocomplete dropdown
+  const toggleAutocomplete = (field) => {
+    setAutocompleteStates((prev) => ({
+      ...prev,
+      [field]: {
+        ...prev[field],
+        isOpen: !prev[field].isOpen,
+        searchTerm: prev[field].isOpen ? "" : prev[field].searchTerm,
+      },
+    }));
+  };
+
+  // Get unique values for dropdown filters
+  const getUniqueValues = (field) => {
+    const values = bitacorasAnomalias
+      .map((item) => {
+        if (field === "anomalias") {
+          return item.categorias || [];
+        }
+
+        const fieldValue = item[field] || "";
+
+        // Handle concatenated values (like "DHL/MAGDAMEX, DHL/BUZMYR")
+        if (field === "lineaTransporte" || field === "operador") {
+          if (typeof fieldValue === "string" && fieldValue.includes(",")) {
+            return fieldValue
+              .split(",")
+              .map((v) => v.trim())
+              .filter((v) => v && v !== "N/A");
+          }
+        }
+
+        return fieldValue;
+      })
+      .flat()
+      .filter((value) => value && value.trim() !== "" && value !== "N/A")
+      .map((value) => value.toString().trim());
+
+    return [...new Set(values)].sort();
+  };
+
+  // Get unique anomaly categories
+  const getUniqueAnomalias = () => {
+    const allCategories = bitacorasAnomalias
+      .flatMap((item) => item.categorias || [])
+      .filter((cat) => cat && cat.trim() !== "");
+    return [...new Set(allCategories)].sort();
+  };
+
+  // Get filtered options for autocomplete
+  const getFilteredOptions = (field, searchTerm) => {
+    const allOptions = field === "anomalias" ? getUniqueAnomalias() : getUniqueValues(field);
+    if (!searchTerm) return allOptions;
+
+    return allOptions.filter((option) => option.toLowerCase().includes(searchTerm.toLowerCase()));
   };
 
   // Function to handle transport line selection from pie chart
@@ -479,18 +620,85 @@ const AnomaliasDashboardPage = () => {
     }
   }, [user, lineaTransporteFilter, fetchOperadores]);
 
+  // Close autocomplete dropdowns when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (!event.target.closest(".position-relative")) {
+        setAutocompleteStates((prev) => {
+          const newState = {};
+          Object.keys(prev).forEach((key) => {
+            newState[key] = {...prev[key], isOpen: false};
+          });
+          return newState;
+        });
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
+
   // Memoize filtered data calculation
-  // Since the backend now applies catalog validation and filtering, we trust the backend data
-  // The backend should return only the data that matches the applied filters
+  // Apply table filters to the backend data
   const filteredAnomaliasData = useMemo(() => {
-    // The backend should already be filtering based on catalog validation and applied filters
-    // We trust the backend data and don't apply additional filtering
-    return bitacorasAnomalias;
+    let filtered = bitacorasAnomalias;
+
+    // Apply table filters
+    if (tableFilters.bitacoraId) {
+      // Bitácora ID uses partial match (text input)
+      filtered = filtered.filter((item) =>
+        item.bitacora_id?.toLowerCase().includes(tableFilters.bitacoraId.toLowerCase())
+      );
+    }
+    if (tableFilters.cliente) {
+      // Dropdown filters use exact match
+      filtered = filtered.filter((item) => item.cliente === tableFilters.cliente);
+    }
+    if (tableFilters.anomalias) {
+      // Anomalies filter checks if the selected category exists in the item's categories
+      filtered = filtered.filter((item) => item.categorias?.includes(tableFilters.anomalias));
+    }
+    if (tableFilters.lineaTransporte) {
+      filtered = filtered.filter((item) => {
+        const itemValue = item.linea_transporte || "";
+        // Handle concatenated values (like "DHL/MAGDAMEX, DHL/BUZMYR")
+        if (typeof itemValue === "string" && itemValue.includes(",")) {
+          const values = itemValue.split(",").map((v) => v.trim());
+          return values.includes(tableFilters.lineaTransporte);
+        }
+        return itemValue === tableFilters.lineaTransporte;
+      });
+    }
+    if (tableFilters.operador) {
+      filtered = filtered.filter((item) => {
+        const itemValue = item.operador || "";
+        // Handle concatenated values (like "FRANCISCO JAVIER, ABEL GARCIA")
+        if (typeof itemValue === "string" && itemValue.includes(",")) {
+          const values = itemValue.split(",").map((v) => v.trim());
+          return values.includes(tableFilters.operador);
+        }
+        return itemValue === tableFilters.operador;
+      });
+    }
+    if (tableFilters.origen) {
+      filtered = filtered.filter((item) => item.origen === tableFilters.origen);
+    }
+    if (tableFilters.destino) {
+      filtered = filtered.filter((item) => item.destino === tableFilters.destino);
+    }
+    if (tableFilters.estado) {
+      filtered = filtered.filter((item) => item.status === tableFilters.estado);
+    }
+
+    return filtered;
   }, [
     bitacorasAnomalias,
     appliedClientFilter,
     appliedLineaTransporteFilter,
     appliedOperadorFilter,
+    tableFilters,
   ]);
 
   // Helper function to calculate total anomalies based on applied filters
@@ -1406,6 +1614,104 @@ const AnomaliasDashboardPage = () => {
     );
   };
 
+  // Render autocomplete component
+  const renderAutocomplete = (field, placeholder = "Filtrar...") => {
+    const state = autocompleteStates[field];
+    const filteredOptions = getFilteredOptions(field, state.searchTerm);
+    const displayValue = state.isOpen ? state.searchTerm : tableFilters[field];
+
+    return (
+      <div className="position-relative">
+        <div className="input-group input-group-sm">
+          <input
+            type="text"
+            className="form-control"
+            placeholder={placeholder}
+            value={displayValue}
+            onChange={(e) => handleAutocompleteInput(field, e.target.value)}
+            onFocus={() =>
+              setAutocompleteStates((prev) => ({
+                ...prev,
+                [field]: {...prev[field], isOpen: true},
+              }))
+            }
+            style={{fontSize: "11px", minWidth: "80px"}}
+          />
+          <button
+            className="btn btn-outline-secondary"
+            type="button"
+            onClick={() => toggleAutocomplete(field)}
+            style={{fontSize: "10px", padding: "2px 6px"}}>
+            <i className={`fa fa-chevron-${state.isOpen ? "up" : "down"}`}></i>
+          </button>
+        </div>
+
+        {state.isOpen && (
+          <div
+            className="position-absolute w-100 bg-white border rounded shadow-sm"
+            style={{
+              zIndex: 1000,
+              maxHeight: "200px",
+              overflowY: "auto",
+              top: "100%",
+              left: 0,
+              right: 0,
+            }}>
+            {filteredOptions.length > 0 ? (
+              filteredOptions.map((option) => (
+                <div
+                  key={option}
+                  className="px-2 py-1 cursor-pointer hover-bg-light"
+                  style={{
+                    fontSize: "11px",
+                    cursor: "pointer",
+                    borderBottom: "1px solid #eee",
+                  }}
+                  onMouseEnter={(e) => (e.target.style.backgroundColor = "#f8f9fa")}
+                  onMouseLeave={(e) => (e.target.style.backgroundColor = "transparent")}
+                  onClick={() => handleAutocompleteSelect(field, option)}>
+                  {option}
+                </div>
+              ))
+            ) : (
+              <div className="px-2 py-1 text-muted" style={{fontSize: "11px"}}>
+                No se encontraron opciones
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  // Render filterable table header
+  const renderFilterableHeader = (
+    title,
+    field,
+    placeholder = "Filtrar...",
+    isAutocomplete = false
+  ) => {
+    return (
+      <th className="position-relative">
+        <div className="d-flex flex-column">
+          <div className="fw-semibold mb-1">{title}</div>
+          {isAutocomplete ? (
+            renderAutocomplete(field, placeholder)
+          ) : (
+            <input
+              type="text"
+              className="form-control form-control-sm"
+              placeholder={placeholder}
+              value={tableFilters[field]}
+              onChange={(e) => handleTableFilterChange(field, e.target.value)}
+              style={{fontSize: "11px", minWidth: "80px"}}
+            />
+          )}
+        </div>
+      </th>
+    );
+  };
+
   // Render anomalies table
   const renderAnomaliasTable = () => {
     if (bitacorasAnomalias.length === 0) {
@@ -1441,14 +1747,19 @@ const AnomaliasDashboardPage = () => {
           <table className="table table-sm">
             <thead>
               <tr>
-                <th>No. Bitácora</th>
-                <th>Cliente</th>
-                <th>Anomalías</th>
-                <th>Línea Transporte</th>
-                <th>Operador</th>
-                <th>Origen</th>
-                <th>Destino</th>
-                <th className="text-center">Estado</th>
+                {renderFilterableHeader("No. Bitácora", "bitacoraId", "Ej: 005024", false)}
+                {renderFilterableHeader("Cliente", "cliente", "Buscar cliente...", true)}
+                {renderFilterableHeader("Anomalías", "anomalias", "Buscar anomalía...", true)}
+                {renderFilterableHeader(
+                  "Línea Transporte",
+                  "lineaTransporte",
+                  "Buscar línea...",
+                  true
+                )}
+                {renderFilterableHeader("Operador", "operador", "Buscar operador...", true)}
+                {renderFilterableHeader("Origen", "origen", "Buscar origen...", true)}
+                {renderFilterableHeader("Destino", "destino", "Buscar destino...", true)}
+                {renderFilterableHeader("Estado", "estado", "Buscar estado...", true)}
               </tr>
             </thead>
             <tbody>
@@ -2215,7 +2526,7 @@ const AnomaliasDashboardPage = () => {
                 <div className="chart-card">
                   <div className="chart-header d-flex justify-content-between align-items-center">
                     <div className="d-flex align-items-center gap-2">
-                      <h6 className="mb-0">Anomalías</h6>
+                      <h6 className="mb-0">Bitácoras con anomalías</h6>
                       {(appliedClientFilter !== "all" ||
                         appliedLineaTransporteFilter !== "all" ||
                         appliedOperadorFilter !== "all" ||
@@ -2228,6 +2539,13 @@ const AnomaliasDashboardPage = () => {
                       )}
                     </div>
                     <div className="d-flex align-items-center gap-2">
+                      <button
+                        className="btn btn-outline-secondary btn-sm"
+                        onClick={clearTableFilters}
+                        disabled={Object.values(tableFilters).every((filter) => filter === "")}>
+                        <i className="fa fa-times me-1"></i>
+                        Limpiar Filtros
+                      </button>
                       <button
                         className="btn btn-outline-primary btn-sm"
                         onClick={() => downloadBitacorasAnomaliasExcel(filteredAnomaliasData)}
@@ -2258,6 +2576,12 @@ const AnomaliasDashboardPage = () => {
                     <div className="chart-subheader small text-white mb-3">
                       Mostrando {filteredAnomaliasData.length} de {bitacorasAnomalias.length}{" "}
                       registros
+                      {Object.values(tableFilters).some((filter) => filter !== "") && (
+                        <span className="text-warning ms-2">
+                          <i className="fa fa-filter me-1"></i>
+                          Filtros de tabla activos
+                        </span>
+                      )}
                     </div>
                     <div className="overflow-auto">{renderAnomaliasTable()}</div>
                   </div>
