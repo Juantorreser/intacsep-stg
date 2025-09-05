@@ -162,7 +162,7 @@ const NewEventModal = ({show, onClose, edited, eventTypes, onEventAdded}) => {
     });
   };
 
-  const getUnitInfo = async (transporteId) => {
+  const getUnitInfo = async (wialonId) => {
     await fetchAllUnits(3, 1500, token);
 
     if (!units || !units.length) {
@@ -170,13 +170,10 @@ const NewEventModal = ({show, onClose, edited, eventTypes, onEventAdded}) => {
       return null;
     }
 
-    console.log("Units" + units);
-
-    const formattedId = transporteId.split("_")[0];
-    const found = units.find((u) => u.id == formattedId);
+    const found = units.find((u) => u.id == wialonId);
 
     if (!found) {
-      console.warn(`❌ Unidad no encontrada para ID: ${formattedId}`);
+      console.warn(`❌ Unidad no encontrada para ID: ${wialonId}`);
       return null;
     }
 
@@ -211,6 +208,40 @@ const NewEventModal = ({show, onClose, edited, eventTypes, onEventAdded}) => {
     };
   };
 
+  const getMultipleGpsData = async (transporte) => {
+    // Compatibilidad con versiones anteriores
+    if (!transporte.gpsUnits || transporte.gpsUnits.length === 0) {
+      // Transporte antiguo - usar el ID original
+      const formattedId = transporte.id.split("_")[0];
+      if (formattedId === "0" || formattedId === "blank") {
+        return []; // Transporte manual
+      }
+
+      const data = await getUnitInfo(formattedId);
+      return data
+        ? [
+            {
+              wialonId: formattedId,
+              name: `GPS ${formattedId}`,
+              data: data,
+            },
+          ]
+        : [];
+    }
+
+    // Transporte nuevo con múltiples GPS
+    const gpsDataPromises = transporte.gpsUnits.map(async (gpsUnit) => {
+      const data = await getUnitInfo(gpsUnit.wialonId);
+      return {
+        wialonId: gpsUnit.wialonId,
+        name: gpsUnit.name,
+        data: data || {},
+      };
+    });
+
+    return await Promise.all(gpsDataPromises);
+  };
+
   const handleCheckboxChange = async (e) => {
     const {value, checked} = e.target;
     const transporteId = value;
@@ -221,59 +252,42 @@ const NewEventModal = ({show, onClose, edited, eventTypes, onEventAdded}) => {
 
     if (!transporteToAdd) return;
 
-    if (!transporteToAdd.registro) {
-      transporteToAdd.registro = {};
-    }
+    // Crear una copia del transporte para modificar
+    const transporteCopy = {...transporteToAdd};
 
-    const isManual = transporteId.split("_")[0] === "0";
+    // Verificar si es transporte manual (sin GPS)
+    const isManual =
+      transporteId.startsWith("blank_") ||
+      (transporteId.startsWith("T") &&
+        (!transporteCopy.gpsUnits || transporteCopy.gpsUnits.length === 0));
 
     if (isManual) {
-      // Manual transportes get static registro values
-      transporteToAdd.registro.ubicacion = "";
-      transporteToAdd.registro.duracion = "";
-      transporteToAdd.registro.ultimo_posicionamiento = "";
-      transporteToAdd.registro.velocidad = "";
-      transporteToAdd.registro.coordenadas = "";
+      // Transporte manual - datos estáticos
+      transporteCopy.registro = {
+        ubicacion: "",
+        duracion: "",
+        ultimo_posicionamiento: "",
+        velocidad: "",
+        coordenadas: "",
+      };
     } else {
-      // Automatic GPS data fetch
-      const data = await getUnitInfo(transporteId);
-      console.log(data);
+      // Transporte con GPS - obtener datos de múltiples GPS
+      const gpsData = await getMultipleGpsData(transporteCopy);
 
-      if (!data) {
+      if (gpsData.length === 0) {
         console.log("⚠️ No se pudo obtener datos de GPS. Activando modo manual.");
-
-        transporteToAdd.registro.ubicacion = "";
-        transporteToAdd.registro.duracion = "";
-        transporteToAdd.registro.ultimo_posicionamiento = "";
-        transporteToAdd.registro.velocidad = "";
-        transporteToAdd.registro.coordenadas = "";
-
-        // Aún así, agregar el transporte a la lista
-        let updatedTransportes = [...newEvent.transportes];
-        if (!updatedTransportes.some((t) => t.id === transporteToAdd.id)) {
-          updatedTransportes.push(transporteToAdd);
-        }
-
-        if (checked) {
-          if (!updatedTransportes.some((t) => t.id === transporteToAdd.id)) {
-            updatedTransportes.push(transporteToAdd);
-          }
-        } else {
-          updatedTransportes = updatedTransportes.filter((t) => t.id !== transporteToAdd.id);
-        }
-
-        setNewEvent((prev) => ({
-          ...prev,
-          transportes: updatedTransportes,
-        }));
-
-        return; // Exit early since GPS data failed
+        transporteCopy.registro = {
+          ubicacion: "",
+          duracion: "",
+          ultimo_posicionamiento: "",
+          velocidad: "",
+          coordenadas: "",
+        };
       } else {
-        transporteToAdd.registro.ubicacion = data.ubicacion;
-        transporteToAdd.registro.duracion = data.duracion;
-        transporteToAdd.registro.ultimo_posicionamiento = data.ultimo_posicionamiento;
-        transporteToAdd.registro.velocidad = data.velocidad;
-        transporteToAdd.registro.coordenadas = data.coordenadas;
+        // Guardar datos de múltiples GPS
+        transporteCopy.gpsData = gpsData;
+        // Para compatibilidad, usar datos del primer GPS como registro principal
+        transporteCopy.registro = gpsData[0].data || {};
       }
     }
 
@@ -281,11 +295,11 @@ const NewEventModal = ({show, onClose, edited, eventTypes, onEventAdded}) => {
     let updatedTransportes = [...newEvent.transportes];
 
     if (checked) {
-      if (!updatedTransportes.some((t) => t.id === transporteToAdd.id)) {
-        updatedTransportes.push(transporteToAdd);
+      if (!updatedTransportes.some((t) => t.id === transporteCopy.id)) {
+        updatedTransportes.push(transporteCopy);
       }
     } else {
-      updatedTransportes = updatedTransportes.filter((t) => t.id !== transporteToAdd.id);
+      updatedTransportes = updatedTransportes.filter((t) => t.id !== transporteCopy.id);
     }
 
     setNewEvent((prev) => ({
@@ -656,13 +670,25 @@ const NewEventModal = ({show, onClose, edited, eventTypes, onEventAdded}) => {
                   style={{cursor: "pointer"}}
                   onClick={() => toggleCollapse(t.id)}>
                   <div className="fw-bold">
-                    {t.id.includes("_") ? `${t.id.split("_")[1]} - ${t.id.split("_")[2]}` : t.id}
+                    {t.id.startsWith("T")
+                      ? t.id
+                      : t.id.includes("_")
+                      ? `${t.id.split("_")[1]} - ${t.id.split("_")[2]}`
+                      : t.id}
                   </div>
 
                   <div className="d-flex align-items-center gap-2">
                     <span
-                      className={`badge ${t.id.startsWith("0_") ? "bg-secondary" : "bg-success"}`}>
-                      {t.id.startsWith("0_") ? "Manual" : "GPS"}
+                      className={`badge ${
+                        t.id.startsWith("blank_") ||
+                        (t.id.startsWith("T") && (!t.gpsUnits || t.gpsUnits.length === 0))
+                          ? "bg-secondary"
+                          : "bg-success"
+                      }`}>
+                      {t.id.startsWith("blank_") ||
+                      (t.id.startsWith("T") && (!t.gpsUnits || t.gpsUnits.length === 0))
+                        ? "Manual"
+                        : "GPS"}
                     </span>
                     <span className="ms-2 fs-5">{openTransportId === t.id ? "−" : "+"}</span>
                   </div>
@@ -670,30 +696,83 @@ const NewEventModal = ({show, onClose, edited, eventTypes, onEventAdded}) => {
 
                 {openTransportId === t.id && (
                   <div className="p-3">
-                    {[
-                      "duracion",
-                      "ubicacion",
-                      "velocidad",
-                      "ultimo_posicionamiento",
-                      "coordenadas",
-                    ].map((field) => (
-                      <div className="mb-3" key={field}>
-                        <label className="form-label fw-bold text-capitalize">
-                          {field.replace("_", " ")}{" "}
-                          {t.id.startsWith("0_") && (
-                            <span className="text-danger fw-normal ms-1">(Requerido)</span>
-                          )}
-                        </label>
-                        <input
-                          type="text"
-                          className={`form-control ${t.id.startsWith("0_") ? "border-danger" : ""}`}
-                          value={t.registro?.[field] || ""}
-                          onChange={(e) => handleManualRegistroChange(t.id, field, e.target.value)}
-                          required={t.id.startsWith("0_")}
-                          placeholder={t.id.startsWith("0_") ? "Ingresa valor manualmente" : ""}
-                        />
+                    {/* Mostrar múltiples GPS si existen */}
+                    {t.gpsData && t.gpsData.length > 0 ? (
+                      <div>
+                        <h6 className="fw-bold mb-3">Datos de GPS</h6>
+                        {t.gpsData.map((gps, index) => (
+                          <div key={index} className="mb-4 p-3 border rounded bg-light">
+                            <h6 className="fw-semibold text-primary mb-2">
+                              {gps.name} (ID: {gps.wialonId})
+                            </h6>
+                            {[
+                              "duracion",
+                              "ubicacion",
+                              "velocidad",
+                              "ultimo_posicionamiento",
+                              "coordenadas",
+                            ].map((field) => (
+                              <div className="mb-2" key={field}>
+                                <label className="form-label fw-bold text-capitalize small">
+                                  {field.replace("_", " ")}:
+                                </label>
+                                <input
+                                  type="text"
+                                  className="form-control form-control-sm"
+                                  value={gps.data?.[field] || ""}
+                                  readOnly
+                                />
+                              </div>
+                            ))}
+                          </div>
+                        ))}
                       </div>
-                    ))}
+                    ) : (
+                      /* Modo manual - campos editables */
+                      <div>
+                        {[
+                          "duracion",
+                          "ubicacion",
+                          "velocidad",
+                          "ultimo_posicionamiento",
+                          "coordenadas",
+                        ].map((field) => (
+                          <div className="mb-3" key={field}>
+                            <label className="form-label fw-bold text-capitalize">
+                              {field.replace("_", " ")}{" "}
+                              {(t.id.startsWith("blank_") ||
+                                (t.id.startsWith("T") &&
+                                  (!t.gpsUnits || t.gpsUnits.length === 0))) && (
+                                <span className="text-danger fw-normal ms-1">(Requerido)</span>
+                              )}
+                            </label>
+                            <input
+                              type="text"
+                              className={`form-control ${
+                                t.id.startsWith("blank_") ||
+                                (t.id.startsWith("T") && (!t.gpsUnits || t.gpsUnits.length === 0))
+                                  ? "border-danger"
+                                  : ""
+                              }`}
+                              value={t.registro?.[field] || ""}
+                              onChange={(e) =>
+                                handleManualRegistroChange(t.id, field, e.target.value)
+                              }
+                              required={
+                                t.id.startsWith("blank_") ||
+                                (t.id.startsWith("T") && (!t.gpsUnits || t.gpsUnits.length === 0))
+                              }
+                              placeholder={
+                                t.id.startsWith("blank_") ||
+                                (t.id.startsWith("T") && (!t.gpsUnits || t.gpsUnits.length === 0))
+                                  ? "Ingresa valor manualmente"
+                                  : ""
+                              }
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

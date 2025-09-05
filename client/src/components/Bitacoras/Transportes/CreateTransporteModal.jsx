@@ -30,6 +30,7 @@ const CreateTransporteModal = ({
     lineaTransporte: "",
     operador: "",
     telefono: "",
+    gpsUnits: [], // Array de GPS units
   });
 
   const [idMethod, setIdMethod] = useState("manual");
@@ -37,6 +38,8 @@ const CreateTransporteModal = ({
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedUnitId, setSelectedUnitId] = useState("");
   const [selectedUnitName, setSelectedUnitName] = useState("");
+  const [selectedGpsUnits, setSelectedGpsUnits] = useState([]); // Array de GPS seleccionados
+  const [gpsSearchTerm, setGpsSearchTerm] = useState(""); // Para buscar GPS
   const [operadores, setOperadores] = useState([]);
   const [lineasTransporte, setLineasTransporte] = useState([]);
   // const [units, setUnits] = useState([]);
@@ -94,7 +97,7 @@ const CreateTransporteModal = ({
       if (cliente && cliente !== "all") {
         url += `?cliente=${encodeURIComponent(cliente)}`;
       }
-      
+
       const response = await fetch(url, {
         method: "GET",
         credentials: "include",
@@ -116,7 +119,7 @@ const CreateTransporteModal = ({
       if (lineaTransporte && lineaTransporte !== "all") {
         url += `?lineaTransporte=${encodeURIComponent(lineaTransporte)}`;
       }
-      
+
       const response = await fetch(url, {
         method: "GET",
         credentials: "include",
@@ -175,6 +178,50 @@ const CreateTransporteModal = ({
     return phoneRegex.test(phone);
   };
 
+  const handleGpsUnitToggle = (unit) => {
+    setSelectedGpsUnits((prev) => {
+      const isSelected = prev.some((u) => u.id === unit.id);
+      if (isSelected) {
+        return prev.filter((u) => u.id !== unit.id);
+      } else {
+        return [...prev, unit];
+      }
+    });
+  };
+
+  const generateTransporteId = () => {
+    const numericId = (transportes.length + 1).toString().padStart(3, "0");
+    const remolquePlaca = transporteData.remolque.placa || "N/A";
+    return `T${numericId}_${remolquePlaca}`;
+  };
+
+  // Filtrar GPS basado en búsqueda
+  const filteredGpsUnits = units.filter(
+    (unit) =>
+      unit.name.toLowerCase().includes(gpsSearchTerm.toLowerCase()) ||
+      unit.id.toString().includes(gpsSearchTerm)
+  );
+
+  // Función para seleccionar/deseleccionar todos los GPS filtrados
+  const handleSelectAllFiltered = () => {
+    const allFilteredSelected = filteredGpsUnits.every((unit) =>
+      selectedGpsUnits.some((selected) => selected.id === unit.id)
+    );
+
+    if (allFilteredSelected) {
+      // Deseleccionar todos los filtrados
+      setSelectedGpsUnits((prev) =>
+        prev.filter((selected) => !filteredGpsUnits.some((filtered) => filtered.id === selected.id))
+      );
+    } else {
+      // Seleccionar todos los filtrados
+      const newSelections = filteredGpsUnits.filter(
+        (unit) => !selectedGpsUnits.some((selected) => selected.id === unit.id)
+      );
+      setSelectedGpsUnits((prev) => [...prev, ...newSelections]);
+    }
+  };
+
   const handleChange = (e) => {
     const {name, value} = e.target;
     const [section, field] = name.split(".");
@@ -227,15 +274,13 @@ const CreateTransporteModal = ({
 
     let newId;
     if (idMethod === "wialon") {
-      if (!selectedUnitId || !selectedUnitName) {
-        alert("Por favor seleccione una unidad Wialon.");
+      if (selectedGpsUnits.length === 0) {
+        alert("Por favor seleccione al menos una unidad Wialon.");
         return;
       }
-      newId = `${selectedUnitId}_${selectedUnitName}_${transporteData.tracto.eco}`;
+      newId = generateTransporteId();
     } else if (idMethod === "automatic") {
-      newId = `0_${(transportes.length + 1).toString().padStart(2, "0")}_${
-        transporteData.tracto.eco
-      }`;
+      newId = generateTransporteId();
     } else {
       newId = `blank_${Date.now()}`;
     }
@@ -246,17 +291,31 @@ const CreateTransporteModal = ({
       return;
     }
 
-    const newTransporte = {id: newId, ...transporteData};
+    // Crear el transporte con múltiples GPS
+    const newTransporte = {
+      id: newId,
+      ...transporteData,
+      gpsUnits: selectedGpsUnits.map((unit) => ({
+        wialonId: unit.id,
+        name: unit.name,
+        data: {}, // Se llenará cuando se obtengan los datos
+      })),
+    };
+
     addTransporte(newTransporte, bitacora._id);
 
+    // Reset form
     setTransporteData({
       tracto: {eco: "", placa: "", marca: "", modelo: "", color: "", tipo: ""},
       remolque: {eco: "", placa: "", color: "", capacidad: "", sello: ""},
       lineaTransporte: "",
       operador: "",
       telefono: "",
+      gpsUnits: [],
     });
 
+    setSelectedGpsUnits([]);
+    setGpsSearchTerm(""); // Limpiar búsqueda
     setSearchTerm("");
     handleClose();
   };
@@ -302,28 +361,142 @@ const CreateTransporteModal = ({
 
             {idMethod === "wialon" && (
               <Form.Group className="mb-3">
-                <Form.Label>Seleccionar unidad Wialon</Form.Label>
-                <Form.Select
-                  value={selectedUnitId}
-                  onChange={(e) => {
-                    const unitId = e.target.value;
-                    const selected = units.find((u) => u.id.toString() === unitId);
-                    if (selected) {
-                      setSelectedUnitId(selected.id);
-                      setSelectedUnitName(selected.name);
-                    }
-                  }}
-                  disabled={units.length === 0} // disable until loaded
-                >
-                  <option value="">
-                    {units.length === 0 ? "Cargando unidades..." : "Seleccione una unidad"}
-                  </option>
-                  {units.map((unit) => (
-                    <option key={unit.id} value={unit.id}>
-                      {unit.name}
-                    </option>
-                  ))}
-                </Form.Select>
+                <Form.Label>Seleccionar unidades Wialon (múltiples)</Form.Label>
+
+                {/* Barra de búsqueda */}
+                <div className="mb-3">
+                  <div className="input-group">
+                    <span className="input-group-text">
+                      <i className="fa fa-search"></i>
+                    </span>
+                    <input
+                      type="text"
+                      className="form-control"
+                      placeholder="Buscar por nombre o ID..."
+                      value={gpsSearchTerm}
+                      onChange={(e) => setGpsSearchTerm(e.target.value)}
+                    />
+                    {gpsSearchTerm && (
+                      <button
+                        className="btn btn-outline-secondary"
+                        type="button"
+                        onClick={() => setGpsSearchTerm("")}>
+                        <i className="fa fa-times"></i>
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Controles de selección */}
+                {filteredGpsUnits.length > 0 && (
+                  <div className="mb-2 d-flex justify-content-between align-items-center">
+                    <small className="text-muted">{filteredGpsUnits.length} GPS encontrados</small>
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-outline-primary"
+                      onClick={handleSelectAllFiltered}>
+                      {filteredGpsUnits.every((unit) =>
+                        selectedGpsUnits.some((selected) => selected.id === unit.id)
+                      )
+                        ? "Deseleccionar todos"
+                        : "Seleccionar todos"}
+                    </button>
+                  </div>
+                )}
+
+                {/* Lista de GPS con mejor diseño */}
+                <div
+                  className="gps-units-selection"
+                  style={{
+                    maxHeight: "300px",
+                    overflowY: "auto",
+                    border: "1px solid #dee2e6",
+                    borderRadius: "0.375rem",
+                    padding: "0",
+                  }}>
+                  {units.length === 0 ? (
+                    <div className="p-3 text-muted text-center">
+                      <i className="fa fa-spinner fa-spin me-2"></i>
+                      Cargando unidades...
+                    </div>
+                  ) : filteredGpsUnits.length === 0 ? (
+                    <div className="p-3 text-muted text-center">
+                      <i className="fa fa-search me-2"></i>
+                      No se encontraron GPS con "{gpsSearchTerm}"
+                    </div>
+                  ) : (
+                    <div className="list-group list-group-flush">
+                      {filteredGpsUnits.map((unit) => {
+                        const isSelected = selectedGpsUnits.some((u) => u.id === unit.id);
+                        return (
+                          <div
+                            key={unit.id}
+                            className={`list-group-item list-group-item-action d-flex align-items-center ${
+                              isSelected ? "active" : ""
+                            }`}
+                            style={{cursor: "pointer", border: "none"}}
+                            onClick={() => handleGpsUnitToggle(unit)}>
+                            <div className="form-check me-3">
+                              <input
+                                className="form-check-input"
+                                type="checkbox"
+                                checked={isSelected}
+                                onChange={() => handleGpsUnitToggle(unit)}
+                                onClick={(e) => e.stopPropagation()}
+                              />
+                            </div>
+                            <div className="flex-grow-1">
+                              <div className="fw-semibold">{unit.name}</div>
+                              <small className="text-muted">ID: {unit.id}</small>
+                            </div>
+                            {isSelected && (
+                              <div className="text-success">
+                                <i className="fa fa-check-circle"></i>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                {/* Resumen de selección */}
+                {selectedGpsUnits.length > 0 && (
+                  <div className="mt-3 p-2 bg-light rounded">
+                    <div className="d-flex justify-content-between align-items-center">
+                      <small className="text-muted">
+                        <strong>{selectedGpsUnits.length}</strong> GPS seleccionados
+                      </small>
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-outline-danger"
+                        onClick={() => setSelectedGpsUnits([])}>
+                        Limpiar selección
+                      </button>
+                    </div>
+                    <div className="mt-2">
+                      <div className="d-flex flex-wrap gap-1">
+                        {selectedGpsUnits.map((unit) => (
+                          <span
+                            key={unit.id}
+                            className="badge bg-primary"
+                            style={{fontSize: "0.75rem"}}>
+                            {unit.name}
+                            <button
+                              type="button"
+                              className="btn-close btn-close-white ms-1"
+                              style={{fontSize: "0.5rem"}}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleGpsUnitToggle(unit);
+                              }}></button>
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
               </Form.Group>
             )}
 
@@ -332,15 +505,13 @@ const CreateTransporteModal = ({
                 <Form.Label>ID generado</Form.Label>
                 <Form.Control
                   type="text"
-                  value={
-                    idMethod === "automatic"
-                      ? `0_${(transportes.length + 1).toString().padStart(2, "0")}_${
-                          transporteData.tracto.eco
-                        }`
-                      : "(ID en blanco)"
-                  }
+                  value={idMethod === "automatic" ? generateTransporteId() : "(ID en blanco)"}
                   disabled
                 />
+                <Form.Text className="text-muted">
+                  Formato: T{String(transportes.length + 1).padStart(3, "0")}_
+                  {transporteData.remolque.placa || "N/A"}
+                </Form.Text>
               </Form.Group>
             )}
           </Tab>
@@ -391,8 +562,7 @@ const CreateTransporteModal = ({
                 name="lineaTransporte"
                 value={transporteData.lineaTransporte}
                 onChange={handleChange}
-                required={!!roleData?.operador?.create}
-              >
+                required={!!roleData?.operador?.create}>
                 <option value="">Selecciona una línea de transporte</option>
                 {lineasTransporte.map((linea) => (
                   <option key={linea._id} value={linea.nombre}>
@@ -408,11 +578,10 @@ const CreateTransporteModal = ({
                 value={transporteData.operador}
                 onChange={handleChange}
                 required={!!roleData?.operador?.create}
-                disabled={!transporteData.lineaTransporte}
-              >
+                disabled={!transporteData.lineaTransporte}>
                 <option value="">
-                  {transporteData.lineaTransporte 
-                    ? "Selecciona un operador" 
+                  {transporteData.lineaTransporte
+                    ? "Selecciona un operador"
                     : "Selecciona una línea de transporte primero"}
                 </option>
                 {operadores.map((operador) => (

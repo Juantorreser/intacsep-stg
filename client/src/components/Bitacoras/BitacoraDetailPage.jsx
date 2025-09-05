@@ -44,6 +44,8 @@ const BitacoraDetailPage = ({edited}) => {
   const [idMethod, setIdMethod] = useState("automatic");
   const [selectedUnitId, setSelectedUnitId] = useState("");
   const [selectedUnitName, setSelectedUnitName] = useState("");
+  const [selectedGpsUnits, setSelectedGpsUnits] = useState([]); // Para múltiples GPS
+  const [gpsSearchTerm, setGpsSearchTerm] = useState(""); // Para buscar GPS
   const [units, setUnits] = useState([]);
   const isEditable = useMemo(
     () => editedTransporte?.originalId?.startsWith("blank_"),
@@ -67,7 +69,7 @@ const BitacoraDetailPage = ({edited}) => {
 
     // Determine ID method based on the existing ID
     let initialIdMethod = "automatic";
-    if (selected.id && !selected.id.startsWith("0_")) {
+    if (selected.id && !selected.id.startsWith("T") && !selected.id.startsWith("blank_")) {
       initialIdMethod = "wialon";
     }
 
@@ -75,8 +77,59 @@ const BitacoraDetailPage = ({edited}) => {
       ...selected,
       originalId: selected.id,
     });
-    setIdMethod(initialIdMethod); // <-- Set the method based on ID
+    setIdMethod(initialIdMethod);
+
+    // Inicializar GPS seleccionados si existen
+    if (selected.gpsUnits && selected.gpsUnits.length > 0) {
+      setSelectedGpsUnits(
+        selected.gpsUnits.map((gps) => ({
+          id: gps.wialonId,
+          name: gps.name,
+        }))
+      );
+    } else {
+      setSelectedGpsUnits([]);
+    }
+
     setEditTransporteModalVisible(true);
+  };
+
+  const handleGpsUnitToggle = (unit) => {
+    setSelectedGpsUnits((prev) => {
+      const isSelected = prev.some((u) => u.id === unit.id);
+      if (isSelected) {
+        return prev.filter((u) => u.id !== unit.id);
+      } else {
+        return [...prev, unit];
+      }
+    });
+  };
+
+  // Filtrar GPS basado en búsqueda
+  const filteredGpsUnits = units.filter(
+    (unit) =>
+      unit.name.toLowerCase().includes(gpsSearchTerm.toLowerCase()) ||
+      unit.id.toString().includes(gpsSearchTerm)
+  );
+
+  // Función para seleccionar/deseleccionar todos los GPS filtrados
+  const handleSelectAllFiltered = () => {
+    const allFilteredSelected = filteredGpsUnits.every((unit) =>
+      selectedGpsUnits.some((selected) => selected.id === unit.id)
+    );
+
+    if (allFilteredSelected) {
+      // Deseleccionar todos los filtrados
+      setSelectedGpsUnits((prev) =>
+        prev.filter((selected) => !filteredGpsUnits.some((filtered) => filtered.id === selected.id))
+      );
+    } else {
+      // Seleccionar todos los filtrados
+      const newSelections = filteredGpsUnits.filter(
+        (unit) => !selectedGpsUnits.some((selected) => selected.id === unit.id)
+      );
+      setSelectedGpsUnits((prev) => [...prev, ...newSelections]);
+    }
   };
 
   //TRANSPORTES LOGIC
@@ -101,16 +154,23 @@ const BitacoraDetailPage = ({edited}) => {
     let updatedId = editedTransporte.id;
 
     if (idMethod === "automatic") {
-      updatedId = `0_${(transportes.length + 1).toString().padStart(2, "0")}_${
-        editedTransporte?.tracto?.eco || "N/A"
-      }`;
-    } else if (idMethod === "wialon" && selectedUnitId && selectedUnitName) {
-      updatedId = `${selectedUnitId}_${selectedUnitName}_${editedTransporte?.tracto?.eco || "N/A"}`;
+      const numericId = (transportes.length + 1).toString().padStart(3, "0");
+      const remolquePlaca = editedTransporte?.remolque?.placa || "N/A";
+      updatedId = `T${numericId}_${remolquePlaca}`;
+    } else if (idMethod === "wialon" && selectedGpsUnits.length > 0) {
+      const numericId = (transportes.length + 1).toString().padStart(3, "0");
+      const remolquePlaca = editedTransporte?.remolque?.placa || "N/A";
+      updatedId = `T${numericId}_${remolquePlaca}`;
     }
 
     const updatedEditedTransporte = {
       ...editedTransporte,
       id: updatedId,
+      gpsUnits: selectedGpsUnits.map((unit) => ({
+        wialonId: unit.id,
+        name: unit.name,
+        data: {}, // Se llenará cuando se obtengan los datos
+      })),
     };
 
     const updatedTransportes = bitacora.transportes.map((transporte) =>
@@ -136,6 +196,7 @@ const BitacoraDetailPage = ({edited}) => {
       setEditTransporteModalVisible(false);
       setSelectedTransporte(null);
       setEditedTransporte(null);
+      setGpsSearchTerm(""); // Limpiar búsqueda
     } catch (error) {
       console.error("Error al guardar transporte editado:", error);
       alert("No se pudo guardar el transporte. Intenta nuevamente.");
@@ -694,42 +755,88 @@ const BitacoraDetailPage = ({edited}) => {
         setIsOpen(!isOpen);
       };
 
+      const displayId = transporte.id.startsWith("T")
+        ? transporte.id
+        : transporte.id.includes("_")
+        ? `${transporte.id.split("_")[1]} - ${transporte.id.split("_")[2]}`
+        : transporte.id;
+
       return (
         <div className="mb-3">
           <div
             className="d-flex justify-content-between align-items-center cursor-pointer border p-2 rounded modern-card"
             onClick={toggleCollapse}>
-            <span className="fw-medium">
-              {transporte.id.includes("_")
-                ? `${transporte.id.split("_")[1]} - ${transporte.id.split("_")[2]}`
-                : transporte.id}
-            </span>
+            <div>
+              <span className="fw-medium">{displayId}</span>
+              {transporte.gpsData && transporte.gpsData.length > 0 && (
+                <small className="d-block text-muted">
+                  {transporte.gpsData.length} GPS asociados
+                </small>
+              )}
+            </div>
             <span className="text-primary fw-bold">{isOpen ? "−" : "+"}</span>
           </div>
           {isOpen && (
             <div className="mt-3 p-3 bg-light rounded">
-              <div className="row">
-                <div className="col-md-6">
-                  <p className="mb-2">
-                    <strong>Duración:</strong> {transporte.registro.duracion}
-                  </p>
-                  <p className="mb-2">
-                    <strong>Ubicación:</strong> {transporte.registro.ubicacion}
-                  </p>
-                  <p className="mb-2">
-                    <strong>Velocidad:</strong> {transporte.registro.velocidad}
-                  </p>
+              {/* Mostrar múltiples GPS si existen */}
+              {transporte.gpsData && transporte.gpsData.length > 0 ? (
+                <div>
+                  <h6 className="fw-bold mb-3">Datos de GPS</h6>
+                  {transporte.gpsData.map((gps, index) => (
+                    <div key={index} className="mb-4 p-3 border rounded bg-white">
+                      <h6 className="fw-semibold text-primary mb-2">
+                        {gps.name} (ID: {gps.wialonId})
+                      </h6>
+                      <div className="row">
+                        <div className="col-md-6">
+                          <p className="mb-2">
+                            <strong>Duración:</strong> {gps.data.duracion || "--"}
+                          </p>
+                          <p className="mb-2">
+                            <strong>Ubicación:</strong> {gps.data.ubicacion || "--"}
+                          </p>
+                          <p className="mb-2">
+                            <strong>Velocidad:</strong> {gps.data.velocidad || "--"}
+                          </p>
+                        </div>
+                        <div className="col-md-6">
+                          <p className="mb-2">
+                            <strong>Último Posicionamiento:</strong>{" "}
+                            {gps.data.ultimo_posicionamiento || "--"}
+                          </p>
+                          <p className="mb-2">
+                            <strong>Coordenadas:</strong> {gps.data.coordenadas || "--"}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-                <div className="col-md-6">
-                  <p className="mb-2">
-                    <strong>Último Posicionamiento:</strong>{" "}
-                    {transporte.registro.ultimo_posicionamiento}
-                  </p>
-                  <p className="mb-2">
-                    <strong>Coordenadas:</strong> {transporte.registro.coordenadas}
-                  </p>
+              ) : (
+                /* Datos tradicionales para compatibilidad */
+                <div className="row">
+                  <div className="col-md-6">
+                    <p className="mb-2">
+                      <strong>Duración:</strong> {transporte.registro?.duracion || "--"}
+                    </p>
+                    <p className="mb-2">
+                      <strong>Ubicación:</strong> {transporte.registro?.ubicacion || "--"}
+                    </p>
+                    <p className="mb-2">
+                      <strong>Velocidad:</strong> {transporte.registro?.velocidad || "--"}
+                    </p>
+                  </div>
+                  <div className="col-md-6">
+                    <p className="mb-2">
+                      <strong>Último Posicionamiento:</strong>{" "}
+                      {transporte.registro?.ultimo_posicionamiento || "--"}
+                    </p>
+                    <p className="mb-2">
+                      <strong>Coordenadas:</strong> {transporte.registro?.coordenadas || "--"}
+                    </p>
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           )}
         </div>
@@ -1329,12 +1436,14 @@ const BitacoraDetailPage = ({edited}) => {
                             <div
                               key={t.id}
                               className="transporte-monitoreo mb-3 p-3 bg-light rounded">
-                              <h6 className="fw-semibold mb-2">
-                                GPS ID:{" "}
-                                {t.id.includes("_")
-                                  ? `${t.id.split("_")[1]} - ${t.id.split("_")[2]}`
-                                  : t.id}
-                              </h6>
+                              <h6 className="fw-semibold mb-2">Transporte ID: {t.id}</h6>
+                              {t.gpsUnits && t.gpsUnits.length > 0 && (
+                                <div className="mb-2">
+                                  <small className="text-muted">
+                                    GPS asociados: {t.gpsUnits.map((gps) => gps.name).join(", ")}
+                                  </small>
+                                </div>
+                              )}
                               <div className="row">
                                 <div className="col-md-6">
                                   <div className="info-group mb-2">
@@ -1376,7 +1485,9 @@ const BitacoraDetailPage = ({edited}) => {
                           {roleData?.gps_id?.read && (
                             <div className="transporte-list">
                               {bitacora.transportes.map((transporte) => {
-                                const transporteId = transporte.id.includes("_")
+                                const displayId = transporte.id.startsWith("T")
+                                  ? transporte.id
+                                  : transporte.id.includes("_")
                                   ? `${transporte.id.split("_")[1]} - ${
                                       transporte.id.split("_")[2]
                                     }`
@@ -1389,7 +1500,15 @@ const BitacoraDetailPage = ({edited}) => {
                                       selectedTransporte?.id === transporte.id ? "active" : ""
                                     }`}
                                     onClick={() => handleSelectTransporte(transporte)}>
-                                    <span className="transporte-id">GPS ID: {transporteId}</span>
+                                    <span className="transporte-id">
+                                      {transporte.id.startsWith("T") ? "Transporte" : "GPS"} ID:{" "}
+                                      {displayId}
+                                    </span>
+                                    {transporte.gpsUnits && transporte.gpsUnits.length > 0 && (
+                                      <small className="d-block text-muted">
+                                        {transporte.gpsUnits.length} GPS
+                                      </small>
+                                    )}
                                   </div>
                                 );
                               })}
@@ -1523,8 +1642,82 @@ const BitacoraDetailPage = ({edited}) => {
                                       </div>
                                     </div>
                                   </div>
+
+                                  {/* GPS Asociados - Compatible con versiones anteriores y nuevas */}
+                                  {(selectedTransporte.gpsUnits &&
+                                    selectedTransporte.gpsUnits.length > 0) ||
+                                  (selectedTransporte.id &&
+                                    !selectedTransporte.id.startsWith("blank_") &&
+                                    !selectedTransporte.id.startsWith("T")) ? (
+                                    <div className="gps-asociados-section mt-3">
+                                      <h6 className="fw-semibold mb-3">GPS Asociados</h6>
+                                      <div className="row">
+                                        <div className="col-12">
+                                          <div className="info-group mb-2">
+                                            <label className="info-label">IDs de GPS:</label>
+                                            <div className="info-value">
+                                              {selectedTransporte.gpsUnits &&
+                                              selectedTransporte.gpsUnits.length > 0 ? (
+                                                // Nueva estructura: múltiples GPS
+                                                <div className="d-flex flex-wrap gap-2">
+                                                  {selectedTransporte.gpsUnits.map((gps, index) => (
+                                                    <span key={index} className="badge bg-primary">
+                                                      {gps.name} (ID: {gps.wialonId})
+                                                    </span>
+                                                  ))}
+                                                </div>
+                                              ) : selectedTransporte.id &&
+                                                !selectedTransporte.id.startsWith("blank_") &&
+                                                !selectedTransporte.id.startsWith("T") ? (
+                                                // Estructura anterior: GPS único
+                                                <span className="badge bg-secondary">
+                                                  GPS ID: {selectedTransporte.id}
+                                                </span>
+                                              ) : (
+                                                <span className="text-muted">
+                                                  Sin GPS asociados
+                                                </span>
+                                              )}
+                                            </div>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  ) : null}
                                 </div>
                               )}
+
+                              {/* Información de GPS asociados */}
+                              {selectedTransporte.gpsUnits &&
+                                selectedTransporte.gpsUnits.length > 0 && (
+                                  <div className="gps-section mt-4">
+                                    <h6 className="fw-semibold mb-3">GPS Asociados</h6>
+                                    <div className="row">
+                                      {selectedTransporte.gpsUnits.map((gps, index) => (
+                                        <div key={index} className="col-md-6 mb-3">
+                                          <div className="p-3 border rounded bg-light">
+                                            <h6 className="fw-semibold text-primary mb-2">
+                                              {gps.name}
+                                            </h6>
+                                            <div className="info-group mb-1">
+                                              <label className="info-label small">ID Wialon:</label>
+                                              <span className="info-value small">
+                                                {gps.wialonId}
+                                              </span>
+                                            </div>
+                                            {gps.data && Object.keys(gps.data).length > 0 && (
+                                              <div className="mt-2">
+                                                <small className="text-muted">
+                                                  Datos disponibles
+                                                </small>
+                                              </div>
+                                            )}
+                                          </div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
                             </div>
                           ) : (
                             <div className="empty-state">
@@ -1838,30 +2031,144 @@ const BitacoraDetailPage = ({edited}) => {
                     </Form.Group>
                     {idMethod === "wialon" && (
                       <Form.Group className="mb-3">
-                        <Form.Label>Seleccionar unidad Wialon</Form.Label>
-                        <Form.Select
-                          value={selectedUnitId}
-                          onChange={(e) => {
-                            const unitId = e.target.value;
-                            const selected = units?.find((u) => u.id.toString() === unitId);
-                            if (selected) {
-                              setSelectedUnitId(selected.id);
-                              setSelectedUnitName(selected.name);
+                        <Form.Label>Seleccionar unidades Wialon (múltiples)</Form.Label>
 
-                              // Update ID preview (if eco exists)
-                              if (editedTransporte?.tracto?.eco) {
-                                const newId = `${selected.id}_${selected.name}_${editedTransporte.tracto.eco}`;
-                                setEditedTransporte((prev) => ({...prev, id: newId}));
-                              }
-                            }
+                        {/* Barra de búsqueda */}
+                        <div className="mb-3">
+                          <div className="input-group">
+                            <span className="input-group-text">
+                              <i className="fa fa-search"></i>
+                            </span>
+                            <input
+                              type="text"
+                              className="form-control"
+                              placeholder="Buscar por nombre o ID..."
+                              value={gpsSearchTerm}
+                              onChange={(e) => setGpsSearchTerm(e.target.value)}
+                            />
+                            {gpsSearchTerm && (
+                              <button
+                                className="btn btn-outline-secondary"
+                                type="button"
+                                onClick={() => setGpsSearchTerm("")}>
+                                <i className="fa fa-times"></i>
+                              </button>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Controles de selección */}
+                        {filteredGpsUnits.length > 0 && (
+                          <div className="mb-2 d-flex justify-content-between align-items-center">
+                            <small className="text-muted">
+                              {filteredGpsUnits.length} GPS encontrados
+                            </small>
+                            <button
+                              type="button"
+                              className="btn btn-sm btn-outline-primary"
+                              onClick={handleSelectAllFiltered}>
+                              {filteredGpsUnits.every((unit) =>
+                                selectedGpsUnits.some((selected) => selected.id === unit.id)
+                              )
+                                ? "Deseleccionar todos"
+                                : "Seleccionar todos"}
+                            </button>
+                          </div>
+                        )}
+
+                        {/* Lista de GPS con mejor diseño */}
+                        <div
+                          className="gps-units-selection"
+                          style={{
+                            maxHeight: "300px",
+                            overflowY: "auto",
+                            border: "1px solid #dee2e6",
+                            borderRadius: "0.375rem",
+                            padding: "0",
                           }}>
-                          <option value="">Seleccione una unidad</option>
-                          {units?.map((unit) => (
-                            <option key={unit.id} value={unit.id}>
-                              {unit.name}
-                            </option>
-                          ))}
-                        </Form.Select>
+                          {units?.length === 0 ? (
+                            <div className="p-3 text-muted text-center">
+                              <i className="fa fa-spinner fa-spin me-2"></i>
+                              Cargando unidades...
+                            </div>
+                          ) : filteredGpsUnits.length === 0 ? (
+                            <div className="p-3 text-muted text-center">
+                              <i className="fa fa-search me-2"></i>
+                              No se encontraron GPS con "{gpsSearchTerm}"
+                            </div>
+                          ) : (
+                            <div className="list-group list-group-flush">
+                              {filteredGpsUnits.map((unit) => {
+                                const isSelected = selectedGpsUnits.some((u) => u.id === unit.id);
+                                return (
+                                  <div
+                                    key={unit.id}
+                                    className={`list-group-item list-group-item-action d-flex align-items-center ${
+                                      isSelected ? "active" : ""
+                                    }`}
+                                    style={{cursor: "pointer", border: "none"}}
+                                    onClick={() => handleGpsUnitToggle(unit)}>
+                                    <div className="form-check me-3">
+                                      <input
+                                        className="form-check-input"
+                                        type="checkbox"
+                                        checked={isSelected}
+                                        onChange={() => handleGpsUnitToggle(unit)}
+                                        onClick={(e) => e.stopPropagation()}
+                                      />
+                                    </div>
+                                    <div className="flex-grow-1">
+                                      <div className="fw-semibold">{unit.name}</div>
+                                      <small className="text-muted">ID: {unit.id}</small>
+                                    </div>
+                                    {isSelected && (
+                                      <div className="text-success">
+                                        <i className="fa fa-check-circle"></i>
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Resumen de selección */}
+                        {selectedGpsUnits.length > 0 && (
+                          <div className="mt-3 p-2 bg-light rounded">
+                            <div className="d-flex justify-content-between align-items-center">
+                              <small className="text-muted">
+                                <strong>{selectedGpsUnits.length}</strong> GPS seleccionados
+                              </small>
+                              <button
+                                type="button"
+                                className="btn btn-sm btn-outline-danger"
+                                onClick={() => setSelectedGpsUnits([])}>
+                                Limpiar selección
+                              </button>
+                            </div>
+                            <div className="mt-2">
+                              <div className="d-flex flex-wrap gap-1">
+                                {selectedGpsUnits.map((unit) => (
+                                  <span
+                                    key={unit.id}
+                                    className="badge bg-primary"
+                                    style={{fontSize: "0.75rem"}}>
+                                    {unit.name}
+                                    <button
+                                      type="button"
+                                      className="btn-close btn-close-white ms-1"
+                                      style={{fontSize: "0.5rem"}}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleGpsUnitToggle(unit);
+                                      }}></button>
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+                        )}
                       </Form.Group>
                     )}
 
@@ -1870,11 +2177,15 @@ const BitacoraDetailPage = ({edited}) => {
                         <Form.Label>ID generado</Form.Label>
                         <Form.Control
                           type="text"
-                          value={`0_${(transportes.length + 1).toString().padStart(2, "0")}_${
-                            editedTransporte?.tracto?.eco || "N/A"
+                          value={`T${(transportes.length + 1).toString().padStart(3, "0")}_${
+                            editedTransporte?.remolque?.placa || "N/A"
                           }`}
                           disabled
                         />
+                        <Form.Text className="text-muted">
+                          Formato: T{String(transportes.length + 1).padStart(3, "0")}_
+                          {editedTransporte?.remolque?.placa || "N/A"}
+                        </Form.Text>
                       </Form.Group>
                     )}
                   </>

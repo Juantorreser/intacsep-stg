@@ -734,6 +734,15 @@ const BitacorasPage = () => {
       });
     }
 
+    // Also check transportes directly in the bitacora (for compatibility)
+    if (bitacora.transportes && Array.isArray(bitacora.transportes)) {
+      bitacora.transportes.forEach((transporte) => {
+        if (transporte.lineaTransporte && transporte.lineaTransporte.trim() !== "") {
+          transportLines.add(transporte.lineaTransporte.trim());
+        }
+      });
+    }
+
     // Convert Set to Array and join with commas
     return Array.from(transportLines).join(", ");
   };
@@ -743,6 +752,7 @@ const BitacorasPage = () => {
     const transportLines = new Set();
 
     bitacoras.forEach((bitacora) => {
+      // Check eventos
       if (bitacora.eventos && Array.isArray(bitacora.eventos)) {
         bitacora.eventos.forEach((evento) => {
           if (evento.transportes && Array.isArray(evento.transportes)) {
@@ -751,6 +761,15 @@ const BitacorasPage = () => {
                 transportLines.add(transporte.lineaTransporte.trim());
               }
             });
+          }
+        });
+      }
+
+      // Check transportes directly (for compatibility)
+      if (bitacora.transportes && Array.isArray(bitacora.transportes)) {
+        bitacora.transportes.forEach((transporte) => {
+          if (transporte.lineaTransporte && transporte.lineaTransporte.trim() !== "") {
+            transportLines.add(transporte.lineaTransporte.trim());
           }
         });
       }

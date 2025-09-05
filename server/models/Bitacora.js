@@ -23,6 +23,16 @@ const TransporteSchema = new mongoose.Schema(
     telefono: String,
     inicioMonitoreo: { type: Date },
     finalMonitoreo: { type: Date },
+    gpsUnits: [{
+      wialonId: { type: String, required: true },
+      name: { type: String },
+      data: { type: Object } // Para almacenar datos en tiempo real de Wialon
+    }],
+    gpsData: [{
+      wialonId: { type: String },
+      name: { type: String },
+      data: { type: Object } // Para almacenar datos de GPS en eventos
+    }],
     registro: {
       ubicacion: { type: String, default: "" },
       ultimo_posicionamiento: { type: String, default: "" },

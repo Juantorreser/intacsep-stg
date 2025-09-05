@@ -1435,7 +1435,7 @@ app.get("/bitacoras/download-user/:userName", async (req, res) => {
 
 app.post("/bitacora", async (req, res) => {
   // Convertir campos de texto a mayúsculas antes de procesar
-  const excludeFields = ['status', 'inicioMonitoreo', 'finalMonitoreo', 'telefono', '_id', 'createdAt', 'updatedAt', 'bitacora_id', 'capacidad'];
+  const excludeFields = ['status', 'inicioMonitoreo', 'finalMonitoreo', 'telefono', '_id', 'createdAt', 'updatedAt', 'bitacora_id', 'capacidad', 'gpsUnits'];
   const data = convertToUpperCase(req.body, excludeFields);
 
   try {
@@ -1831,7 +1831,7 @@ app.patch("/bitacora/:id", async (req, res) => {
   const { id } = req.params;
 
   // Convertir campos de texto a mayúsculas antes de procesar
-  const excludeFields = ['status', 'inicioMonitoreo', 'finalMonitoreo', 'telefono', '_id', 'createdAt', 'updatedAt', 'bitacora_id', 'capacidad'];
+  const excludeFields = ['status', 'inicioMonitoreo', 'finalMonitoreo', 'telefono', '_id', 'createdAt', 'updatedAt', 'bitacora_id', 'capacidad', 'gpsUnits'];
   const updatedData = convertToUpperCase(req.body, excludeFields);
   console.log(updatedData);
 
@@ -1975,7 +1975,7 @@ app.patch("/bitacora/:id", async (req, res) => {
 app.post("/bitacoras/:id/transportes", async (req, res) => {
   try {
     const bitacoraId = req.params.id;
-    const { id, tracto, remolque, operador, lineaTransporte, telefono } = req.body;
+    const { id, tracto, remolque, operador, lineaTransporte, telefono, gpsUnits } = req.body;
 
     // Find the bitacora by ID (exclude deleted)
     const bitacora = await Bitacora.findOne({
@@ -1994,6 +1994,7 @@ app.post("/bitacoras/:id/transportes", async (req, res) => {
       lineaTransporte,
       operador,
       telefono,
+      gpsUnits: gpsUnits || [], // Incluir gpsUnits, por defecto array vacío
     };
 
     // Add the new Transporte to the bitacora's transportes array
