@@ -3079,19 +3079,48 @@ app.get("/bitacoras/by-location/:locationName", async (req, res) => {
     // Construir query base
     let query = { deleted: { $ne: true } }; // Exclude deleted bitacoras
 
-    // Filtro por ubicación (origen o destino)
+    // Filtro por ubicación (origen o destino) con matching case-insensitive
     if (locationName && locationName !== 'all') {
       const decodedLocationName = decodeURIComponent(locationName);
       if (geoType === 'origen') {
-        query.$or = [
-          { origen: decodedLocationName },
-          { 'origen.nombre': decodedLocationName }
-        ];
+        // Para origen, necesitamos hacer matching case-insensitive con ObjectId
+        // Primero intentamos encontrar el origen por nombre para obtener su _id
+        const origenDoc = await Origen.findOne({
+          nombre: { $regex: new RegExp(`^${decodedLocationName}$`, 'i') }
+        });
+
+        if (origenDoc) {
+          // Si encontramos el origen, buscamos bitácoras que coincidan con el _id (case-insensitive)
+          query.$or = [
+            { origen: origenDoc._id.toString() },
+            { origen: { $regex: new RegExp(`^${origenDoc._id.toString()}$`, 'i') } },
+            { 'origen.nombre': { $regex: new RegExp(`^${decodedLocationName}$`, 'i') } }
+          ];
+        } else {
+          // Si no encontramos el origen, buscamos por nombre (fallback)
+          query.$or = [
+            { origen: { $regex: new RegExp(`^${decodedLocationName}$`, 'i') } },
+            { 'origen.nombre': { $regex: new RegExp(`^${decodedLocationName}$`, 'i') } }
+          ];
+        }
       } else if (geoType === 'destino') {
-        query.$or = [
-          { destino: decodedLocationName },
-          { 'destino.nombre': decodedLocationName }
-        ];
+        // Para destino, similar lógica
+        const destinoDoc = await Destino.findOne({
+          nombre: { $regex: new RegExp(`^${decodedLocationName}$`, 'i') }
+        });
+
+        if (destinoDoc) {
+          query.$or = [
+            { destino: destinoDoc._id.toString() },
+            { destino: { $regex: new RegExp(`^${destinoDoc._id.toString()}$`, 'i') } },
+            { 'destino.nombre': { $regex: new RegExp(`^${decodedLocationName}$`, 'i') } }
+          ];
+        } else {
+          query.$or = [
+            { destino: { $regex: new RegExp(`^${decodedLocationName}$`, 'i') } },
+            { 'destino.nombre': { $regex: new RegExp(`^${decodedLocationName}$`, 'i') } }
+          ];
+        }
       }
     }
 
@@ -3321,19 +3350,48 @@ app.get("/bitacoras/download-location/:locationName", async (req, res) => {
     // Construir query base
     let query = { deleted: { $ne: true } }; // Exclude deleted bitacoras
 
-    // Filtro por ubicación (origen o destino)
+    // Filtro por ubicación (origen o destino) con matching case-insensitive
     if (locationName && locationName !== 'all') {
       const decodedLocationName = decodeURIComponent(locationName);
       if (geoType === 'origen') {
-        query.$or = [
-          { origen: decodedLocationName },
-          { 'origen.nombre': decodedLocationName }
-        ];
+        // Para origen, necesitamos hacer matching case-insensitive con ObjectId
+        // Primero intentamos encontrar el origen por nombre para obtener su _id
+        const origenDoc = await Origen.findOne({
+          nombre: { $regex: new RegExp(`^${decodedLocationName}$`, 'i') }
+        });
+
+        if (origenDoc) {
+          // Si encontramos el origen, buscamos bitácoras que coincidan con el _id (case-insensitive)
+          query.$or = [
+            { origen: origenDoc._id.toString() },
+            { origen: { $regex: new RegExp(`^${origenDoc._id.toString()}$`, 'i') } },
+            { 'origen.nombre': { $regex: new RegExp(`^${decodedLocationName}$`, 'i') } }
+          ];
+        } else {
+          // Si no encontramos el origen, buscamos por nombre (fallback)
+          query.$or = [
+            { origen: { $regex: new RegExp(`^${decodedLocationName}$`, 'i') } },
+            { 'origen.nombre': { $regex: new RegExp(`^${decodedLocationName}$`, 'i') } }
+          ];
+        }
       } else if (geoType === 'destino') {
-        query.$or = [
-          { destino: decodedLocationName },
-          { 'destino.nombre': decodedLocationName }
-        ];
+        // Para destino, similar lógica
+        const destinoDoc = await Destino.findOne({
+          nombre: { $regex: new RegExp(`^${decodedLocationName}$`, 'i') }
+        });
+
+        if (destinoDoc) {
+          query.$or = [
+            { destino: destinoDoc._id.toString() },
+            { destino: { $regex: new RegExp(`^${destinoDoc._id.toString()}$`, 'i') } },
+            { 'destino.nombre': { $regex: new RegExp(`^${decodedLocationName}$`, 'i') } }
+          ];
+        } else {
+          query.$or = [
+            { destino: { $regex: new RegExp(`^${decodedLocationName}$`, 'i') } },
+            { 'destino.nombre': { $regex: new RegExp(`^${decodedLocationName}$`, 'i') } }
+          ];
+        }
       }
     }
 
