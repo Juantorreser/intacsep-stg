@@ -163,6 +163,53 @@ const BitacorasPage = () => {
         setDestinos(destinosData);
         setOperadores(operadoresData);
 
+        // Console log to show Cliente field from one bitacora per client
+        console.log("=== CLIENTE FIELD ANALYSIS ===");
+
+        // Group by normalized (uppercase) client name to find duplicates
+        const normalizedClientMap = new Map();
+        const clientVariations = new Map();
+
+        bitacorasData.bitacoras.forEach((bitacora) => {
+          const normalizedName = bitacora.cliente.toUpperCase();
+
+          if (!normalizedClientMap.has(normalizedName)) {
+            normalizedClientMap.set(normalizedName, []);
+            clientVariations.set(normalizedName, new Set());
+          }
+
+          normalizedClientMap.get(normalizedName).push(bitacora);
+          clientVariations.get(normalizedName).add(bitacora.cliente);
+        });
+
+        // Show grouped results
+        normalizedClientMap.forEach((bitacoras, normalizedName) => {
+          const variations = Array.from(clientVariations.get(normalizedName));
+          const hasDuplicates = variations.length > 1;
+
+          console.group(
+            `${hasDuplicates ? "🔴 DUPLICATE" : "✅ UNIQUE"} - Normalized: "${normalizedName}"`
+          );
+          console.log("Variations found:", variations);
+          console.log("Total bitacoras:", bitacoras.length);
+
+          // Show one example bitacora for each variation
+          variations.forEach((variation) => {
+            const exampleBitacora = bitacoras.find((b) => b.cliente === variation);
+            if (exampleBitacora) {
+              console.log(`  "${variation}" example:`, {
+                bitacora_id: exampleBitacora.bitacora_id,
+                _id: exampleBitacora._id,
+                count: bitacoras.filter((b) => b.cliente === variation).length,
+              });
+            }
+          });
+
+          console.groupEnd();
+        });
+
+        console.log("=== END CLIENTE FIELD ANALYSIS ===");
+
         updateFormDataFromUser();
       } catch (e) {
         console.error("Error loading data:", e);
