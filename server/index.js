@@ -1481,7 +1481,7 @@ app.post("/bitacora", async (req, res) => {
       eventos: data.eventos || [],
 
       // 🆕 Inject only if it's custodia física
-      ...(data.monitoreo === "Custodia fisica" && {
+      ...((data.monitoreo === "Custodia fisica" || data.monitoreo === "CUSTODIA FISICA" || data.monitoreo?.toLowerCase() === "custodia fisica") && {
         custodia: {
           custodio1_nombre: data.custodia?.custodio1_nombre,
           custodio1_telefono: data.custodia?.custodio1_telefono,

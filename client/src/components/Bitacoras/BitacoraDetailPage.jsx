@@ -928,10 +928,32 @@ const BitacoraDetailPage = ({edited}) => {
           updates.origen = null;
           updates.destino = null;
         }
+
+        // If monitoreo changes to "Custodia fisica", initialize custodia object if it doesn't exist
+        if (
+          name === "monitoreo" &&
+          (value === "Custodia fisica" ||
+            value === "CUSTODIA FISICA" ||
+            value?.toLowerCase() === "custodia fisica")
+        ) {
+          if (!prev.custodia) {
+            updates.custodia = {
+              custodio1_nombre: "",
+              custodio1_telefono: "",
+              custodio2_nombre: "",
+              custodio2_telefono: "",
+              placa: "",
+              modelo: "",
+              color: "",
+              marca: "",
+            };
+          }
+        }
       } else {
         const [mainKey, subKey] = name.split(".");
 
         if (subKey) {
+          // Handle nested objects like custodia.custodio1_nombre
           updates[mainKey] = {
             ...prev[mainKey], // Asegurar que mainKey no sea undefined
             [subKey]: value,
@@ -980,11 +1002,13 @@ const BitacoraDetailPage = ({edited}) => {
         monitoreo: submitBitacora.monitoreo,
         origen: submitBitacora.origen,
         destino: submitBitacora.destino,
+        // Include custodia data if it exists
+        ...(submitBitacora.custodia && {custodia: submitBitacora.custodia}),
       };
 
       // Convert text fields to uppercase before sending
       // Exclude certain fields that should remain as-is
-      const excludeFields = ['_id', 'createdAt', 'updatedAt'];
+      const excludeFields = ["_id", "createdAt", "updatedAt"];
       const uppercaseUpdate = convertToUpperCase(minimalUpdate, excludeFields);
 
       const response = await fetch(`${baseUrl}/bitacora/${id}`, {
@@ -1666,6 +1690,104 @@ const BitacoraDetailPage = ({edited}) => {
                   ))}
               </Form.Select>
             </Form.Group>
+
+            {/* Campos de Custodia Física - Solo para tipo "Custodia fisica" */}
+            {(bitacora.monitoreo === "Custodia fisica" ||
+              bitacora.monitoreo === "CUSTODIA FISICA" ||
+              bitacora.monitoreo?.toLowerCase() === "custodia fisica") && (
+              <>
+                <hr className="my-4" />
+                <h6 className="fw-bold mb-3">Información Custodia Física</h6>
+
+                <div className="row">
+                  <div className="col-md-6">
+                    <Form.Group className="mb-3">
+                      <Form.Label>Nombre Custodio 1</Form.Label>
+                      <Form.Control
+                        type="text"
+                        name="custodia.custodio1_nombre"
+                        value={bitacora.custodia?.custodio1_nombre || ""}
+                        onChange={handleEditChange}
+                        required
+                      />
+                    </Form.Group>
+
+                    <Form.Group className="mb-3">
+                      <Form.Label>Teléfono Custodio 1</Form.Label>
+                      <Form.Control
+                        type="text"
+                        name="custodia.custodio1_telefono"
+                        value={bitacora.custodia?.custodio1_telefono || ""}
+                        onChange={handleEditChange}
+                        required
+                      />
+                    </Form.Group>
+
+                    <Form.Group className="mb-3">
+                      <Form.Label>Nombre Custodio 2</Form.Label>
+                      <Form.Control
+                        type="text"
+                        name="custodia.custodio2_nombre"
+                        value={bitacora.custodia?.custodio2_nombre || ""}
+                        onChange={handleEditChange}
+                      />
+                    </Form.Group>
+
+                    <Form.Group className="mb-3">
+                      <Form.Label>Teléfono Custodio 2</Form.Label>
+                      <Form.Control
+                        type="text"
+                        name="custodia.custodio2_telefono"
+                        value={bitacora.custodia?.custodio2_telefono || ""}
+                        onChange={handleEditChange}
+                      />
+                    </Form.Group>
+                  </div>
+
+                  <div className="col-md-6">
+                    <Form.Group className="mb-3">
+                      <Form.Label>Placa</Form.Label>
+                      <Form.Control
+                        type="text"
+                        name="custodia.placa"
+                        value={bitacora.custodia?.placa || ""}
+                        onChange={handleEditChange}
+                      />
+                    </Form.Group>
+
+                    <Form.Group className="mb-3">
+                      <Form.Label>Modelo</Form.Label>
+                      <Form.Control
+                        type="text"
+                        name="custodia.modelo"
+                        value={bitacora.custodia?.modelo || ""}
+                        onChange={handleEditChange}
+                      />
+                    </Form.Group>
+
+                    <Form.Group className="mb-3">
+                      <Form.Label>Color</Form.Label>
+                      <Form.Control
+                        type="text"
+                        name="custodia.color"
+                        value={bitacora.custodia?.color || ""}
+                        onChange={handleEditChange}
+                      />
+                    </Form.Group>
+
+                    <Form.Group className="mb-3">
+                      <Form.Label>Marca</Form.Label>
+                      <Form.Control
+                        type="text"
+                        name="custodia.marca"
+                        value={bitacora.custodia?.marca || ""}
+                        onChange={handleEditChange}
+                      />
+                    </Form.Group>
+                  </div>
+                </div>
+              </>
+            )}
           </ModalTemplate>
         )}
 

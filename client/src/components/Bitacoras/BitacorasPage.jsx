@@ -98,6 +98,7 @@ const BitacorasPage = () => {
   const [clienteFilter, setClienteFilter] = useState("");
   const [operadorFilter, setOperadorFilter] = useState("");
   const [monitoreoFilter, setMonitoreoFilter] = useState("");
+  const [lineaTransporteFilter, setLineaTransporteFilter] = useState("");
   const [idFilter, setIdFilter] = useState("");
   const startItem = (currentPage - 1) * itemsPerPage + 1;
   const endItem = Math.min(currentPage * itemsPerPage, totalItems);
@@ -124,6 +125,7 @@ const BitacorasPage = () => {
           clienteFilter,
           monitoreoFilter,
           operadorFilter,
+          lineaTransporteFilter,
           idFilter,
           sortField,
           sortOrder,
@@ -231,6 +233,7 @@ const BitacorasPage = () => {
     clienteFilter,
     monitoreoFilter,
     operadorFilter,
+    lineaTransporteFilter,
     idFilter,
     sortField,
     sortOrder,
@@ -364,6 +367,7 @@ const BitacorasPage = () => {
             clienteFilter,
             monitoreoFilter,
             operadorFilter,
+            lineaTransporteFilter,
             idFilter,
             sortField,
             sortOrder,
@@ -462,6 +466,7 @@ const BitacorasPage = () => {
     setClienteFilter("");
     setMonitoreoFilter("");
     setOperadorFilter("");
+    setLineaTransporteFilter("");
     setIdFilter("");
     setSortField("createdAt");
     setSortOrder("desc");
@@ -496,6 +501,11 @@ const BitacorasPage = () => {
 
   const handleOperadorFilterChange = (value) => {
     setOperadorFilter(value);
+    setCurrentPage(1);
+  };
+
+  const handleLineaTransporteFilterChange = (value) => {
+    setLineaTransporteFilter(value);
     setCurrentPage(1);
   };
 
@@ -728,6 +738,27 @@ const BitacorasPage = () => {
     return Array.from(transportLines).join(", ");
   };
 
+  // Get all unique transport lines from all bitacoras for the filter dropdown
+  const getAllUniqueTransportLines = () => {
+    const transportLines = new Set();
+
+    bitacoras.forEach((bitacora) => {
+      if (bitacora.eventos && Array.isArray(bitacora.eventos)) {
+        bitacora.eventos.forEach((evento) => {
+          if (evento.transportes && Array.isArray(evento.transportes)) {
+            evento.transportes.forEach((transporte) => {
+              if (transporte.lineaTransporte && transporte.lineaTransporte.trim() !== "") {
+                transportLines.add(transporte.lineaTransporte.trim());
+              }
+            });
+          }
+        });
+      }
+    });
+
+    return Array.from(transportLines).sort();
+  };
+
   return (
     <section id="activeBits">
       <div className="w-100 d-flex h-100 mt-0">
@@ -914,7 +945,17 @@ const BitacorasPage = () => {
                           </select>
                         </th>
                         <th className="filter-cell d-none d-lg-table-cell" style={{width: "180px"}}>
-                          <div className="filter-placeholder"></div>
+                          <select
+                            className="form-select form-select-sm modern-select"
+                            value={lineaTransporteFilter}
+                            onChange={(e) => handleLineaTransporteFilterChange(e.target.value)}>
+                            <option value="">Todas las líneas</option>
+                            {getAllUniqueTransportLines().map((linea, id) => (
+                              <option key={id} value={linea}>
+                                {linea}
+                              </option>
+                            ))}
+                          </select>
                         </th>
                         <th className="filter-cell d-none d-md-table-cell" style={{width: "120px"}}>
                           <select
@@ -1358,7 +1399,9 @@ const BitacorasPage = () => {
                     ))}
               </select>
             </div>
-            {formData.monitoreo === "Custodia fisica" && (
+            {(formData.monitoreo === "Custodia fisica" ||
+              formData.monitoreo === "CUSTODIA FISICA" ||
+              formData.monitoreo?.toLowerCase() === "custodia fisica") && (
               <>
                 <div className="mb-3">
                   <label className="form-label">Nombre de Primer Custodio</label>
