@@ -2178,13 +2178,13 @@ const BitacoraDetailPage = ({edited}) => {
                         <Form.Control
                           type="text"
                           value={`T${(transportes.length + 1).toString().padStart(3, "0")}_${
-                            editedTransporte?.remolque?.placa || "N/A"
+                            editedTransporte?.tracto?.placa || "N/A"
                           }`}
                           disabled
                         />
                         <Form.Text className="text-muted">
                           Formato: T{String(transportes.length + 1).padStart(3, "0")}_
-                          {editedTransporte?.remolque?.placa || "N/A"}
+                          {editedTransporte?.tracto?.placa || "N/A"}
                         </Form.Text>
                       </Form.Group>
                     )}

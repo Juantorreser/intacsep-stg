@@ -191,8 +191,8 @@ const CreateTransporteModal = ({
 
   const generateTransporteId = () => {
     const numericId = (transportes.length + 1).toString().padStart(3, "0");
-    const remolquePlaca = transporteData.remolque.placa || "N/A";
-    return `T${numericId}_${remolquePlaca}`;
+    const tractoPlaca = transporteData.tracto.placa || "N/A";
+    return `T${numericId}_${tractoPlaca}`;
   };
 
   // Filtrar GPS basado en búsqueda
@@ -510,7 +510,7 @@ const CreateTransporteModal = ({
                 />
                 <Form.Text className="text-muted">
                   Formato: T{String(transportes.length + 1).padStart(3, "0")}_
-                  {transporteData.remolque.placa || "N/A"}
+                  {transporteData.tracto.placa || "N/A"}
                 </Form.Text>
               </Form.Group>
             )}
