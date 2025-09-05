@@ -706,6 +706,28 @@ const BitacorasPage = () => {
     return "#ffa0a0"; // Rojo
   };
 
+  const getUniqueTransportLines = (bitacora) => {
+    const transportLines = new Set();
+
+    // Iterate through all events in the bitácora
+    if (bitacora.eventos && Array.isArray(bitacora.eventos)) {
+      bitacora.eventos.forEach((evento) => {
+        // Check if the event has transportes
+        if (evento.transportes && Array.isArray(evento.transportes)) {
+          evento.transportes.forEach((transporte) => {
+            // Add the lineaTransporte if it exists and is not empty
+            if (transporte.lineaTransporte && transporte.lineaTransporte.trim() !== "") {
+              transportLines.add(transporte.lineaTransporte.trim());
+            }
+          });
+        }
+      });
+    }
+
+    // Convert Set to Array and join with commas
+    return Array.from(transportLines).join(", ");
+  };
+
   return (
     <section id="activeBits">
       <div className="w-100 d-flex h-100 mt-0">
@@ -770,6 +792,17 @@ const BitacorasPage = () => {
                                   sortOrder === "asc" ? "up" : "down"
                                 } ms-1`}></i>
                             )}
+                          </div>
+                        </th>
+                        <th
+                          className="sortable-header d-none d-lg-table-cell"
+                          style={{cursor: "pointer", width: "180px"}}>
+                          <div className="header-content">
+                            <span className="header-text">
+                              Líneas de
+                              <br />
+                              Transporte
+                            </span>
                           </div>
                         </th>
                         <th
@@ -880,6 +913,9 @@ const BitacorasPage = () => {
                               ))}
                           </select>
                         </th>
+                        <th className="filter-cell d-none d-lg-table-cell" style={{width: "180px"}}>
+                          <div className="filter-placeholder"></div>
+                        </th>
                         <th className="filter-cell d-none d-md-table-cell" style={{width: "120px"}}>
                           <select
                             className="form-select form-select-sm modern-select"
@@ -947,7 +983,7 @@ const BitacorasPage = () => {
                     <tbody className="table-body">
                       {loadingBitacoras ? (
                         <tr>
-                          <td colSpan="10" className="text-center py-5">
+                          <td colSpan="11" className="text-center py-5">
                             <div className="loading-container">
                               <i className="fa fa-spinner fa-spin text-primary me-2"></i>
                               <span className="text-muted">Cargando bitácoras...</span>
@@ -988,6 +1024,11 @@ const BitacorasPage = () => {
                             </td>
                             <td className="table-cell" style={{width: "150px"}}>
                               <span className="cell-text">{bitacora.cliente}</span>
+                            </td>
+                            <td
+                              className="table-cell d-none d-lg-table-cell"
+                              style={{width: "180px"}}>
+                              <span className="cell-text">{getUniqueTransportLines(bitacora)}</span>
                             </td>
                             <td
                               className="table-cell d-none d-md-table-cell"
