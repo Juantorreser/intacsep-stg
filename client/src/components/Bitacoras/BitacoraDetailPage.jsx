@@ -77,6 +77,8 @@ const BitacoraDetailPage = ({edited}) => {
   const handleEditTransporte = () => {
     const selected = selectedTransporte;
 
+    console.log("handleEditTransporte called with selected transporte:", selected);
+
     // Determine ID method based on the existing ID
     let initialIdMethod = "automatic";
     if (selected.id && !selected.id.startsWith("T") && !selected.id.startsWith("blank_")) {
@@ -91,7 +93,11 @@ const BitacoraDetailPage = ({edited}) => {
 
     // Cargar operadores para la línea de transporte del transporte seleccionado
     if (selected.lineaTransporte) {
+      console.log("Loading operadores for existing lineaTransporte:", selected.lineaTransporte);
       fetchOperadores(selected.lineaTransporte);
+    } else {
+      console.log("No lineaTransporte found in selected transporte");
+      setOperadores([]);
     }
 
     // Inicializar GPS seleccionados si existen
@@ -407,21 +413,36 @@ const BitacoraDetailPage = ({edited}) => {
       });
       if (response.ok) {
         const data = await response.json();
+        console.log("Raw operadores response:", data);
         setOperadores(data);
-        console.log("Operadores fetched:", data);
+        console.log("Operadores fetched and set:", data);
         console.log("Operadores count:", data.length);
 
         // Force update Select2 after operadores are loaded
         if (isEditTransporteModalVisible && editTransporteOperadorSelectRef.current) {
+          console.log("Modal is visible, forcing Select2 update");
           setTimeout(() => {
-            forceUpdateOperadorSelect2();
+            // Just trigger a refresh instead of destroying/recreating
+            if (
+              window
+                .$(editTransporteOperadorSelectRef.current)
+                .hasClass("select2-hidden-accessible")
+            ) {
+              window.$(editTransporteOperadorSelectRef.current).trigger("change");
+            }
           }, 200);
+        } else {
+          console.log("Modal not visible or Select2 ref not available");
         }
       } else {
         console.error("Failed to fetch operadores:", response.statusText);
+        // Clear operadores on error
+        setOperadores([]);
       }
     } catch (e) {
       console.error("Error fetching operadores:", e);
+      // Clear operadores on error
+      setOperadores([]);
     }
   };
 
@@ -429,6 +450,7 @@ const BitacoraDetailPage = ({edited}) => {
   const forceUpdateOperadorSelect2 = () => {
     if (editTransporteOperadorSelectRef.current && window.$ && window.$.fn.select2) {
       console.log("Force updating operador Select2 with operadores:", operadores);
+      console.log("Operadores length:", operadores.length);
 
       // Destroy existing Select2
       if (window.$(editTransporteOperadorSelectRef.current).hasClass("select2-hidden-accessible")) {
@@ -436,10 +458,12 @@ const BitacoraDetailPage = ({edited}) => {
         window.$(editTransporteOperadorSelectRef.current).select2("destroy");
       }
 
-      // Recreate Select2
+      // Recreate Select2 - let React manage the options
       setTimeout(() => {
         if (editTransporteOperadorSelectRef.current) {
           console.log("Recreating operador Select2 with", operadores.length, "operadores");
+
+          // Initialize Select2 without manipulating DOM
           window.$(editTransporteOperadorSelectRef.current).select2({
             placeholder: editedTransporte?.lineaTransporte
               ? "Selecciona un operador"
@@ -455,6 +479,21 @@ const BitacoraDetailPage = ({edited}) => {
               },
             },
           });
+
+          // Set the current value if there's one selected
+          if (editedTransporte?.operador) {
+            const operadorExists = operadores.some((op) => op.nombre === editedTransporte.operador);
+            if (operadorExists) {
+              window
+                .$(editTransporteOperadorSelectRef.current)
+                .val(editedTransporte.operador)
+                .trigger("change");
+            } else {
+              // Clear the selection if the current operador is not in the filtered list
+              window.$(editTransporteOperadorSelectRef.current).val("").trigger("change");
+              setEditedTransporte((prev) => ({...prev, operador: ""}));
+            }
+          }
 
           // Log the options that should be available
           const options = window.$(editTransporteOperadorSelectRef.current).find("option");
@@ -928,13 +967,12 @@ const BitacoraDetailPage = ({edited}) => {
                 lineaTransporte: selectedLinea,
                 operador: "", // Reset operador when lineaTransporte changes
               }));
+              // Clear operadores immediately
+              setOperadores([]);
               // Fetch operadores for the selected linea de transporte
               if (selectedLinea && selectedLinea !== "all") {
                 console.log("Fetching operadores for:", selectedLinea);
                 fetchOperadores(selectedLinea);
-              } else {
-                // Clear operadores if no linea selected
-                setOperadores([]);
               }
             });
         }
@@ -1053,43 +1091,27 @@ const BitacoraDetailPage = ({edited}) => {
       console.log("Updating operador Select2 with operadores data:", {
         operadoresCount: operadores.length,
         lineaTransporte: editedTransporte?.lineaTransporte,
+        operadores: operadores,
       });
 
-      // Always destroy and recreate Select2 to ensure options are updated
+      // Just trigger a refresh instead of destroying/recreating to avoid DOM conflicts
       if (window.$(editTransporteOperadorSelectRef.current).hasClass("select2-hidden-accessible")) {
-        console.log("Destroying existing operador Select2 to update options");
-        window.$(editTransporteOperadorSelectRef.current).select2("destroy");
-      }
-
-      // Wait a bit and then recreate Select2 with new options
-      setTimeout(() => {
-        if (editTransporteOperadorSelectRef.current) {
-          console.log("Recreating operador Select2 with new options");
-          window.$(editTransporteOperadorSelectRef.current).select2({
-            placeholder: editedTransporte?.lineaTransporte
-              ? "Selecciona un operador"
-              : "Selecciona una línea de transporte primero",
-            allowClear: true,
-            width: "100%",
-            language: {
-              noResults: function () {
-                return "No se encontraron resultados";
-              },
-              searching: function () {
-                return "Buscando...";
-              },
-            },
-          });
-
-          // Set the current value if there's one selected
-          if (editedTransporte?.operador) {
+        console.log("Triggering Select2 refresh for new operadores");
+        // Set the current value if there's one selected and it exists in the new operadores list
+        if (editedTransporte?.operador) {
+          const operadorExists = operadores.some((op) => op.nombre === editedTransporte.operador);
+          if (operadorExists) {
             window
               .$(editTransporteOperadorSelectRef.current)
               .val(editedTransporte.operador)
               .trigger("change");
+          } else {
+            // Clear the selection if the current operador is not in the filtered list
+            window.$(editTransporteOperadorSelectRef.current).val("").trigger("change");
+            setEditedTransporte((prev) => ({...prev, operador: ""}));
           }
         }
-      }, 100);
+      }
     }
   }, [operadores, isEditTransporteModalVisible, editedTransporte?.lineaTransporte]);
 
@@ -1111,6 +1133,8 @@ const BitacoraDetailPage = ({edited}) => {
     ) {
       console.log("No lineaTransporte selected, clearing operadores");
       setOperadores([]);
+      // Also clear the selected operador
+      setEditedTransporte((prev) => ({...prev, operador: ""}));
     }
   }, [editedTransporte?.lineaTransporte, isEditTransporteModalVisible]);
 
@@ -2975,11 +2999,14 @@ const BitacoraDetailPage = ({edited}) => {
                     value={editedTransporte.lineaTransporte || ""}
                     onChange={(e) => {
                       const selectedLinea = e.target.value;
+                      console.log("LineaTransporte changed to:", selectedLinea);
                       setEditedTransporte((prev) => ({
                         ...prev,
                         lineaTransporte: selectedLinea,
                         operador: "", // Reset operador when lineaTransporte changes
                       }));
+                      // Clear operadores immediately
+                      setOperadores([]);
                       // Fetch operadores for the selected linea de transporte
                       if (selectedLinea && selectedLinea !== "all") {
                         fetchOperadores(selectedLinea);

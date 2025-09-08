@@ -130,7 +130,20 @@ const CreateTransporteModal = ({
             .val(transporteData.lineaTransporte || "")
             .trigger("change")
             .on("change", function (e) {
-              handleChange(e);
+              const selectedLinea = e.target.value;
+              console.log("LineaTransporte changed via Select2:", selectedLinea);
+              setTransporteData((prev) => ({
+                ...prev,
+                lineaTransporte: selectedLinea,
+                operador: "", // Reset operador when lineaTransporte changes
+              }));
+              // Clear operadores immediately
+              setOperadores([]);
+              // Fetch operadores for the selected linea de transporte
+              if (selectedLinea && selectedLinea !== "all") {
+                console.log("Fetching operadores for:", selectedLinea);
+                fetchOperadores(selectedLinea);
+              }
             });
         }
 
@@ -207,6 +220,8 @@ const CreateTransporteModal = ({
         url += `?lineaTransporte=${encodeURIComponent(lineaTransporte)}`;
       }
 
+      console.log("Fetching operadores for lineaTransporte:", lineaTransporte, "URL:", url);
+
       const response = await fetch(url, {
         method: "GET",
         credentials: "include",
@@ -214,11 +229,17 @@ const CreateTransporteModal = ({
       if (response.ok) {
         const data = await response.json();
         setOperadores(data);
+        console.log("Operadores fetched:", data);
+        console.log("Operadores count:", data.length);
       } else {
         console.error("Failed to fetch operadores:", response.statusText);
+        // Clear operadores on error
+        setOperadores([]);
       }
     } catch (e) {
       console.error("Error fetching operadores:", e);
+      // Clear operadores on error
+      setOperadores([]);
     }
   };
 
@@ -326,12 +347,18 @@ const CreateTransporteModal = ({
 
     // Si se cambia la línea de transporte, actualizar operadores
     if (name === "lineaTransporte") {
-      fetchOperadores(value);
+      console.log("LineaTransporte changed to:", value);
+      // Clear operadores immediately
+      setOperadores([]);
       // Reset operador when lineaTransporte changes
       setTransporteData((prev) => ({
         ...prev,
         operador: "",
       }));
+      // Fetch operadores for the selected linea de transporte
+      if (value && value !== "") {
+        fetchOperadores(value);
+      }
     }
 
     if (section && field) {
