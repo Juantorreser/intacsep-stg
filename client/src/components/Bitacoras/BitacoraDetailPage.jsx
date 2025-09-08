@@ -262,6 +262,49 @@ const BitacoraDetailPage = ({edited}) => {
   const [eventTypes, setEventTypes] = useState([]);
   const baseUrl = import.meta.env.VITE_BASE_URL;
 
+  // Helper function to process bitacora data for edited_bitacora
+  const processBitacoraForEdit = (bitacoraData) => {
+    if (!bitacoraData) return bitacoraData;
+
+    const processedData = {...bitacoraData};
+
+    // Convert origen ID to nombre if it's an ID
+    if (processedData.origen) {
+      if (
+        typeof processedData.origen === "string" &&
+        processedData.origen.match(/^[0-9a-f]{24}$/i)
+      ) {
+        // It's an ID, find the nombre from origenes list
+        const foundOrigen = origenes.find((origen) => origen._id === processedData.origen);
+        if (foundOrigen) {
+          processedData.origen = foundOrigen.nombre;
+        }
+      } else if (typeof processedData.origen === "object" && processedData.origen.nombre) {
+        // It's already an object, use the nombre
+        processedData.origen = processedData.origen.nombre;
+      }
+    }
+
+    // Convert destino ID to nombre if it's an ID
+    if (processedData.destino) {
+      if (
+        typeof processedData.destino === "string" &&
+        processedData.destino.match(/^[0-9a-f]{24}$/i)
+      ) {
+        // It's an ID, find the nombre from destinos list
+        const foundDestino = destinos.find((destino) => destino._id === processedData.destino);
+        if (foundDestino) {
+          processedData.destino = foundDestino.nombre;
+        }
+      } else if (typeof processedData.destino === "object" && processedData.destino.nombre) {
+        // It's already an object, use the nombre
+        processedData.destino = processedData.destino.nombre;
+      }
+    }
+
+    return processedData;
+  };
+
   const fetchClients = async () => {
     try {
       const response = await fetch(`${baseUrl}/clients`, {
@@ -396,7 +439,7 @@ const BitacoraDetailPage = ({edited}) => {
         const data = await response.json();
 
         setBitacora(data);
-        setEditedBitacora(data);
+        setEditedBitacora(processBitacoraForEdit(data));
         setTransportes(data.transportes);
         setSelectedTransportes(data.transportes);
 
@@ -421,7 +464,7 @@ const BitacoraDetailPage = ({edited}) => {
 
         setBitacora(data);
         setEventos(data.eventos);
-        setEditedBitacora(data);
+        setEditedBitacora(processBitacoraForEdit(data));
         setTransportes(data.transportes);
         setSelectedTransportes(data.transportes);
 
@@ -449,6 +492,13 @@ const BitacoraDetailPage = ({edited}) => {
       fetchLineasTransporte(bitacora.cliente);
     }
   }, [bitacora]);
+
+  // Update edited_bitacora when origenes and destinos are loaded
+  useEffect(() => {
+    if (bitacora && origenes.length > 0 && destinos.length > 0) {
+      setEditedBitacora(processBitacoraForEdit(bitacora));
+    }
+  }, [origenes, destinos, bitacora]);
 
   useEffect(() => {
     const init = async () => {
@@ -597,14 +647,41 @@ const BitacoraDetailPage = ({edited}) => {
 
   // Initialize Select2 for edit modal dropdowns
   useEffect(() => {
+    console.log("=== EDIT MODAL SELECT2 USEEFFECT EXECUTED ===");
+    console.log("Edit Modal Select2 useEffect triggered:", {
+      editModalVisible,
+      clientsLength: clients.length,
+      monitoreosLength: monitoreos.length,
+      origenesLength: origenes.length,
+      destinosLength: destinos.length,
+      editedBitacoraOrigen: edited_bitacora?.origen,
+      editedBitacoraDestino: edited_bitacora?.destino,
+    });
+
     if (
       window.$ &&
       window.$.fn.select2 &&
       editModalVisible &&
       clients.length > 0 &&
-      monitoreos.length > 0
+      monitoreos.length > 0 &&
+      origenes.length > 0 &&
+      destinos.length > 0
     ) {
       const initializeEditModalSelect2 = () => {
+        console.log("Initializing Edit Modal Select2...");
+
+        // Destroy existing Select2 instances first
+        [
+          editClienteSelectRef,
+          editMonitoreoSelectRef,
+          editOrigenSelectRef,
+          editDestinoSelectRef,
+        ].forEach((ref) => {
+          if (ref.current && window.$(ref.current).hasClass("select2-hidden-accessible")) {
+            window.$(ref.current).select2("destroy");
+          }
+        });
+
         // Edit Cliente filter
         if (editClienteSelectRef.current && editClienteSelectRef.current.offsetParent !== null) {
           window
@@ -622,6 +699,8 @@ const BitacoraDetailPage = ({edited}) => {
                 },
               },
             })
+            .val(bitacora.cliente || "")
+            .trigger("change")
             .on("change", function (e) {
               handleEditChange(e);
             });
@@ -647,6 +726,8 @@ const BitacoraDetailPage = ({edited}) => {
                 },
               },
             })
+            .val(bitacora.monitoreo || "")
+            .trigger("change")
             .on("change", function (e) {
               handleEditChange(e);
             });
@@ -703,9 +784,13 @@ const BitacoraDetailPage = ({edited}) => {
         }
       };
 
-      // Initialize after a short delay to ensure DOM is ready
-      setTimeout(initializeEditModalSelect2, 200);
+      // Initialize after a delay to ensure DOM is ready and data is loaded
+      setTimeout(initializeEditModalSelect2, 500);
+    } else {
+      console.log("Edit Modal Select2 conditions NOT met - skipping initialization");
     }
+
+    console.log("=== EDIT MODAL SELECT2 USEEFFECT COMPLETED ===");
 
     // Cleanup function to destroy Select2 instances
     return () => {
@@ -722,7 +807,20 @@ const BitacoraDetailPage = ({edited}) => {
         });
       }
     };
-  }, [editModalVisible, clients, monitoreos, origenes, destinos]);
+  }, [editModalVisible, clients, monitoreos, origenes, destinos, edited_bitacora]);
+
+  // Debug: Log when dependencies change
+  useEffect(() => {
+    console.log("Edit Modal dependencies changed:", {
+      editModalVisible,
+      clientsLength: clients.length,
+      monitoreosLength: monitoreos.length,
+      origenesLength: origenes.length,
+      destinosLength: destinos.length,
+      editedBitacoraOrigen: edited_bitacora?.origen,
+      editedBitacoraDestino: edited_bitacora?.destino,
+    });
+  }, [editModalVisible, clients, monitoreos, origenes, destinos, edited_bitacora]);
 
   const token = import.meta.env.VITE_WIALON_TOKEN;
 
@@ -1133,26 +1231,73 @@ const BitacoraDetailPage = ({edited}) => {
   // Helper function to get the correct value for origen/destino dropdown
   const getLocationValue = (location, locationList) => {
     if (!location || !locationList || locationList.length === 0) {
+      console.log("getLocationValue: No location or locationList", {
+        location,
+        locationListLength: locationList?.length,
+      });
       return "";
     }
+
+    console.log("getLocationValue: Processing", {
+      location,
+      locationType: typeof location,
+      locationListLength: locationList.length,
+    });
 
     // If location is already an object with _id, stringify it
     if (typeof location === "object" && location._id) {
       // Ensure the location exists in the filtered list (same client)
       const existsInList = locationList.find((item) => item._id === location._id);
       if (existsInList) {
+        console.log("getLocationValue: Found object in list", existsInList);
         return JSON.stringify(location);
       }
     }
 
-    // If location is a string (ID), find the full object
+    // If location is a string, check if it's a nombre (from edited_bitacora) or an ID
     if (typeof location === "string") {
-      const foundLocation = locationList.find((item) => item._id === location);
-      if (foundLocation) {
-        return JSON.stringify(foundLocation);
+      // First check if it's a nombre (not an ID)
+      if (!location.match(/^[0-9a-f]{24}$/i)) {
+        // It's a nombre, find the corresponding object
+        let foundLocation = locationList.find((item) => item.nombre === location);
+
+        if (foundLocation) {
+          console.log("getLocationValue: Found location by nombre", foundLocation);
+          return JSON.stringify(foundLocation);
+        }
+      } else {
+        // It's an ID, find the full object
+        let foundLocation = locationList.find((item) => item._id === location);
+
+        // If not found, try to find in all origenes/destinos (not just filtered)
+        if (!foundLocation) {
+          console.log("getLocationValue: Not found in filtered list, searching in all locations");
+          if (locationList === origenes.filter((origen) => origen.cliente === bitacora?.cliente)) {
+            // This is for origenes
+            foundLocation = origenes.find((item) => item._id === location);
+          } else if (
+            locationList === destinos.filter((destino) => destino.cliente === bitacora?.cliente)
+          ) {
+            // This is for destinos
+            foundLocation = destinos.find((item) => item._id === location);
+          }
+        }
+
+        if (foundLocation) {
+          console.log("getLocationValue: Found location by ID", foundLocation);
+          return JSON.stringify(foundLocation);
+        } else {
+          console.log("getLocationValue: Location ID not found anywhere", {
+            locationId: location,
+            filteredIds: locationList.map((item) => item._id),
+            allOrigenesIds: origenes.map((item) => item._id),
+            allDestinosIds: destinos.map((item) => item._id),
+          });
+        }
       }
     }
 
+    console.log("getLocationValue: No match found, returning empty string");
     return "";
   };
 
@@ -1371,6 +1516,19 @@ const BitacoraDetailPage = ({edited}) => {
   return (
     <section id="bitacoraDetail">
       <style>{`
+        /* Hide native select dropdowns when Select2 is initialized */
+        .select2-hidden-accessible {
+          position: absolute !important;
+          width: 1px !important;
+          height: 1px !important;
+          padding: 0 !important;
+          margin: -1px !important;
+          overflow: hidden !important;
+          clip: rect(0, 0, 0, 0) !important;
+          white-space: nowrap !important;
+          border: 0 !important;
+        }
+        
         .select2-container--default .select2-selection--single {
           height: 38px;
           border: 1px solid #ced4da;
@@ -2036,7 +2194,7 @@ const BitacoraDetailPage = ({edited}) => {
                 ref={editOrigenSelectRef}
                 name="origen"
                 value={getLocationValue(
-                  bitacora.origen,
+                  edited_bitacora.origen,
                   origenes.filter((origen) => origen.cliente === bitacora?.cliente)
                 )}
                 onChange={(e) =>
@@ -2063,7 +2221,7 @@ const BitacoraDetailPage = ({edited}) => {
                 ref={editDestinoSelectRef}
                 name="destino"
                 value={getLocationValue(
-                  bitacora.destino,
+                  edited_bitacora.destino,
                   destinos.filter((destino) => destino.cliente === bitacora?.cliente)
                 )}
                 onChange={(e) =>
