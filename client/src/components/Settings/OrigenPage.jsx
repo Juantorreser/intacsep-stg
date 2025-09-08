@@ -226,9 +226,9 @@ const OrigenPage = () => {
     e.preventDefault();
     try {
       // Convert text fields to uppercase before sending
-      const excludeFields = ['_id', 'createdAt', 'updatedAt'];
+      const excludeFields = ["_id", "createdAt", "updatedAt"];
       const uppercaseFormData = convertToUpperCase(formData, excludeFields);
-      
+
       const response = await fetch(`${baseUrl}/origenes`, {
         method: "POST",
         headers: {"Content-Type": "application/json"},
@@ -384,10 +384,12 @@ const OrigenPage = () => {
                       </tr>
                     </thead>
                     <tbody>
-                      {getPaginatedOrigenes().map((origen, index) => (
+                      {getPaginatedOrigenes().map((origen) => (
                         <tr key={origen._id}>
                           <td className="text-center fw-bold">
-                            {(currentPage - 1) * itemsPerPage + index + 1}
+                            {origen.numericId
+                              ? origen.numericId.toString().padStart(4, "0")
+                              : "N/A"}
                           </td>
                           <td>{origen.nombre}</td>
                           <td>{origen.estado}</td>

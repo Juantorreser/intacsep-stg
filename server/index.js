@@ -22,8 +22,50 @@ import nodemailer from "nodemailer";
 import crypto from "crypto";
 import Auditoria from "./models/Auditoria.js";
 import LineaTransporte from "./models/LineaTransporte.js";
+import OrigenSequence from "./models/origenSequence.js";
+import DestinoSequence from "./models/DestinoSequence.js";
 import { auditCreation, auditUpdate, auditDeletion } from "./auditoriaUtils.js";
 import { convertToUpperCase } from "./utils/textUtils.js";
+
+// Helper function to get next sequence number for Origen
+const getNextOrigenSequence = async () => {
+  const sequence = await OrigenSequence.findByIdAndUpdate(
+    "origenSequence",
+    { $inc: { seq: 1 } },
+    { new: true, upsert: true }
+  );
+  return sequence.seq;
+};
+
+// Helper function to get next sequence number for Destino
+const getNextDestinoSequence = async () => {
+  const sequence = await DestinoSequence.findByIdAndUpdate(
+    "destinoSequence",
+    { $inc: { seq: 1 } },
+    { new: true, upsert: true }
+  );
+  return sequence.seq;
+};
+
+// Helper function to decrement Origen sequence
+const decrementOrigenSequence = async () => {
+  const sequence = await OrigenSequence.findByIdAndUpdate(
+    "origenSequence",
+    { $inc: { seq: -1 } },
+    { new: true, upsert: true }
+  );
+  return sequence.seq;
+};
+
+// Helper function to decrement Destino sequence
+const decrementDestinoSequence = async () => {
+  const sequence = await DestinoSequence.findByIdAndUpdate(
+    "destinoSequence",
+    { $inc: { seq: -1 } },
+    { new: true, upsert: true }
+  );
+  return sequence.seq;
+};
 
 dotenv.config();
 
@@ -2711,10 +2753,14 @@ app.get("/origenes", async (req, res) => {
 app.post("/origenes", async (req, res) => {
   try {
     // Convertir campos de texto a mayúsculas
-    const excludeFields = ['_id', 'createdAt', 'updatedAt'];
+    const excludeFields = ['_id', 'createdAt', 'updatedAt', 'numericId'];
     const uppercaseData = convertToUpperCase(req.body, excludeFields);
     const { estado, municipio: cliente, nombre } = uppercaseData;
-    const newOrigen = new Origen({ estado, cliente, nombre });
+
+    // Get next sequence number
+    const numericId = await getNextOrigenSequence();
+
+    const newOrigen = new Origen({ estado, cliente, nombre, numericId });
     const savedOrigen = await newOrigen.save();
     await auditCreation({ newData: savedOrigen.toObject(), modelId: savedOrigen._id, user: req.session.user || {}, seccion: "Origen" });
     res.status(201).json(savedOrigen);
@@ -2730,7 +2776,12 @@ app.put("/origenes/:id", async (req, res) => {
     const prevOrigen = await Origen.findById(req.params.id);
     if (!prevOrigen) return res.status(404).json({ message: "Origen not found" });
     const oldData = prevOrigen.toObject();
-    const { estado, municipio: cliente, nombre } = req.body;
+
+    // Convertir campos de texto a mayúsculas, excluyendo numericId
+    const excludeFields = ['_id', 'createdAt', 'updatedAt', 'numericId'];
+    const uppercaseData = convertToUpperCase(req.body, excludeFields);
+    const { estado, municipio: cliente, nombre } = uppercaseData;
+
     const updatedOrigen = await Origen.findByIdAndUpdate(
       req.params.id,
       { estado, cliente, nombre },
@@ -2749,6 +2800,10 @@ app.delete("/origenes/:id", async (req, res) => {
   try {
     const deletedOrigen = await Origen.findByIdAndDelete(req.params.id);
     if (!deletedOrigen) return res.status(404).json({ message: "Origen not found" });
+
+    // Decrement the sequence counter
+    await decrementOrigenSequence();
+
     await auditDeletion({ oldData: deletedOrigen.toObject(), modelId: req.params.id, user: req.session.user || {}, seccion: "Origen" });
     res.status(204).end();
   } catch (e) {
@@ -2778,10 +2833,14 @@ app.get("/destinos", async (req, res) => {
 app.post("/destinos", async (req, res) => {
   try {
     // Convertir campos de texto a mayúsculas
-    const excludeFields = ['_id', 'createdAt', 'updatedAt'];
+    const excludeFields = ['_id', 'createdAt', 'updatedAt', 'numericId'];
     const uppercaseData = convertToUpperCase(req.body, excludeFields);
     const { estado, municipio: cliente, nombre } = uppercaseData;
-    const newDestino = new Destino({ estado, cliente, nombre });
+
+    // Get next sequence number
+    const numericId = await getNextDestinoSequence();
+
+    const newDestino = new Destino({ estado, cliente, nombre, numericId });
     const savedDestino = await newDestino.save();
     await auditCreation({ newData: savedDestino.toObject(), modelId: savedDestino._id, user: req.session.user || {}, seccion: "Destino" });
     res.status(201).json(savedDestino);
@@ -2797,7 +2856,12 @@ app.put("/destinos/:id", async (req, res) => {
     const prevDestino = await Destino.findById(req.params.id);
     if (!prevDestino) return res.status(404).json({ message: "Destino not found" });
     const oldData = prevDestino.toObject();
-    const { estado, municipio: cliente, nombre } = req.body;
+
+    // Convertir campos de texto a mayúsculas, excluyendo numericId
+    const excludeFields = ['_id', 'createdAt', 'updatedAt', 'numericId'];
+    const uppercaseData = convertToUpperCase(req.body, excludeFields);
+    const { estado, municipio: cliente, nombre } = uppercaseData;
+
     const updatedDestino = await Destino.findByIdAndUpdate(
       req.params.id,
       { estado, cliente, nombre },
@@ -2816,6 +2880,10 @@ app.delete("/destinos/:id", async (req, res) => {
   try {
     const deletedDestino = await Destino.findByIdAndDelete(req.params.id);
     if (!deletedDestino) return res.status(404).json({ message: "Destino not found" });
+
+    // Decrement the sequence counter
+    await decrementDestinoSequence();
+
     await auditDeletion({ oldData: deletedDestino.toObject(), modelId: req.params.id, user: req.session.user || {}, seccion: "Destino" });
     res.status(200).json({ message: "Destino deleted successfully" });
   } catch (e) {

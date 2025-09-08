@@ -379,10 +379,12 @@ const DestinoPage = () => {
                       </tr>
                     </thead>
                     <tbody>
-                      {getPaginatedDestinos().map((destino, index) => (
+                      {getPaginatedDestinos().map((destino) => (
                         <tr key={destino._id}>
                           <td className="text-center fw-bold">
-                            {(currentPage - 1) * itemsPerPage + index + 1}
+                            {destino.numericId
+                              ? destino.numericId.toString().padStart(4, "0")
+                              : "N/A"}
                           </td>
                           <td>{destino.nombre}</td>
                           <td>{destino.estado}</td>
