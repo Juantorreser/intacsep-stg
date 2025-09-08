@@ -1,13 +1,10 @@
-import React, {useState, useEffect} from "react";
+import {useState, useEffect, useRef, useCallback} from "react";
 import {createRoot} from "react-dom/client";
 import {useAuth} from "../../context/AuthContext";
 import {useSidebar} from "../../context/SidebarContext";
-import {useNavigate} from "react-router-dom";
-import Header from "../Header";
 import Sidebar from "../Sidebar";
 import "jspdf-autotable"; // For table support in jsPDF
-import {sortBitacoras, convertToUpperCase} from "../../utils/utils"; // Assume these functions exist
-import {filterBitacorasByClientPermissions, getAllowedClients} from "../../utils/clientPermissions";
+import {convertToUpperCase} from "../../utils/utils"; // Assume these functions exist
 import BitacoraDetail from "./BitacoraDetail";
 import OldBitacoraDetail from "./OldBitacoraPDF";
 import ModalTemplate from "../ModalTemplate";
@@ -16,12 +13,11 @@ import {
   fetchBitacoras,
   fetchClients,
   fetchMonitoreos,
-  fetchUsers,
   fetchOrigenes,
   fetchDestinos,
   fetchOperadores,
 } from "../../utils/api";
-import {generateAuditoriaForCreation, generateAuditoriasFromChanges} from "../../utils/auditoria";
+import {generateAuditoriaForCreation} from "../../utils/auditoria";
 
 const defaultFormData = {
   bitacora_id: "",
@@ -71,14 +67,10 @@ const BitacorasPage = () => {
   const baseUrl = import.meta.env.VITE_BASE_URL;
   const {user} = useAuth();
   const {isSidebarCollapsed} = useSidebar();
-  const navigate = useNavigate();
   const [showModal, setShowModal] = useState(false);
   const [roleData, setRoleData] = useState(null);
   const [showPrintModal, setShowPrintModal] = useState(false);
   const [selectedOption, setSelectedOption] = useState("all");
-  const [PDFOption, setPDFOption] = useState({
-    selectValue: "",
-  });
   const [bitacoras, setBitacoras] = useState([]);
   const [selectedBitacora, setSelectedBitacora] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -87,7 +79,6 @@ const BitacorasPage = () => {
   const [totalItems, setTotalItems] = useState(25);
   const [clients, setClients] = useState([]);
   const [monitoreos, setMonitoreos] = useState([]);
-  const [users, setUsers] = useState([]);
   const [origenes, setOrigenes] = useState([]);
   const [destinos, setDestinos] = useState([]);
   const [operadores, setOperadores] = useState([]);
@@ -109,6 +100,29 @@ const BitacorasPage = () => {
   const [formData, setFormData] = useState(defaultFormData);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [bitacoraToDelete, setBitacoraToDelete] = useState(null);
+
+  // Refs for Select2 elements
+  const clienteSelectRef = useRef(null);
+  const lineaTransporteSelectRef = useRef(null);
+  const monitoreoSelectRef = useRef(null);
+  const operadorSelectRef = useRef(null);
+  const statusSelectRef = useRef(null);
+
+  // Refs for modal Select2 elements
+  const modalClienteSelectRef = useRef(null);
+  const modalMonitoreoSelectRef = useRef(null);
+  const modalOrigenSelectRef = useRef(null);
+  const modalDestinoSelectRef = useRef(null);
+
+  const updateFormDataFromUser = useCallback(() => {
+    if (user) {
+      setFormData((prevData) => ({
+        ...prevData,
+        operador: `${user.firstName} ${user.lastName}`,
+        telefono: user.phone,
+      }));
+    }
+  }, [user]);
 
   useEffect(() => {
     const initialize = async () => {
@@ -135,7 +149,6 @@ const BitacorasPage = () => {
           bitacorasData,
           clientsData,
           monitoreosData,
-          usersData,
           origenesData,
           destinosData,
           operadoresData,
@@ -149,7 +162,6 @@ const BitacorasPage = () => {
           ),
           fetchClients(roleData),
           fetchMonitoreos(),
-          fetchUsers(),
           fetchOrigenes(),
           fetchDestinos(),
           fetchOperadores(),
@@ -160,7 +172,6 @@ const BitacorasPage = () => {
         setTotalPages(bitacorasData.totalPages);
         setClients(clientsData);
         setMonitoreos(monitoreosData);
-        setUsers(usersData);
         setOrigenes(origenesData);
         setDestinos(destinosData);
         setOperadores(operadoresData);
@@ -237,17 +248,8 @@ const BitacorasPage = () => {
     idFilter,
     sortField,
     sortOrder,
+    updateFormDataFromUser,
   ]);
-
-  const updateFormDataFromUser = () => {
-    if (user) {
-      setFormData((prevData) => ({
-        ...prevData,
-        operador: `${user.firstName} ${user.lastName}`,
-        telefono: user.phone,
-      }));
-    }
-  };
 
   const handleModalToggle = () => {
     setShowModal(!showModal);
@@ -282,6 +284,271 @@ const BitacorasPage = () => {
 
     fetchRolePermissions();
   }, [user, baseUrl]);
+
+  // Initialize Select2 for filter dropdowns
+  useEffect(() => {
+    if (window.$ && window.$.fn.select2 && clients.length > 0 && monitoreos.length > 0) {
+      // Initialize Select2 for all filter dropdowns
+      const initializeSelect2 = () => {
+        // Cliente filter
+        if (clienteSelectRef.current) {
+          window
+            .$(clienteSelectRef.current)
+            .select2({
+              placeholder: "Todos los clientes",
+              allowClear: true,
+              width: "100%",
+              language: {
+                noResults: function () {
+                  return "No se encontraron resultados";
+                },
+                searching: function () {
+                  return "Buscando...";
+                },
+              },
+            })
+            .on("change", function (e) {
+              handleClienteFilterChange(e.target.value);
+            });
+        }
+
+        // Línea de transporte filter
+        if (lineaTransporteSelectRef.current) {
+          window
+            .$(lineaTransporteSelectRef.current)
+            .select2({
+              placeholder: "Todas las líneas",
+              allowClear: true,
+              width: "100%",
+              language: {
+                noResults: function () {
+                  return "No se encontraron resultados";
+                },
+                searching: function () {
+                  return "Buscando...";
+                },
+              },
+            })
+            .on("change", function (e) {
+              handleLineaTransporteFilterChange(e.target.value);
+            });
+        }
+
+        // Monitoreo filter
+        if (monitoreoSelectRef.current) {
+          window
+            .$(monitoreoSelectRef.current)
+            .select2({
+              placeholder: "Todos los tipos",
+              allowClear: true,
+              width: "100%",
+              language: {
+                noResults: function () {
+                  return "No se encontraron resultados";
+                },
+                searching: function () {
+                  return "Buscando...";
+                },
+              },
+            })
+            .on("change", function (e) {
+              handleMonitoreoFilterChange(e.target.value);
+            });
+        }
+
+        // Operador filter
+        if (operadorSelectRef.current) {
+          window
+            .$(operadorSelectRef.current)
+            .select2({
+              placeholder: "Todos los operadores",
+              allowClear: true,
+              width: "100%",
+              language: {
+                noResults: function () {
+                  return "No se encontraron resultados";
+                },
+                searching: function () {
+                  return "Buscando...";
+                },
+              },
+            })
+            .on("change", function (e) {
+              handleOperadorFilterChange(e.target.value);
+            });
+        }
+
+        // Status filter
+        if (statusSelectRef.current) {
+          window
+            .$(statusSelectRef.current)
+            .select2({
+              placeholder: "Todos los estatus",
+              allowClear: true,
+              width: "100%",
+              language: {
+                noResults: function () {
+                  return "No se encontraron resultados";
+                },
+                searching: function () {
+                  return "Buscando...";
+                },
+              },
+            })
+            .on("change", function (e) {
+              handleStatusFilterChange(e.target.value);
+            });
+        }
+      };
+
+      // Initialize after a short delay to ensure DOM is ready
+      setTimeout(initializeSelect2, 100);
+    }
+
+    // Cleanup function to destroy Select2 instances
+    return () => {
+      if (window.$ && window.$.fn.select2) {
+        [
+          clienteSelectRef,
+          lineaTransporteSelectRef,
+          monitoreoSelectRef,
+          operadorSelectRef,
+          statusSelectRef,
+        ].forEach((ref) => {
+          if (ref.current && window.$(ref.current).hasClass("select2-hidden-accessible")) {
+            window.$(ref.current).select2("destroy");
+          }
+        });
+      }
+    };
+  }, [clients, monitoreos, operadores, formData.cliente]);
+
+  // Initialize Select2 for modal dropdowns when modal is open
+  useEffect(() => {
+    if (
+      window.$ &&
+      window.$.fn.select2 &&
+      showModal &&
+      clients.length > 0 &&
+      monitoreos.length > 0
+    ) {
+      const initializeModalSelect2 = () => {
+        // Modal Cliente filter
+        if (modalClienteSelectRef.current && modalClienteSelectRef.current.offsetParent !== null) {
+          window
+            .$(modalClienteSelectRef.current)
+            .select2({
+              placeholder: "Selecciona una opción",
+              allowClear: true,
+              width: "100%",
+              language: {
+                noResults: function () {
+                  return "No se encontraron resultados";
+                },
+                searching: function () {
+                  return "Buscando...";
+                },
+              },
+            })
+            .on("change", function (e) {
+              handleChange(e);
+            });
+        }
+
+        // Modal Monitoreo filter
+        if (
+          modalMonitoreoSelectRef.current &&
+          modalMonitoreoSelectRef.current.offsetParent !== null
+        ) {
+          window
+            .$(modalMonitoreoSelectRef.current)
+            .select2({
+              placeholder: "Selecciona una opción",
+              allowClear: true,
+              width: "100%",
+              language: {
+                noResults: function () {
+                  return "No se encontraron resultados";
+                },
+                searching: function () {
+                  return "Buscando...";
+                },
+              },
+            })
+            .on("change", function (e) {
+              handleChange(e);
+            });
+        }
+
+        // Modal Origen filter
+        if (modalOrigenSelectRef.current && modalOrigenSelectRef.current.offsetParent !== null) {
+          window
+            .$(modalOrigenSelectRef.current)
+            .select2({
+              placeholder: formData.cliente
+                ? "Seleccionar origen"
+                : "Primero selecciona un cliente",
+              allowClear: true,
+              width: "100%",
+              language: {
+                noResults: function () {
+                  return "No se encontraron resultados";
+                },
+                searching: function () {
+                  return "Buscando...";
+                },
+              },
+            })
+            .on("change", function (e) {
+              handleChange(e);
+            });
+        }
+
+        // Modal Destino filter
+        if (modalDestinoSelectRef.current && modalDestinoSelectRef.current.offsetParent !== null) {
+          window
+            .$(modalDestinoSelectRef.current)
+            .select2({
+              placeholder: formData.cliente
+                ? "Seleccionar destino"
+                : "Primero selecciona un cliente",
+              allowClear: true,
+              width: "100%",
+              language: {
+                noResults: function () {
+                  return "No se encontraron resultados";
+                },
+                searching: function () {
+                  return "Buscando...";
+                },
+              },
+            })
+            .on("change", function (e) {
+              handleChange(e);
+            });
+        }
+      };
+
+      // Initialize after a short delay to ensure DOM is ready
+      setTimeout(initializeModalSelect2, 200);
+    }
+
+    // Cleanup function to destroy modal Select2 instances
+    return () => {
+      if (window.$ && window.$.fn.select2) {
+        [
+          modalClienteSelectRef,
+          modalMonitoreoSelectRef,
+          modalOrigenSelectRef,
+          modalDestinoSelectRef,
+        ].forEach((ref) => {
+          if (ref.current && window.$(ref.current).hasClass("select2-hidden-accessible")) {
+            window.$(ref.current).select2("destroy");
+          }
+        });
+      }
+    };
+  }, [showModal, clients, monitoreos, formData.cliente]);
 
   const handleChange = (e) => {
     const {id, value} = e.target;
@@ -377,7 +644,6 @@ const BitacorasPage = () => {
             bitacorasData,
             clientsData,
             monitoreosData,
-            usersData,
             origenesData,
             destinosData,
             operadoresData,
@@ -391,7 +657,6 @@ const BitacorasPage = () => {
             ),
             fetchClients(roleData),
             fetchMonitoreos(),
-            fetchUsers(),
             fetchOrigenes(),
             fetchDestinos(),
             fetchOperadores(),
@@ -402,18 +667,6 @@ const BitacorasPage = () => {
           setTotalPages(bitacorasData.totalPages);
           setClients(clientsData);
           setMonitoreos(monitoreosData);
-          setUsers(usersData);
-          setOrigenes(origenesData);
-          setDestinos(destinosData);
-          setOperadores(operadoresData);
-
-          updateFormDataFromUser();
-          setBitacoras(bitacorasData.bitacoras);
-          setTotalItems(bitacorasData.totalItems);
-          setTotalPages(bitacorasData.totalPages);
-          setClients(clientsData);
-          setMonitoreos(monitoreosData);
-          setUsers(usersData);
           setOrigenes(origenesData);
           setDestinos(destinosData);
           setOperadores(operadoresData);
@@ -460,18 +713,28 @@ const BitacorasPage = () => {
   // Server-side filtering is now handled by the API
   const sortedFilteredBitacoras = bitacoras;
 
-  const clearFilters = () => {
-    setStatusFilter("");
-    setCreationDateFilter("");
-    setClienteFilter("");
-    setMonitoreoFilter("");
-    setOperadorFilter("");
-    setLineaTransporteFilter("");
-    setIdFilter("");
-    setSortField("createdAt");
-    setSortOrder("desc");
-    setCurrentPage(1);
-  };
+  // Clear filters function - available for future use
+  // const clearFilters = () => {
+  //   setStatusFilter("");
+  //   setCreationDateFilter("");
+  //   setClienteFilter("");
+  //   setMonitoreoFilter("");
+  //   setOperadorFilter("");
+  //   setLineaTransporteFilter("");
+  //   setIdFilter("");
+  //   setSortField("createdAt");
+  //   setSortOrder("desc");
+  //   setCurrentPage(1);
+  //
+  //   // Clear Select2 values
+  //   if (window.$ && window.$.fn.select2) {
+  //     [clienteSelectRef, lineaTransporteSelectRef, monitoreoSelectRef, operadorSelectRef, statusSelectRef].forEach(ref => {
+  //       if (ref.current && $(ref.current).hasClass('select2-hidden-accessible')) {
+  //         $(ref.current).val(null).trigger('change');
+  //       }
+  //     });
+  //   }
+  // };
 
   // Filter change handlers that reset to page 1
   const handleStatusFilterChange = (value) => {
@@ -780,6 +1043,67 @@ const BitacorasPage = () => {
 
   return (
     <section id="activeBits">
+      <style>{`
+        .select2-container--default .select2-selection--single {
+          height: 38px;
+          border: 1px solid #ced4da;
+          border-radius: 0.375rem;
+          background-color: #fff;
+        }
+        .select2-container--default .select2-selection--single .select2-selection__rendered {
+          line-height: 36px;
+          padding-left: 12px;
+          color: #495057;
+        }
+        .select2-container--default .select2-selection--single .select2-selection__arrow {
+          height: 36px;
+          right: 10px;
+        }
+        .select2-container--default.select2-container--focus .select2-selection--single {
+          border-color: #86b7fe;
+          outline: 0;
+          box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+        }
+        .select2-dropdown {
+          border: 1px solid #ced4da;
+          border-radius: 0.375rem;
+          box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+        }
+        .select2-container--default .select2-search--dropdown .select2-search__field {
+          border: 1px solid #ced4da;
+          border-radius: 0.375rem;
+          padding: 8px 12px;
+        }
+        .select2-container--default .select2-results__option--highlighted[aria-selected] {
+          background-color: #0d6efd !important;
+          color: #ffffff !important;
+        }
+        .select2-container--default .select2-results__option[aria-selected=true] {
+          background-color: #e9ecef !important;
+          color: #495057 !important;
+        }
+        .select2-container--default .select2-results__option {
+          color: #495057 !important;
+          background-color: #ffffff !important;
+        }
+        .select2-container--default .select2-results__option:hover {
+          background-color: #f8f9fa !important;
+          color: #495057 !important;
+        }
+        .select2-container--default .select2-results__option:focus {
+          background-color: #0d6efd !important;
+          color: #ffffff !important;
+        }
+        .select2-dropdown {
+          z-index: 99999 !important;
+        }
+        .modal .select2-dropdown {
+          z-index: 99999 !important;
+        }
+        .select2-container {
+          z-index: 99999 !important;
+        }
+      `}</style>
       <div className="w-100 d-flex h-100 mt-0">
         <div className="sidebar-wrapper">
           <Sidebar />
@@ -950,6 +1274,7 @@ const BitacorasPage = () => {
                         </th>
                         <th className="filter-cell" style={{width: "150px"}}>
                           <select
+                            ref={clienteSelectRef}
                             className="form-select form-select-sm modern-select"
                             value={clienteFilter}
                             onChange={(e) => handleClienteFilterChange(e.target.value)}>
@@ -965,6 +1290,7 @@ const BitacorasPage = () => {
                         </th>
                         <th className="filter-cell d-none d-lg-table-cell" style={{width: "180px"}}>
                           <select
+                            ref={lineaTransporteSelectRef}
                             className="form-select form-select-sm modern-select"
                             value={lineaTransporteFilter}
                             onChange={(e) => handleLineaTransporteFilterChange(e.target.value)}>
@@ -978,6 +1304,7 @@ const BitacorasPage = () => {
                         </th>
                         <th className="filter-cell d-none d-md-table-cell" style={{width: "120px"}}>
                           <select
+                            ref={monitoreoSelectRef}
                             className="form-select form-select-sm modern-select"
                             value={monitoreoFilter}
                             onChange={(e) => handleMonitoreoFilterChange(e.target.value)}>
@@ -993,6 +1320,7 @@ const BitacorasPage = () => {
                         </th>
                         <th className="filter-cell d-none d-lg-table-cell" style={{width: "140px"}}>
                           <select
+                            ref={operadorSelectRef}
                             className="form-select form-select-sm modern-select"
                             value={operadorFilter}
                             onChange={(e) => handleOperadorFilterChange(e.target.value)}>
@@ -1017,6 +1345,7 @@ const BitacorasPage = () => {
                         </th>
                         <th className="filter-cell" style={{width: "120px"}}>
                           <select
+                            ref={statusSelectRef}
                             className="form-select form-select-sm modern-select"
                             value={statusFilter}
                             onChange={(e) => handleStatusFilterChange(e.target.value)}>
@@ -1311,6 +1640,7 @@ const BitacorasPage = () => {
                 Tipo de Monitoreo
               </label>
               <select
+                ref={modalMonitoreoSelectRef}
                 className="form-select"
                 id="monitoreo"
                 value={formData.monitoreo}
@@ -1333,6 +1663,7 @@ const BitacorasPage = () => {
                 Cliente
               </label>
               <select
+                ref={modalClienteSelectRef}
                 className="form-select"
                 id="cliente"
                 value={formData.cliente}
@@ -1367,6 +1698,7 @@ const BitacorasPage = () => {
                 Origen
               </label>
               <select
+                ref={modalOrigenSelectRef}
                 id="origen"
                 className="form-select"
                 value={formData.origen}
@@ -1396,6 +1728,7 @@ const BitacorasPage = () => {
                 Destino
               </label>
               <select
+                ref={modalDestinoSelectRef}
                 id="destino"
                 className="form-select"
                 value={formData.destino}

@@ -24,6 +24,7 @@
     "axios": "^1.7.9",
     "bootstrap": "^5.3.3",
     "file-saver": "^2.0.5",
+    "jquery": "^3.7.1",
     "jspdf": "^2.5.1",
     "jspdf-autotable": "^3.8.2",
     "react": "^18.3.1",
@@ -32,6 +33,7 @@
     "react-router-dom": "^6.25.1",
     "recharts": "^2.15.4",
     "sass": "^1.77.8",
+    "select2": "^4.1.0-rc.0",
     "xlsx": "^0.18.5"
   },
   "devDependencies": {

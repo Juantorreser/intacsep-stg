@@ -1,4 +1,4 @@
-import {useState, useEffect} from "react";
+import {useState, useEffect, useRef} from "react";
 import {useParams, useNavigate} from "react-router-dom";
 import Sidebar from "../Sidebar";
 import {FontAwesomeIcon} from "@fortawesome/react-fontawesome";
@@ -54,6 +54,12 @@ const BitacoraDetailPage = ({edited}) => {
   const [modalOpen, setModalOpen] = useState(false);
   const {isSidebarCollapsed} = useSidebar();
   const [phoneError, setPhoneError] = useState("");
+
+  // Refs for edit modal Select2 elements
+  const editClienteSelectRef = useRef(null);
+  const editMonitoreoSelectRef = useRef(null);
+  const editOrigenSelectRef = useRef(null);
+  const editDestinoSelectRef = useRef(null);
 
   const validatePhoneNumber = (phone) => {
     // Regex para validar número de teléfono mexicano de exactamente 10 dígitos seguidos
@@ -588,6 +594,135 @@ const BitacoraDetailPage = ({edited}) => {
   useEffect(() => {
     fetchWialonUnits();
   }, []);
+
+  // Initialize Select2 for edit modal dropdowns
+  useEffect(() => {
+    if (
+      window.$ &&
+      window.$.fn.select2 &&
+      editModalVisible &&
+      clients.length > 0 &&
+      monitoreos.length > 0
+    ) {
+      const initializeEditModalSelect2 = () => {
+        // Edit Cliente filter
+        if (editClienteSelectRef.current && editClienteSelectRef.current.offsetParent !== null) {
+          window
+            .$(editClienteSelectRef.current)
+            .select2({
+              placeholder: "Selecciona una opción",
+              allowClear: true,
+              width: "100%",
+              language: {
+                noResults: function () {
+                  return "No se encontraron resultados";
+                },
+                searching: function () {
+                  return "Buscando...";
+                },
+              },
+            })
+            .on("change", function (e) {
+              handleEditChange(e);
+            });
+        }
+
+        // Edit Monitoreo filter
+        if (
+          editMonitoreoSelectRef.current &&
+          editMonitoreoSelectRef.current.offsetParent !== null
+        ) {
+          window
+            .$(editMonitoreoSelectRef.current)
+            .select2({
+              placeholder: "Selecciona una opción",
+              allowClear: true,
+              width: "100%",
+              language: {
+                noResults: function () {
+                  return "No se encontraron resultados";
+                },
+                searching: function () {
+                  return "Buscando...";
+                },
+              },
+            })
+            .on("change", function (e) {
+              handleEditChange(e);
+            });
+        }
+
+        // Edit Origen filter
+        if (editOrigenSelectRef.current && editOrigenSelectRef.current.offsetParent !== null) {
+          window
+            .$(editOrigenSelectRef.current)
+            .select2({
+              placeholder: "Selecciona una opción",
+              allowClear: true,
+              width: "100%",
+              language: {
+                noResults: function () {
+                  return "No se encontraron resultados";
+                },
+                searching: function () {
+                  return "Buscando...";
+                },
+              },
+            })
+            .on("change", function (e) {
+              setBitacora((prev) => ({
+                ...prev,
+                origen: e.target.value ? JSON.parse(e.target.value) : null,
+              }));
+            });
+        }
+
+        // Edit Destino filter
+        if (editDestinoSelectRef.current && editDestinoSelectRef.current.offsetParent !== null) {
+          window
+            .$(editDestinoSelectRef.current)
+            .select2({
+              placeholder: "Selecciona una opción",
+              allowClear: true,
+              width: "100%",
+              language: {
+                noResults: function () {
+                  return "No se encontraron resultados";
+                },
+                searching: function () {
+                  return "Buscando...";
+                },
+              },
+            })
+            .on("change", function (e) {
+              setBitacora((prev) => ({
+                ...prev,
+                destino: e.target.value ? JSON.parse(e.target.value) : null,
+              }));
+            });
+        }
+      };
+
+      // Initialize after a short delay to ensure DOM is ready
+      setTimeout(initializeEditModalSelect2, 200);
+    }
+
+    // Cleanup function to destroy Select2 instances
+    return () => {
+      if (window.$ && window.$.fn.select2) {
+        [
+          editClienteSelectRef,
+          editMonitoreoSelectRef,
+          editOrigenSelectRef,
+          editDestinoSelectRef,
+        ].forEach((ref) => {
+          if (ref.current && window.$(ref.current).hasClass("select2-hidden-accessible")) {
+            window.$(ref.current).select2("destroy");
+          }
+        });
+      }
+    };
+  }, [editModalVisible, clients, monitoreos, origenes, destinos]);
 
   const token = import.meta.env.VITE_WIALON_TOKEN;
 
@@ -1235,6 +1370,67 @@ const BitacoraDetailPage = ({edited}) => {
 
   return (
     <section id="bitacoraDetail">
+      <style>{`
+        .select2-container--default .select2-selection--single {
+          height: 38px;
+          border: 1px solid #ced4da;
+          border-radius: 0.375rem;
+          background-color: #fff;
+        }
+        .select2-container--default .select2-selection--single .select2-selection__rendered {
+          line-height: 36px;
+          padding-left: 12px;
+          color: #495057;
+        }
+        .select2-container--default .select2-selection--single .select2-selection__arrow {
+          height: 36px;
+          right: 10px;
+        }
+        .select2-container--default.select2-container--focus .select2-selection--single {
+          border-color: #86b7fe;
+          outline: 0;
+          box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+        }
+        .select2-dropdown {
+          border: 1px solid #ced4da;
+          border-radius: 0.375rem;
+          box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+        }
+        .select2-container--default .select2-search--dropdown .select2-search__field {
+          border: 1px solid #ced4da;
+          border-radius: 0.375rem;
+          padding: 8px 12px;
+        }
+        .select2-container--default .select2-results__option--highlighted[aria-selected] {
+          background-color: #0d6efd !important;
+          color: #ffffff !important;
+        }
+        .select2-container--default .select2-results__option[aria-selected=true] {
+          background-color: #e9ecef !important;
+          color: #495057 !important;
+        }
+        .select2-container--default .select2-results__option {
+          color: #495057 !important;
+          background-color: #ffffff !important;
+        }
+        .select2-container--default .select2-results__option:hover {
+          background-color: #f8f9fa !important;
+          color: #495057 !important;
+        }
+        .select2-container--default .select2-results__option:focus {
+          background-color: #0d6efd !important;
+          color: #ffffff !important;
+        }
+        .select2-dropdown {
+          z-index: 99999 !important;
+        }
+        .modal .select2-dropdown {
+          z-index: 99999 !important;
+        }
+        .select2-container {
+          z-index: 99999 !important;
+        }
+      `}</style>
       <div className="w-100 d-flex">
         <div className="sidebar-wrapper">
           <Sidebar />
@@ -1803,6 +1999,7 @@ const BitacoraDetailPage = ({edited}) => {
             <Form.Group className="mb-3">
               <Form.Label>Cliente</Form.Label>
               <Form.Select
+                ref={editClienteSelectRef}
                 name="cliente"
                 value={bitacora.cliente || ""}
                 onChange={handleEditChange}
@@ -1819,6 +2016,7 @@ const BitacoraDetailPage = ({edited}) => {
             <Form.Group className="mb-3">
               <Form.Label>Tipo de Monitoreo</Form.Label>
               <Form.Select
+                ref={editMonitoreoSelectRef}
                 name="monitoreo"
                 value={bitacora.monitoreo || ""}
                 onChange={handleEditChange}
@@ -1835,6 +2033,7 @@ const BitacoraDetailPage = ({edited}) => {
             <Form.Group className="mb-3">
               <Form.Label>Origen</Form.Label>
               <Form.Select
+                ref={editOrigenSelectRef}
                 name="origen"
                 value={getLocationValue(
                   bitacora.origen,
@@ -1861,6 +2060,7 @@ const BitacoraDetailPage = ({edited}) => {
             <Form.Group className="mb-3">
               <Form.Label>Destino</Form.Label>
               <Form.Select
+                ref={editDestinoSelectRef}
                 name="destino"
                 value={getLocationValue(
                   bitacora.destino,
