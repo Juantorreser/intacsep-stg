@@ -96,7 +96,7 @@ const CreateTransporteModal = ({
 
   // Initialize Select2 for create transporte modal dropdowns
   useEffect(() => {
-    if (window.$ && window.$.fn.select2 && show && lineasTransporte.length > 0) {
+    if (window.$ && window.$.fn.select2 && show) {
       const initializeCreateTransporteSelect2 = () => {
         console.log("Initializing Create Transporte Select2...");
 
@@ -129,16 +129,21 @@ const CreateTransporteModal = ({
             })
             .val(transporteData.lineaTransporte || "")
             .trigger("change")
+            .off("change") // Remove any existing handlers
             .on("change", function (e) {
               const selectedLinea = e.target.value;
               console.log("LineaTransporte changed via Select2:", selectedLinea);
+
+              // Update state without triggering re-render of this effect
               setTransporteData((prev) => ({
                 ...prev,
                 lineaTransporte: selectedLinea,
                 operador: "", // Reset operador when lineaTransporte changes
               }));
+
               // Clear operadores immediately
               setOperadores([]);
+
               // Fetch operadores for the selected linea de transporte
               if (selectedLinea && selectedLinea !== "all") {
                 console.log("Fetching operadores for:", selectedLinea);
@@ -147,8 +152,12 @@ const CreateTransporteModal = ({
             });
         }
 
-        // Operador filter
-        if (operadorSelectRef.current && operadorSelectRef.current.offsetParent !== null) {
+        // Operador filter - only initialize if we have operadores
+        if (
+          operadorSelectRef.current &&
+          operadorSelectRef.current.offsetParent !== null &&
+          operadores.length > 0
+        ) {
           window
             .$(operadorSelectRef.current)
             .select2({
@@ -168,8 +177,16 @@ const CreateTransporteModal = ({
             })
             .val(transporteData.operador || "")
             .trigger("change")
+            .off("change") // Remove any existing handlers
             .on("change", function (e) {
-              handleChange(e);
+              const selectedOperador = e.target.value;
+              console.log("Operador changed via Select2:", selectedOperador);
+
+              // Update state directly
+              setTransporteData((prev) => ({
+                ...prev,
+                operador: selectedOperador,
+              }));
             });
         }
       };
@@ -188,7 +205,28 @@ const CreateTransporteModal = ({
         });
       }
     };
-  }, [show, lineasTransporte, operadores, transporteData.lineaTransporte, transporteData.operador]);
+  }, [show]); // Only depend on show to avoid infinite re-renders
+
+  // Update operador Select2 when operadores change
+  useEffect(() => {
+    if (window.$ && window.$.fn.select2 && operadorSelectRef.current && operadores.length > 0) {
+      const $operadorSelect = window.$(operadorSelectRef.current);
+
+      // Only update if Select2 is already initialized
+      if ($operadorSelect.hasClass("select2-hidden-accessible")) {
+        // Update the options without re-initializing
+        const currentValue = $operadorSelect.val();
+        $operadorSelect.trigger("change");
+
+        // If current value is not in new options, clear it
+        const validOptions = operadores.map((op) => op.nombre);
+        if (currentValue && !validOptions.includes(currentValue)) {
+          $operadorSelect.val("").trigger("change");
+          setTransporteData((prev) => ({...prev, operador: ""}));
+        }
+      }
+    }
+  }, [operadores]);
 
   // Fetch lineas de transporte filtered by client
   const fetchLineasTransporte = async (cliente) => {
@@ -334,6 +372,11 @@ const CreateTransporteModal = ({
     const {name, value} = e.target;
     const [section, field] = name.split(".");
 
+    // Skip if this is a Select2 element (they handle their own state)
+    if (name === "lineaTransporte" || name === "operador") {
+      return;
+    }
+
     // Validar teléfono si el campo es 'telefono'
     if (name === "telefono") {
       if (value && !validatePhoneNumber(value)) {
@@ -342,22 +385,6 @@ const CreateTransporteModal = ({
         );
       } else {
         setPhoneError("");
-      }
-    }
-
-    // Si se cambia la línea de transporte, actualizar operadores
-    if (name === "lineaTransporte") {
-      console.log("LineaTransporte changed to:", value);
-      // Clear operadores immediately
-      setOperadores([]);
-      // Reset operador when lineaTransporte changes
-      setTransporteData((prev) => ({
-        ...prev,
-        operador: "",
-      }));
-      // Fetch operadores for the selected linea de transporte
-      if (value && value !== "") {
-        fetchOperadores(value);
       }
     }
 
@@ -753,7 +780,6 @@ const CreateTransporteModal = ({
                   ref={lineaTransporteSelectRef}
                   name="lineaTransporte"
                   value={transporteData.lineaTransporte}
-                  onChange={handleChange}
                   required={!!roleData?.operador?.create}>
                   <option value="">Selecciona una línea de transporte</option>
                   {lineasTransporte.map((linea) => (
@@ -769,7 +795,6 @@ const CreateTransporteModal = ({
                   ref={operadorSelectRef}
                   name="operador"
                   value={transporteData.operador}
-                  onChange={handleChange}
                   required={!!roleData?.operador?.create}
                   disabled={!transporteData.lineaTransporte}>
                   <option value="">
