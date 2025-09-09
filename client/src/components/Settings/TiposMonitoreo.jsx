@@ -7,7 +7,7 @@ import {useNavigate} from "react-router-dom";
 
 const TiposMonitoreo = () => {
   const [monitoreos, setMonitoreos] = useState([]);
-  const [filteredMonitoreos, setFilteredMonitoreos] = useState([]); 
+  const [filteredMonitoreos, setFilteredMonitoreos] = useState([]);
   const [newMonitoreo, setNewMonitoreo] = useState("");
   const [showModal, setShowModal] = useState(false);
   const [currentMonitoreo, setCurrentMonitoreo] = useState(null);
@@ -305,10 +305,12 @@ const TiposMonitoreo = () => {
                       </tr>
                     </thead>
                     <tbody>
-                      {getPaginatedMonitoreos().map((monitoreo, index) => (
+                      {getPaginatedMonitoreos().map((monitoreo) => (
                         <tr key={monitoreo._id}>
                           <td className="text-center fw-bold">
-                            {(currentPage - 1) * itemsPerPage + index + 1}
+                            {monitoreo.numericId
+                              ? monitoreo.numericId.toString().padStart(4, "0")
+                              : "N/A"}
                           </td>
                           <td>{monitoreo.tipoMonitoreo}</td>
                           <td className="text-end">

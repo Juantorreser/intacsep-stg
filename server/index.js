@@ -22,8 +22,13 @@ import nodemailer from "nodemailer";
 import crypto from "crypto";
 import Auditoria from "./models/Auditoria.js";
 import LineaTransporte from "./models/LineaTransporte.js";
-import OrigenSequence from "./models/origenSequence.js";
+import OrigenSequence from "./models/OrigenSequence.js";
 import DestinoSequence from "./models/DestinoSequence.js";
+import TipoMonitoreoSequence from "./models/TipoMonitoreoSequence.js";
+import ClienteSequence from "./models/ClienteSequence.js";
+import EventTypeSequence from "./models/EventTypeSequence.js";
+import LineaTransporteSequence from "./models/LineaTransporteSequence.js";
+import OperadorSequence from "./models/OperadorSequence.js";
 import { auditCreation, auditUpdate, auditDeletion } from "./auditoriaUtils.js";
 import { convertToUpperCase } from "./utils/textUtils.js";
 
@@ -61,6 +66,101 @@ const decrementOrigenSequence = async () => {
 const decrementDestinoSequence = async () => {
   const sequence = await DestinoSequence.findByIdAndUpdate(
     "destinoSequence",
+    { $inc: { seq: -1 } },
+    { new: true, upsert: true }
+  );
+  return sequence.seq;
+};
+
+// Helper functions for TipoMonitoreo sequence
+const getNextTipoMonitoreoSequence = async () => {
+  const sequence = await TipoMonitoreoSequence.findByIdAndUpdate(
+    "tipoMonitoreoSequence",
+    { $inc: { seq: 1 } },
+    { new: true, upsert: true }
+  );
+  return sequence.seq;
+};
+
+const decrementTipoMonitoreoSequence = async () => {
+  const sequence = await TipoMonitoreoSequence.findByIdAndUpdate(
+    "tipoMonitoreoSequence",
+    { $inc: { seq: -1 } },
+    { new: true, upsert: true }
+  );
+  return sequence.seq;
+};
+
+// Helper functions for Cliente sequence
+const getNextClienteSequence = async () => {
+  const sequence = await ClienteSequence.findByIdAndUpdate(
+    "clienteSequence",
+    { $inc: { seq: 1 } },
+    { new: true, upsert: true }
+  );
+  return sequence.seq;
+};
+
+const decrementClienteSequence = async () => {
+  const sequence = await ClienteSequence.findByIdAndUpdate(
+    "clienteSequence",
+    { $inc: { seq: -1 } },
+    { new: true, upsert: true }
+  );
+  return sequence.seq;
+};
+
+// Helper functions for EventType sequence
+const getNextEventTypeSequence = async () => {
+  const sequence = await EventTypeSequence.findByIdAndUpdate(
+    "eventTypeSequence",
+    { $inc: { seq: 1 } },
+    { new: true, upsert: true }
+  );
+  return sequence.seq;
+};
+
+const decrementEventTypeSequence = async () => {
+  const sequence = await EventTypeSequence.findByIdAndUpdate(
+    "eventTypeSequence",
+    { $inc: { seq: -1 } },
+    { new: true, upsert: true }
+  );
+  return sequence.seq;
+};
+
+// Helper functions for LineaTransporte sequence
+const getNextLineaTransporteSequence = async () => {
+  const sequence = await LineaTransporteSequence.findByIdAndUpdate(
+    "lineaTransporteSequence",
+    { $inc: { seq: 1 } },
+    { new: true, upsert: true }
+  );
+  return sequence.seq;
+};
+
+const decrementLineaTransporteSequence = async () => {
+  const sequence = await LineaTransporteSequence.findByIdAndUpdate(
+    "lineaTransporteSequence",
+    { $inc: { seq: -1 } },
+    { new: true, upsert: true }
+  );
+  return sequence.seq;
+};
+
+// Helper functions for Operador sequence
+const getNextOperadorSequence = async () => {
+  const sequence = await OperadorSequence.findByIdAndUpdate(
+    "operadorSequence",
+    { $inc: { seq: 1 } },
+    { new: true, upsert: true }
+  );
+  return sequence.seq;
+};
+
+const decrementOperadorSequence = async () => {
+  const sequence = await OperadorSequence.findByIdAndUpdate(
+    "operadorSequence",
     { $inc: { seq: -1 } },
     { new: true, upsert: true }
   );
@@ -2259,12 +2359,16 @@ app.put("/monitoreos/:id", async (req, res) => {
 app.delete("/monitoreos/:id", async (req, res) => {
   const { id } = req.params;
   try {
-    const result = await Monitoreo.findByIdAndDelete(id);
-    if (result) {
-      res.status(200).json({ message: "Monitoreo deleted successfully" });
-    } else {
-      res.status(404).json({ message: "Monitoreo not found" });
+    const deletedMonitoreo = await Monitoreo.findByIdAndDelete(id);
+    if (!deletedMonitoreo) {
+      return res.status(404).json({ message: "Monitoreo not found" });
     }
+
+    // Decrement the sequence counter
+    await decrementTipoMonitoreoSequence();
+
+    await auditDeletion({ oldData: deletedMonitoreo.toObject(), modelId: id, user: req.session.user || {}, seccion: "Monitoreo" });
+    res.status(200).json({ message: "Monitoreo deleted successfully" });
   } catch (error) {
     console.error("Error deleting monitoreo:", error);
     res.status(500).json({ message: "Internal server error" });
@@ -2278,7 +2382,10 @@ app.post("/monitoreos", async (req, res) => {
   }
 
   try {
-    const newMonitoreo = new Monitoreo({ tipoMonitoreo });
+    // Get next sequence number
+    const numericId = await getNextTipoMonitoreoSequence();
+
+    const newMonitoreo = new Monitoreo({ tipoMonitoreo, numericId });
     const savedMonitoreo = await newMonitoreo.save();
     await auditCreation({ newData: savedMonitoreo.toObject(), modelId: savedMonitoreo._id, user: req.session.user || {}, seccion: "Monitoreo" });
     res.status(201).json(savedMonitoreo);
@@ -2421,19 +2528,12 @@ app.get("/clients", async (req, res) => {
 // Create a new client
 app.post("/clients", async (req, res) => {
   try {
-    // Get the next sequence value
-    const nextID = await ClientSequence.findOneAndUpdate(
-      { name: "Client_id" },
-      { $inc: { sequence_value: 1 } },
-      { new: true, upsert: true }
-    );
+    // Get next sequence number
+    const numericId = await getNextClienteSequence();
 
-    // Format the ID as a 6-digit number with leading zeros
-    const formattedID = nextID.sequence_value.toString().padStart(6, "0");
-
-    // Add formatted ID to request body and convert to uppercase
-    const excludeFields = ['_id', 'createdAt', 'updatedAt', 'ID_Cliente'];
-    const clientData = { ...convertToUpperCase(req.body, excludeFields), ID_Cliente: formattedID };
+    // Add numericId to request body and convert to uppercase
+    const excludeFields = ['_id', 'createdAt', 'updatedAt', 'numericId'];
+    const clientData = { ...convertToUpperCase(req.body, excludeFields), numericId };
 
     // Create new client with ID_Cliente
     const client = new Client(clientData);
@@ -2454,7 +2554,7 @@ app.put("/clients/:id", async (req, res) => {
     const oldData = prevClient.toObject();
 
     // Convertir campos de texto a mayúsculas antes de actualizar
-    const excludeFields = ['_id', 'createdAt', 'updatedAt', 'ID_Cliente'];
+    const excludeFields = ['_id', 'createdAt', 'updatedAt', 'numericId'];
     const uppercaseData = convertToUpperCase(req.body, excludeFields);
 
     const updatedClient = await Client.findByIdAndUpdate(req.params.id, uppercaseData, { new: true });
@@ -2472,6 +2572,10 @@ app.delete("/clients/:id", async (req, res) => {
     if (!deletedClient) {
       return res.status(404).json({ message: "Client not found" });
     }
+
+    // Decrement the sequence counter
+    await decrementClienteSequence();
+
     await auditDeletion({ oldData: deletedClient.toObject(), modelId: req.params.id, user: req.session.user || {}, seccion: "Cliente" });
     res.json({ message: "Client deleted" });
   } catch (error) {
@@ -2527,7 +2631,10 @@ app.post("/event_types", async (req, res) => {
       return res.status(409).json({ message: "Event type already exists" });
     }
 
-    const newEvent = new EventType({ evento, categoria, calificacion });
+    // Get next sequence number
+    const numericId = await getNextEventTypeSequence();
+
+    const newEvent = new EventType({ evento, categoria, calificacion, numericId });
     const saved = await newEvent.save();
     await auditCreation({ newData: saved.toObject(), modelId: saved._id, user: req.session.user || {}, seccion: "Evento" });
     res.status(201).json(saved);
@@ -2541,6 +2648,10 @@ app.delete("/event_types/:id", async (req, res) => {
   try {
     const deletedEvent = await EventType.findByIdAndDelete(req.params.id);
     if (!deletedEvent) return res.status(404).json({ message: "Event not found" });
+
+    // Decrement the sequence counter
+    await decrementEventTypeSequence();
+
     await auditDeletion({ oldData: deletedEvent.toObject(), modelId: req.params.id, user: req.session.user || {}, seccion: "Evento" });
     res.json({ message: "Event deleted" });
   } catch (err) {
@@ -3009,7 +3120,10 @@ app.get("/lineas-transporte", async (req, res) => {
 // Create a new linea de transporte
 app.post("/lineas-transporte", async (req, res) => {
   try {
-    const lineaTransporte = new LineaTransporte(req.body);
+    // Get next sequence number
+    const numericId = await getNextLineaTransporteSequence();
+
+    const lineaTransporte = new LineaTransporte({ ...req.body, numericId });
     const newLineaTransporte = await lineaTransporte.save();
     await auditCreation({ newData: newLineaTransporte.toObject(), modelId: newLineaTransporte._id, user: req.session.user || {}, seccion: "LineaTransporte" });
     res.status(201).json(newLineaTransporte);
@@ -3039,6 +3153,10 @@ app.delete("/lineas-transporte/:id", async (req, res) => {
     if (!deletedLineaTransporte) {
       return res.status(404).json({ message: "Linea de transporte not found" });
     }
+
+    // Decrement the sequence counter
+    await decrementLineaTransporteSequence();
+
     await auditDeletion({ oldData: deletedLineaTransporte.toObject(), modelId: req.params.id, user: req.session.user || {}, seccion: "LineaTransporte" });
     res.json({ message: "Linea de transporte deleted" });
   } catch (error) {
@@ -3049,10 +3167,13 @@ app.delete("/lineas-transporte/:id", async (req, res) => {
 // Create a new operador
 app.post("/operadores", async (req, res) => {
   try {
+    // Get next sequence number
+    const numericId = await getNextOperadorSequence();
+
     // Convertir campos de texto a mayúsculas
-    const excludeFields = ['_id', 'createdAt', 'updatedAt', 'telefono'];
+    const excludeFields = ['_id', 'createdAt', 'updatedAt', 'telefono', 'numericId'];
     const uppercaseData = convertToUpperCase(req.body, excludeFields);
-    const newOperador = new Operador(uppercaseData);
+    const newOperador = new Operador({ ...uppercaseData, numericId });
     const savedOperador = await newOperador.save();
     await auditCreation({ newData: savedOperador.toObject(), modelId: savedOperador._id, user: req.session.user || {}, seccion: "Operador" });
     res.status(201).json(savedOperador);
@@ -3084,6 +3205,10 @@ app.delete("/operadores/:id", async (req, res) => {
   try {
     const deletedOperador = await Operador.findByIdAndDelete(req.params.id);
     if (!deletedOperador) return res.status(404).json({ message: "Operador not found" });
+
+    // Decrement the sequence counter
+    await decrementOperadorSequence();
+
     await auditDeletion({ oldData: deletedOperador.toObject(), modelId: req.params.id, user: req.session.user || {}, seccion: "Operador" });
     res.status(200).json({ message: "Operador deleted successfully" });
   } catch (e) {

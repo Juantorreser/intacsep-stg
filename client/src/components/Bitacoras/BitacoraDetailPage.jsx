@@ -1,4 +1,4 @@
-import {useState, useEffect, useRef} from "react";
+import {useState, useEffect} from "react";
 import {useParams, useNavigate} from "react-router-dom";
 import Sidebar from "../Sidebar";
 import {FontAwesomeIcon} from "@fortawesome/react-fontawesome";
@@ -11,7 +11,6 @@ import NewEventModal from "./Eventos/NewEventModal";
 import {generateAuditoriasFromChanges} from "../../utils/auditoria";
 import {getLocationText} from "../../utils/api";
 import {convertToUpperCase} from "../../utils/utils";
-import {useMemo} from "react";
 import ModalTemplate from "../../components/ModalTemplate"; // make sure path is valid
 import {useSidebar} from "../../context/SidebarContext";
 
@@ -19,9 +18,6 @@ const BitacoraDetailPage = ({edited}) => {
   const {id} = useParams();
   const {user, verifyToken, setUser} = useAuth();
   const [bitacora, setBitacora] = useState(null);
-  const [isEventStarted, setIsEventStarted] = useState(false);
-  const [finishButtonDisabled, setFinishButtonDisabled] = useState(true);
-  const [isEdited, setIsEdited] = useState(false);
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [edited_bitacora, setEditedBitacora] = useState({});
   const [roleData, setRoleData] = useState(null);
@@ -39,31 +35,14 @@ const BitacoraDetailPage = ({edited}) => {
   const [showModal, setShowModal] = useState(false);
   const [isEditTransporteModalVisible, setEditTransporteModalVisible] = useState(false);
   const [editedTransporte, setEditedTransporte] = useState(null);
-  const [selectedTransportes, setSelectedTransportes] = useState([]);
   const [eventos, setEventos] = useState([]);
   const [idMethod, setIdMethod] = useState("automatic");
-  const [selectedUnitId, setSelectedUnitId] = useState("");
-  const [selectedUnitName, setSelectedUnitName] = useState("");
   const [selectedGpsUnits, setSelectedGpsUnits] = useState([]); // Para múltiples GPS
   const [gpsSearchTerm, setGpsSearchTerm] = useState(""); // Para buscar GPS
   const [units, setUnits] = useState([]);
-  const isEditable = useMemo(
-    () => editedTransporte?.originalId?.startsWith("blank_"),
-    [editedTransporte?.originalId]
-  );
   const [modalOpen, setModalOpen] = useState(false);
   const {isSidebarCollapsed} = useSidebar();
   const [phoneError, setPhoneError] = useState("");
-
-  // Refs for edit modal Select2 elements
-  const editClienteSelectRef = useRef(null);
-  const editMonitoreoSelectRef = useRef(null);
-  const editOrigenSelectRef = useRef(null);
-  const editDestinoSelectRef = useRef(null);
-
-  // Refs for edit transporte modal elements
-  const editTransporteLineaSelectRef = useRef(null);
-  const editTransporteOperadorSelectRef = useRef(null);
 
   const validatePhoneNumber = (phone) => {
     // Regex para validar número de teléfono mexicano de exactamente 10 dígitos seguidos
@@ -262,17 +241,6 @@ const BitacoraDetailPage = ({edited}) => {
   const handleTabClick = (tabName) => {
     setActiveTab(tabName);
   };
-
-  const [newEvent, setNewEvent] = useState({
-    nombre: "",
-    descripcion: "",
-    ubicacion: "",
-    duracion: "",
-    ultimo_posicionamiento: "",
-    velocidad: "",
-    coordenadas: "",
-    frecuencia: 0,
-  });
 
   const [eventTypes, setEventTypes] = useState([]);
   const baseUrl = import.meta.env.VITE_BASE_URL;
@@ -578,61 +546,6 @@ const BitacoraDetailPage = ({edited}) => {
     }
   }, [initialized, user]);
 
-  const handleStart = async () => {
-    console.log(transportes);
-    console.log(events);
-
-    if (bitacora.status === "validada") {
-      try {
-        const response = await fetch(`${baseUrl}/bitacora/${id}/start`, {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            inicioMonitoreo: new Date().toISOString(), // Set the start time
-          }),
-          credentials: "include",
-        });
-        if (response.ok) {
-          const updatedBitacora = await response.json();
-          setBitacora(updatedBitacora);
-          setIsEventStarted(true);
-          setFinishButtonDisabled(false);
-        } else {
-          console.error("Failed to start bitácora:", response.statusText);
-        }
-      } catch (e) {
-        console.error("Error starting bitácora:", e);
-      }
-    }
-    if (bitacora.status === "validada") {
-      try {
-        const response = await fetch(`${baseUrl}/bitacora/${id}/status`, {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            status: "iniciada",
-            inicioMonitoreo: new Date().toISOString(), // Set the start time
-          }),
-          credentials: "include",
-        });
-        if (response.ok) {
-          const updatedBitacora = await response.json();
-          setBitacora(updatedBitacora);
-          setIsEventStarted(true);
-          setFinishButtonDisabled(false);
-        } else {
-          console.error("Failed to start bitácora:", response.statusText);
-        }
-      } catch (e) {
-        console.error("Error starting bitácora:", e);
-      }
-    }
-  };
-
   const handleFinish = async (latestBitacora = bitacora) => {
     if (latestBitacora.status === "iniciada" && areAllTransportesClosed(latestBitacora)) {
       try {
@@ -667,170 +580,6 @@ const BitacoraDetailPage = ({edited}) => {
   useEffect(() => {
     fetchWialonUnits();
   }, []);
-
-  // Initialize Select2 for edit modal dropdowns
-  useEffect(() => {
-    console.log("=== EDIT MODAL SELECT2 USEEFFECT EXECUTED ===");
-    console.log("Edit Modal Select2 useEffect triggered:", {
-      editModalVisible,
-      clientsLength: clients.length,
-      monitoreosLength: monitoreos.length,
-      origenesLength: origenes.length,
-      destinosLength: destinos.length,
-      editedBitacoraOrigen: edited_bitacora?.origen,
-      editedBitacoraDestino: edited_bitacora?.destino,
-    });
-
-    if (
-      window.$ &&
-      window.$.fn.select2 &&
-      editModalVisible &&
-      clients.length > 0 &&
-      monitoreos.length > 0 &&
-      origenes.length > 0 &&
-      destinos.length > 0
-    ) {
-      const initializeEditModalSelect2 = () => {
-        console.log("Initializing Edit Modal Select2...");
-
-        // Destroy existing Select2 instances first
-        [
-          editClienteSelectRef,
-          editMonitoreoSelectRef,
-          editOrigenSelectRef,
-          editDestinoSelectRef,
-        ].forEach((ref) => {
-          if (ref.current && window.$(ref.current).hasClass("select2-hidden-accessible")) {
-            window.$(ref.current).select2("destroy");
-          }
-        });
-
-        // Edit Cliente filter
-        if (editClienteSelectRef.current && editClienteSelectRef.current.offsetParent !== null) {
-          window
-            .$(editClienteSelectRef.current)
-            .select2({
-              placeholder: "Selecciona una opción",
-              allowClear: true,
-              width: "100%",
-              language: {
-                noResults: function () {
-                  return "No se encontraron resultados";
-                },
-                searching: function () {
-                  return "Buscando...";
-                },
-              },
-            })
-            .val(bitacora.cliente || "")
-            .trigger("change")
-            .on("change", function (e) {
-              handleEditChange(e);
-            });
-        }
-
-        // Edit Monitoreo filter
-        if (
-          editMonitoreoSelectRef.current &&
-          editMonitoreoSelectRef.current.offsetParent !== null
-        ) {
-          window
-            .$(editMonitoreoSelectRef.current)
-            .select2({
-              placeholder: "Selecciona una opción",
-              allowClear: true,
-              width: "100%",
-              language: {
-                noResults: function () {
-                  return "No se encontraron resultados";
-                },
-                searching: function () {
-                  return "Buscando...";
-                },
-              },
-            })
-            .val(bitacora.monitoreo || "")
-            .trigger("change")
-            .on("change", function (e) {
-              handleEditChange(e);
-            });
-        }
-
-        // Edit Origen filter
-        if (editOrigenSelectRef.current && editOrigenSelectRef.current.offsetParent !== null) {
-          window
-            .$(editOrigenSelectRef.current)
-            .select2({
-              placeholder: "Selecciona una opción",
-              allowClear: true,
-              width: "100%",
-              language: {
-                noResults: function () {
-                  return "No se encontraron resultados";
-                },
-                searching: function () {
-                  return "Buscando...";
-                },
-              },
-            })
-            .on("change", function (e) {
-              setBitacora((prev) => ({
-                ...prev,
-                origen: e.target.value ? JSON.parse(e.target.value) : null,
-              }));
-            });
-        }
-
-        // Edit Destino filter
-        if (editDestinoSelectRef.current && editDestinoSelectRef.current.offsetParent !== null) {
-          window
-            .$(editDestinoSelectRef.current)
-            .select2({
-              placeholder: "Selecciona una opción",
-              allowClear: true,
-              width: "100%",
-              language: {
-                noResults: function () {
-                  return "No se encontraron resultados";
-                },
-                searching: function () {
-                  return "Buscando...";
-                },
-              },
-            })
-            .on("change", function (e) {
-              setBitacora((prev) => ({
-                ...prev,
-                destino: e.target.value ? JSON.parse(e.target.value) : null,
-              }));
-            });
-        }
-      };
-
-      // Initialize after a delay to ensure DOM is ready and data is loaded
-      setTimeout(initializeEditModalSelect2, 500);
-    } else {
-      console.log("Edit Modal Select2 conditions NOT met - skipping initialization");
-    }
-
-    console.log("=== EDIT MODAL SELECT2 USEEFFECT COMPLETED ===");
-
-    // Cleanup function to destroy Select2 instances
-    return () => {
-      if (window.$ && window.$.fn.select2) {
-        [
-          editClienteSelectRef,
-          editMonitoreoSelectRef,
-          editOrigenSelectRef,
-          editDestinoSelectRef,
-        ].forEach((ref) => {
-          if (ref.current && window.$(ref.current).hasClass("select2-hidden-accessible")) {
-            window.$(ref.current).select2("destroy");
-          }
-        });
-      }
-    };
-  }, [editModalVisible, clients, monitoreos, origenes, destinos, edited_bitacora]);
 
   // useEffect to handle lineaTransporte changes and update operadores
   useEffect(() => {
@@ -870,19 +619,6 @@ const BitacoraDetailPage = ({edited}) => {
     }
   }, [editedTransporte?.lineaTransporte, isEditTransporteModalVisible]);
 
-  // Debug: Log when dependencies change
-  useEffect(() => {
-    console.log("Edit Modal dependencies changed:", {
-      editModalVisible,
-      clientsLength: clients.length,
-      monitoreosLength: monitoreos.length,
-      origenesLength: origenes.length,
-      destinosLength: destinos.length,
-      editedBitacoraOrigen: edited_bitacora?.origen,
-      editedBitacoraDestino: edited_bitacora?.destino,
-    });
-  }, [editModalVisible, clients, monitoreos, origenes, destinos, edited_bitacora]);
-
   const token = import.meta.env.VITE_WIALON_TOKEN;
 
   const fetchWialonUnits = (retryCount = 0) => {
@@ -916,11 +652,6 @@ const BitacoraDetailPage = ({edited}) => {
         console.log(unitList);
       });
     });
-  };
-
-  const handleChange = (e) => {
-    const {name, value} = e.target;
-    setNewEvent((prev) => ({...prev, [name]: value}));
   };
 
   const formatDate = (dateString) => {
@@ -994,6 +725,11 @@ const BitacoraDetailPage = ({edited}) => {
     const [showTransporteModal, setShowTransporteModal] = useState(false);
     const [selectedTransporte, setSelectedTransporte] = useState(null);
 
+    const handleCloseTransporteModal = () => {
+      setShowTransporteModal(false);
+      setSelectedTransporte(null);
+    };
+
     const handleInputChange = (e) => {
       const {name, value} = e.target;
       setFormData({...formData, [name]: value});
@@ -1030,16 +766,6 @@ const BitacoraDetailPage = ({edited}) => {
       });
 
       setShowModal(false);
-    };
-
-    const handleShowTransporteModal = (transporte) => {
-      setSelectedTransporte(transporte);
-      setShowTransporteModal(true);
-    };
-
-    const handleCloseTransporteModal = () => {
-      setShowTransporteModal(false);
-      setSelectedTransporte(null);
     };
 
     const CollapsibleTransporte = ({transporte}) => {
@@ -1514,166 +1240,8 @@ const BitacoraDetailPage = ({edited}) => {
     }
   };
 
-  const getEventColor = (bitacora) => {
-    if (bitacora.status != "iniciada" && bitacora.status != "validada") {
-      return ["#333235"]; // No events
-    }
-
-    const latestEvent = bitacora.eventos.reduce((latest, current) =>
-      new Date(latest.createdAt) > new Date(current.createdAt) ? latest : current
-    );
-
-    const frecuencia = latestEvent.frecuencia;
-    if (!frecuencia) return ["#333235"]; // No frecuencia
-
-    const frecuenciaMs = frecuencia * 60000; // Convert minutes to milliseconds
-    const eventTimeMs = new Date(latestEvent.createdAt).getTime();
-    const currentTimeMs = new Date().getTime();
-    const elapsedTimeMs = currentTimeMs - eventTimeMs;
-
-    const greenColor = "#51FF4E"; // Green
-    const yellowColor = "#ECEC27"; // Yellow
-    const redColor = "#F82929"; // Red
-
-    // Determine the color
-    if (elapsedTimeMs < frecuenciaMs) {
-      const threshold = frecuenciaMs * 0.75; // 75% of the frecuencia
-      if (elapsedTimeMs < threshold) {
-        return [greenColor]; // Green
-      } else {
-        return [yellowColor]; // Yellow
-      }
-    } else {
-      return [redColor]; // Red
-    }
-  };
-
-  const handleCheckboxChange = (e) => {
-    const {value, checked} = e.target;
-    const transporteId = value;
-    const transporteToAdd = bitacora.transportes.find(
-      (transporte) => String(transporte.id) === transporteId
-    );
-
-    if (value === "all") {
-      // Handle "All" selection
-      if (checked) {
-        setSelectedTransportes(bitacora.transportes);
-      } else {
-        setSelectedTransportes([]);
-      }
-    } else {
-      // Handle individual selections
-      if (checked) {
-        setSelectedTransportes((prev) => [...prev, transporteToAdd]);
-      } else {
-        setSelectedTransportes((prev) =>
-          prev.filter((transporte) => transporte.id !== transporteToAdd.id)
-        );
-      }
-    }
-  };
-
   return (
     <section id="bitacoraDetail">
-      <style>{`
-        /* Hide native select dropdowns when Select2 is initialized */
-        .select2-hidden-accessible {
-          position: absolute !important;
-          width: 1px !important;
-          height: 1px !important;
-          padding: 0 !important;
-          margin: -1px !important;
-          overflow: hidden !important;
-          clip: rect(0, 0, 0, 0) !important;
-          white-space: nowrap !important;
-          border: 0 !important;
-        }
-        
-        .select2-container--default .select2-selection--single {
-          height: 38px;
-          border: 1px solid #ced4da;
-          border-radius: 0.375rem;
-          background-color: #fff;
-        }
-        .select2-container--default .select2-selection--single .select2-selection__rendered {
-          line-height: 36px;
-          padding-left: 12px;
-          color: #495057;
-        }
-        .select2-container--default .select2-selection--single .select2-selection__arrow {
-          height: 36px;
-          right: 10px;
-        }
-        .select2-container--default.select2-container--focus .select2-selection--single {
-          border-color: #86b7fe;
-          outline: 0;
-          box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
-        }
-        .select2-dropdown {
-          border: 1px solid #ced4da;
-          border-radius: 0.375rem;
-          box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
-        }
-        .select2-container--default .select2-search--dropdown .select2-search__field {
-          border: 1px solid #ced4da;
-          border-radius: 0.375rem;
-          padding: 8px 12px;
-        }
-        .select2-container--default .select2-results__option--highlighted[aria-selected] {
-          background-color: #0d6efd !important;
-          color: #ffffff !important;
-        }
-        .select2-container--default .select2-results__option[aria-selected=true] {
-          background-color: #e9ecef !important;
-          color: #495057 !important;
-        }
-        .select2-container--default .select2-results__option {
-          color: #495057 !important;
-          background-color: #ffffff !important;
-        }
-        .select2-container--default .select2-results__option:hover {
-          background-color: #f8f9fa !important;
-          color: #495057 !important;
-        }
-        .select2-container--default .select2-results__option:focus {
-          background-color: #0d6efd !important;
-          color: #ffffff !important;
-        }
-        .select2-dropdown {
-          z-index: 99999 !important;
-        }
-        .modal .select2-dropdown {
-          z-index: 99999 !important;
-        }
-        .select2-container {
-          z-index: 99999 !important;
-        }
-        
-        /* Additional CSS for edit transporte modal */
-        .modal .select2-hidden-accessible {
-          position: absolute !important;
-          width: 1px !important;
-          height: 1px !important;
-          padding: 0 !important;
-          margin: -1px !important;
-          overflow: hidden !important;
-          clip: rect(0, 0, 0, 0) !important;
-          white-space: nowrap !important;
-          border: 0 !important;
-          opacity: 0 !important;
-          pointer-events: none !important;
-        }
-        
-        /* Force hide native select in edit transporte modal */
-        .modal form select:not(.select2-hidden-accessible) {
-          display: none !important;
-        }
-        
-        .modal form select.select2-hidden-accessible {
-          display: block !important;
-        }
-      `}</style>
       <div className="w-100 d-flex">
         <div className="sidebar-wrapper">
           <Sidebar />
@@ -2242,7 +1810,6 @@ const BitacoraDetailPage = ({edited}) => {
             <Form.Group className="mb-3">
               <Form.Label>Cliente</Form.Label>
               <Form.Select
-                ref={editClienteSelectRef}
                 name="cliente"
                 value={bitacora.cliente || ""}
                 onChange={handleEditChange}
@@ -2259,7 +1826,6 @@ const BitacoraDetailPage = ({edited}) => {
             <Form.Group className="mb-3">
               <Form.Label>Tipo de Monitoreo</Form.Label>
               <Form.Select
-                ref={editMonitoreoSelectRef}
                 name="monitoreo"
                 value={bitacora.monitoreo || ""}
                 onChange={handleEditChange}
@@ -2276,7 +1842,6 @@ const BitacoraDetailPage = ({edited}) => {
             <Form.Group className="mb-3">
               <Form.Label>Origen</Form.Label>
               <Form.Select
-                ref={editOrigenSelectRef}
                 name="origen"
                 value={getLocationValue(
                   edited_bitacora.origen,
@@ -2303,7 +1868,6 @@ const BitacoraDetailPage = ({edited}) => {
             <Form.Group className="mb-3">
               <Form.Label>Destino</Form.Label>
               <Form.Select
-                ref={editDestinoSelectRef}
                 name="destino"
                 value={getLocationValue(
                   edited_bitacora.destino,
@@ -2712,7 +2276,6 @@ const BitacoraDetailPage = ({edited}) => {
                 <Form.Group className="mb-3">
                   <Form.Label>Línea de Transporte</Form.Label>
                   <Form.Select
-                    ref={editTransporteLineaSelectRef}
                     value={editedTransporte.lineaTransporte || ""}
                     onChange={(e) => {
                       const selectedLinea = e.target.value;
@@ -2740,7 +2303,6 @@ const BitacoraDetailPage = ({edited}) => {
                 <Form.Group className="mb-3">
                   <Form.Label>Operador</Form.Label>
                   <Form.Select
-                    ref={editTransporteOperadorSelectRef}
                     value={editedTransporte.operador || ""}
                     onChange={(e) =>
                       setEditedTransporte((prev) => ({...prev, operador: e.target.value}))

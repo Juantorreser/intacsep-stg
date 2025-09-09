@@ -312,10 +312,10 @@ const EventsPage = () => {
                       </tr>
                     </thead>
                     <tbody>
-                      {getPaginatedEvents().map((event, index) => (
+                      {getPaginatedEvents().map((event) => (
                         <tr key={event._id}>
                           <td className="text-center fw-bold">
-                            {(currentPage - 1) * itemsPerPage + index + 1}
+                            {event.numericId ? event.numericId.toString().padStart(4, "0") : "N/A"}
                           </td>
                           <td>{event.evento}</td>
                           <td>{event.categoria}</td>

@@ -324,10 +324,12 @@ const OperadorPage = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {getPaginatedOperadores().map((operador, index) => (
+                    {getPaginatedOperadores().map((operador) => (
                       <tr key={operador._id}>
                         <td className="text-center fw-bold">
-                          {(currentPage - 1) * itemsPerPage + index + 1}
+                          {operador.numericId
+                            ? operador.numericId.toString().padStart(4, "0")
+                            : "N/A"}
                         </td>
                         <td>{operador.nombre || operador.name || ""}</td>
                         <td>{operador.lineaTransporte || ""}</td>

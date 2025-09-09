@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 
 const OperadorSchema = new mongoose.Schema(
     {
+        numericId: { type: Number, required: true },
         nombre: {
             type: String,
             required: true,

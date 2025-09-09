@@ -320,10 +320,10 @@ const LineaTransportePage = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {getPaginatedLineasTransporte().map((linea, index) => (
+                    {getPaginatedLineasTransporte().map((linea) => (
                       <tr key={linea._id}>
                         <td className="text-center fw-bold">
-                          {(currentPage - 1) * itemsPerPage + index + 1}
+                          {linea.numericId ? linea.numericId.toString().padStart(4, "0") : "N/A"}
                         </td>
                         <td>{linea.nombre}</td>
                         <td>{linea.cliente}</td>
