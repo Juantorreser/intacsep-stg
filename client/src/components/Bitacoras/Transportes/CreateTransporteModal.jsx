@@ -407,8 +407,45 @@ const CreateTransporteModal = ({
   const handleSubmitTransporte = (e) => {
     e.preventDefault();
 
+    // Obtener valores actuales de Select2 antes de enviar
+    let currentLineaTransporte = transporteData.lineaTransporte;
+    let currentOperador = transporteData.operador;
+
+    if (window.$ && window.$.fn.select2) {
+      // Obtener valor actual de línea de transporte desde Select2
+      if (
+        lineaTransporteSelectRef.current &&
+        window.$(lineaTransporteSelectRef.current).hasClass("select2-hidden-accessible")
+      ) {
+        const lineaValue = window.$(lineaTransporteSelectRef.current).val();
+        if (lineaValue) {
+          currentLineaTransporte = lineaValue;
+        }
+      }
+
+      // Obtener valor actual de operador desde Select2
+      if (
+        operadorSelectRef.current &&
+        window.$(operadorSelectRef.current).hasClass("select2-hidden-accessible")
+      ) {
+        const operadorValue = window.$(operadorSelectRef.current).val();
+        if (operadorValue) {
+          currentOperador = operadorValue;
+        }
+      }
+    }
+
+    // Actualizar el estado con los valores actuales de Select2
+    const finalTransporteData = {
+      ...transporteData,
+      lineaTransporte: currentLineaTransporte,
+      operador: currentOperador,
+    };
+
+    console.log("Datos finales del transporte:", finalTransporteData);
+
     // Validar teléfono antes de enviar
-    if (transporteData.telefono && !validatePhoneNumber(transporteData.telefono)) {
+    if (finalTransporteData.telefono && !validatePhoneNumber(finalTransporteData.telefono)) {
       setPhoneError("El número de teléfono debe tener exactamente 10 dígitos seguidos");
       return;
     }
@@ -435,7 +472,7 @@ const CreateTransporteModal = ({
     // Crear el transporte con múltiples GPS
     const newTransporte = {
       id: newId,
-      ...transporteData,
+      ...finalTransporteData,
       gpsUnits: selectedGpsUnits.map((unit) => ({
         wialonId: unit.id,
         name: unit.name,
