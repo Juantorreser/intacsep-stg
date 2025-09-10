@@ -61,8 +61,28 @@ const BitSchema = new mongoose.Schema(
     bitacora_id: { type: String, required: true, unique: true },
     folio_servicio: { type: String, required: true },
     linea_transporte: { type: String, required: true },
-    destino: { type: String, required: true },
-    origen: { type: String, required: true },
+    destino: {
+      type: String,
+      required: true,
+      validate: {
+        validator: function (v) {
+          // Validar que sea un ObjectId válido (24 caracteres hexadecimales)
+          return /^[0-9A-F]{24}$/.test(v);
+        },
+        message: 'El destino debe ser un ID válido (24 caracteres hexadecimales en mayúsculas)'
+      }
+    },
+    origen: {
+      type: String,
+      required: true,
+      validate: {
+        validator: function (v) {
+          // Validar que sea un ObjectId válido (24 caracteres hexadecimales)
+          return /^[0-9A-F]{24}$/.test(v);
+        },
+        message: 'El origen debe ser un ID válido (24 caracteres hexadecimales en mayúsculas)'
+      }
+    },
     monitoreo: { type: String, required: true },
     cliente: { type: String, required: true },
     enlace: { type: String, required: true },

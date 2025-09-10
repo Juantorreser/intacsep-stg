@@ -15,7 +15,8 @@ export const convertToUpperCase = (data, excludeFields = []) => {
         'inicioMonitoreo', 'finalMonitoreo', 'timestamp',
         'telefono', 'password', 'email', 'status',
         'sequence_value', 'bitacora_id', 'client_id',
-        'capacidad', 'tipo', 'eco', 'placa'  // Algunos campos específicos que pueden ser mixtos
+        'capacidad', 'tipo', 'eco', 'placa',
+        'origen', 'destino'  // ObjectIds no deben convertirse a mayúsculas como strings
     ];
 
     const allExcludeFields = [...defaultExcludeFields, ...excludeFields];

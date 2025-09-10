@@ -312,6 +312,24 @@ const BitacorasPage = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
+      // Validate ObjectIds before processing
+      const validateObjectId = (id) => {
+        if (!id || typeof id !== "string") return false;
+        const objectIdRegex = /^[0-9a-fA-F]{24}$/;
+        return objectIdRegex.test(id.trim());
+      };
+
+      // Check if origen and destino are valid ObjectIds
+      if (!validateObjectId(formData.origen)) {
+        alert("Error: El origen debe ser un ID válido (24 caracteres hexadecimales sin espacios)");
+        return;
+      }
+
+      if (!validateObjectId(formData.destino)) {
+        alert("Error: El destino debe ser un ID válido (24 caracteres hexadecimales sin espacios)");
+        return;
+      }
+
       // Convert text fields to uppercase before sending
       // Exclude certain fields that should remain as-is
       const excludeFields = [
@@ -322,6 +340,8 @@ const BitacorasPage = () => {
         "_id",
         "createdAt",
         "updatedAt",
+        "origen",
+        "destino", // ObjectIds should not be converted to uppercase as strings
       ];
       const uppercaseFormData = convertToUpperCase(formData, excludeFields);
 
@@ -402,7 +422,18 @@ const BitacorasPage = () => {
 
         handleModalToggle();
       } else {
-        console.error("Failed to create bitácora:", response.statusText);
+        // Handle validation errors from backend
+        if (response.status === 400) {
+          const errorData = await response.json();
+          if (errorData.details && Array.isArray(errorData.details)) {
+            alert(`Error de validación:\n${errorData.details.join("\n")}`);
+          } else {
+            alert(`Error: ${errorData.error || "Datos inválidos"}`);
+          }
+        } else {
+          console.error("Failed to create bitácora:", response.statusText);
+          alert("Error al crear la bitácora. Por favor, inténtalo de nuevo.");
+        }
       }
     } catch (e) {
       console.error("Error creating bitácora:", e);

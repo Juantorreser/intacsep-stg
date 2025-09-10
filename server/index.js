@@ -1576,9 +1576,22 @@ app.get("/bitacoras/download-user/:userName", async (req, res) => {
 });
 
 app.post("/bitacora", async (req, res) => {
+  // Import validation utilities
+  const { validateAndConvertObjectIds } = await import('./utils/validationUtils.js');
+
+  // Validate and convert ObjectIds first
+  const objectIdValidation = validateAndConvertObjectIds(req.body, ['origen', 'destino']);
+
+  if (objectIdValidation.errors.length > 0) {
+    return res.status(400).json({
+      error: 'Datos de entrada inválidos',
+      details: objectIdValidation.errors
+    });
+  }
+
   // Convertir campos de texto a mayúsculas antes de procesar
-  const excludeFields = ['status', 'inicioMonitoreo', 'finalMonitoreo', 'telefono', '_id', 'createdAt', 'updatedAt', 'bitacora_id', 'capacidad', 'gpsUnits'];
-  const data = convertToUpperCase(req.body, excludeFields);
+  const excludeFields = ['status', 'inicioMonitoreo', 'finalMonitoreo', 'telefono', '_id', 'createdAt', 'updatedAt', 'bitacora_id', 'capacidad', 'gpsUnits', 'origen', 'destino'];
+  const data = convertToUpperCase(objectIdValidation.data, excludeFields);
 
   try {
     const sequence = await BitSequence.findOneAndUpdate(
