@@ -9,3 +9,4 @@ const TipoMonitoreoSequence = mongoose.model("TipoMonitoreoSequence", sequenceSc
 export default TipoMonitoreoSequence;
 
 
+
