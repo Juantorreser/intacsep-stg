@@ -7107,23 +7107,81 @@ app.get('/dashboard/event-categories-stats', async (req, res) => {
     // Agregar filtro para bitácoras con anomalías
     bitacoraFilter['eventos.nombre'] = { $in: allEventNames };
 
-    // Obtener estadísticas por categoría de evento con validación de catálogo
+    // Obtener estadísticas por categoría de evento usando la misma lógica que operadores
     const eventCategoryStats = await Bitacora.aggregate([
       { $match: bitacoraFilter },
       { $unwind: '$eventos' },
       {
-        $match: {
-          'eventos.nombre': { $in: allEventNames }
+        $lookup: {
+          from: 'eventtypes',
+          localField: 'eventos.nombre',
+          foreignField: 'evento',
+          as: 'eventTypeInfo'
         }
       },
-      // Unwind the transportes array within each evento
-      { $unwind: '$eventos.transportes' },
+      {
+        $match: {
+          'eventTypeInfo.categoria': { $ne: 'General' }
+        }
+      },
+      {
+        $group: {
+          _id: '$_id',
+          bitacora_id: { $first: '$bitacora_id' },
+          cliente: { $first: '$cliente' },
+          transportes: { $first: '$transportes' },
+          eventos: { $push: '$eventos' },
+          eventTypes: { $push: '$eventTypeInfo' }
+        }
+      },
+      // Apply transport line filter if specified (case-insensitive)
+      ...(lineaTransporte !== 'all' ? [{
+        $match: {
+          $expr: {
+            $in: [
+              { $toLower: { $trim: { input: lineaTransporte } } },
+              {
+                $map: {
+                  input: '$transportes',
+                  as: 'transporte',
+                  in: { $toLower: { $trim: { input: '$$transporte.lineaTransporte' } } }
+                }
+              }
+            ]
+          }
+        }
+      }] : []),
+      // Apply operator filter if specified (case-insensitive)
+      ...(operador !== 'all' ? [{
+        $match: {
+          $expr: {
+            $in: [
+              { $toLower: { $trim: { input: operador } } },
+              {
+                $map: {
+                  input: '$transportes',
+                  as: 'transporte',
+                  in: { $toLower: { $trim: { input: '$$transporte.operador' } } }
+                }
+              }
+            ]
+          }
+        }
+      }] : []),
+      // Unwind transportes to get individual operators
+      { $unwind: '$transportes' },
+      // Filter out invalid operators
+      {
+        $match: {
+          'transportes.operador': { $exists: true, $ne: null, $ne: '' }
+        }
+      },
       // Verify that the transport line exists in the official catalog
       {
         $lookup: {
           from: 'lineatransportes',
           let: {
-            lineaTransporte: '$eventos.transportes.lineaTransporte',
+            lineaTransporte: '$transportes.lineaTransporte',
             cliente: '$cliente'
           },
           pipeline: [
@@ -7146,8 +7204,8 @@ app.get('/dashboard/event-categories-stats', async (req, res) => {
         $lookup: {
           from: 'operadores',
           let: {
-            operador: '$eventos.transportes.operador',
-            lineaTransporte: '$eventos.transportes.lineaTransporte'
+            operador: '$transportes.operador',
+            lineaTransporte: '$transportes.lineaTransporte'
           },
           pipeline: [
             {
@@ -7164,34 +7222,18 @@ app.get('/dashboard/event-categories-stats', async (req, res) => {
           as: 'operadorInfo'
         }
       },
-      // Only include records where transport line exists in catalog (less restrictive)
+      // Only include if both transport line and operator exist in the official catalog
       {
         $match: {
-          lineaTransporteInfo: { $ne: [] }
+          $and: [
+            { 'lineaTransporteInfo': { $ne: [] } },
+            { 'operadorInfo': { $ne: [] } }
+          ]
         }
       },
-      // Apply transport line filter if specified
-      ...(lineaTransporte !== 'all' ? [{
-        $match: {
-          $expr: {
-            $eq: [
-              { $toLower: { $trim: { input: '$eventos.transportes.lineaTransporte' } } },
-              { $toLower: { $trim: { input: lineaTransporte } } }
-            ]
-          }
-        }
-      }] : []),
-      // Apply operator filter if specified
-      ...(operador !== 'all' ? [{
-        $match: {
-          $expr: {
-            $eq: [
-              { $toLower: { $trim: { input: '$eventos.transportes.operador' } } },
-              { $toLower: { $trim: { input: operador } } }
-            ]
-          }
-        }
-      }] : []),
+      // Unwind eventos to get individual events
+      { $unwind: '$eventos' },
+      // Lookup event type info for each event
       {
         $lookup: {
           from: 'eventtypes',
@@ -7200,9 +7242,19 @@ app.get('/dashboard/event-categories-stats', async (req, res) => {
           as: 'eventTypeInfo'
         }
       },
+      // Group by bitacora ID and category to count unique bitacoras per category
       {
         $group: {
-          _id: { $arrayElemAt: ['$eventTypeInfo.categoria', 0] },
+          _id: {
+            bitacoraId: '$_id',
+            categoria: { $arrayElemAt: ['$eventTypeInfo.categoria', 0] }
+          }
+        }
+      },
+      // Now group by category to get the count of unique bitacoras per category
+      {
+        $group: {
+          _id: '$_id.categoria',
           count: { $sum: 1 }
         }
       },
