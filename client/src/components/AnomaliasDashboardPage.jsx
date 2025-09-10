@@ -57,12 +57,10 @@ const AnomaliasDashboardPage = () => {
     totalBitacoras: 0,
     totalBitacorasConAnomalias: 0,
   });
-  const [eventCategoriesBarStats, setEventCategoriesBarStats] = useState([]);
   const [oncEventsData, setOncEventsData] = useState([]);
   const [bitacorasAnomalias, setBitacorasAnomalias] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filterLoading, setFilterLoading] = useState(false);
-  // const [tableLoading, setTableLoading] = useState(false); // Will be used for table-specific loading
   const [availableClients, setAvailableClients] = useState([]);
   const [availableLineasTransporte, setAvailableLineasTransporte] = useState([]);
   const [availableOperadores, setAvailableOperadores] = useState([]);
@@ -433,88 +431,115 @@ const AnomaliasDashboardPage = () => {
           setFilterLoading(true);
         }
 
-        // Build common query parameters
-        const queryParams = new URLSearchParams({
-          clientFilter: appliedClientFilter,
-          fechaDesde: appliedFechaDesde,
-          fechaHasta: appliedFechaHasta,
-          lineaTransporte: appliedLineaTransporteFilter,
-          operador: appliedOperadorFilter,
-        });
-
-        // Prepare all API calls for parallel execution
-        const apiCalls = [];
-
         // Fetch available clients for filter (only on initial load)
         if (isInitialLoad) {
-          apiCalls.push(
-            fetch(`${baseUrl}/clients`, {
-              method: "GET",
-              credentials: "include",
-            }).then(async (response) => {
-              if (response.ok) {
-                const allClientsData = await response.json();
-                const allowedClientsData = getAllowedClients(roleData, allClientsData);
-                setAvailableClients(allowedClientsData);
-              }
-            })
-          );
+          const clientsResponse = await fetch(`${baseUrl}/clients`, {
+            method: "GET",
+            credentials: "include",
+          });
+          if (clientsResponse.ok) {
+            const allClientsData = await clientsResponse.json();
+            // Apply client permissions filtering
+            const allowedClientsData = getAllowedClients(roleData, allClientsData);
+            setAvailableClients(allowedClientsData);
+          }
         }
 
-        // Add all dashboard API calls for parallel execution
-        apiCalls.push(
-          // Main dashboard stats
-          fetch(`${baseUrl}/dashboard/anomalias-stats?${queryParams}`, {
-            method: "GET",
-            credentials: "include",
-          }).then(async (response) => {
-            if (response.ok) {
-              const statsData = await response.json();
-              setDashboardStats(statsData);
-            }
-          }),
+        // Fetch dashboard statistics with filters for anomalías
+        const statsUrl = `${baseUrl}/dashboard/anomalias-stats?clientFilter=${encodeURIComponent(
+          appliedClientFilter
+        )}&fechaDesde=${encodeURIComponent(appliedFechaDesde)}&fechaHasta=${encodeURIComponent(
+          appliedFechaHasta
+        )}&lineaTransporte=${encodeURIComponent(
+          appliedLineaTransporteFilter
+        )}&operador=${encodeURIComponent(appliedOperadorFilter)}`;
 
-          // Transport lines stats
-          fetch(`${baseUrl}/dashboard/lineas-transporte-stats?${queryParams}`, {
-            method: "GET",
-            credentials: "include",
-          }).then(async (response) => {
-            if (response.ok) {
-              const lineasTransporteStatsData = await response.json();
-              setDashboardStats((prev) => ({
-                ...prev,
-                lineasTransporteStats: lineasTransporteStatsData,
-              }));
-            }
-          }),
+        const statsResponse = await fetch(statsUrl, {
+          method: "GET",
+          credentials: "include",
+        });
 
-          // Operators stats
-          fetch(`${baseUrl}/dashboard/operadores-stats?${queryParams}`, {
-            method: "GET",
-            credentials: "include",
-          }).then(async (response) => {
-            if (response.ok) {
-              const operadoresStatsData = await response.json();
-              setDashboardStats((prev) => ({
-                ...prev,
-                operadoresStats: operadoresStatsData,
-              }));
-            }
-          }),
+        if (statsResponse.ok) {
+          const statsData = await statsResponse.json();
+          setDashboardStats(statsData);
+        }
 
-          // Event categories stats for bar chart
-          fetch(`${baseUrl}/dashboard/event-categories-stats?${queryParams}`, {
-            method: "GET",
-            credentials: "include",
-          }).then(async (response) => {
-            if (response.ok) {
-              const eventCategoriesStatsData = await response.json();
-              setEventCategoriesBarStats(eventCategoriesStatsData);
-            }
-          }),
+        // Fetch transport lines anomalies statistics
+        const lineasTransporteStatsUrl = `${baseUrl}/dashboard/lineas-transporte-stats?clientFilter=${encodeURIComponent(
+          appliedClientFilter
+        )}&fechaDesde=${encodeURIComponent(appliedFechaDesde)}&fechaHasta=${encodeURIComponent(
+          appliedFechaHasta
+        )}&lineaTransporte=${encodeURIComponent(
+          appliedLineaTransporteFilter
+        )}&operador=${encodeURIComponent(appliedOperadorFilter)}`;
 
-          // ONC events data
-          fetch(`${baseUrl}/dashboard/onc-events?${queryParams}`, {
+        const lineasTransporteStatsResponse = await fetch(lineasTransporteStatsUrl, {
+          method: "GET",
+          credentials: "include",
+        });
+
+        if (lineasTransporteStatsResponse.ok) {
+          const lineasTransporteStatsData = await lineasTransporteStatsResponse.json();
+          setDashboardStats((prev) => ({
+            ...prev,
+            lineasTransporteStats: lineasTransporteStatsData,
+          }));
+        }
+
+        // Fetch operators anomalies statistics
+        const operadoresStatsUrl = `${baseUrl}/dashboard/operadores-stats?clientFilter=${encodeURIComponent(
+          appliedClientFilter
+        )}&fechaDesde=${encodeURIComponent(appliedFechaDesde)}&fechaHasta=${encodeURIComponent(
+          appliedFechaHasta
+        )}&lineaTransporte=${encodeURIComponent(
+          appliedLineaTransporteFilter
+        )}&operador=${encodeURIComponent(appliedOperadorFilter)}`;
+
+        const operadoresStatsResponse = await fetch(operadoresStatsUrl, {
+          method: "GET",
+          credentials: "include",
+        });
+
+        if (operadoresStatsResponse.ok) {
+          const operadoresStatsData = await operadoresStatsResponse.json();
+          setDashboardStats((prev) => ({
+            ...prev,
+            operadoresStats: operadoresStatsData,
+          }));
+        }
+
+        // Fetch event categories anomalies statistics
+        const eventCategoriesStatsUrl = `${baseUrl}/dashboard/event-categories-stats?clientFilter=${encodeURIComponent(
+          appliedClientFilter
+        )}&fechaDesde=${encodeURIComponent(appliedFechaDesde)}&fechaHasta=${encodeURIComponent(
+          appliedFechaHasta
+        )}&lineaTransporte=${encodeURIComponent(
+          appliedLineaTransporteFilter
+        )}&operador=${encodeURIComponent(appliedOperadorFilter)}`;
+
+        const eventCategoriesStatsResponse = await fetch(eventCategoriesStatsUrl, {
+          method: "GET",
+          credentials: "include",
+        });
+
+        if (eventCategoriesStatsResponse.ok) {
+          const eventCategoriesStatsData = await eventCategoriesStatsResponse.json();
+          setDashboardStats((prev) => ({
+            ...prev,
+            eventCategoriesStats: eventCategoriesStatsData,
+          }));
+        }
+
+        // Fetch ONC events data for bar chart
+        const oncResponse = await fetch(
+          `${baseUrl}/dashboard/onc-events?clientFilter=${encodeURIComponent(
+            appliedClientFilter
+          )}&fechaDesde=${encodeURIComponent(appliedFechaDesde)}&fechaHasta=${encodeURIComponent(
+            appliedFechaHasta
+          )}&lineaTransporte=${encodeURIComponent(
+            appliedLineaTransporteFilter
+          )}&operador=${encodeURIComponent(appliedOperadorFilter)}`,
+          {
             method: "GET",
             credentials: "include",
           }
@@ -1458,7 +1483,7 @@ const AnomaliasDashboardPage = () => {
 
   // Render event categories bar chart
   const renderEventCategoriesBarChart = () => {
-    const eventCategoriesStatsData = eventCategoriesBarStats || [];
+    const eventCategoriesStatsData = dashboardStats.eventCategoriesStats || [];
 
     if (eventCategoriesStatsData.length === 0) {
       return (
