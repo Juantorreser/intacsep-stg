@@ -477,6 +477,38 @@ const NewEventModal = ({show, onClose, edited, eventTypes, onEventAdded}) => {
     });
   };
 
+  const handleGpsDataChange = (transporteId, gpsIndex, field, value) => {
+    setNewEvent((prev) => {
+      const updatedTransportes = prev.transportes.map((t) => {
+        if (t.id === transporteId) {
+          const updatedGpsData = [...(t.gpsData || [])];
+          if (updatedGpsData[gpsIndex]) {
+            updatedGpsData[gpsIndex] = {
+              ...updatedGpsData[gpsIndex],
+              data: {
+                ...updatedGpsData[gpsIndex].data,
+                [field]: value,
+              },
+            };
+          }
+
+          return {
+            ...t,
+            gpsData: updatedGpsData,
+            // También actualizar el registro principal con el primer GPS
+            registro: updatedGpsData[0]?.data || t.registro,
+          };
+        }
+        return t;
+      });
+
+      return {
+        ...prev,
+        transportes: updatedTransportes,
+      };
+    });
+  };
+
   let allSelectedTransportesInArriboDestino = false;
 
   return (
@@ -720,7 +752,10 @@ const NewEventModal = ({show, onClose, edited, eventTypes, onEventAdded}) => {
                                   type="text"
                                   className="form-control form-control-sm"
                                   value={gps.data?.[field] || ""}
-                                  readOnly
+                                  onChange={(e) =>
+                                    handleGpsDataChange(t.id, index, field, e.target.value)
+                                  }
+                                  placeholder="Datos obtenidos de Wialon (editable)"
                                 />
                               </div>
                             ))}

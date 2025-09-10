@@ -8,3 +8,4 @@ const sequenceSchema = new mongoose.Schema({
 const TipoMonitoreoSequence = mongoose.model("TipoMonitoreoSequence", sequenceSchema);
 export default TipoMonitoreoSequence;
 
+

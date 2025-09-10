@@ -8,3 +8,4 @@ const sequenceSchema = new mongoose.Schema({
 const EventTypeSequence = mongoose.model("EventTypeSequence", sequenceSchema);
 export default EventTypeSequence;
 
+

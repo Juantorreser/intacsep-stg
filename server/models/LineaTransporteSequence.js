@@ -8,3 +8,4 @@ const sequenceSchema = new mongoose.Schema({
 const LineaTransporteSequence = mongoose.model("LineaTransporteSequence", sequenceSchema);
 export default LineaTransporteSequence;
 
+

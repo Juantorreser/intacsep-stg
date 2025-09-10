@@ -8,3 +8,4 @@ const sequenceSchema = new mongoose.Schema({
 const OperadorSequence = mongoose.model("OperadorSequence", sequenceSchema);
 export default OperadorSequence;
 
+
