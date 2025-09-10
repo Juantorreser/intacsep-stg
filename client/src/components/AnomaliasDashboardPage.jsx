@@ -57,10 +57,12 @@ const AnomaliasDashboardPage = () => {
     totalBitacoras: 0,
     totalBitacorasConAnomalias: 0,
   });
+  const [eventCategoriesBarStats, setEventCategoriesBarStats] = useState([]);
   const [oncEventsData, setOncEventsData] = useState([]);
   const [bitacorasAnomalias, setBitacorasAnomalias] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filterLoading, setFilterLoading] = useState(false);
+  // const [tableLoading, setTableLoading] = useState(false); // Will be used for table-specific loading
   const [availableClients, setAvailableClients] = useState([]);
   const [availableLineasTransporte, setAvailableLineasTransporte] = useState([]);
   const [availableOperadores, setAvailableOperadores] = useState([]);
@@ -431,144 +433,111 @@ const AnomaliasDashboardPage = () => {
           setFilterLoading(true);
         }
 
+        // Build common query parameters
+        const queryParams = new URLSearchParams({
+          clientFilter: appliedClientFilter,
+          fechaDesde: appliedFechaDesde,
+          fechaHasta: appliedFechaHasta,
+          lineaTransporte: appliedLineaTransporteFilter,
+          operador: appliedOperadorFilter,
+        });
+
+        // Prepare all API calls for parallel execution
+        const apiCalls = [];
+
         // Fetch available clients for filter (only on initial load)
         if (isInitialLoad) {
-          const clientsResponse = await fetch(`${baseUrl}/clients`, {
+          apiCalls.push(
+            fetch(`${baseUrl}/clients`, {
+              method: "GET",
+              credentials: "include",
+            }).then(async (response) => {
+              if (response.ok) {
+                const allClientsData = await response.json();
+                const allowedClientsData = getAllowedClients(roleData, allClientsData);
+                setAvailableClients(allowedClientsData);
+              }
+            })
+          );
+        }
+
+        // Add all dashboard API calls for parallel execution
+        apiCalls.push(
+          // Main dashboard stats
+          fetch(`${baseUrl}/dashboard/anomalias-stats?${queryParams}`, {
             method: "GET",
             credentials: "include",
-          });
-          if (clientsResponse.ok) {
-            const allClientsData = await clientsResponse.json();
-            // Apply client permissions filtering
-            const allowedClientsData = getAllowedClients(roleData, allClientsData);
-            setAvailableClients(allowedClientsData);
-          }
-        }
+          }).then(async (response) => {
+            if (response.ok) {
+              const statsData = await response.json();
+              setDashboardStats(statsData);
+            }
+          }),
 
-        // Fetch dashboard statistics with filters for anomalías
-        const statsUrl = `${baseUrl}/dashboard/anomalias-stats?clientFilter=${encodeURIComponent(
-          appliedClientFilter
-        )}&fechaDesde=${encodeURIComponent(appliedFechaDesde)}&fechaHasta=${encodeURIComponent(
-          appliedFechaHasta
-        )}&lineaTransporte=${encodeURIComponent(
-          appliedLineaTransporteFilter
-        )}&operador=${encodeURIComponent(appliedOperadorFilter)}`;
-
-        const statsResponse = await fetch(statsUrl, {
-          method: "GET",
-          credentials: "include",
-        });
-
-        if (statsResponse.ok) {
-          const statsData = await statsResponse.json();
-          setDashboardStats(statsData);
-        }
-
-        // Fetch transport lines anomalies statistics
-        const lineasTransporteStatsUrl = `${baseUrl}/dashboard/lineas-transporte-stats?clientFilter=${encodeURIComponent(
-          appliedClientFilter
-        )}&fechaDesde=${encodeURIComponent(appliedFechaDesde)}&fechaHasta=${encodeURIComponent(
-          appliedFechaHasta
-        )}&lineaTransporte=${encodeURIComponent(
-          appliedLineaTransporteFilter
-        )}&operador=${encodeURIComponent(appliedOperadorFilter)}`;
-
-        const lineasTransporteStatsResponse = await fetch(lineasTransporteStatsUrl, {
-          method: "GET",
-          credentials: "include",
-        });
-
-        if (lineasTransporteStatsResponse.ok) {
-          const lineasTransporteStatsData = await lineasTransporteStatsResponse.json();
-          setDashboardStats((prev) => ({
-            ...prev,
-            lineasTransporteStats: lineasTransporteStatsData,
-          }));
-        }
-
-        // Fetch operators anomalies statistics
-        const operadoresStatsUrl = `${baseUrl}/dashboard/operadores-stats?clientFilter=${encodeURIComponent(
-          appliedClientFilter
-        )}&fechaDesde=${encodeURIComponent(appliedFechaDesde)}&fechaHasta=${encodeURIComponent(
-          appliedFechaHasta
-        )}&lineaTransporte=${encodeURIComponent(
-          appliedLineaTransporteFilter
-        )}&operador=${encodeURIComponent(appliedOperadorFilter)}`;
-
-        const operadoresStatsResponse = await fetch(operadoresStatsUrl, {
-          method: "GET",
-          credentials: "include",
-        });
-
-        if (operadoresStatsResponse.ok) {
-          const operadoresStatsData = await operadoresStatsResponse.json();
-          setDashboardStats((prev) => ({
-            ...prev,
-            operadoresStats: operadoresStatsData,
-          }));
-        }
-
-        // Fetch event categories anomalies statistics
-        const eventCategoriesStatsUrl = `${baseUrl}/dashboard/event-categories-stats?clientFilter=${encodeURIComponent(
-          appliedClientFilter
-        )}&fechaDesde=${encodeURIComponent(appliedFechaDesde)}&fechaHasta=${encodeURIComponent(
-          appliedFechaHasta
-        )}&lineaTransporte=${encodeURIComponent(
-          appliedLineaTransporteFilter
-        )}&operador=${encodeURIComponent(appliedOperadorFilter)}`;
-
-        const eventCategoriesStatsResponse = await fetch(eventCategoriesStatsUrl, {
-          method: "GET",
-          credentials: "include",
-        });
-
-        if (eventCategoriesStatsResponse.ok) {
-          const eventCategoriesStatsData = await eventCategoriesStatsResponse.json();
-          setDashboardStats((prev) => ({
-            ...prev,
-            eventCategoriesStats: eventCategoriesStatsData,
-          }));
-        }
-
-        // Fetch ONC events data for bar chart
-        const oncResponse = await fetch(
-          `${baseUrl}/dashboard/onc-events?clientFilter=${encodeURIComponent(
-            appliedClientFilter
-          )}&fechaDesde=${encodeURIComponent(appliedFechaDesde)}&fechaHasta=${encodeURIComponent(
-            appliedFechaHasta
-          )}&lineaTransporte=${encodeURIComponent(
-            appliedLineaTransporteFilter
-          )}&operador=${encodeURIComponent(appliedOperadorFilter)}`,
-          {
+          // Transport lines stats
+          fetch(`${baseUrl}/dashboard/lineas-transporte-stats?${queryParams}`, {
             method: "GET",
             credentials: "include",
-          }
+          }).then(async (response) => {
+            if (response.ok) {
+              const lineasTransporteStatsData = await response.json();
+              setDashboardStats((prev) => ({
+                ...prev,
+                lineasTransporteStats: lineasTransporteStatsData,
+              }));
+            }
+          }),
+
+          // Operators stats
+          fetch(`${baseUrl}/dashboard/operadores-stats?${queryParams}`, {
+            method: "GET",
+            credentials: "include",
+          }).then(async (response) => {
+            if (response.ok) {
+              const operadoresStatsData = await response.json();
+              setDashboardStats((prev) => ({
+                ...prev,
+                operadoresStats: operadoresStatsData,
+              }));
+            }
+          }),
+
+          // Event categories stats for bar chart
+          fetch(`${baseUrl}/dashboard/event-categories-stats?${queryParams}`, {
+            method: "GET",
+            credentials: "include",
+          }).then(async (response) => {
+            if (response.ok) {
+              const eventCategoriesStatsData = await response.json();
+              setEventCategoriesBarStats(eventCategoriesStatsData);
+            }
+          }),
+
+          // ONC events data
+          fetch(`${baseUrl}/dashboard/onc-events?${queryParams}`, {
+            method: "GET",
+            credentials: "include",
+          }).then(async (response) => {
+            if (response.ok) {
+              const oncData = await response.json();
+              setOncEventsData(oncData);
+            }
+          }),
+
+          // Bitacoras with anomalies (this is the slowest one, so we'll load it last)
+          fetch(`${baseUrl}/dashboard/bitacoras-anomalias?${queryParams}`, {
+            method: "GET",
+            credentials: "include",
+          }).then(async (response) => {
+            if (response.ok) {
+              const anomaliasData = await response.json();
+              setBitacorasAnomalias(anomaliasData);
+            }
+          })
         );
 
-        if (oncResponse.ok) {
-          const oncData = await oncResponse.json();
-          setOncEventsData(oncData);
-        }
-
-        // Fetch anomalías
-        const anomaliasResponse = await fetch(
-          `${baseUrl}/dashboard/bitacoras-anomalias?clientFilter=${encodeURIComponent(
-            appliedClientFilter
-          )}&fechaDesde=${encodeURIComponent(appliedFechaDesde)}&fechaHasta=${encodeURIComponent(
-            appliedFechaHasta
-          )}&lineaTransporte=${encodeURIComponent(
-            appliedLineaTransporteFilter
-          )}&operador=${encodeURIComponent(appliedOperadorFilter)}`,
-          {
-            method: "GET",
-            credentials: "include",
-          }
-        );
-
-        if (anomaliasResponse.ok) {
-          const anomaliasData = await anomaliasResponse.json();
-          setBitacorasAnomalias(anomaliasData);
-        }
+        // Execute all API calls in parallel
+        await Promise.allSettled(apiCalls);
       } catch (error) {
         console.error("Error fetching dashboard data:", error);
       } finally {
@@ -1476,7 +1445,7 @@ const AnomaliasDashboardPage = () => {
 
   // Render event categories bar chart
   const renderEventCategoriesBarChart = () => {
-    const eventCategoriesStatsData = dashboardStats.eventCategoriesStats || [];
+    const eventCategoriesStatsData = eventCategoriesBarStats || [];
 
     if (eventCategoriesStatsData.length === 0) {
       return (
@@ -2617,13 +2586,22 @@ const AnomaliasDashboardPage = () => {
                       </div>
                     )}
                     <div className="chart-subheader small text-white mb-3">
-                      Mostrando {filteredAnomaliasData.length} de {bitacorasAnomalias.length}{" "}
-                      registros
-                      {Object.values(tableFilters).some((filter) => filter !== "") && (
-                        <span className="text-warning ms-2">
-                          <i className="fa fa-filter me-1"></i>
-                          Filtros de tabla activos
+                      {filterLoading ? (
+                        <span className="text-info">
+                          <i className="fa fa-spinner fa-spin me-1"></i>
+                          Cargando datos de la tabla...
                         </span>
+                      ) : (
+                        <>
+                          Mostrando {filteredAnomaliasData.length} de {bitacorasAnomalias.length}{" "}
+                          registros
+                          {Object.values(tableFilters).some((filter) => filter !== "") && (
+                            <span className="text-warning ms-2">
+                              <i className="fa fa-filter me-1"></i>
+                              Filtros de tabla activos
+                            </span>
+                          )}
+                        </>
                       )}
                     </div>
                     <div className="overflow-auto">{renderAnomaliasTable()}</div>
