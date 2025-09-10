@@ -517,27 +517,32 @@ const AnomaliasDashboardPage = () => {
           fetch(`${baseUrl}/dashboard/onc-events?${queryParams}`, {
             method: "GET",
             credentials: "include",
-          }).then(async (response) => {
-            if (response.ok) {
-              const oncData = await response.json();
-              setOncEventsData(oncData);
-            }
-          }),
-
-          // Bitacoras with anomalies (this is the slowest one, so we'll load it last)
-          fetch(`${baseUrl}/dashboard/bitacoras-anomalias?${queryParams}`, {
-            method: "GET",
-            credentials: "include",
-          }).then(async (response) => {
-            if (response.ok) {
-              const anomaliasData = await response.json();
-              setBitacorasAnomalias(anomaliasData);
-            }
-          })
+          }
         );
 
-        // Execute all API calls in parallel
-        await Promise.allSettled(apiCalls);
+        if (oncResponse.ok) {
+          const oncData = await oncResponse.json();
+          setOncEventsData(oncData);
+        }
+
+        // Fetch anomalías
+        const anomaliasUrl = `${baseUrl}/dashboard/bitacoras-anomalias?clientFilter=${encodeURIComponent(
+          appliedClientFilter
+        )}&fechaDesde=${encodeURIComponent(appliedFechaDesde)}&fechaHasta=${encodeURIComponent(
+          appliedFechaHasta
+        )}&lineaTransporte=${encodeURIComponent(
+          appliedLineaTransporteFilter
+        )}&operador=${encodeURIComponent(appliedOperadorFilter)}`;
+
+        const anomaliasResponse = await fetch(anomaliasUrl, {
+          method: "GET",
+          credentials: "include",
+        });
+
+        if (anomaliasResponse.ok) {
+          const anomaliasData = await anomaliasResponse.json();
+          setBitacorasAnomalias(anomaliasData);
+        }
       } catch (error) {
         console.error("Error fetching dashboard data:", error);
       } finally {
@@ -610,11 +615,38 @@ const AnomaliasDashboardPage = () => {
   }, []);
 
   // Memoize filtered data calculation
-  // Apply table filters to the backend data
+  // Apply dashboard filters first, then table filters to the backend data
   const filteredAnomaliasData = useMemo(() => {
     let filtered = bitacorasAnomalias;
 
-    // Apply table filters
+    // First apply dashboard filters (these should already be applied by the backend, but we'll double-check)
+    if (appliedClientFilter !== "all") {
+      filtered = filtered.filter((item) => item.cliente === appliedClientFilter);
+    }
+    if (appliedLineaTransporteFilter !== "all") {
+      filtered = filtered.filter((item) => {
+        const itemValue = item.linea_transporte || "";
+        // Handle concatenated values (like "DHL/MAGDAMEX, DHL/BUZMYR")
+        if (typeof itemValue === "string" && itemValue.includes(",")) {
+          const values = itemValue.split(",").map((v) => v.trim());
+          return values.includes(appliedLineaTransporteFilter);
+        }
+        return itemValue === appliedLineaTransporteFilter;
+      });
+    }
+    if (appliedOperadorFilter !== "all") {
+      filtered = filtered.filter((item) => {
+        const itemValue = item.operador || "";
+        // Handle concatenated values (like "FRANCISCO JAVIER, ABEL GARCIA")
+        if (typeof itemValue === "string" && itemValue.includes(",")) {
+          const values = itemValue.split(",").map((v) => v.trim());
+          return values.includes(appliedOperadorFilter);
+        }
+        return itemValue === appliedOperadorFilter;
+      });
+    }
+
+    // Then apply table filters
     if (tableFilters.bitacoraId) {
       // Bitácora ID uses partial match (text input)
       filtered = filtered.filter((item) =>
@@ -673,37 +705,18 @@ const AnomaliasDashboardPage = () => {
   // Helper function to calculate total anomalies based on applied filters
   // This function provides a unified way to calculate total anomalies across all sections
   const getTotalAnomalias = useCallback(() => {
-    // Use the most comprehensive data source available
-    // Prefer operadoresStats as it includes both transport line and operator information
-    const operadoresStats = dashboardStats.operadoresStats || [];
-    const lineasTransporteStats = dashboardStats.lineasTransporteStats || [];
+    // Use eventCategoriesStats as the primary source since it's the same data used in the charts
+    const eventCategoriesStats = dashboardStats.eventCategoriesStats || [];
 
-    let statsToUse = [];
+    // Calculate total from event categories (this should match the charts)
+    const totalFromEventCategories = eventCategoriesStats.reduce(
+      (sum, stat) => sum + stat.count,
+      0
+    );
 
-    // If we have operator stats, use them as they're more granular
-    if (operadoresStats.length > 0) {
-      statsToUse = operadoresStats;
-    } else if (lineasTransporteStats.length > 0) {
-      statsToUse = lineasTransporteStats;
-    }
-
-    // Apply the same filters that are used in the charts
-    if (appliedClientFilter !== "all") {
-      statsToUse = statsToUse.filter((stat) => stat.cliente === appliedClientFilter);
-    }
-    if (appliedLineaTransporteFilter !== "all") {
-      statsToUse = statsToUse.filter(
-        (stat) => stat.lineaTransporte === appliedLineaTransporteFilter
-      );
-    }
-    if (appliedOperadorFilter !== "all") {
-      statsToUse = statsToUse.filter((stat) => stat.operador === appliedOperadorFilter);
-    }
-
-    return statsToUse.reduce((sum, stat) => sum + stat.anomalias, 0);
+    return totalFromEventCategories;
   }, [
-    dashboardStats.operadoresStats,
-    dashboardStats.lineasTransporteStats,
+    dashboardStats.eventCategoriesStats,
     appliedClientFilter,
     appliedLineaTransporteFilter,
     appliedOperadorFilter,
@@ -1462,35 +1475,60 @@ const AnomaliasDashboardPage = () => {
     const maxCount = Math.max(...chartData.map((item) => item.count));
 
     return (
-      <div className="custom-bar-chart">
-        {chartData.map((item, index) => {
-          const percentage = maxCount > 0 ? (item.count / maxCount) * 100 : 0;
-          const categoryName =
-            item.categoria === "ENA"
-              ? "Estadia no autorizada"
-              : item.categoria === "FM"
-              ? "Falla mecánica"
-              : item.categoria === "ONC"
-              ? "Usuario no responde"
-              : item.categoria === "DR"
-              ? "Desvío de ruta"
-              : item.categoria;
+      <div>
+        <div className="custom-bar-chart">
+          {chartData.map((item, index) => {
+            const percentage = maxCount > 0 ? (item.count / maxCount) * 100 : 0;
+            const categoryName =
+              item.categoria === "ENA"
+                ? "Estadia no autorizada"
+                : item.categoria === "FM"
+                ? "Falla mecánica"
+                : item.categoria === "ONC"
+                ? "Usuario no responde"
+                : item.categoria === "DR"
+                ? "Desvío de ruta"
+                : item.categoria;
 
-          return (
-            <div key={index} className="bar-row" style={{cursor: "default"}}>
-              <div className="bar-label">{categoryName}</div>
-              <div className="bar-container">
-                <div
-                  className="bar-fill"
-                  style={{
-                    width: `${percentage}%`,
-                    backgroundColor: item.color,
-                  }}></div>
+            return (
+              <div key={index} className="bar-row" style={{cursor: "default"}}>
+                <div className="bar-label">{categoryName}</div>
+                <div className="bar-container">
+                  <div
+                    className="bar-fill"
+                    style={{
+                      width: `${percentage}%`,
+                      backgroundColor: item.color,
+                    }}></div>
+                </div>
+                <div className="bar-value">{formatNumber(item.count)}</div>
               </div>
-              <div className="bar-value">{formatNumber(item.count)}</div>
+            );
+          })}
+        </div>
+
+        {/* Summary information */}
+        <div className="mt-3 p-3 bg-light rounded" style={{fontSize: "12px"}}>
+          <div className="row text-center">
+            <div className="col-4">
+              <div className="fw-bold text-primary">{chartData.length}</div>
+              <div className="text-muted">Categorías</div>
             </div>
-          );
-        })}
+            <div className="col-4">
+              <div className="fw-bold text-success">
+                {chartData.reduce((sum, item) => sum + item.count, 0)}
+              </div>
+              <div className="text-muted">Total Anomalías</div>
+            </div>
+            <div className="col-4">
+              <div className="fw-bold text-info">
+                <i className="fa fa-chart-pie me-1"></i>
+                Tipos
+              </div>
+              <div className="text-muted">Anomalías</div>
+            </div>
+          </div>
+        </div>
       </div>
     );
   };
@@ -1525,25 +1563,50 @@ const AnomaliasDashboardPage = () => {
     }));
 
     return (
-      <ResponsiveContainer width="100%" height={500}>
-        <PieChart>
-          <Pie
-            data={chartData}
-            cx="50%"
-            cy="50%"
-            labelLine={false}
-            label={({name, percent}) => `${name} ${(percent * 100).toFixed(0)}%`}
-            outerRadius={180}
-            fill="#8884d8"
-            dataKey="value">
-            {chartData.map((entry, index) => (
-              <Cell key={`cell-${index}`} fill={entry.color} />
-            ))}
-          </Pie>
-          <Tooltip content={<CustomTooltip />} />
-          <Legend />
-        </PieChart>
-      </ResponsiveContainer>
+      <div>
+        <ResponsiveContainer width="100%" height={500}>
+          <PieChart>
+            <Pie
+              data={chartData}
+              cx="50%"
+              cy="50%"
+              labelLine={false}
+              label={({name, percent}) => `${name} ${(percent * 100).toFixed(0)}%`}
+              outerRadius={180}
+              fill="#8884d8"
+              dataKey="value">
+              {chartData.map((entry, index) => (
+                <Cell key={`cell-${index}`} fill={entry.color} />
+              ))}
+            </Pie>
+            <Tooltip content={<CustomTooltip />} />
+            <Legend />
+          </PieChart>
+        </ResponsiveContainer>
+
+        {/* Summary information */}
+        <div className="mt-3 p-3 bg-light rounded" style={{fontSize: "12px"}}>
+          <div className="row text-center">
+            <div className="col-4">
+              <div className="fw-bold text-primary">{chartData.length}</div>
+              <div className="text-muted">Categorías</div>
+            </div>
+            <div className="col-4">
+              <div className="fw-bold text-success">
+                {chartData.reduce((sum, item) => sum + item.value, 0)}
+              </div>
+              <div className="text-muted">Total Anomalías</div>
+            </div>
+            <div className="col-4">
+              <div className="fw-bold text-info">
+                <i className="fa fa-chart-pie me-1"></i>
+                Tipos
+              </div>
+              <div className="text-muted">Anomalías</div>
+            </div>
+          </div>
+        </div>
+      </div>
     );
   };
 
@@ -2586,22 +2649,23 @@ const AnomaliasDashboardPage = () => {
                       </div>
                     )}
                     <div className="chart-subheader small text-white mb-3">
-                      {filterLoading ? (
-                        <span className="text-info">
-                          <i className="fa fa-spinner fa-spin me-1"></i>
-                          Cargando datos de la tabla...
+                      Mostrando {filteredAnomaliasData.length} de {bitacorasAnomalias.length}{" "}
+                      registros
+                      {(appliedClientFilter !== "all" ||
+                        appliedLineaTransporteFilter !== "all" ||
+                        appliedOperadorFilter !== "all" ||
+                        appliedFechaDesde ||
+                        appliedFechaHasta !== new Date().toISOString().split("T")[0]) && (
+                        <span className="text-info ms-2">
+                          <i className="fa fa-filter me-1"></i>
+                          Filtros de dashboard activos
                         </span>
-                      ) : (
-                        <>
-                          Mostrando {filteredAnomaliasData.length} de {bitacorasAnomalias.length}{" "}
-                          registros
-                          {Object.values(tableFilters).some((filter) => filter !== "") && (
-                            <span className="text-warning ms-2">
-                              <i className="fa fa-filter me-1"></i>
-                              Filtros de tabla activos
-                            </span>
-                          )}
-                        </>
+                      )}
+                      {Object.values(tableFilters).some((filter) => filter !== "") && (
+                        <span className="text-warning ms-2">
+                          <i className="fa fa-filter me-1"></i>
+                          Filtros de tabla activos
+                        </span>
                       )}
                     </div>
                     <div className="overflow-auto">{renderAnomaliasTable()}</div>
