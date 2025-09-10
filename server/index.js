@@ -4989,6 +4989,28 @@ app.get('/dashboard/anomalias-stats', async (req, res) => {
         },
         // Unwind the transportes array within each evento
         { $unwind: '$eventos.transportes' },
+        // Apply transport line filter if specified (case-insensitive)
+        ...(lineaTransporte !== 'all' ? [{
+          $match: {
+            $expr: {
+              $eq: [
+                { $toLower: { $trim: { input: '$eventos.transportes.lineaTransporte' } } },
+                { $toLower: { $trim: { input: lineaTransporte } } }
+              ]
+            }
+          }
+        }] : []),
+        // Apply operator filter if specified (case-insensitive)
+        ...(operador !== 'all' ? [{
+          $match: {
+            $expr: {
+              $eq: [
+                { $toLower: { $trim: { input: '$eventos.transportes.operador' } } },
+                { $toLower: { $trim: { input: operador } } }
+              ]
+            }
+          }
+        }] : []),
         // Verify that the transport line exists in the official catalog
         {
           $lookup: {
