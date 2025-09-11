@@ -1208,10 +1208,34 @@ const AnomaliasDashboardPage = () => {
       );
     }
 
-    // Sort by anomalias count (descending) and show ALL data for scrollable view
-    const chartData = statsToUse.sort((a, b) => b.anomalias - a.anomalias);
+    // Sort by anomalias count (descending) and limit to top 15 for better visualization
+    const sortedStats = statsToUse.sort((a, b) => b.anomalias - a.anomalias).slice(0, 15);
 
-    const maxAnomalias = Math.max(...chartData.map((item) => item.anomalias));
+    // Group remaining transport lines into "Otros" category if there are more than 15
+    let chartData = sortedStats.map((stat) => ({
+      name: stat.lineaTransporte,
+      value: stat.anomalias,
+      color: stat.color,
+      lineaTransporte: stat.lineaTransporte,
+      totalAnomalias: statsToUse.reduce((sum, s) => sum + s.anomalias, 0),
+    }));
+
+    // Add "Otros" category if there are more than 15 transport lines
+    if (statsToUse.length > 15) {
+      const othersAnomalias = statsToUse.slice(15).reduce((sum, stat) => sum + stat.anomalias, 0);
+
+      if (othersAnomalias > 0) {
+        chartData.push({
+          name: `Otros (${statsToUse.length - 15} líneas)`,
+          value: othersAnomalias,
+          color: "#94a3b8", // Gray color for "Others"
+          lineaTransporte: "otros",
+          totalAnomalias: statsToUse.reduce((sum, s) => sum + s.anomalias, 0),
+        });
+      }
+    }
+
+    const maxAnomalias = Math.max(...chartData.map((item) => item.value));
 
     return (
       <div>
@@ -1223,7 +1247,7 @@ const AnomaliasDashboardPage = () => {
             paddingRight: "8px",
           }}>
           {chartData.map((item, index) => {
-            const percentage = maxAnomalias > 0 ? (item.anomalias / maxAnomalias) * 100 : 0;
+            const percentage = maxAnomalias > 0 ? (item.value / maxAnomalias) * 100 : 0;
             return (
               <div
                 key={index}
@@ -1243,7 +1267,7 @@ const AnomaliasDashboardPage = () => {
                 onMouseLeave={(e) => {
                   e.currentTarget.style.backgroundColor = "transparent";
                 }}
-                title={`${item.lineaTransporte}: ${formatNumber(item.anomalias)} anomalías`}>
+                title={`${item.name}: ${formatNumber(item.value)} anomalías`}>
                 <div
                   className="bar-label"
                   style={{
@@ -1252,9 +1276,7 @@ const AnomaliasDashboardPage = () => {
                     color: "#ffffff",
                     marginBottom: "4px",
                   }}>
-                  {item.lineaTransporte.length > 25
-                    ? item.lineaTransporte.substring(0, 25) + "..."
-                    : item.lineaTransporte}
+                  {item.name.length > 25 ? item.name.substring(0, 25) + "..." : item.name}
                 </div>
                 <div className="bar-container" style={{marginBottom: "4px"}}>
                   <div
@@ -1276,7 +1298,7 @@ const AnomaliasDashboardPage = () => {
                     color: "#ffffff",
                     textAlign: "right",
                   }}>
-                  {formatNumber(item.anomalias)} anomalías
+                  {formatNumber(item.value)} anomalías
                 </div>
               </div>
             );
@@ -1288,29 +1310,18 @@ const AnomaliasDashboardPage = () => {
           <div className="row text-center">
             <div className="col-4">
               <div className="fw-bold text-primary">{chartData.length}</div>
-              <div className="text-muted">Líneas</div>
+              <div className="text-muted">Categorías</div>
             </div>
             <div className="col-4">
-              <div className="fw-bold text-success">
-                {chartData.reduce((sum, item) => sum + item.anomalias, 0)}
-              </div>
+              <div className="fw-bold text-success">{getTotalAnomalias()}</div>
               <div className="text-muted">Total Anomalías</div>
             </div>
             <div className="col-4">
               <div className="fw-bold text-info">
-                <i className="fa fa-scroll me-1"></i>
-                Scroll
+                {statsToUse.length > 15 ? statsToUse.length - 15 : 0}
               </div>
-              <div className="text-muted">Disponible</div>
+              <div className="text-muted">En &quot;Otros&quot;</div>
             </div>
-          </div>
-
-          {/* Info about scrollable content */}
-          <div className="mt-2 text-center">
-            <small className="text-muted">
-              <i className="fa fa-info-circle me-1"></i>
-              Mostrando todas las {chartData.length} líneas de transporte
-            </small>
           </div>
         </div>
       </div>
@@ -1368,14 +1379,41 @@ const AnomaliasDashboardPage = () => {
       );
     }
 
-    // Sort by bitacoras count (descending) and show ALL data for scrollable view
+    // Transform data for Recharts format
     // If a specific operator is selected, show only that one
-    const chartData =
+    const statsToUse =
       appliedOperadorFilter !== "all"
         ? filteredStats.filter((stat) => stat.operador === appliedOperadorFilter)
-        : filteredStats.sort((a, b) => b.anomalias - a.anomalias);
+        : filteredStats;
 
-    const maxAnomalias = Math.max(...chartData.map((item) => item.anomalias));
+    // Sort by anomalias count (descending) and limit to top 15 for better visualization
+    const sortedStats = statsToUse.sort((a, b) => b.anomalias - a.anomalias).slice(0, 15);
+
+    // Group remaining operators into "Otros" category if there are more than 15
+    let chartData = sortedStats.map((stat) => ({
+      name: stat.operador,
+      value: stat.anomalias,
+      color: stat.color,
+      operador: stat.operador,
+      totalAnomalias: statsToUse.reduce((sum, s) => sum + s.anomalias, 0),
+    }));
+
+    // Add "Otros" category if there are more than 15 operators
+    if (statsToUse.length > 15) {
+      const othersAnomalias = statsToUse.slice(15).reduce((sum, stat) => sum + stat.anomalias, 0);
+
+      if (othersAnomalias > 0) {
+        chartData.push({
+          name: `Otros (${statsToUse.length - 15} operadores)`,
+          value: othersAnomalias,
+          color: "#94a3b8", // Gray color for "Others"
+          operador: "otros",
+          totalAnomalias: statsToUse.reduce((sum, s) => sum + s.anomalias, 0),
+        });
+      }
+    }
+
+    const maxAnomalias = Math.max(...chartData.map((item) => item.value));
 
     return (
       <div>
@@ -1387,7 +1425,7 @@ const AnomaliasDashboardPage = () => {
             paddingRight: "8px",
           }}>
           {chartData.map((item, index) => {
-            const percentage = maxAnomalias > 0 ? (item.anomalias / maxAnomalias) * 100 : 0;
+            const percentage = maxAnomalias > 0 ? (item.value / maxAnomalias) * 100 : 0;
             return (
               <div
                 key={index}
@@ -1407,7 +1445,7 @@ const AnomaliasDashboardPage = () => {
                 onMouseLeave={(e) => {
                   e.currentTarget.style.backgroundColor = "transparent";
                 }}
-                title={`${item.operador}: ${formatNumber(item.anomalias)} anomalías`}>
+                title={`${item.name}: ${formatNumber(item.value)} anomalías`}>
                 <div
                   className="bar-label"
                   style={{
@@ -1416,9 +1454,7 @@ const AnomaliasDashboardPage = () => {
                     color: "#ffffff",
                     marginBottom: "4px",
                   }}>
-                  {item.operador.length > 25
-                    ? item.operador.substring(0, 25) + "..."
-                    : item.operador}
+                  {item.name.length > 25 ? item.name.substring(0, 25) + "..." : item.name}
                 </div>
                 <div className="bar-container" style={{marginBottom: "4px"}}>
                   <div
@@ -1440,7 +1476,7 @@ const AnomaliasDashboardPage = () => {
                     color: "#ffffff",
                     textAlign: "right",
                   }}>
-                  {formatNumber(item.anomalias)} anomalías
+                  {formatNumber(item.value)} anomalías
                 </div>
               </div>
             );
@@ -1452,29 +1488,18 @@ const AnomaliasDashboardPage = () => {
           <div className="row text-center">
             <div className="col-4">
               <div className="fw-bold text-primary">{chartData.length}</div>
-              <div className="text-muted">Operadores</div>
+              <div className="text-muted">Categorías</div>
             </div>
             <div className="col-4">
-              <div className="fw-bold text-success">
-                {chartData.reduce((sum, item) => sum + item.anomalias, 0)}
-              </div>
+              <div className="fw-bold text-success">{getTotalAnomalias()}</div>
               <div className="text-muted">Total Anomalías</div>
             </div>
             <div className="col-4">
               <div className="fw-bold text-info">
-                <i className="fa fa-scroll me-1"></i>
-                Scroll
+                {statsToUse.length > 15 ? statsToUse.length - 15 : 0}
               </div>
-              <div className="text-muted">Disponible</div>
+              <div className="text-muted">En &quot;Otros&quot;</div>
             </div>
-          </div>
-
-          {/* Info about scrollable content */}
-          <div className="mt-2 text-center">
-            <small className="text-muted">
-              <i className="fa fa-info-circle me-1"></i>
-              Mostrando todos los {chartData.length} operadores
-            </small>
           </div>
         </div>
       </div>
