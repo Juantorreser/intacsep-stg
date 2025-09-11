@@ -4785,79 +4785,6 @@ app.get('/dashboard/stats', async (req, res) => {
   }
 });
 
-// Optimized endpoint for basic dashboard stats (faster loading)
-app.get('/dashboard/anomalias-stats-basic', async (req, res) => {
-  try {
-    const user = req.session.user;
-    if (!user) {
-      return res.status(401).json({ message: 'User not found' });
-    }
-
-    const role = await Role.findOne({ name: user.role });
-    if (!role) {
-      return res.status(401).json({ message: 'Role not found' });
-    }
-
-    const {
-      clientFilter = 'all',
-      fechaDesde = '',
-      fechaHasta = '',
-    } = req.query;
-
-    // Build basic filters
-    let bitacoraFilter = { deleted: { $ne: true } };
-
-    // Apply client permissions
-    if (role.client_access === 'specific' && role.allowed_clients && role.allowed_clients.length > 0) {
-      const allowedClientNames = role.allowed_clients.map(ac => ac.client_name);
-      if (clientFilter !== 'all') {
-        if (!allowedClientNames.includes(clientFilter)) {
-          return res.status(403).json({ message: 'Access denied to this client' });
-        }
-        bitacoraFilter.cliente = clientFilter;
-      } else {
-        bitacoraFilter.cliente = { $in: allowedClientNames };
-      }
-    } else {
-      if (clientFilter !== 'all') {
-        bitacoraFilter.cliente = clientFilter;
-      }
-    }
-
-    // Add date range filter
-    if (fechaDesde && fechaHasta && fechaDesde.trim() !== '' && fechaHasta.trim() !== '') {
-      const startDate = new Date(fechaDesde);
-      const endDate = new Date(fechaHasta + 'T23:59:59.999Z');
-      if (!isNaN(startDate) && !isNaN(endDate)) {
-        bitacoraFilter.createdAt = { $gte: startDate, $lte: endDate };
-      }
-    }
-
-    // Get basic counts in parallel
-    const [totalBitacoras, nuevasBitacoras, enProcesoBitacoras, cerradasBitacoras, totalBitacorasConAnomalias] = await Promise.all([
-      Bitacora.countDocuments(bitacoraFilter),
-      Bitacora.countDocuments({ ...bitacoraFilter, status: 'Nueva' }),
-      Bitacora.countDocuments({ ...bitacoraFilter, status: 'Iniciada' }),
-      Bitacora.countDocuments({ ...bitacoraFilter, status: 'Cerrada' }),
-      Bitacora.countDocuments({
-        ...bitacoraFilter,
-        'eventos.nombre': { $exists: true, $ne: [] }
-      })
-    ]);
-
-    res.status(200).json({
-      totalBitacoras,
-      nuevasBitacoras,
-      enProcesoBitacoras,
-      cerradasBitacoras,
-      totalBitacorasConAnomalias,
-    });
-  } catch (error) {
-    console.error('[GET /dashboard/anomalias-stats-basic] Error:', error);
-    res.status(500).json({ error: 'Failed to fetch basic dashboard statistics' });
-  }
-});
-
 // Dashboard Stats for Anomalias Dashboard (without default time filters)
 app.get('/dashboard/anomalias-stats', async (req, res) => {
   try {
@@ -5062,28 +4989,6 @@ app.get('/dashboard/anomalias-stats', async (req, res) => {
         },
         // Unwind the transportes array within each evento
         { $unwind: '$eventos.transportes' },
-        // Apply transport line filter if specified (case-insensitive)
-        ...(lineaTransporte !== 'all' ? [{
-          $match: {
-            $expr: {
-              $eq: [
-                { $toLower: { $trim: { input: '$eventos.transportes.lineaTransporte' } } },
-                { $toLower: { $trim: { input: lineaTransporte } } }
-              ]
-            }
-          }
-        }] : []),
-        // Apply operator filter if specified (case-insensitive)
-        ...(operador !== 'all' ? [{
-          $match: {
-            $expr: {
-              $eq: [
-                { $toLower: { $trim: { input: '$eventos.transportes.operador' } } },
-                { $toLower: { $trim: { input: operador } } }
-              ]
-            }
-          }
-        }] : []),
         // Verify that the transport line exists in the official catalog
         {
           $lookup: {
@@ -5883,16 +5788,6 @@ app.get('/dashboard/bitacoras-anomalias', async (req, res) => {
       operador = 'all'
     } = req.query;
 
-    console.log('=== DEBUG: /dashboard/bitacoras-anomalias ===');
-    console.log('Query params:', { clientFilter, fechaDesde, fechaHasta, lineaTransporte, operador });
-
-    // Performance optimization: Add indexes suggestion
-    console.log('Performance tip: Ensure these indexes exist on Bitacora collection:');
-    console.log('- { cliente: 1, createdAt: 1, deleted: 1 }');
-    console.log('- { "eventos.nombre": 1, deleted: 1 }');
-    console.log('- { "transportes.lineaTransporte": 1, deleted: 1 }');
-    console.log('- { "transportes.operador": 1, deleted: 1 }');
-
     // Construir filtros de bitácora
     let bitacoraFilter = { deleted: { $ne: true } }; // Exclude deleted bitacoras
 
@@ -6002,11 +5897,8 @@ app.get('/dashboard/bitacoras-anomalias', async (req, res) => {
       console.log('=== DEBUG: /dashboard/bitacoras-anomalias ===');
       console.log('bitacoraFilter:', JSON.stringify(bitacoraFilter, null, 2));
 
-      // Optimized aggregation with better performance
       bitacorasConAnomalias = await Bitacora.aggregate([
         { $match: bitacoraFilter },
-        // Add limit to prevent processing too many documents
-        { $limit: 10000 },
         { $unwind: '$eventos' },
         {
           $lookup: {
@@ -7215,81 +7107,23 @@ app.get('/dashboard/event-categories-stats', async (req, res) => {
     // Agregar filtro para bitácoras con anomalías
     bitacoraFilter['eventos.nombre'] = { $in: allEventNames };
 
-    // Obtener estadísticas por categoría de evento usando la misma lógica que operadores
+    // Obtener estadísticas por categoría de evento con validación de catálogo
     const eventCategoryStats = await Bitacora.aggregate([
       { $match: bitacoraFilter },
       { $unwind: '$eventos' },
       {
-        $lookup: {
-          from: 'eventtypes',
-          localField: 'eventos.nombre',
-          foreignField: 'evento',
-          as: 'eventTypeInfo'
+        $match: {
+          'eventos.nombre': { $in: allEventNames }
         }
       },
-      {
-        $match: {
-          'eventTypeInfo.categoria': { $ne: 'General' }
-        }
-      },
-      {
-        $group: {
-          _id: '$_id',
-          bitacora_id: { $first: '$bitacora_id' },
-          cliente: { $first: '$cliente' },
-          transportes: { $first: '$transportes' },
-          eventos: { $push: '$eventos' },
-          eventTypes: { $push: '$eventTypeInfo' }
-        }
-      },
-      // Apply transport line filter if specified (case-insensitive)
-      ...(lineaTransporte !== 'all' ? [{
-        $match: {
-          $expr: {
-            $in: [
-              { $toLower: { $trim: { input: lineaTransporte } } },
-              {
-                $map: {
-                  input: '$transportes',
-                  as: 'transporte',
-                  in: { $toLower: { $trim: { input: '$$transporte.lineaTransporte' } } }
-                }
-              }
-            ]
-          }
-        }
-      }] : []),
-      // Apply operator filter if specified (case-insensitive)
-      ...(operador !== 'all' ? [{
-        $match: {
-          $expr: {
-            $in: [
-              { $toLower: { $trim: { input: operador } } },
-              {
-                $map: {
-                  input: '$transportes',
-                  as: 'transporte',
-                  in: { $toLower: { $trim: { input: '$$transporte.operador' } } }
-                }
-              }
-            ]
-          }
-        }
-      }] : []),
-      // Unwind transportes to get individual operators
-      { $unwind: '$transportes' },
-      // Filter out invalid operators
-      {
-        $match: {
-          'transportes.operador': { $exists: true, $ne: null, $ne: '' }
-        }
-      },
+      // Unwind the transportes array within each evento
+      { $unwind: '$eventos.transportes' },
       // Verify that the transport line exists in the official catalog
       {
         $lookup: {
           from: 'lineatransportes',
           let: {
-            lineaTransporte: '$transportes.lineaTransporte',
+            lineaTransporte: '$eventos.transportes.lineaTransporte',
             cliente: '$cliente'
           },
           pipeline: [
@@ -7312,8 +7146,8 @@ app.get('/dashboard/event-categories-stats', async (req, res) => {
         $lookup: {
           from: 'operadores',
           let: {
-            operador: '$transportes.operador',
-            lineaTransporte: '$transportes.lineaTransporte'
+            operador: '$eventos.transportes.operador',
+            lineaTransporte: '$eventos.transportes.lineaTransporte'
           },
           pipeline: [
             {
@@ -7330,18 +7164,34 @@ app.get('/dashboard/event-categories-stats', async (req, res) => {
           as: 'operadorInfo'
         }
       },
-      // Only include if both transport line and operator exist in the official catalog
+      // Only include records where transport line exists in catalog (less restrictive)
       {
         $match: {
-          $and: [
-            { 'lineaTransporteInfo': { $ne: [] } },
-            { 'operadorInfo': { $ne: [] } }
-          ]
+          lineaTransporteInfo: { $ne: [] }
         }
       },
-      // Unwind eventos to get individual events
-      { $unwind: '$eventos' },
-      // Lookup event type info for each event
+      // Apply transport line filter if specified
+      ...(lineaTransporte !== 'all' ? [{
+        $match: {
+          $expr: {
+            $eq: [
+              { $toLower: { $trim: { input: '$eventos.transportes.lineaTransporte' } } },
+              { $toLower: { $trim: { input: lineaTransporte } } }
+            ]
+          }
+        }
+      }] : []),
+      // Apply operator filter if specified
+      ...(operador !== 'all' ? [{
+        $match: {
+          $expr: {
+            $eq: [
+              { $toLower: { $trim: { input: '$eventos.transportes.operador' } } },
+              { $toLower: { $trim: { input: operador } } }
+            ]
+          }
+        }
+      }] : []),
       {
         $lookup: {
           from: 'eventtypes',
@@ -7350,19 +7200,9 @@ app.get('/dashboard/event-categories-stats', async (req, res) => {
           as: 'eventTypeInfo'
         }
       },
-      // Group by bitacora ID and category to count unique bitacoras per category
       {
         $group: {
-          _id: {
-            bitacoraId: '$_id',
-            categoria: { $arrayElemAt: ['$eventTypeInfo.categoria', 0] }
-          }
-        }
-      },
-      // Now group by category to get the count of unique bitacoras per category
-      {
-        $group: {
-          _id: '$_id.categoria',
+          _id: { $arrayElemAt: ['$eventTypeInfo.categoria', 0] },
           count: { $sum: 1 }
         }
       },
