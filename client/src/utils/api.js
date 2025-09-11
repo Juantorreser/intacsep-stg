@@ -167,12 +167,35 @@ export const fetchMonitoreos = async () => {
 export const getLocationText = (field, list) => {
   if (!field) return "No especificado";
 
+  // If field is already a plain text (resolved name), return it
   if (typeof field === "string" && !field.match(/^[0-9a-f]{24}$/i)) {
-    return field; // plain text (legacy)
+    return field; // plain text (legacy or already resolved)
   }
 
-  const found = list.find((l) => l._id === field);
-  return found
-    ? `${found.nombre}, ${found.estado}`
-    : "Ubicación no encontrada";
+  // If field is an ObjectId string, try to find it in the list
+  if (typeof field === "string" && field.match(/^[0-9a-f]{24}$/i)) {
+    const found = list.find((l) => {
+      // Handle both string and ObjectId _id fields
+      const idToCompare = typeof l._id === 'string' ? l._id : l._id.toString();
+      return idToCompare === field;
+    });
+    return found
+      ? `${found.nombre}, ${found.estado}`
+      : "Ubicación no encontrada";
+  }
+
+  // If field is an ObjectId object, convert to string and find
+  if (typeof field === "object" && field._id) {
+    const found = list.find((l) => {
+      const fieldId = typeof field._id === 'string' ? field._id : field._id.toString();
+      const listId = typeof l._id === 'string' ? l._id : l._id.toString();
+      return listId === fieldId;
+    });
+    return found
+      ? `${found.nombre}, ${found.estado}`
+      : "Ubicación no encontrada";
+  }
+
+  // Fallback
+  return "Ubicación no encontrada";
 };

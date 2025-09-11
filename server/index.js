@@ -2882,9 +2882,9 @@ app.get("/origenes", async (req, res) => {
     const { cliente } = req.query;
     let query = {};
 
-    // If cliente filter is provided, filter by cliente
+    // If cliente filter is provided, filter by cliente (case-insensitive)
     if (cliente && cliente !== "all") {
-      query.cliente = cliente;
+      query.cliente = { $regex: new RegExp(`^${cliente}$`, 'i') };
     }
 
     const origenes = await Origen.find(query);
@@ -2962,9 +2962,9 @@ app.get("/destinos", async (req, res) => {
     const { cliente } = req.query;
     let query = {};
 
-    // If cliente filter is provided, filter by cliente
+    // If cliente filter is provided, filter by cliente (case-insensitive)
     if (cliente && cliente !== "all") {
-      query.cliente = cliente;
+      query.cliente = { $regex: new RegExp(`^${cliente}$`, 'i') };
     }
 
     const destinos = await Destino.find(query);

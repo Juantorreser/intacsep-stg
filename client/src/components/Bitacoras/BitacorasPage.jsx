@@ -544,17 +544,30 @@ const BitacorasPage = () => {
     if (parseInt(bitacora.bitacora_id) <= oldBitacorasCount) {
       root.render(<OldBitacoraDetail bitacora={bitacora} />);
     } else {
-      if (transporteId === "") {
-        root.render(<BitacoraDetail bitacora={bitacora} origenes={origenes} destinos={destinos} />);
+      // Fetch the bitacora with resolved origen and destino names using the same endpoint as BitacoraDetailPage
+      const response = await fetch(`${baseUrl}/bitacora/${bitacora._id}`, {
+        method: "GET",
+        credentials: "include",
+      });
+
+      if (response.ok) {
+        const resolvedBitacora = await response.json();
+
+        if (transporteId === "") {
+          root.render(<BitacoraDetail bitacora={resolvedBitacora} />);
+        } else {
+          root.render(
+            <BitacoraDetail bitacora={resolvedBitacora} transporteId={selectedTransporte} />
+          );
+        }
       } else {
-        root.render(
-          <BitacoraDetail
-            bitacora={bitacora}
-            transporteId={selectedTransporte}
-            origenes={origenes}
-            destinos={destinos}
-          />
-        );
+        console.error("Failed to fetch resolved bitacora:", response.statusText);
+        // Fallback to original bitacora
+        if (transporteId === "") {
+          root.render(<BitacoraDetail bitacora={bitacora} />);
+        } else {
+          root.render(<BitacoraDetail bitacora={bitacora} transporteId={selectedTransporte} />);
+        }
       }
     }
 
