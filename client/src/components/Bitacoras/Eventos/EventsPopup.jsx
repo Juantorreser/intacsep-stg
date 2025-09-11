@@ -2,7 +2,6 @@ import React, {useEffect, useState} from "react";
 import axios from "axios";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
-import {getLocationText} from "../../../utils/api";
 
 const EventsPopup = ({bitacora, onClose, origenes, destinos}) => {
   const [eventTypes, setEventTypes] = useState([]);
@@ -88,8 +87,8 @@ const EventsPopup = ({bitacora, onClose, origenes, destinos}) => {
 
     const rightCol = [
       ["Tipo Monitoreo:", bitacora.monitoreo],
-      ["Origen:", getLocationText(bitacora.origen, origenes)],
-      ["Destino:", getLocationText(bitacora.destino, destinos)],
+      ["Origen:", bitacora.origen || "No especificado"],
+      ["Destino:", bitacora.destino || "No especificado"],
       ["Calificación: ", promedioCalificacion],
     ];
 
@@ -181,13 +180,13 @@ const EventsPopup = ({bitacora, onClose, origenes, destinos}) => {
             <strong>No. Bitácora:</strong> {bitacora.bitacora_id}
           </div>
           <div>
-            <strong>Origen:</strong> {getLocationText(bitacora.origen, origenes)}
+            <strong>Origen:</strong> {bitacora.origen || "No especificado"}
           </div>
           <div>
             <strong>Cliente:</strong> {bitacora.cliente}
           </div>
           <div>
-            <strong>Destino:</strong> {getLocationText(bitacora.destino, destinos)}
+            <strong>Destino:</strong> {bitacora.destino || "No especificado"}
           </div>
           <div>
             <strong>Estatus:</strong> {bitacora.status}

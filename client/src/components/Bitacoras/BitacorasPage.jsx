@@ -699,9 +699,30 @@ const BitacorasPage = () => {
     return recorrido;
   };
 
-  const openFrecuenciaModal = (bitacora) => {
-    setSelectedFrecuenciaBitacora(bitacora);
-    setShowFrecuenciaModal(true);
+  const openFrecuenciaModal = async (bitacora) => {
+    try {
+      // Fetch the bitacora with resolved origen and destino names using the same endpoint as BitacoraDetailPage
+      const response = await fetch(`${baseUrl}/bitacora/${bitacora._id}`, {
+        method: "GET",
+        credentials: "include",
+      });
+
+      if (response.ok) {
+        const resolvedBitacora = await response.json();
+        setSelectedFrecuenciaBitacora(resolvedBitacora);
+        setShowFrecuenciaModal(true);
+      } else {
+        console.error("Failed to fetch resolved bitacora:", response.statusText);
+        // Fallback to original bitacora
+        setSelectedFrecuenciaBitacora(bitacora);
+        setShowFrecuenciaModal(true);
+      }
+    } catch (error) {
+      console.error("Error fetching resolved bitacora:", error);
+      // Fallback to original bitacora
+      setSelectedFrecuenciaBitacora(bitacora);
+      setShowFrecuenciaModal(true);
+    }
   };
 
   const closeFrecuenciaModal = () => {
