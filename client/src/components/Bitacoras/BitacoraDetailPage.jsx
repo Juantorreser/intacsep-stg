@@ -43,6 +43,10 @@ const BitacoraDetailPage = ({edited}) => {
   const [modalOpen, setModalOpen] = useState(false);
   const {isSidebarCollapsed} = useSidebar();
   const [phoneError, setPhoneError] = useState("");
+  const [isEdited, setIsEdited] = useState(false);
+  const [selectedTransportes, setSelectedTransportes] = useState([]);
+  const [isEventStarted, setIsEventStarted] = useState(false);
+  const [finishButtonDisabled, setFinishButtonDisabled] = useState(false);
 
   const validatePhoneNumber = (phone) => {
     // Regex para validar número de teléfono mexicano de exactamente 10 dígitos seguidos
@@ -1170,20 +1174,78 @@ const BitacoraDetailPage = ({edited}) => {
     const submitBitacora = updatedBitacora ? updatedBitacora : bitacora;
     console.log(submitBitacora);
     try {
+      // Extract ObjectId from origen and destino if they are objects
+      const getObjectId = (location) => {
+        console.log("getObjectId called with:", location, "type:", typeof location);
+
+        if (!location) return location;
+
+        // If it's already a string ObjectId, return it
+        if (typeof location === "string" && location.match(/^[0-9a-fA-F]{24}$/)) {
+          console.log("Already an ObjectId:", location);
+          return location; // Already an ObjectId
+        }
+
+        // If it's a JSON stringified object, parse it and extract _id
+        if (typeof location === "string" && location.startsWith("{")) {
+          try {
+            const parsedLocation = JSON.parse(location);
+            console.log("Parsed JSON location:", parsedLocation);
+            if (parsedLocation && parsedLocation._id) {
+              console.log("Extracted ObjectId from JSON:", parsedLocation._id);
+              return parsedLocation._id;
+            }
+          } catch (e) {
+            console.error("Error parsing location JSON:", e);
+          }
+        }
+
+        // If it's an object with _id, extract it
+        if (typeof location === "object" && location._id) {
+          console.log("Extracted ObjectId from object:", location._id);
+          return location._id;
+        }
+
+        // If it's a location name (not an ObjectId), find the corresponding ObjectId
+        if (typeof location === "string" && !location.match(/^[0-9a-fA-F]{24}$/)) {
+          console.log("Searching for location by name:", location);
+          // Search in origenes first
+          const foundOrigen = origenes.find((origen) => origen.nombre === location);
+          if (foundOrigen) {
+            console.log("Found origen by name:", foundOrigen._id);
+            return foundOrigen._id;
+          }
+
+          // Search in destinos
+          const foundDestino = destinos.find((destino) => destino.nombre === location);
+          if (foundDestino) {
+            console.log("Found destino by name:", foundDestino._id);
+            return foundDestino._id;
+          }
+        }
+
+        console.log("Fallback to original value:", location);
+        return location; // Fallback to original value
+      };
+
       const minimalUpdate = {
         folio_servicio: submitBitacora.folio_servicio,
         cliente: submitBitacora.cliente,
         monitoreo: submitBitacora.monitoreo,
-        origen: submitBitacora.origen,
-        destino: submitBitacora.destino,
+        origen: getObjectId(submitBitacora.origen),
+        destino: getObjectId(submitBitacora.destino),
         // Include custodia data if it exists
         ...(submitBitacora.custodia && {custodia: submitBitacora.custodia}),
       };
 
+      console.log("minimalUpdate before uppercase conversion:", minimalUpdate);
+
       // Convert text fields to uppercase before sending
       // Exclude certain fields that should remain as-is
-      const excludeFields = ["_id", "createdAt", "updatedAt"];
+      const excludeFields = ["_id", "createdAt", "updatedAt", "origen", "destino"];
       const uppercaseUpdate = convertToUpperCase(minimalUpdate, excludeFields);
+
+      console.log("uppercaseUpdate after conversion:", uppercaseUpdate);
 
       const response = await fetch(`${baseUrl}/bitacora/${id}`, {
         method: "PATCH",

@@ -1985,9 +1985,30 @@ app.patch("/bitacora/:id/event", async (req, res) => {
 app.patch("/bitacora/:id", async (req, res) => {
   const { id } = req.params;
 
+  // Import validation utilities
+  const { validateAndConvertObjectIds } = await import('./utils/validationUtils.js');
+
+  // Validate and convert ObjectIds first (only if origen/destino are being updated)
+  const objectIdFields = [];
+  if (req.body.origen) objectIdFields.push('origen');
+  if (req.body.destino) objectIdFields.push('destino');
+
+  let validatedData = req.body;
+  if (objectIdFields.length > 0) {
+    const objectIdValidation = validateAndConvertObjectIds(req.body, objectIdFields);
+
+    if (objectIdValidation.errors.length > 0) {
+      return res.status(400).json({
+        error: 'Datos de entrada inválidos',
+        details: objectIdValidation.errors
+      });
+    }
+    validatedData = objectIdValidation.data;
+  }
+
   // Convertir campos de texto a mayúsculas antes de procesar
-  const excludeFields = ['status', 'inicioMonitoreo', 'finalMonitoreo', 'telefono', '_id', 'createdAt', 'updatedAt', 'bitacora_id', 'capacidad', 'gpsUnits'];
-  const updatedData = convertToUpperCase(req.body, excludeFields);
+  const excludeFields = ['status', 'inicioMonitoreo', 'finalMonitoreo', 'telefono', '_id', 'createdAt', 'updatedAt', 'bitacora_id', 'capacidad', 'gpsUnits', 'origen', 'destino'];
+  const updatedData = convertToUpperCase(validatedData, excludeFields);
   console.log(updatedData);
 
   try {
