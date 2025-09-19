@@ -881,15 +881,7 @@ const BitacoraDetailPage = ({edited}) => {
           </div>
 
           {roleData?.bit_eventos?.update && (
-            <button
-              onClick={handleEditClick}
-              className="action-btn btn-primary"
-              disabled={
-                !(
-                  (roleData && roleData.bit_eventos.update && bitacora.status !== "cerrada") ||
-                  (roleData && roleData.bit_eventos.update && bitacora.status === "cerrada")
-                )
-              }>
+            <button onClick={handleEditClick} className="action-btn btn-primary">
               <i className="fa fa-edit"></i>
             </button>
           )}
@@ -1835,223 +1827,242 @@ const BitacoraDetailPage = ({edited}) => {
         }}
       />
 
-      {editModalVisible &&
-        bitacora &&
-        clients.length > 0 &&
-        monitoreos.length > 0 &&
-        origenes.length > 0 &&
-        destinos.length > 0 && (
-          <ModalTemplate
-            show={editModalVisible}
-            title="Editar Bitácora"
-            onClose={() => setEditModalVisible(false)}
-            onSubmit={handleEditSubmit}>
-            <Form.Group className="mb-3">
-              <Form.Label htmlFor="folio_servicio">Folio de servicio</Form.Label>
-              <Form.Control
-                type="text"
-                id="folio_servicio"
-                name="folio_servicio"
-                value={bitacora.folio_servicio}
-                onChange={handleEditChange}
-              />
-            </Form.Group>
+      {editModalVisible && bitacora && (
+        <ModalTemplate
+          show={editModalVisible}
+          title="Editar Bitácora"
+          onClose={() => setEditModalVisible(false)}
+          onSubmit={handleEditSubmit}>
+          <Form.Group className="mb-3">
+            <Form.Label htmlFor="folio_servicio">Folio de servicio</Form.Label>
+            <Form.Control
+              type="text"
+              id="folio_servicio"
+              name="folio_servicio"
+              value={bitacora.folio_servicio}
+              onChange={handleEditChange}
+            />
+          </Form.Group>
 
-            <Form.Group className="mb-3">
-              <Form.Label htmlFor="bitacora_id">No. Bitácora</Form.Label>
-              <Form.Control
-                type="text"
-                id="bitacora_id"
-                name="bitacora_id"
-                value={bitacora.bitacora_id}
-                onChange={handleEditChange}
-                disabled
-              />
-            </Form.Group>
+          <Form.Group className="mb-3">
+            <Form.Label htmlFor="bitacora_id">No. Bitácora</Form.Label>
+            <Form.Control
+              type="text"
+              id="bitacora_id"
+              name="bitacora_id"
+              value={bitacora.bitacora_id}
+              onChange={handleEditChange}
+              disabled
+            />
+          </Form.Group>
 
-            <Form.Group className="mb-3">
-              <Form.Label>Cliente</Form.Label>
-              <Form.Select
-                name="cliente"
-                value={bitacora.cliente || ""}
-                onChange={handleEditChange}
-                required>
-                <option value="">Selecciona una opción</option>
-                {clients.map((cliente) => (
+          <Form.Group className="mb-3">
+            <Form.Label>Cliente</Form.Label>
+            <Form.Select
+              name="cliente"
+              value={bitacora.cliente || ""}
+              onChange={handleEditChange}
+              required>
+              <option value="">Selecciona una opción</option>
+              {clients.length > 0 ? (
+                clients.map((cliente) => (
                   <option key={cliente._id} value={cliente.razon_social}>
                     {cliente.razon_social}
                   </option>
-                ))}
-              </Form.Select>
-            </Form.Group>
+                ))
+              ) : (
+                <option value="" disabled>
+                  Cargando clientes...
+                </option>
+              )}
+            </Form.Select>
+          </Form.Group>
 
-            <Form.Group className="mb-3">
-              <Form.Label>Tipo de Monitoreo</Form.Label>
-              <Form.Select
-                name="monitoreo"
-                value={bitacora.monitoreo || ""}
-                onChange={handleEditChange}
-                required>
-                <option value="">Selecciona una opción</option>
-                {monitoreos.map((monitoreo) => (
+          <Form.Group className="mb-3">
+            <Form.Label>Tipo de Monitoreo</Form.Label>
+            <Form.Select
+              name="monitoreo"
+              value={bitacora.monitoreo || ""}
+              onChange={handleEditChange}
+              required>
+              <option value="">Selecciona una opción</option>
+              {monitoreos.length > 0 ? (
+                monitoreos.map((monitoreo) => (
                   <option key={monitoreo._id} value={monitoreo.tipoMonitoreo}>
                     {monitoreo.tipoMonitoreo}
                   </option>
-                ))}
-              </Form.Select>
-            </Form.Group>
+                ))
+              ) : (
+                <option value="" disabled>
+                  Cargando monitoreos...
+                </option>
+              )}
+            </Form.Select>
+          </Form.Group>
 
-            <Form.Group className="mb-3">
-              <Form.Label>Origen</Form.Label>
-              <Form.Select
-                name="origen"
-                value={getLocationValue(
-                  edited_bitacora.origen,
-                  origenes.filter((origen) => origen.cliente === bitacora?.cliente)
-                )}
-                onChange={(e) =>
-                  setBitacora((prev) => ({
-                    ...prev,
-                    origen: e.target.value ? JSON.parse(e.target.value) : null,
-                  }))
-                }
-                required>
-                <option value="">Selecciona una opción</option>
-                {origenes
+          <Form.Group className="mb-3">
+            <Form.Label>Origen</Form.Label>
+            <Form.Select
+              name="origen"
+              value={getLocationValue(
+                edited_bitacora.origen,
+                origenes.filter((origen) => origen.cliente === bitacora?.cliente)
+              )}
+              onChange={(e) =>
+                setBitacora((prev) => ({
+                  ...prev,
+                  origen: e.target.value ? JSON.parse(e.target.value) : null,
+                }))
+              }
+              required>
+              <option value="">Selecciona una opción</option>
+              {origenes.length > 0 ? (
+                origenes
                   .filter((origen) => origen.cliente === bitacora?.cliente)
                   .map((origen) => (
                     <option key={origen._id} value={JSON.stringify(origen)}>
                       {`${origen.nombre}, ${origen.estado}`}
                     </option>
-                  ))}
-              </Form.Select>
-            </Form.Group>
+                  ))
+              ) : (
+                <option value="" disabled>
+                  Cargando origenes...
+                </option>
+              )}
+            </Form.Select>
+          </Form.Group>
 
-            <Form.Group className="mb-3">
-              <Form.Label>Destino</Form.Label>
-              <Form.Select
-                name="destino"
-                value={getLocationValue(
-                  edited_bitacora.destino,
-                  destinos.filter((destino) => destino.cliente === bitacora?.cliente)
-                )}
-                onChange={(e) =>
-                  setBitacora((prev) => ({
-                    ...prev,
-                    destino: e.target.value ? JSON.parse(e.target.value) : null,
-                  }))
-                }
-                required>
-                <option value="">Selecciona una opción</option>
-                {destinos
+          <Form.Group className="mb-3">
+            <Form.Label>Destino</Form.Label>
+            <Form.Select
+              name="destino"
+              value={getLocationValue(
+                edited_bitacora.destino,
+                destinos.filter((destino) => destino.cliente === bitacora?.cliente)
+              )}
+              onChange={(e) =>
+                setBitacora((prev) => ({
+                  ...prev,
+                  destino: e.target.value ? JSON.parse(e.target.value) : null,
+                }))
+              }
+              required>
+              <option value="">Selecciona una opción</option>
+              {destinos.length > 0 ? (
+                destinos
                   .filter((destino) => destino.cliente === bitacora?.cliente)
                   .map((destino) => (
                     <option key={destino._id} value={JSON.stringify(destino)}>
                       {`${destino.nombre}, ${destino.estado}`}
                     </option>
-                  ))}
-              </Form.Select>
-            </Form.Group>
+                  ))
+              ) : (
+                <option value="" disabled>
+                  Cargando destinos...
+                </option>
+              )}
+            </Form.Select>
+          </Form.Group>
 
-            {/* Campos de Custodia Física - Solo para tipo "Custodia fisica" */}
-            {(bitacora.monitoreo === "Custodia fisica" ||
-              bitacora.monitoreo === "CUSTODIA FISICA" ||
-              bitacora.monitoreo?.toLowerCase() === "custodia fisica") && (
-              <>
-                <hr className="my-4" />
-                <h6 className="fw-bold mb-3">Información Custodia Física</h6>
+          {/* Campos de Custodia Física - Solo para tipo "Custodia fisica" */}
+          {(bitacora.monitoreo === "Custodia fisica" ||
+            bitacora.monitoreo === "CUSTODIA FISICA" ||
+            bitacora.monitoreo?.toLowerCase() === "custodia fisica") && (
+            <>
+              <hr className="my-4" />
+              <h6 className="fw-bold mb-3">Información Custodia Física</h6>
 
-                <div className="row">
-                  <div className="col-md-6">
-                    <Form.Group className="mb-3">
-                      <Form.Label>Nombre Custodio 1</Form.Label>
-                      <Form.Control
-                        type="text"
-                        name="custodia.custodio1_nombre"
-                        value={bitacora.custodia?.custodio1_nombre || ""}
-                        onChange={handleEditChange}
-                        required
-                      />
-                    </Form.Group>
+              <div className="row">
+                <div className="col-md-6">
+                  <Form.Group className="mb-3">
+                    <Form.Label>Nombre Custodio 1</Form.Label>
+                    <Form.Control
+                      type="text"
+                      name="custodia.custodio1_nombre"
+                      value={bitacora.custodia?.custodio1_nombre || ""}
+                      onChange={handleEditChange}
+                      required
+                    />
+                  </Form.Group>
 
-                    <Form.Group className="mb-3">
-                      <Form.Label>Teléfono Custodio 1</Form.Label>
-                      <Form.Control
-                        type="text"
-                        name="custodia.custodio1_telefono"
-                        value={bitacora.custodia?.custodio1_telefono || ""}
-                        onChange={handleEditChange}
-                        required
-                      />
-                    </Form.Group>
+                  <Form.Group className="mb-3">
+                    <Form.Label>Teléfono Custodio 1</Form.Label>
+                    <Form.Control
+                      type="text"
+                      name="custodia.custodio1_telefono"
+                      value={bitacora.custodia?.custodio1_telefono || ""}
+                      onChange={handleEditChange}
+                      required
+                    />
+                  </Form.Group>
 
-                    <Form.Group className="mb-3">
-                      <Form.Label>Nombre Custodio 2</Form.Label>
-                      <Form.Control
-                        type="text"
-                        name="custodia.custodio2_nombre"
-                        value={bitacora.custodia?.custodio2_nombre || ""}
-                        onChange={handleEditChange}
-                      />
-                    </Form.Group>
+                  <Form.Group className="mb-3">
+                    <Form.Label>Nombre Custodio 2</Form.Label>
+                    <Form.Control
+                      type="text"
+                      name="custodia.custodio2_nombre"
+                      value={bitacora.custodia?.custodio2_nombre || ""}
+                      onChange={handleEditChange}
+                    />
+                  </Form.Group>
 
-                    <Form.Group className="mb-3">
-                      <Form.Label>Teléfono Custodio 2</Form.Label>
-                      <Form.Control
-                        type="text"
-                        name="custodia.custodio2_telefono"
-                        value={bitacora.custodia?.custodio2_telefono || ""}
-                        onChange={handleEditChange}
-                      />
-                    </Form.Group>
-                  </div>
-
-                  <div className="col-md-6">
-                    <Form.Group className="mb-3">
-                      <Form.Label>Placa</Form.Label>
-                      <Form.Control
-                        type="text"
-                        name="custodia.placa"
-                        value={bitacora.custodia?.placa || ""}
-                        onChange={handleEditChange}
-                      />
-                    </Form.Group>
-
-                    <Form.Group className="mb-3">
-                      <Form.Label>Modelo</Form.Label>
-                      <Form.Control
-                        type="text"
-                        name="custodia.modelo"
-                        value={bitacora.custodia?.modelo || ""}
-                        onChange={handleEditChange}
-                      />
-                    </Form.Group>
-
-                    <Form.Group className="mb-3">
-                      <Form.Label>Color</Form.Label>
-                      <Form.Control
-                        type="text"
-                        name="custodia.color"
-                        value={bitacora.custodia?.color || ""}
-                        onChange={handleEditChange}
-                      />
-                    </Form.Group>
-
-                    <Form.Group className="mb-3">
-                      <Form.Label>Marca</Form.Label>
-                      <Form.Control
-                        type="text"
-                        name="custodia.marca"
-                        value={bitacora.custodia?.marca || ""}
-                        onChange={handleEditChange}
-                      />
-                    </Form.Group>
-                  </div>
+                  <Form.Group className="mb-3">
+                    <Form.Label>Teléfono Custodio 2</Form.Label>
+                    <Form.Control
+                      type="text"
+                      name="custodia.custodio2_telefono"
+                      value={bitacora.custodia?.custodio2_telefono || ""}
+                      onChange={handleEditChange}
+                    />
+                  </Form.Group>
                 </div>
-              </>
-            )}
-          </ModalTemplate>
-        )}
+
+                <div className="col-md-6">
+                  <Form.Group className="mb-3">
+                    <Form.Label>Placa</Form.Label>
+                    <Form.Control
+                      type="text"
+                      name="custodia.placa"
+                      value={bitacora.custodia?.placa || ""}
+                      onChange={handleEditChange}
+                    />
+                  </Form.Group>
+
+                  <Form.Group className="mb-3">
+                    <Form.Label>Modelo</Form.Label>
+                    <Form.Control
+                      type="text"
+                      name="custodia.modelo"
+                      value={bitacora.custodia?.modelo || ""}
+                      onChange={handleEditChange}
+                    />
+                  </Form.Group>
+
+                  <Form.Group className="mb-3">
+                    <Form.Label>Color</Form.Label>
+                    <Form.Control
+                      type="text"
+                      name="custodia.color"
+                      value={bitacora.custodia?.color || ""}
+                      onChange={handleEditChange}
+                    />
+                  </Form.Group>
+
+                  <Form.Group className="mb-3">
+                    <Form.Label>Marca</Form.Label>
+                    <Form.Control
+                      type="text"
+                      name="custodia.marca"
+                      value={bitacora.custodia?.marca || ""}
+                      onChange={handleEditChange}
+                    />
+                  </Form.Group>
+                </div>
+              </div>
+            </>
+          )}
+        </ModalTemplate>
+      )}
 
       {/* EDIT TRANSPORTES */}
       {isEditTransporteModalVisible && editedTransporte && (
