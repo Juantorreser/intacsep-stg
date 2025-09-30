@@ -57,7 +57,7 @@ const BitacoraDetailPage = ({edited}) => {
     return phoneRegex.test(phone);
   };
 
-  const handleEditTransporte = () => {
+  const handleEditTransporte = async () => {
     const selected = selectedTransporte;
 
     console.log("handleEditTransporte called with selected transporte:", selected);
@@ -77,7 +77,7 @@ const BitacoraDetailPage = ({edited}) => {
     // Cargar operadores para la línea de transporte del transporte seleccionado
     if (selected.lineaTransporte) {
       console.log("Loading operadores for existing lineaTransporte:", selected.lineaTransporte);
-      fetchOperadores(selected.lineaTransporte);
+      await fetchOperadores(selected.lineaTransporte);
     } else {
       console.log("No lineaTransporte found in selected transporte");
       setOperadores([]);
@@ -608,20 +608,26 @@ const BitacoraDetailPage = ({edited}) => {
     }
   }, [editedTransporte?.lineaTransporte, isEditTransporteModalVisible]);
 
-  // useEffect to reset operador when lineaTransporte changes
+  // useEffect to handle operador validation when lineaTransporte changes
   useEffect(() => {
-    if (isEditTransporteModalVisible && editedTransporte?.lineaTransporte) {
-      // Reset operador when lineaTransporte changes (but not on initial load)
+    if (
+      isEditTransporteModalVisible &&
+      editedTransporte?.lineaTransporte &&
+      editedTransporte?.operador
+    ) {
+      // Check if current operador is still valid for the new lineaTransporte
       const currentOperador = editedTransporte.operador;
-      if (currentOperador) {
-        console.log("Resetting operador due to lineaTransporte change");
+      const isOperadorValid = operadores.some((op) => op.nombre === currentOperador);
+
+      if (!isOperadorValid) {
+        console.log("Current operador is not valid for the new lineaTransporte, resetting");
         setEditedTransporte((prev) => ({
           ...prev,
           operador: "",
         }));
       }
     }
-  }, [editedTransporte?.lineaTransporte, isEditTransporteModalVisible]);
+  }, [operadores, isEditTransporteModalVisible]);
 
   const token = import.meta.env.VITE_WIALON_TOKEN;
 
@@ -2350,19 +2356,65 @@ const BitacoraDetailPage = ({edited}) => {
                   <Form.Label>Línea de Transporte</Form.Label>
                   <Form.Select
                     value={editedTransporte.lineaTransporte || ""}
-                    onChange={(e) => {
+                    onChange={async (e) => {
                       const selectedLinea = e.target.value;
-                      console.log("LineaTransporte changed to:", selectedLinea);
-                      setEditedTransporte((prev) => ({
-                        ...prev,
-                        lineaTransporte: selectedLinea,
-                        operador: "", // Reset operador when lineaTransporte changes
-                      }));
+                      const currentOperador = editedTransporte.operador;
+                      console.log(
+                        "LineaTransporte changed to:",
+                        selectedLinea,
+                        "current operador:",
+                        currentOperador
+                      );
+
                       // Clear operadores immediately
                       setOperadores([]);
+
                       // Fetch operadores for the selected linea de transporte
                       if (selectedLinea && selectedLinea !== "all") {
-                        fetchOperadores(selectedLinea);
+                        try {
+                          let url = `${baseUrl}/operadores?lineaTransporte=${encodeURIComponent(
+                            selectedLinea
+                          )}`;
+                          const response = await fetch(url, {
+                            method: "GET",
+                            credentials: "include",
+                          });
+
+                          if (response.ok) {
+                            const newOperadores = await response.json();
+                            setOperadores(newOperadores);
+
+                            // Check if current operador is still valid for the new lineaTransporte
+                            const isOperadorValid = newOperadores.some(
+                              (op) => op.nombre === currentOperador
+                            );
+
+                            setEditedTransporte((prev) => ({
+                              ...prev,
+                              lineaTransporte: selectedLinea,
+                              operador: isOperadorValid ? currentOperador : "", // Keep operador if valid, otherwise reset
+                            }));
+                          } else {
+                            setEditedTransporte((prev) => ({
+                              ...prev,
+                              lineaTransporte: selectedLinea,
+                              operador: "", // Reset operador on error
+                            }));
+                          }
+                        } catch (error) {
+                          console.error("Error fetching operadores:", error);
+                          setEditedTransporte((prev) => ({
+                            ...prev,
+                            lineaTransporte: selectedLinea,
+                            operador: "", // Reset operador on error
+                          }));
+                        }
+                      } else {
+                        setEditedTransporte((prev) => ({
+                          ...prev,
+                          lineaTransporte: selectedLinea,
+                          operador: "", // Reset operador when no lineaTransporte selected
+                        }));
                       }
                     }}>
                     <option value="">Selecciona una línea de transporte</option>
