@@ -263,42 +263,79 @@ const BitacoraDetail = React.forwardRef(({bitacora, transporteId = ""}, ref) => 
                       {evento.transportes?.length > 1 ? "GPSs " : "GPSs"}
                     </p>
                     {evento.transportes
-                      ?.filter((t) => filteredTransportes.some((ft) => ft.id === t.id))
+                      ?.filter((t) =>
+                        transporteId ? filteredTransportes.some((ft) => ft.id === t.id) : true
+                      )
                       .map((t) => (
                         <Row>
                           <hr />
-                          <p className="text-center fst-italic fw-bold">
-                            GPS ID:{" "}
-                            {t.id.includes("_")
-                              ? `${t.id.split("_")[1]} - ${t.id.split("_")[2]}`
-                              : t.id}
-                          </p>
-                          <Col className="text-start">
-                            <p>
-                              <span className="fw-bold">Duración:</span>
-                              {` ${t.registro.duracion}`}
-                            </p>
-                            <p>
-                              <span className="fw-bold">Coordenadas:</span>
-                              {` ${t.registro.coordenadas}`}
-                            </p>
-                            <p>
-                              <span className="fw-bold">Velocidad:</span>
-                              {` ${t.registro.velocidad} km/h`}
-                            </p>
-                          </Col>
-                          <Col className="text-start">
-                            <p>
-                              <span className="fw-bold">Ubicación:</span>
-                              {` ${t.registro.ubicacion}`}
-                            </p>
+                          {(() => {
+                            // Construir la lista de entradas de GPS: usar todos los gpsData; si no hay, usar gpsUnits
+                            const entries =
+                              t.gpsData && t.gpsData.length > 0
+                                ? t.gpsData
+                                : t.gpsUnits && t.gpsUnits.length > 0
+                                ? t.gpsUnits.map((u) => ({
+                                    wialonId: u.wialonId,
+                                    name: u.name,
+                                    data: u.data,
+                                  }))
+                                : [{name: null, wialonId: null, data: null}];
 
-                            <p>
-                              <span className="fw-bold">Último posicionamiento:</span> <br />
-                              {` ${t.registro.ultimo_posicionamiento}`}
-                            </p>
-                          </Col>
-                          <hr />
+                            const buildFromRegistro = (reg = {}) => ({
+                              duracion: reg.duracion || "--",
+                              coordenadas: reg.coordenadas || "--",
+                              velocidad: reg.velocidad || "--",
+                              ubicacion: reg.ubicacion || "--",
+                              ultimo_posicionamiento: reg.ultimo_posicionamiento || "--",
+                            });
+
+                            return entries.map((g, idx) => {
+                              const header = `${g?.name ?? "NA"}${
+                                g?.wialonId ? ` (ID: ${g.wialonId})` : ""
+                              }`;
+                              const data =
+                                g?.data && g.data.coordenadas
+                                  ? g.data
+                                  : t.registro && t.registro.coordenadas
+                                  ? buildFromRegistro(t.registro)
+                                  : null;
+
+                              return (
+                                <div key={`${t.id}-${g?.wialonId || idx}`} className="w-100">
+                                  <p className="text-center fst-italic fw-bold">{header}</p>
+                                  <Col className="text-start">
+                                    <p>
+                                      <span className="fw-bold">Duración:</span>
+                                      {` ${data?.duracion ?? "--"}`}
+                                    </p>
+                                    <p>
+                                      <span className="fw-bold">Coordenadas:</span>
+                                      {` ${data?.coordenadas ?? "--"}`}
+                                    </p>
+                                    <p>
+                                      <span className="fw-bold">Velocidad:</span>
+                                      {` ${data?.velocidad ?? "--"}${
+                                        data?.velocidad ? " km/h" : ""
+                                      }`}
+                                    </p>
+                                  </Col>
+                                  <Col className="text-start">
+                                    <p>
+                                      <span className="fw-bold">Ubicación:</span>
+                                      {` ${data?.ubicacion ?? "--"}`}
+                                    </p>
+                                    <p>
+                                      <span className="fw-bold">Último posicionamiento:</span>{" "}
+                                      <br />
+                                      {` ${data?.ultimo_posicionamiento ?? "--"}`}
+                                    </p>
+                                  </Col>
+                                  {idx < entries.length - 1 && <hr />}
+                                </div>
+                              );
+                            });
+                          })()}
                         </Row>
                       ))}
 

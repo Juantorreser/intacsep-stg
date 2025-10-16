@@ -1924,7 +1924,47 @@ app.get("/bitacora/:id", async (req, res) => {
       return res.status(404).json({ message: "Bitacora not found" });
     }
 
-    res.json(bitacoras[0]);
+    // Normalize GPS formats in response so frontend can consume either structure
+    const response = bitacoras[0];
+
+    const buildDataFromRegistro = (registro = {}) => ({
+      duracion: registro.duracion || "",
+      velocidad: registro.velocidad || "",
+      coordenadas: registro.coordenadas || "",
+      ultimo_posicionamiento: registro.ultimo_posicionamiento || "",
+      ubicacion: registro.ubicacion || "",
+    });
+
+    if (Array.isArray(response.eventos)) {
+      response.eventos.forEach((evt) => {
+        if (Array.isArray(evt.transportes)) {
+          evt.transportes.forEach((t) => {
+            // Ensure arrays
+            if (!Array.isArray(t.gpsData)) t.gpsData = [];
+            if (!Array.isArray(t.gpsUnits)) t.gpsUnits = [];
+
+            const hasRegistroData = !!(t.registro && (t.registro.coordenadas || t.registro.ubicacion));
+
+            // If gpsData exists but without data, backfill from registro
+            if (t.gpsData.length > 0 && !t.gpsData[0].data && hasRegistroData) {
+              t.gpsData[0].data = buildDataFromRegistro(t.registro);
+            }
+
+            // If gpsData missing, create from registro when available
+            if (t.gpsData.length === 0 && hasRegistroData) {
+              const firstUnit = t.gpsUnits[0] || {};
+              t.gpsData.push({
+                wialonId: firstUnit.wialonId || undefined,
+                name: firstUnit.name || undefined,
+                data: buildDataFromRegistro(t.registro),
+              });
+            }
+          });
+        }
+      });
+    }
+
+    res.json(response);
   } catch (error) {
     console.error("Error fetching bitacora:", error);
     res.status(500).json({ message: "Server error" });
@@ -1958,13 +1998,48 @@ app.patch("/bitacora/:id/event", async (req, res) => {
       bitacora.markModified("eventos");
     }
 
-    // Create a new event
+    // Create a new event, normalizing gpsData for each transporte
+    const normalizedTransportes = (transportes || []).map((t) => {
+      const registro = t.registro || {};
+      const hasRegistro = !!(registro.coordenadas || registro.ubicacion);
+      const gpsUnits = Array.isArray(t.gpsUnits) ? t.gpsUnits : [];
+      let gpsData = Array.isArray(t.gpsData) ? t.gpsData : [];
+
+      // Ensure first gpsData has a data object when registro has values
+      if (hasRegistro) {
+        if (gpsData.length === 0) {
+          const firstUnit = gpsUnits[0] || {};
+          gpsData = [{
+            wialonId: firstUnit.wialonId || undefined,
+            name: firstUnit.name || undefined,
+            data: {
+              duracion: registro.duracion || "",
+              velocidad: registro.velocidad || "",
+              coordenadas: registro.coordenadas || "",
+              ultimo_posicionamiento: registro.ultimo_posicionamiento || "",
+              ubicacion: registro.ubicacion || "",
+            }
+          }];
+        } else if (!gpsData[0].data) {
+          gpsData[0].data = {
+            duracion: registro.duracion || "",
+            velocidad: registro.velocidad || "",
+            coordenadas: registro.coordenadas || "",
+            ultimo_posicionamiento: registro.ultimo_posicionamiento || "",
+            ubicacion: registro.ubicacion || "",
+          };
+        }
+      }
+
+      return { ...t, gpsUnits, gpsData };
+    });
+
     const newEvent = {
       nombre,
       descripcion,
       registrado_por,
       frecuencia,
-      transportes,
+      transportes: normalizedTransportes,
     };
 
     // Add the new event to the bitacora's eventos array
