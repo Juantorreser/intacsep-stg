@@ -2469,14 +2469,6 @@ const AnomaliasDashboardPage = () => {
                       {formatNumber(getTotalAnomalias())}
                     </div>
                     <div className="stat-label small">Total Anomalías</div>
-                    <div
-                      className="stat-percentage small"
-                      style={{color: "#8b5cf6", fontWeight: "600"}}>
-                      {bitacorasAnomalias.length > 0
-                        ? Math.round((getTotalAnomalias() / bitacorasAnomalias.length) * 100)
-                        : 0}
-                      %
-                    </div>
                   </div>
                 </div>
               </div>
