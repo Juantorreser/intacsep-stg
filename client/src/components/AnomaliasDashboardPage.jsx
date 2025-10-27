@@ -729,23 +729,151 @@ const AnomaliasDashboardPage = () => {
 
   // Helper function to calculate total anomalies based on applied filters
   // This function provides a unified way to calculate total anomalies across all sections
+  // FIXED: Now calculates from bitacorasAnomalias array (single source of truth)
   const getTotalAnomalias = useCallback(() => {
-    // Use eventCategoriesStats as the primary source since it's the same data used in the charts
-    const eventCategoriesStats = dashboardStats.eventCategoriesStats || [];
+    // Count every individual anomaly occurrence across all bitácoras
+    const totalAnomalias = bitacorasAnomalias.reduce((sum, bitacora) => {
+      // Each bitacora.categorias is an array of anomaly types
+      // Count each occurrence (e.g., if a bitacora has [ENA, FM], count as 2)
+      return sum + (bitacora.categorias?.length || 0);
+    }, 0);
 
-    // Calculate total from event categories (this should match the charts)
-    const totalFromEventCategories = eventCategoriesStats.reduce(
-      (sum, stat) => sum + stat.count,
-      0
-    );
+    return totalAnomalias;
+  }, [bitacorasAnomalias]);
 
-    return totalFromEventCategories;
-  }, [
-    dashboardStats.eventCategoriesStats,
-    appliedClientFilter,
-    appliedLineaTransporteFilter,
-    appliedOperadorFilter,
-  ]);
+  // Helper function to calculate event categories stats from bitacorasAnomalias
+  // FIXED: Calculate from table data for consistency
+  const getEventCategoriesFromTable = useCallback(() => {
+    const categoryCounts = {};
+    const colorMap = {
+      ENA: "#3b82f6", // Blue
+      FM: "#10b981", // Green
+      ONC: "#f59e0b", // Orange
+      DR: "#ef4444", // Red
+    };
+
+    // Count each anomaly occurrence across all bitácoras
+    bitacorasAnomalias.forEach((bitacora) => {
+      if (bitacora.categorias && Array.isArray(bitacora.categorias)) {
+        bitacora.categorias.forEach((categoria) => {
+          categoryCounts[categoria] = (categoryCounts[categoria] || 0) + 1;
+        });
+      }
+    });
+
+    // Convert to array format
+    return Object.entries(categoryCounts).map(([categoria, count]) => ({
+      categoria,
+      count,
+      color: colorMap[categoria] || "#6b7280",
+    }));
+  }, [bitacorasAnomalias]);
+
+  // Helper function to calculate transport lines stats from bitacorasAnomalias
+  // FIXED: Calculate from table data for consistency
+  const getLineasTransporteFromTable = useCallback(() => {
+    const lineaCounts = {};
+    const colors = [
+      "#3b82f6",
+      "#10b981",
+      "#f59e0b",
+      "#ef4444",
+      "#8b5cf6",
+      "#ec4899",
+      "#06b6d4",
+      "#84cc16",
+      "#f97316",
+      "#14b8a6",
+      "#a855f7",
+      "#f43f5e",
+      "#0ea5e9",
+      "#22c55e",
+      "#eab308",
+    ];
+
+    // Count anomalies per transport line
+    bitacorasAnomalias.forEach((bitacora) => {
+      const linea = bitacora.linea_transporte || "N/A";
+      const anomaliasCount = bitacora.categorias?.length || 0;
+
+      if (!lineaCounts[linea]) {
+        lineaCounts[linea] = {
+          lineaTransporte: linea,
+          anomalias: 0,
+          bitacoras: new Set(),
+        };
+      }
+
+      lineaCounts[linea].anomalias += anomaliasCount;
+      lineaCounts[linea].bitacoras.add(bitacora.bitacora_id);
+    });
+
+    // Convert to array format
+    return Object.values(lineaCounts).map((stat, index) => ({
+      lineaTransporte: stat.lineaTransporte,
+      anomalias: stat.anomalias,
+      bitacorasCount: stat.bitacoras.size,
+      color: colors[index % colors.length],
+      cliente: appliedClientFilter !== "all" ? appliedClientFilter : "all",
+    }));
+  }, [bitacorasAnomalias, appliedClientFilter]);
+
+  // Helper function to calculate operators stats from bitacorasAnomalias
+  // FIXED: Calculate from table data for consistency
+  const getOperadoresFromTable = useCallback(() => {
+    const operadorCounts = {};
+    const colors = [
+      "#3b82f6",
+      "#10b981",
+      "#f59e0b",
+      "#ef4444",
+      "#8b5cf6",
+      "#ec4899",
+      "#06b6d4",
+      "#84cc16",
+      "#f97316",
+      "#14b8a6",
+      "#a855f7",
+      "#f43f5e",
+      "#0ea5e9",
+      "#22c55e",
+      "#eab308",
+    ];
+
+    // Count anomalies per operator
+    bitacorasAnomalias.forEach((bitacora) => {
+      // Handle multiple operators (comma-separated)
+      const operadores = bitacora.operador
+        ? bitacora.operador.split(",").map((op) => op.trim())
+        : ["N/A"];
+
+      operadores.forEach((operador) => {
+        const anomaliasCount = bitacora.categorias?.length || 0;
+
+        if (!operadorCounts[operador]) {
+          operadorCounts[operador] = {
+            operador: operador,
+            anomalias: 0,
+            bitacoras: new Set(),
+          };
+        }
+
+        operadorCounts[operador].anomalias += anomaliasCount;
+        operadorCounts[operador].bitacoras.add(bitacora.bitacora_id);
+      });
+    });
+
+    // Convert to array format
+    return Object.values(operadorCounts).map((stat, index) => ({
+      operador: stat.operador,
+      anomalias: stat.anomalias,
+      bitacorasCount: stat.bitacoras.size,
+      color: colors[index % colors.length],
+      cliente: appliedClientFilter !== "all" ? appliedClientFilter : "all",
+      lineaTransporte:
+        appliedLineaTransporteFilter !== "all" ? appliedLineaTransporteFilter : "all",
+    }));
+  }, [bitacorasAnomalias, appliedClientFilter, appliedLineaTransporteFilter]);
 
   // Pagination for filtered data
   const paginatedData = useMemo(() => {
@@ -783,7 +911,8 @@ const AnomaliasDashboardPage = () => {
 
   // Render transport lines anomalies pie chart
   const renderLineasTransportePieChart = () => {
-    const lineasTransporteStats = dashboardStats.lineasTransporteStats || [];
+    // FIXED: Use table data instead of backend stats
+    const lineasTransporteStats = getLineasTransporteFromTable();
 
     // Debug logging
     if (lineasTransporteStats.length > 0) {
@@ -976,7 +1105,8 @@ const AnomaliasDashboardPage = () => {
 
   // Render operators anomalies pie chart
   const renderOperadoresPieChart = () => {
-    const operadoresStats = dashboardStats.operadoresStats || [];
+    // FIXED: Use table data instead of backend stats
+    const operadoresStats = getOperadoresFromTable();
 
     if (operadoresStats.length === 0) {
       return (
@@ -1175,7 +1305,8 @@ const AnomaliasDashboardPage = () => {
 
   // Render transport lines anomalies bar chart
   const renderLineasTransporteBarChart = () => {
-    const lineasTransporteStats = dashboardStats.lineasTransporteStats || [];
+    // FIXED: Use table data instead of backend stats
+    const lineasTransporteStats = getLineasTransporteFromTable();
 
     if (lineasTransporteStats.length === 0) {
       return (
@@ -1330,7 +1461,8 @@ const AnomaliasDashboardPage = () => {
 
   // Render operators anomalies bar chart
   const renderOperadoresBarChart = () => {
-    const operadoresStats = dashboardStats.operadoresStats || [];
+    // FIXED: Use table data instead of backend stats
+    const operadoresStats = getOperadoresFromTable();
 
     if (operadoresStats.length === 0) {
       return (
@@ -1508,7 +1640,8 @@ const AnomaliasDashboardPage = () => {
 
   // Render event categories bar chart
   const renderEventCategoriesBarChart = () => {
-    const eventCategoriesStatsData = dashboardStats.eventCategoriesStats || [];
+    // FIXED: Use table data instead of backend stats
+    const eventCategoriesStatsData = getEventCategoriesFromTable();
 
     if (eventCategoriesStatsData.length === 0) {
       return (
@@ -1585,7 +1718,8 @@ const AnomaliasDashboardPage = () => {
 
   // Render event categories pie chart
   const renderEventCategoriesPieChart = () => {
-    const eventCategoriesStatsData = dashboardStats.eventCategoriesStats || [];
+    // FIXED: Use table data instead of backend stats
+    const eventCategoriesStatsData = getEventCategoriesFromTable();
 
     if (eventCategoriesStatsData.length === 0) {
       return (
@@ -2307,7 +2441,7 @@ const AnomaliasDashboardPage = () => {
                   </div>
                   <div className="stat-content">
                     <div className="stat-value fs-4 fs-md-3">
-                      {formatNumber(dashboardStats.totalBitacorasConAnomalias || 0)}
+                      {formatNumber(bitacorasAnomalias.length)}
                     </div>
                     <div className="stat-label small">Bitácoras con Anomalías</div>
                     <div
@@ -2315,9 +2449,7 @@ const AnomaliasDashboardPage = () => {
                       style={{color: "#f59e0b", fontWeight: "600"}}>
                       {dashboardStats.totalBitacoras > 0
                         ? Math.round(
-                            ((dashboardStats.totalBitacorasConAnomalias || 0) /
-                              dashboardStats.totalBitacoras) *
-                              100
+                            (bitacorasAnomalias.length / dashboardStats.totalBitacoras) * 100
                           )
                         : 0}
                       %
@@ -2340,12 +2472,8 @@ const AnomaliasDashboardPage = () => {
                     <div
                       className="stat-percentage small"
                       style={{color: "#8b5cf6", fontWeight: "600"}}>
-                      {dashboardStats.totalBitacorasConAnomalias > 0
-                        ? Math.round(
-                            (getTotalAnomalias() /
-                              (dashboardStats.totalBitacorasConAnomalias || 1)) *
-                              100
-                          )
+                      {bitacorasAnomalias.length > 0
+                        ? Math.round((getTotalAnomalias() / bitacorasAnomalias.length) * 100)
                         : 0}
                       %
                     </div>

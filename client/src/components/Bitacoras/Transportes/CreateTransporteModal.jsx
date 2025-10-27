@@ -47,10 +47,6 @@ const CreateTransporteModal = ({
   const [roleData, setRoleData] = useState(null);
   const [phoneError, setPhoneError] = useState("");
 
-  // Refs for Select2 elements
-  const lineaTransporteSelectRef = useRef(null);
-  const operadorSelectRef = useRef(null);
-
   const {user, verifyToken, setUser} = useAuth();
   const token = import.meta.env.VITE_WIALON_TOKEN;
   const baseUrl = import.meta.env.VITE_BASE_URL;
@@ -93,140 +89,6 @@ const CreateTransporteModal = ({
     // fetchAllUnits();
     console.log("Cached token:", localStorage.getItem("wialon_token"));
   }, [bitacora]);
-
-  // Initialize Select2 for create transporte modal dropdowns
-  useEffect(() => {
-    if (window.$ && window.$.fn.select2 && show) {
-      const initializeCreateTransporteSelect2 = () => {
-        console.log("Initializing Create Transporte Select2...");
-
-        // Destroy existing Select2 instances first
-        [lineaTransporteSelectRef, operadorSelectRef].forEach((ref) => {
-          if (ref.current && window.$(ref.current).hasClass("select2-hidden-accessible")) {
-            window.$(ref.current).select2("destroy");
-          }
-        });
-
-        // Linea Transporte filter
-        if (
-          lineaTransporteSelectRef.current &&
-          lineaTransporteSelectRef.current.offsetParent !== null
-        ) {
-          window
-            .$(lineaTransporteSelectRef.current)
-            .select2({
-              placeholder: "Selecciona una línea de transporte",
-              allowClear: true,
-              width: "100%",
-              language: {
-                noResults: function () {
-                  return "No se encontraron resultados";
-                },
-                searching: function () {
-                  return "Buscando...";
-                },
-              },
-            })
-            .val(transporteData.lineaTransporte || "")
-            .trigger("change")
-            .off("change") // Remove any existing handlers
-            .on("change", function (e) {
-              const selectedLinea = e.target.value;
-              console.log("LineaTransporte changed via Select2:", selectedLinea);
-
-              // Update state without triggering re-render of this effect
-              setTransporteData((prev) => ({
-                ...prev,
-                lineaTransporte: selectedLinea,
-                operador: "", // Reset operador when lineaTransporte changes
-              }));
-
-              // Clear operadores immediately
-              setOperadores([]);
-
-              // Fetch operadores for the selected linea de transporte
-              if (selectedLinea && selectedLinea !== "all") {
-                console.log("Fetching operadores for:", selectedLinea);
-                fetchOperadores(selectedLinea);
-              }
-            });
-        }
-
-        // Operador filter - only initialize if we have operadores
-        if (
-          operadorSelectRef.current &&
-          operadorSelectRef.current.offsetParent !== null &&
-          operadores.length > 0
-        ) {
-          window
-            .$(operadorSelectRef.current)
-            .select2({
-              placeholder: transporteData.lineaTransporte
-                ? "Selecciona un operador"
-                : "Selecciona una línea de transporte primero",
-              allowClear: true,
-              width: "100%",
-              language: {
-                noResults: function () {
-                  return "No se encontraron resultados";
-                },
-                searching: function () {
-                  return "Buscando...";
-                },
-              },
-            })
-            .val(transporteData.operador || "")
-            .trigger("change")
-            .off("change") // Remove any existing handlers
-            .on("change", function (e) {
-              const selectedOperador = e.target.value;
-              console.log("Operador changed via Select2:", selectedOperador);
-
-              // Update state directly
-              setTransporteData((prev) => ({
-                ...prev,
-                operador: selectedOperador,
-              }));
-            });
-        }
-      };
-
-      // Initialize after a delay to ensure DOM is ready
-      setTimeout(initializeCreateTransporteSelect2, 500);
-    }
-
-    // Cleanup function to destroy Select2 instances
-    return () => {
-      if (window.$ && window.$.fn.select2) {
-        [lineaTransporteSelectRef, operadorSelectRef].forEach((ref) => {
-          if (ref.current && window.$(ref.current).hasClass("select2-hidden-accessible")) {
-            window.$(ref.current).select2("destroy");
-          }
-        });
-      }
-    };
-  }, [show]); // Only depend on show to avoid infinite re-renders
-
-  // Update operador Select2 when operadores change
-  useEffect(() => {
-    if (window.$ && window.$.fn.select2 && operadorSelectRef.current && operadores.length > 0) {
-      const $operadorSelect = window.$(operadorSelectRef.current);
-
-      // Only update if Select2 is already initialized
-      if ($operadorSelect.hasClass("select2-hidden-accessible")) {
-        // Update the options without re-initializing
-        const currentValue = $operadorSelect.val();
-        $operadorSelect.trigger("change");
-
-        // If current value is not in new options, clear it
-        const validOptions = operadores.map((op) => op.nombre);
-        if (currentValue && !validOptions.includes(currentValue)) {
-          $operadorSelect.val("").trigger("change");
-          setTransporteData((prev) => ({...prev, operador: ""}));
-        }
-      }
-    }
-  }, [operadores]);
 
   // Fetch lineas de transporte filtered by client
   const fetchLineasTransporte = async (cliente) => {
@@ -372,11 +234,6 @@ const CreateTransporteModal = ({
     const {name, value} = e.target;
     const [section, field] = name.split(".");
 
-    // Skip if this is a Select2 element (they handle their own state)
-    if (name === "lineaTransporte" || name === "operador") {
-      return;
-    }
-
     // Validar teléfono si el campo es 'telefono'
     if (name === "telefono") {
       if (value && !validatePhoneNumber(value)) {
@@ -407,45 +264,10 @@ const CreateTransporteModal = ({
   const handleSubmitTransporte = (e) => {
     e.preventDefault();
 
-    // Obtener valores actuales de Select2 antes de enviar
-    let currentLineaTransporte = transporteData.lineaTransporte;
-    let currentOperador = transporteData.operador;
-
-    if (window.$ && window.$.fn.select2) {
-      // Obtener valor actual de línea de transporte desde Select2
-      if (
-        lineaTransporteSelectRef.current &&
-        window.$(lineaTransporteSelectRef.current).hasClass("select2-hidden-accessible")
-      ) {
-        const lineaValue = window.$(lineaTransporteSelectRef.current).val();
-        if (lineaValue) {
-          currentLineaTransporte = lineaValue;
-        }
-      }
-
-      // Obtener valor actual de operador desde Select2
-      if (
-        operadorSelectRef.current &&
-        window.$(operadorSelectRef.current).hasClass("select2-hidden-accessible")
-      ) {
-        const operadorValue = window.$(operadorSelectRef.current).val();
-        if (operadorValue) {
-          currentOperador = operadorValue;
-        }
-      }
-    }
-
-    // Actualizar el estado con los valores actuales de Select2
-    const finalTransporteData = {
-      ...transporteData,
-      lineaTransporte: currentLineaTransporte,
-      operador: currentOperador,
-    };
-
-    console.log("Datos finales del transporte:", finalTransporteData);
+    console.log("Datos finales del transporte:", transporteData);
 
     // Validar teléfono antes de enviar
-    if (finalTransporteData.telefono && !validatePhoneNumber(finalTransporteData.telefono)) {
+    if (transporteData.telefono && !validatePhoneNumber(transporteData.telefono)) {
       setPhoneError("El número de teléfono debe tener exactamente 10 dígitos seguidos");
       return;
     }
@@ -472,7 +294,7 @@ const CreateTransporteModal = ({
     // Crear el transporte con múltiples GPS
     const newTransporte = {
       id: newId,
-      ...finalTransporteData,
+      ...transporteData,
       gpsUnits: selectedGpsUnits.map((unit) => ({
         wialonId: unit.id,
         name: unit.name,
@@ -499,375 +321,315 @@ const CreateTransporteModal = ({
   };
 
   return (
-    <>
-      <style>{`
-        /* Hide native select dropdowns when Select2 is initialized */
-        .select2-hidden-accessible {
-          position: absolute !important;
-          width: 1px !important;
-          height: 1px !important;
-          padding: 0 !important;
-          margin: -1px !important;
-          overflow: hidden !important;
-          clip: rect(0, 0, 0, 0) !important;
-          white-space: nowrap !important;
-          border: 0 !important;
-        }
-        
-        .select2-container--default .select2-selection--single {
-          height: 38px;
-          border: 1px solid #ced4da;
-          border-radius: 0.375rem;
-          background-color: #fff;
-        }
-        .select2-container--default .select2-selection--single .select2-selection__rendered {
-          line-height: 36px;
-          padding-left: 12px;
-          color: #495057;
-        }
-        .select2-container--default .select2-selection--single .select2-selection__arrow {
-          height: 36px;
-          right: 10px;
-        }
-        .select2-container--default.select2-container--focus .select2-selection--single {
-          border-color: #86b7fe;
-          outline: 0;
-          box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
-        }
-        .select2-dropdown {
-          border: 1px solid #ced4da;
-          border-radius: 0.375rem;
-          box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
-        }
-        .select2-container--default .select2-search--dropdown .select2-search__field {
-          border: 1px solid #ced4da;
-          border-radius: 0.375rem;
-          padding: 8px 12px;
-        }
-        .select2-container--default .select2-results__option--highlighted[aria-selected] {
-          background-color: #0d6efd !important;
-          color: #ffffff !important;
-        }
-        .select2-container--default .select2-results__option[aria-selected=true] {
-          background-color: #e9ecef !important;
-          color: #495057 !important;
-        }
-        .select2-container--default .select2-results__option {
-          color: #495057 !important;
-          background-color: #ffffff !important;
-        }
-        .select2-container--default .select2-results__option:hover {
-          background-color: #f8f9fa !important;
-          color: #495057 !important;
-        }
-        .select2-container--default .select2-results__option:focus {
-          background-color: #0d6efd !important;
-          color: #ffffff !important;
-        }
-        .select2-dropdown {
-          z-index: 99999 !important;
-        }
-        .modal .select2-dropdown {
-          z-index: 99999 !important;
-        }
-        .select2-container {
-          z-index: 99999 !important;
-        }
-      `}</style>
-      <ModalTemplate
-        show={show}
-        title="Crear Nuevo Transporte"
-        onClose={handleClose}
-        onSubmit={handleSubmitTransporte}>
-        <Tabs defaultActiveKey="gps" className="mb-3">
-          {roleData?.gps_id?.create && (
-            <Tab eventKey="gps" title="GPS ID">
+    <ModalTemplate
+      show={show}
+      title="Crear Nuevo Transporte"
+      onClose={handleClose}
+      onSubmit={handleSubmitTransporte}>
+      <Tabs defaultActiveKey="gps" className="mb-3">
+        {roleData?.gps_id?.create && (
+          <Tab eventKey="gps" title="GPS ID">
+            <Form.Group className="mb-3">
+              <Form.Label>Método de ID</Form.Label>
+              <div>
+                <Form.Check
+                  type="radio"
+                  label="Manual (ID vacío)"
+                  name="idMethod"
+                  value="manual"
+                  checked={idMethod === "manual"}
+                  onChange={() => setIdMethod("manual")}
+                />
+                <Form.Check
+                  type="radio"
+                  label="Automático"
+                  name="idMethod"
+                  value="automatic"
+                  checked={idMethod === "automatic"}
+                  onChange={() => setIdMethod("automatic")}
+                />
+                <Form.Check
+                  type="radio"
+                  label="GPS ID"
+                  name="idMethod"
+                  value="wialon"
+                  checked={idMethod === "wialon"}
+                  onChange={() => setIdMethod("wialon")}
+                />
+              </div>
+            </Form.Group>
+
+            {idMethod === "wialon" && (
               <Form.Group className="mb-3">
-                <Form.Label>Método de ID</Form.Label>
-                <div>
-                  <Form.Check
-                    type="radio"
-                    label="Manual (ID vacío)"
-                    name="idMethod"
-                    value="manual"
-                    checked={idMethod === "manual"}
-                    onChange={() => setIdMethod("manual")}
-                  />
-                  <Form.Check
-                    type="radio"
-                    label="Automático"
-                    name="idMethod"
-                    value="automatic"
-                    checked={idMethod === "automatic"}
-                    onChange={() => setIdMethod("automatic")}
-                  />
-                  <Form.Check
-                    type="radio"
-                    label="GPS ID"
-                    name="idMethod"
-                    value="wialon"
-                    checked={idMethod === "wialon"}
-                    onChange={() => setIdMethod("wialon")}
-                  />
-                </div>
-              </Form.Group>
+                <Form.Label>Seleccionar unidades Wialon (múltiples)</Form.Label>
 
-              {idMethod === "wialon" && (
-                <Form.Group className="mb-3">
-                  <Form.Label>Seleccionar unidades Wialon (múltiples)</Form.Label>
-
-                  {/* Barra de búsqueda */}
-                  <div className="mb-3">
-                    <div className="input-group">
-                      <span className="input-group-text">
-                        <i className="fa fa-search"></i>
-                      </span>
-                      <input
-                        type="text"
-                        className="form-control"
-                        placeholder="Buscar por nombre o ID..."
-                        value={gpsSearchTerm}
-                        onChange={(e) => setGpsSearchTerm(e.target.value)}
-                      />
-                      {gpsSearchTerm && (
-                        <button
-                          className="btn btn-outline-secondary"
-                          type="button"
-                          onClick={() => setGpsSearchTerm("")}>
-                          <i className="fa fa-times"></i>
-                        </button>
-                      )}
-                    </div>
+                {/* Barra de búsqueda */}
+                <div className="mb-3">
+                  <div className="input-group">
+                    <span className="input-group-text">
+                      <i className="fa fa-search"></i>
+                    </span>
+                    <input
+                      type="text"
+                      className="form-control"
+                      placeholder="Buscar por nombre o ID..."
+                      value={gpsSearchTerm}
+                      onChange={(e) => setGpsSearchTerm(e.target.value)}
+                    />
+                    {gpsSearchTerm && (
+                      <button
+                        className="btn btn-outline-secondary"
+                        type="button"
+                        onClick={() => setGpsSearchTerm("")}>
+                        <i className="fa fa-times"></i>
+                      </button>
+                    )}
                   </div>
+                </div>
 
-                  {/* Controles de selección */}
-                  {filteredGpsUnits.length > 0 && (
-                    <div className="mb-2 d-flex justify-content-between align-items-center">
+                {/* Controles de selección */}
+                {filteredGpsUnits.length > 0 && (
+                  <div className="mb-2 d-flex justify-content-between align-items-center">
+                    <small className="text-muted">{filteredGpsUnits.length} GPS encontrados</small>
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-outline-primary"
+                      onClick={handleSelectAllFiltered}>
+                      {filteredGpsUnits.every((unit) =>
+                        selectedGpsUnits.some((selected) => selected.id === unit.id)
+                      )
+                        ? "Deseleccionar todos"
+                        : "Seleccionar todos"}
+                    </button>
+                  </div>
+                )}
+
+                {/* Lista de GPS con mejor diseño */}
+                <div
+                  className="gps-units-selection"
+                  style={{
+                    maxHeight: "300px",
+                    overflowY: "auto",
+                    border: "1px solid #dee2e6",
+                    borderRadius: "0.375rem",
+                    padding: "0",
+                  }}>
+                  {units.length === 0 ? (
+                    <div className="p-3 text-muted text-center">
+                      <i className="fa fa-spinner fa-spin me-2"></i>
+                      Cargando unidades...
+                    </div>
+                  ) : filteredGpsUnits.length === 0 ? (
+                    <div className="p-3 text-muted text-center">
+                      <i className="fa fa-search me-2"></i>
+                      No se encontraron GPS con "{gpsSearchTerm}"
+                    </div>
+                  ) : (
+                    <div className="list-group list-group-flush">
+                      {filteredGpsUnits.map((unit) => {
+                        const isSelected = selectedGpsUnits.some((u) => u.id === unit.id);
+                        return (
+                          <div
+                            key={unit.id}
+                            className={`list-group-item list-group-item-action d-flex align-items-center ${
+                              isSelected ? "active" : ""
+                            }`}
+                            style={{cursor: "pointer", border: "none"}}
+                            onClick={() => handleGpsUnitToggle(unit)}>
+                            <div className="form-check me-3">
+                              <input
+                                className="form-check-input"
+                                type="checkbox"
+                                checked={isSelected}
+                                onChange={() => handleGpsUnitToggle(unit)}
+                                onClick={(e) => e.stopPropagation()}
+                              />
+                            </div>
+                            <div className="flex-grow-1">
+                              <div className="fw-semibold">{unit.name}</div>
+                              <small className="text-muted">ID: {unit.id}</small>
+                            </div>
+                            {isSelected && (
+                              <div className="text-success">
+                                <i className="fa fa-check-circle"></i>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                {/* Resumen de selección */}
+                {selectedGpsUnits.length > 0 && (
+                  <div className="mt-3 p-2 bg-light rounded">
+                    <div className="d-flex justify-content-between align-items-center">
                       <small className="text-muted">
-                        {filteredGpsUnits.length} GPS encontrados
+                        <strong>{selectedGpsUnits.length}</strong> GPS seleccionados
                       </small>
                       <button
                         type="button"
-                        className="btn btn-sm btn-outline-primary"
-                        onClick={handleSelectAllFiltered}>
-                        {filteredGpsUnits.every((unit) =>
-                          selectedGpsUnits.some((selected) => selected.id === unit.id)
-                        )
-                          ? "Deseleccionar todos"
-                          : "Seleccionar todos"}
+                        className="btn btn-sm btn-outline-danger"
+                        onClick={() => setSelectedGpsUnits([])}>
+                        Limpiar selección
                       </button>
                     </div>
-                  )}
-
-                  {/* Lista de GPS con mejor diseño */}
-                  <div
-                    className="gps-units-selection"
-                    style={{
-                      maxHeight: "300px",
-                      overflowY: "auto",
-                      border: "1px solid #dee2e6",
-                      borderRadius: "0.375rem",
-                      padding: "0",
-                    }}>
-                    {units.length === 0 ? (
-                      <div className="p-3 text-muted text-center">
-                        <i className="fa fa-spinner fa-spin me-2"></i>
-                        Cargando unidades...
-                      </div>
-                    ) : filteredGpsUnits.length === 0 ? (
-                      <div className="p-3 text-muted text-center">
-                        <i className="fa fa-search me-2"></i>
-                        No se encontraron GPS con "{gpsSearchTerm}"
-                      </div>
-                    ) : (
-                      <div className="list-group list-group-flush">
-                        {filteredGpsUnits.map((unit) => {
-                          const isSelected = selectedGpsUnits.some((u) => u.id === unit.id);
-                          return (
-                            <div
-                              key={unit.id}
-                              className={`list-group-item list-group-item-action d-flex align-items-center ${
-                                isSelected ? "active" : ""
-                              }`}
-                              style={{cursor: "pointer", border: "none"}}
-                              onClick={() => handleGpsUnitToggle(unit)}>
-                              <div className="form-check me-3">
-                                <input
-                                  className="form-check-input"
-                                  type="checkbox"
-                                  checked={isSelected}
-                                  onChange={() => handleGpsUnitToggle(unit)}
-                                  onClick={(e) => e.stopPropagation()}
-                                />
-                              </div>
-                              <div className="flex-grow-1">
-                                <div className="fw-semibold">{unit.name}</div>
-                                <small className="text-muted">ID: {unit.id}</small>
-                              </div>
-                              {isSelected && (
-                                <div className="text-success">
-                                  <i className="fa fa-check-circle"></i>
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Resumen de selección */}
-                  {selectedGpsUnits.length > 0 && (
-                    <div className="mt-3 p-2 bg-light rounded">
-                      <div className="d-flex justify-content-between align-items-center">
-                        <small className="text-muted">
-                          <strong>{selectedGpsUnits.length}</strong> GPS seleccionados
-                        </small>
-                        <button
-                          type="button"
-                          className="btn btn-sm btn-outline-danger"
-                          onClick={() => setSelectedGpsUnits([])}>
-                          Limpiar selección
-                        </button>
-                      </div>
-                      <div className="mt-2">
-                        <div className="d-flex flex-wrap gap-1">
-                          {selectedGpsUnits.map((unit) => (
-                            <span
-                              key={unit.id}
-                              className="badge bg-primary"
-                              style={{fontSize: "0.75rem"}}>
-                              {unit.name}
-                              <button
-                                type="button"
-                                className="btn-close btn-close-white ms-1"
-                                style={{fontSize: "0.5rem"}}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleGpsUnitToggle(unit);
-                                }}></button>
-                            </span>
-                          ))}
-                        </div>
+                    <div className="mt-2">
+                      <div className="d-flex flex-wrap gap-1">
+                        {selectedGpsUnits.map((unit) => (
+                          <span
+                            key={unit.id}
+                            className="badge bg-primary"
+                            style={{fontSize: "0.75rem"}}>
+                            {unit.name}
+                            <button
+                              type="button"
+                              className="btn-close btn-close-white ms-1"
+                              style={{fontSize: "0.5rem"}}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleGpsUnitToggle(unit);
+                              }}></button>
+                          </span>
+                        ))}
                       </div>
                     </div>
-                  )}
-                </Form.Group>
-              )}
-
-              {(idMethod === "automatic" || idMethod === "manual") && (
-                <Form.Group className="mb-3">
-                  <Form.Label>ID generado</Form.Label>
-                  <Form.Control
-                    type="text"
-                    value={idMethod === "automatic" ? generateTransporteId() : "(ID en blanco)"}
-                    disabled
-                  />
-                  <Form.Text className="text-muted">
-                    Formato: T{String(transportes.length + 1).padStart(3, "0")}_
-                    {transporteData.tracto.placa || "N/A"}
-                  </Form.Text>
-                </Form.Group>
-              )}
-            </Tab>
-          )}
-
-          {roleData?.tracto?.create && (
-            <Tab eventKey="tracto" title="TRACTO">
-              <h5>Datos del Tracto</h5>
-              {["eco", "placa", "marca", "modelo", "color", "tipo"].map((field) => (
-                <Form.Group className="mb-3" key={field}>
-                  <Form.Label>{field.toUpperCase()}</Form.Label>
-                  <Form.Control
-                    type="text"
-                    name={`tracto.${field}`}
-                    value={transporteData.tracto[field]}
-                    onChange={handleChange}
-                    required={!!roleData?.tracto?.create}
-                  />
-                </Form.Group>
-              ))}
-            </Tab>
-          )}
-
-          {roleData?.remolque?.create && (
-            <Tab eventKey="remolque" title="REMOLQUE">
-              <h5>Datos del Remolque</h5>
-              {["eco", "placa", "color", "capacidad", "sello"].map((field) => (
-                <Form.Group className="mb-3" key={field}>
-                  <Form.Label>{field.toUpperCase()}</Form.Label>
-                  <Form.Control
-                    type="text"
-                    name={`remolque.${field}`}
-                    value={transporteData.remolque[field]}
-                    onChange={handleChange}
-                    required={!!roleData?.remolque?.create}
-                  />
-                </Form.Group>
-              ))}
-            </Tab>
-          )}
-
-          {roleData?.operador?.create && (
-            <Tab eventKey="operador" title="OPERADOR">
-              <h5>Datos del Operador</h5>
-              <Form.Group className="mb-3">
-                <Form.Label>Línea de Transporte</Form.Label>
-                <Form.Select
-                  ref={lineaTransporteSelectRef}
-                  name="lineaTransporte"
-                  value={transporteData.lineaTransporte}
-                  required={!!roleData?.operador?.create}>
-                  <option value="">Selecciona una línea de transporte</option>
-                  {lineasTransporte.map((linea) => (
-                    <option key={linea._id} value={linea.nombre}>
-                      {linea.nombre}
-                    </option>
-                  ))}
-                </Form.Select>
+                  </div>
+                )}
               </Form.Group>
+            )}
+
+            {(idMethod === "automatic" || idMethod === "manual") && (
               <Form.Group className="mb-3">
-                <Form.Label>Operador</Form.Label>
-                <Form.Select
-                  ref={operadorSelectRef}
-                  name="operador"
-                  value={transporteData.operador}
-                  required={!!roleData?.operador?.create}
-                  disabled={!transporteData.lineaTransporte}>
-                  <option value="">
-                    {transporteData.lineaTransporte
-                      ? "Selecciona un operador"
-                      : "Selecciona una línea de transporte primero"}
-                  </option>
-                  {operadores.map((operador) => (
-                    <option key={operador._id} value={operador.nombre}>
-                      {operador.nombre}
-                    </option>
-                  ))}
-                </Form.Select>
-              </Form.Group>
-              <Form.Group className="mb-3">
-                <Form.Label>Teléfono</Form.Label>
+                <Form.Label>ID generado</Form.Label>
                 <Form.Control
                   type="text"
-                  name="telefono"
-                  value={transporteData.telefono}
-                  onChange={handleChange}
-                  required={!!roleData?.operador?.create}
-                  isInvalid={!!phoneError}
+                  value={idMethod === "automatic" ? generateTransporteId() : "(ID en blanco)"}
+                  disabled
                 />
-                {phoneError && (
-                  <Form.Control.Feedback type="invalid">{phoneError}</Form.Control.Feedback>
-                )}
                 <Form.Text className="text-muted">
-                  Formato: 1234567890 (exactamente 10 dígitos seguidos)
+                  Formato: T{String(transportes.length + 1).padStart(3, "0")}_
+                  {transporteData.tracto.placa || "N/A"}
                 </Form.Text>
               </Form.Group>
-            </Tab>
-          )}
-        </Tabs>
-      </ModalTemplate>
-    </>
+            )}
+          </Tab>
+        )}
+
+        {roleData?.tracto?.create && (
+          <Tab eventKey="tracto" title="TRACTO">
+            <h5>Datos del Tracto</h5>
+            {["eco", "placa", "marca", "modelo", "color", "tipo"].map((field) => (
+              <Form.Group className="mb-3" key={field}>
+                <Form.Label>{field.toUpperCase()}</Form.Label>
+                <Form.Control
+                  type="text"
+                  name={`tracto.${field}`}
+                  value={transporteData.tracto[field]}
+                  onChange={handleChange}
+                  required={!!roleData?.tracto?.create}
+                />
+              </Form.Group>
+            ))}
+          </Tab>
+        )}
+
+        {roleData?.remolque?.create && (
+          <Tab eventKey="remolque" title="REMOLQUE">
+            <h5>Datos del Remolque</h5>
+            {["eco", "placa", "color", "capacidad", "sello"].map((field) => (
+              <Form.Group className="mb-3" key={field}>
+                <Form.Label>{field.toUpperCase()}</Form.Label>
+                <Form.Control
+                  type="text"
+                  name={`remolque.${field}`}
+                  value={transporteData.remolque[field]}
+                  onChange={handleChange}
+                  required={!!roleData?.remolque?.create}
+                />
+              </Form.Group>
+            ))}
+          </Tab>
+        )}
+
+        {roleData?.operador?.create && (
+          <Tab eventKey="operador" title="OPERADOR">
+            <h5>Datos del Operador</h5>
+            <Form.Group className="mb-3">
+              <Form.Label>Línea de Transporte</Form.Label>
+              <Form.Select
+                name="lineaTransporte"
+                value={transporteData.lineaTransporte}
+                onChange={async (e) => {
+                  const selectedLinea = e.target.value;
+
+                  // Update state
+                  setTransporteData((prev) => ({
+                    ...prev,
+                    lineaTransporte: selectedLinea,
+                    operador: "", // Reset operador when lineaTransporte changes
+                  }));
+
+                  // Clear operadores immediately
+                  setOperadores([]);
+
+                  // Fetch operadores for the selected linea de transporte
+                  if (selectedLinea && selectedLinea !== "all") {
+                    console.log("Fetching operadores for:", selectedLinea);
+                    fetchOperadores(selectedLinea);
+                  }
+                }}
+                required={!!roleData?.operador?.create}>
+                <option value="">Selecciona una línea de transporte</option>
+                {lineasTransporte.map((linea) => (
+                  <option key={linea._id} value={linea.nombre}>
+                    {linea.nombre}
+                  </option>
+                ))}
+              </Form.Select>
+            </Form.Group>
+            <Form.Group className="mb-3">
+              <Form.Label>Operador</Form.Label>
+              <Form.Select
+                name="operador"
+                value={transporteData.operador}
+                onChange={handleChange}
+                required={!!roleData?.operador?.create}
+                disabled={!transporteData.lineaTransporte}>
+                <option value="">
+                  {transporteData.lineaTransporte
+                    ? "Selecciona un operador"
+                    : "Selecciona una línea de transporte primero"}
+                </option>
+                {operadores.map((operador) => (
+                  <option key={operador._id} value={operador.nombre}>
+                    {operador.nombre}
+                  </option>
+                ))}
+              </Form.Select>
+            </Form.Group>
+            <Form.Group className="mb-3">
+              <Form.Label>Teléfono</Form.Label>
+              <Form.Control
+                type="text"
+                name="telefono"
+                value={transporteData.telefono}
+                onChange={handleChange}
+                required={!!roleData?.operador?.create}
+                isInvalid={!!phoneError}
+              />
+              {phoneError && (
+                <Form.Control.Feedback type="invalid">{phoneError}</Form.Control.Feedback>
+              )}
+              <Form.Text className="text-muted">
+                Formato: 1234567890 (exactamente 10 dígitos seguidos)
+              </Form.Text>
+            </Form.Group>
+          </Tab>
+        )}
+      </Tabs>
+    </ModalTemplate>
   );
 };
 

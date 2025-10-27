@@ -158,13 +158,54 @@ const BitacoraDetailPage = ({edited}) => {
     let updatedId = editedTransporte.id;
 
     if (idMethod === "automatic") {
-      const numericId = (transportes.length + 1).toString().padStart(3, "0");
-      const remolquePlaca = editedTransporte?.remolque?.placa || "N/A";
-      updatedId = `T${numericId}_${remolquePlaca}`;
+      // FIXED: Extract existing numeric ID from original ID, don't generate new one
+      // Original ID format: T001_PLACA or blank_timestamp
+      let numericId;
+
+      if (
+        editedTransporte.originalId?.startsWith("T") &&
+        editedTransporte.originalId.includes("_")
+      ) {
+        // Extract numeric part from existing ID (e.g., "001" from "T001_1243")
+        const match = editedTransporte.originalId.match(/^T(\d+)_/);
+        numericId = match ? match[1] : (transportes.length + 1).toString().padStart(3, "0");
+      } else if (
+        editedTransporte.originalId?.startsWith("blank_") ||
+        editedTransporte.originalId?.startsWith("0_")
+      ) {
+        // For blank or temporary IDs, generate new numeric ID
+        numericId = (transportes.length + 1).toString().padStart(3, "0");
+      } else {
+        // Fallback: use current length + 1
+        numericId = (transportes.length + 1).toString().padStart(3, "0");
+      }
+
+      const tractoPlaca = editedTransporte?.tracto?.placa || "N/A";
+      updatedId = `T${numericId}_${tractoPlaca}`;
     } else if (idMethod === "wialon" && selectedGpsUnits.length > 0) {
-      const numericId = (transportes.length + 1).toString().padStart(3, "0");
-      const remolquePlaca = editedTransporte?.remolque?.placa || "N/A";
-      updatedId = `T${numericId}_${remolquePlaca}`;
+      // FIXED: Extract existing numeric ID from original ID, don't generate new one
+      let numericId;
+
+      if (
+        editedTransporte.originalId?.startsWith("T") &&
+        editedTransporte.originalId.includes("_")
+      ) {
+        // Extract numeric part from existing ID (e.g., "001" from "T001_1243")
+        const match = editedTransporte.originalId.match(/^T(\d+)_/);
+        numericId = match ? match[1] : (transportes.length + 1).toString().padStart(3, "0");
+      } else if (
+        editedTransporte.originalId?.startsWith("blank_") ||
+        editedTransporte.originalId?.startsWith("0_")
+      ) {
+        // For blank or temporary IDs, generate new numeric ID
+        numericId = (transportes.length + 1).toString().padStart(3, "0");
+      } else {
+        // Fallback: use current length + 1
+        numericId = (transportes.length + 1).toString().padStart(3, "0");
+      }
+
+      const tractoPlaca = editedTransporte?.tracto?.placa || "N/A";
+      updatedId = `T${numericId}_${tractoPlaca}`;
     }
 
     const updatedEditedTransporte = {
@@ -2263,14 +2304,45 @@ const BitacoraDetailPage = ({edited}) => {
                         <Form.Label>ID generado</Form.Label>
                         <Form.Control
                           type="text"
-                          value={`T${(transportes.length + 1).toString().padStart(3, "0")}_${
-                            editedTransporte?.tracto?.placa || "N/A"
-                          }`}
+                          value={(() => {
+                            // FIXED: Extract and preserve existing numeric ID
+                            let numericId;
+                            if (
+                              editedTransporte?.originalId?.startsWith("T") &&
+                              editedTransporte.originalId.includes("_")
+                            ) {
+                              // Extract numeric part from existing ID (e.g., "003" from "T003_1243")
+                              const match = editedTransporte.originalId.match(/^T(\d+)_/);
+                              numericId = match
+                                ? match[1]
+                                : (transportes.length + 1).toString().padStart(3, "0");
+                            } else {
+                              // For new/blank transports, generate new numeric ID
+                              numericId = (transportes.length + 1).toString().padStart(3, "0");
+                            }
+                            return `T${numericId}_${editedTransporte?.tracto?.placa || "N/A"}`;
+                          })()}
                           disabled
                         />
                         <Form.Text className="text-muted">
-                          Formato: T{String(transportes.length + 1).padStart(3, "0")}_
-                          {editedTransporte?.tracto?.placa || "N/A"}
+                          {(() => {
+                            // Show the same logic in the hint
+                            let numericId;
+                            if (
+                              editedTransporte?.originalId?.startsWith("T") &&
+                              editedTransporte.originalId.includes("_")
+                            ) {
+                              const match = editedTransporte.originalId.match(/^T(\d+)_/);
+                              numericId = match
+                                ? match[1]
+                                : (transportes.length + 1).toString().padStart(3, "0");
+                            } else {
+                              numericId = (transportes.length + 1).toString().padStart(3, "0");
+                            }
+                            return `Formato: T${numericId}_${
+                              editedTransporte?.tracto?.placa || "N/A"
+                            }`;
+                          })()}
                         </Form.Text>
                       </Form.Group>
                     )}
