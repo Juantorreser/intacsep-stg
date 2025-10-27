@@ -2360,11 +2360,11 @@ const BitacoraDetailPage = ({edited}) => {
                     <Form.Control
                       type="text"
                       value={editedTransporte.tracto[field] || ""}
-                      disabled={isTransporteInEvento && field === "eco"}
+                      disabled={isTransporteInEvento && field === "placa"}
                       onChange={(e) => {
                         const value = e.target.value;
 
-                        if (isTransporteInEvento && field === "eco") return; // prevent change
+                        if (isTransporteInEvento && field === "placa") return; // prevent change
 
                         setEditedTransporte((prev) => {
                           const updatedTracto = {
