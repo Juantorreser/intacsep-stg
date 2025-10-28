@@ -1275,13 +1275,15 @@ const BitacoraDetailPage = ({edited}) => {
         destino: getObjectId(submitBitacora.destino),
         // Include custodia data if it exists
         ...(submitBitacora.custodia && {custodia: submitBitacora.custodia}),
+        // Include eventos array if it exists and has been modified
+        ...(submitBitacora.eventos && {eventos: submitBitacora.eventos}),
       };
 
       console.log("minimalUpdate before uppercase conversion:", minimalUpdate);
 
       // Convert text fields to uppercase before sending
       // Exclude certain fields that should remain as-is
-      const excludeFields = ["_id", "createdAt", "updatedAt", "origen", "destino"];
+      const excludeFields = ["_id", "createdAt", "updatedAt", "origen", "destino", "eventos"];
       const uppercaseUpdate = convertToUpperCase(minimalUpdate, excludeFields);
 
       console.log("uppercaseUpdate after conversion:", uppercaseUpdate);
