@@ -593,7 +593,7 @@ const BitacorasPage = () => {
     const closedIds = new Set();
 
     bitacora?.eventos?.forEach((evento) => {
-      if (evento.nombre === "Cierre de servicio" && evento.transportes) {
+      if (evento.nombre.toUpperCase() === "CIERRE DE SERVICIO" && evento.transportes) {
         evento.transportes.forEach((t) => closedIds.add(t.id));
       }
     });
