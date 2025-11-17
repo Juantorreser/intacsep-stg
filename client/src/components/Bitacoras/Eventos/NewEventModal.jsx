@@ -354,7 +354,7 @@ const NewEventModal = ({show, onClose, edited, eventTypes, onEventAdded}) => {
       )
     );
 
-    if (bitacora.status === "nueva" && newEvent.nombre === "Validación") {
+    if (bitacora.status === "nueva" && newEvent.nombre.toLowerCase() === "validación") {
       try {
         const response = await fetch(`${baseUrl}/bitacora/${id}/status`, {
           method: "PATCH",
@@ -380,7 +380,7 @@ const NewEventModal = ({show, onClose, edited, eventTypes, onEventAdded}) => {
       }
     }
 
-    if (bitacora.status === "validada" && newEvent.nombre === "Inicio de recorrido") {
+    if (bitacora.status === "validada" && newEvent.nombre.toLowerCase() === "inicio de recorrido") {
       try {
         const response = await fetch(`${baseUrl}/bitacora/${id}/status`, {
           method: "PATCH",
@@ -583,16 +583,16 @@ const NewEventModal = ({show, onClose, edited, eventTypes, onEventAdded}) => {
                 (() => {
                   // Filtrar eventos con nombre "Validación"
                   const eventosValidacion =
-                    bitacora?.eventos.filter((evento) => evento.nombre === "Validación") || [];
+                    bitacora?.eventos.filter((evento) => evento.nombre.toLowerCase() === "validación") || [];
 
                   // Filtrar eventos con nombre "Inicio de recorrido"
                   const eventosInicioRecorrido =
-                    bitacora?.eventos.filter((evento) => evento.nombre === "Inicio de recorrido") ||
+                    bitacora?.eventos.filter((evento) => evento.nombre.toLowerCase() === "inicio de recorrido") ||
                     [];
 
                   // Filtrar eventos con nombre "Arribo a destino"
                   const eventosArriboDestino =
-                    bitacora?.eventos.filter((evento) => evento.nombre === "Arribo a destino") ||
+                    bitacora?.eventos.filter((evento) => evento.nombre.toLowerCase() === "arribo a destino") ||
                     [];
 
                   // Extraer IDs de transportes en eventos "Validación"
@@ -641,12 +641,32 @@ const NewEventModal = ({show, onClose, edited, eventTypes, onEventAdded}) => {
                         ));
                     } else {
                       // Si todos los transportes están en "Validación" pero no en "Inicio de recorrido", mostrar solo "Inicio de recorrido"
-                      return <option value="Inicio de recorrido">Inicio de recorrido</option>;
+                      const inicioRecorridoEventType = eventTypes.find(
+                        (et) => et.evento.toLowerCase() === "inicio de recorrido"
+                      );
+                      if (inicioRecorridoEventType) {
+                        return (
+                          <option value={inicioRecorridoEventType.evento}>
+                            {inicioRecorridoEventType.evento}
+                          </option>
+                        );
+                      }
+                      return <option value="">Inicio de recorrido</option>;
                     }
                   }
 
                   // Si algún transporte no está en "Validación", solo permitir "Validación"
-                  return <option value="Validación">Validación</option>;
+                  const validacionEventType = eventTypes.find(
+                    (et) => et.evento.toLowerCase() === "validación"
+                  );
+                  if (validacionEventType) {
+                    return (
+                      <option value={validacionEventType.evento}>
+                        {validacionEventType.evento}
+                      </option>
+                    );
+                  }
+                  return <option value="">Validación</option>;
                 })()
               )}
             </select>
