@@ -1068,9 +1068,13 @@ const BitacorasPage = () => {
                             <option value="nueva">Nueva</option>
                             <option value="validada">Validada</option>
                             <option value="iniciada">Iniciada</option>
-                            <option value="cerrada">Cerrada</option>
+                            {roleData?.ver_bitacoras_cerradas !== false && (
+                              <>
+                                <option value="cerrada">Cerrada</option>
+                                <option value="cerrada (e)">Cerrada (e)</option>
+                              </>
+                            )}
                             <option value="finalizada">Finalizada</option>
-                            <option value="cerrada (e)">Cerrada (e)</option>
                           </select>
                         </th>
                         <th className="filter-cell d-none d-lg-table-cell" style={{width: "150px"}}>

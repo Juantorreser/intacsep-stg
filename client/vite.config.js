@@ -79,10 +79,13 @@ export default defineConfig(({ mode }) => ({
   },
   // Development server optimizations
   server: {
-    hmr: {
-      overlay: false,
-    },
+    host: true,
+    port: 3001,
+    allowedHosts: true, // allow everything
+  hmr: {
+    overlay: false,
   },
+},
   // Preview server optimizations
   preview: {
     port: 4173,

@@ -210,6 +210,8 @@ const allowedOrigins = [
   "https://stg-intacsep.onrender.com",
   "http://bitacora-intacsep.s3-website-us-east-1.amazonaws.com",
   "https://intacsep-stg.vercel.app",
+  "https://intacsep-dev.spotynet.com",
+  "http://intacsep-dev.spotynet.com",
 ];
 
 app.use(
@@ -593,6 +595,7 @@ app.get("/bitacoras", async (req, res) => {
     const sortField = req.query.sortField || "createdAt";
     const sortOrder = req.query.sortOrder || "desc";
     const allowedClients = req.query.allowed_clients; // Nuevo parámetro para filtrar por permisos de cliente
+    const hideCerradas = req.query.hideCerradas === "true";
 
     const query = {};
 
@@ -627,6 +630,12 @@ app.get("/bitacoras", async (req, res) => {
       const endDate = new Date(creationDateFilter);
       endDate.setDate(endDate.getDate() + 1);
       query.createdAt = { $gte: startDate, $lt: endDate };
+    }
+
+    // Hide cerradas if role doesn't have permission
+    if (hideCerradas) {
+      if (!query.$and) query.$and = [];
+      query.$and.push({ status: { $nin: ["cerrada", "cerrada (e)"] } });
     }
 
     // Build sort object

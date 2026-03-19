@@ -109,6 +109,11 @@ export const fetchBitacoras = async (
     params.append("allowed_clients", allowedClientNames.join(','));
   }
 
+  // Hide cerradas if role doesn't allow viewing them
+  if (userRoleData && userRoleData.ver_bitacoras_cerradas === false) {
+    params.append("hideCerradas", "true");
+  }
+
   // Add all filter parameters
   if (filters.statusFilter) params.append("statusFilter", filters.statusFilter);
   if (filters.creationDateFilter) params.append("creationDateFilter", filters.creationDateFilter);

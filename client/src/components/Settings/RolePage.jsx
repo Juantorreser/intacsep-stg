@@ -33,6 +33,7 @@ const RolePage = () => {
     // Permisos de acceso a clientes
     client_access: "all", // 'all' o 'specific'
     allowed_clients: [], // Array de clientes permitidos
+    ver_bitacoras_cerradas: true,
   });
 
   const [editRole, setEditRole] = useState(null);
@@ -61,6 +62,7 @@ const RolePage = () => {
     // Permisos de acceso a clientes
     client_access: "all", // 'all' o 'specific'
     allowed_clients: [], // Array de clientes permitidos
+    ver_bitacoras_cerradas: true,
   });
 
   const [showModal, setShowModal] = useState(false);
@@ -211,7 +213,7 @@ const RolePage = () => {
   // Handle role edit button click
   const handleEditClick = (role) => {
     setEditRole(role);
-    setEditRoleData({...role});
+    setEditRoleData({ver_bitacoras_cerradas: true, ...role});
     setIsEditing(true); // << ENABLE EDIT MODE
   };
 
@@ -407,7 +409,7 @@ const RolePage = () => {
                     onChange={(e) => {
                       const selected = roles.find((r) => r._id === e.target.value);
                       setEditRole(selected || null);
-                      setEditRoleData(JSON.parse(JSON.stringify(selected)));
+                      setEditRoleData({ver_bitacoras_cerradas: true, ...JSON.parse(JSON.stringify(selected))});
                     }}>
                     <option value="">-- Seleccione un rol --</option>
                     {roles.map((role) => (
@@ -534,6 +536,31 @@ const RolePage = () => {
                           )}
                         </tbody>
                       </table>
+                    </div>
+
+                    {/* Sección de Permisos adicionales */}
+                    <div className="mt-3 pt-3 border-top">
+                      <h6 className="mb-2 text-secondary">Permisos adicionales</h6>
+                      <div className="bg-light p-3 rounded">
+                        <div className="d-flex align-items-center">
+                          <input
+                            type="checkbox"
+                            id="ver_bitacoras_cerradas"
+                            className="form-check-input me-2"
+                            checked={editRoleData.ver_bitacoras_cerradas ?? true}
+                            disabled={!isEditing}
+                            onChange={(e) =>
+                              setEditRoleData((prev) => ({
+                                ...prev,
+                                ver_bitacoras_cerradas: e.target.checked,
+                              }))
+                            }
+                          />
+                          <label htmlFor="ver_bitacoras_cerradas" className="form-check-label fw-semibold">
+                            Ver bitácoras cerradas
+                          </label>
+                        </div>
+                      </div>
                     </div>
 
                     {/* Sección de Permisos de Clientes */}

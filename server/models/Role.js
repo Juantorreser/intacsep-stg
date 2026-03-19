@@ -33,6 +33,8 @@ const RoleSchema = new mongoose.Schema({
   auditoria_bitacora: permissionSchema,
   dashboard: permissionSchema,
 
+  ver_bitacoras_cerradas: { type: Boolean, default: true },
+
   // Sistema de permisos de clientes
   client_access: {
     type: String,
