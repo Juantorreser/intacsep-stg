@@ -298,6 +298,7 @@ const EventsPage = () => {
 
           {/* Tabla */}
           {roleData?.eventos?.read && (
+            <>
             <div className="settings-content">
               <div className="table-wrapper" style={{maxHeight: "60vh", overflowY: "auto"}}>
                 <div className="table-responsive">
@@ -355,10 +356,7 @@ const EventsPage = () => {
                 </div>
               </div>
             </div>
-          )}
-
-          {/* Pagination Controls */}
-          {roleData?.eventos?.read && filteredEvents.length > 0 && (
+            {filteredEvents.length > 0 && (
             <div className="pagination-container">
               <div className="pagination-content">
                 <div className="pagination-info">
@@ -423,6 +421,8 @@ const EventsPage = () => {
                 </div>
               </div>
             </div>
+            )}
+            </>
           )}
 
           {/* Modal: Crear */}

@@ -1,6 +1,8 @@
 import {useState, useEffect} from "react";
 import Sidebar from "../Sidebar";
 import ModalTemplate from "../ModalTemplate";
+import Toast from "../Toast";
+import {useToast} from "../../hooks/useToast";
 import {useAuth} from "../../context/AuthContext";
 import {useSidebar} from "../../context/SidebarContext";
 import {useNavigate} from "react-router-dom";
@@ -34,6 +36,8 @@ const RolePage = () => {
     client_access: "all", // 'all' o 'specific'
     allowed_clients: [], // Array de clientes permitidos
     ver_bitacoras_cerradas: true,
+    crear_draft_transporte: false,
+    aceptar_draft: false,
   });
 
   const [editRole, setEditRole] = useState(null);
@@ -63,6 +67,8 @@ const RolePage = () => {
     client_access: "all", // 'all' o 'specific'
     allowed_clients: [], // Array de clientes permitidos
     ver_bitacoras_cerradas: true,
+    crear_draft_transporte: false,
+    aceptar_draft: false,
   });
 
   const [showModal, setShowModal] = useState(false);
@@ -75,6 +81,7 @@ const RolePage = () => {
   const [roleData, setRoleData] = useState(null);
   const {isSidebarCollapsed} = useSidebar();
   const navigate = useNavigate();
+  const {toasts, showToast, removeToast} = useToast();
 
   useEffect(() => {
     const init = async () => {
@@ -160,11 +167,14 @@ const RolePage = () => {
       if (response.ok) {
         setRoles(roles.filter((role) => role._id !== id));
         setShowDeleteModal(false);
+        showToast("Rol eliminado correctamente", "success");
       } else {
         console.error("Failed to delete role:", response.statusText);
+        showToast("Error al eliminar el rol", "error");
       }
     } catch (e) {
       console.error("Error deleting role:", e);
+      showToast("Error al eliminar el rol", "error");
     }
   };
 
@@ -202,18 +212,21 @@ const RolePage = () => {
 
         setNewRole({name: "", ...resetPermissions});
         setShowModal(false);
+        showToast("Rol creado correctamente", "success");
       } else {
         console.error("Failed to create role:", response.statusText);
+        showToast("Error al crear el rol", "error");
       }
     } catch (e) {
       console.error("Error creating role:", e);
+      showToast("Error al crear el rol", "error");
     }
   };
 
   // Handle role edit button click
   const handleEditClick = (role) => {
     setEditRole(role);
-    setEditRoleData({ver_bitacoras_cerradas: true, ...role});
+    setEditRoleData({ver_bitacoras_cerradas: true, crear_draft_transporte: false, aceptar_draft: false, ...role});
     setIsEditing(true); // << ENABLE EDIT MODE
   };
 
@@ -230,36 +243,23 @@ const RolePage = () => {
       if (response.ok) {
         const updatedRole = await response.json();
         setRoles(roles.map((role) => (role._id === id ? updatedRole : role)));
-        setEditRole(null);
-
-        const resetPermissions = {};
-        Object.keys(editRoleData).forEach((key) => {
-          if (typeof editRoleData[key] === "object") {
-            resetPermissions[key] = {create: false, read: false, update: false, delete: false};
-          }
-        });
-
-        setEditRoleData({name: "", ...resetPermissions});
+        setEditRole(updatedRole);
+        setEditRoleData({ver_bitacoras_cerradas: true, ...updatedRole});
         setIsEditing(false);
+        showToast("Rol actualizado correctamente", "success");
       } else {
         console.error("Failed to update role:", response.statusText);
+        showToast("Error al actualizar el rol", "error");
       }
     } catch (e) {
       console.error("Error updating role:", e);
+      showToast("Error al actualizar el rol", "error");
     }
   };
 
   // Handle cancel edit
   const handleCancelEdit = () => {
-    const resetPermissions = {};
-    Object.keys(editRoleData).forEach((key) => {
-      if (typeof editRoleData[key] === "object") {
-        resetPermissions[key] = {create: false, read: false, update: false, delete: false};
-      }
-    });
-
-    setEditRole(null);
-    setEditRoleData({name: "", ...resetPermissions});
+    setEditRoleData({ver_bitacoras_cerradas: true, ...editRole});
     setIsEditing(false);
   };
 
@@ -374,6 +374,11 @@ const RolePage = () => {
             </td>
           );
         })}
+        {key !== "bitacoras" && (
+          <td className="text-center">
+            <span className="text-muted">—</span>
+          </td>
+        )}
       </tr>
     );
   };
@@ -460,10 +465,8 @@ const RolePage = () => {
 
               {editRole && (
                 <>
-                  <div className="table-wrapper">
-                    <div
-                      className="table-responsive"
-                      style={{maxHeight: "650px", overflowY: "auto"}}>
+                  <div className="table-wrapper" style={{minHeight: "60vh", maxHeight: "80vh", overflowY: "auto"}}>
+                    <div className="table-responsive">
                       <table className="table">
                         <thead
                           className="table-light"
@@ -486,20 +489,20 @@ const RolePage = () => {
                         <tbody>
                           {/* PANEL 1: Monitoreo */}
                           <tr className="table-group-divider fw-bold bg-secondary text-white">
-                            <td colSpan="5">Monitoreo</td>
+                            <td colSpan="6">Monitoreo</td>
                           </tr>
                           {["bitacoras"].map((key) =>
                             renderPermissionRow(key, editRoleData, setEditRoleData)
                           )}
                           <tr className="table-group-divider fw-bold bg-secondary text-white">
-                            <td colSpan="5">Monitoreo &gt; Bitácoras &gt; Datos Bitácora</td>
+                            <td colSpan="6">Monitoreo &gt; Bitácoras &gt; Datos Bitácora</td>
                           </tr>
                           {["bit_detalles", "bit_transportes", "bit_eventos"].map((key) =>
                             renderPermissionRow(key, editRoleData, setEditRoleData)
                           )}
 
                           <tr className="table-group-divider fw-bold bg-secondary text-white">
-                            <td colSpan="5">
+                            <td colSpan="6">
                               Monitoreo &gt; Bitácoras &gt; Datos Bitácora &gt; Datos Transportes
                             </td>
                           </tr>
@@ -509,7 +512,7 @@ const RolePage = () => {
 
                           {/* PANEL 2: Configuración > Catálogos */}
                           <tr className="table-group-divider fw-bold bg-secondary text-white">
-                            <td colSpan="5">Configuración &gt; Catálogos</td>
+                            <td colSpan="6">Configuración &gt; Catálogos</td>
                           </tr>
                           {[
                             "tipos_de_monitoreo",
@@ -521,7 +524,7 @@ const RolePage = () => {
 
                           {/* PANEL 2: Configuración > Sistema */}
                           <tr className="fw-bold bg-secondary text-white">
-                            <td colSpan="5">Configuración &gt; Sistema</td>
+                            <td colSpan="6">Configuración &gt; Sistema</td>
                           </tr>
                           {["usuarios", "roles", "inactividad"].map((key) =>
                             renderPermissionRow(key, editRoleData, setEditRoleData)
@@ -529,7 +532,7 @@ const RolePage = () => {
 
                           {/* PANEL 3: Auditoría */}
                           <tr className="table-group-divider fw-bold bg-secondary text-white">
-                            <td colSpan="5">Auditoría</td>
+                            <td colSpan="6">Auditoría</td>
                           </tr>
                           {["auditoria_bitacora"].map((key) =>
                             renderPermissionRow(key, editRoleData, setEditRoleData)
@@ -542,24 +545,27 @@ const RolePage = () => {
                     <div className="mt-3 pt-3 border-top">
                       <h6 className="mb-2 text-secondary">Permisos adicionales</h6>
                       <div className="bg-light p-3 rounded">
-                        <div className="d-flex align-items-center">
-                          <input
-                            type="checkbox"
-                            id="ver_bitacoras_cerradas"
-                            className="form-check-input me-2"
-                            checked={editRoleData.ver_bitacoras_cerradas ?? true}
-                            disabled={!isEditing}
-                            onChange={(e) =>
-                              setEditRoleData((prev) => ({
-                                ...prev,
-                                ver_bitacoras_cerradas: e.target.checked,
-                              }))
-                            }
-                          />
-                          <label htmlFor="ver_bitacoras_cerradas" className="form-check-label fw-semibold">
-                            Ver bitácoras cerradas
-                          </label>
-                        </div>
+                        {[
+                          { key: "ver_bitacoras_cerradas", label: "Ver bitácoras cerradas", defaultVal: true },
+                          { key: "crear_draft_transporte", label: "Crear borrador de transporte (línea / operador)", defaultVal: false },
+                          { key: "aceptar_draft", label: "Aceptar / rechazar borradores de transporte", defaultVal: false },
+                        ].map(({ key, label, defaultVal }) => (
+                          <div className="d-flex align-items-center mb-2" key={key}>
+                            <input
+                              type="checkbox"
+                              id={key}
+                              className="form-check-input me-2"
+                              checked={editRoleData[key] ?? defaultVal}
+                              disabled={!isEditing}
+                              onChange={(e) =>
+                                setEditRoleData((prev) => ({ ...prev, [key]: e.target.checked }))
+                              }
+                            />
+                            <label htmlFor={key} className="form-check-label fw-semibold">
+                              {label}
+                            </label>
+                          </div>
+                        ))}
                       </div>
                     </div>
 
@@ -778,6 +784,8 @@ const RolePage = () => {
           <p>¿Está seguro de que desea eliminar este rol?</p>
         </ModalTemplate>
       )}
+
+      <Toast toasts={toasts} removeToast={removeToast} />
     </section>
   );
 };

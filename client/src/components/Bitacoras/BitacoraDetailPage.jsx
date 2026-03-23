@@ -47,6 +47,12 @@ const BitacoraDetailPage = ({edited}) => {
   const [selectedTransportes, setSelectedTransportes] = useState([]);
   const [isEventStarted, setIsEventStarted] = useState(false);
   const [finishButtonDisabled, setFinishButtonDisabled] = useState(false);
+  const [drafts, setDrafts] = useState([]);
+  const [showDraftsModal, setShowDraftsModal] = useState(false);
+  const [editDraftLineaText, setEditDraftLineaText] = useState("");
+  const [editDraftOperadorText, setEditDraftOperadorText] = useState("");
+  const [pendingRejectDraftId, setPendingRejectDraftId] = useState(null);
+  const [editTransporteActiveTab, setEditTransporteActiveTab] = useState("tracto");
 
   const validatePhoneNumber = (phone) => {
     // Regex para validar número de teléfono mexicano de exactamente 10 dígitos seguidos
@@ -95,6 +101,8 @@ const BitacoraDetailPage = ({edited}) => {
       setSelectedGpsUnits([]);
     }
 
+    setEditDraftLineaText("");
+    setEditDraftOperadorText("");
     setEditTransporteModalVisible(true);
   };
 
@@ -238,10 +246,61 @@ const BitacoraDetailPage = ({edited}) => {
 
       const data = await response.json();
       setBitacora(data);
+
+      // Check for draft values in edited transporte
+      if (roleData?.crear_draft_transporte) {
+        const lineaEnCatalog = lineasTransporte.some(
+          (l) => l.nombre.toUpperCase() === editedTransporte.lineaTransporte?.toUpperCase()
+        );
+        const operadorEnCatalog = operadores.some(
+          (o) => o.nombre.toUpperCase() === editedTransporte.operador?.toUpperCase()
+        );
+        const lineaEsDraft = !!editedTransporte.lineaTransporte && !lineaEnCatalog;
+        const operadorEsDraft = !!editedTransporte.operador && !operadorEnCatalog;
+
+        if (lineaEsDraft || operadorEsDraft) {
+          try {
+            await fetch(`${baseUrl}/drafts`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              credentials: "include",
+              body: JSON.stringify({
+                bitacora_id: bitacora._id,
+                bitacora_num_id: bitacora.bitacora_id,
+                transporte_id: updatedEditedTransporte.id,
+                cliente: bitacora.cliente,
+                lineaTransporte: editedTransporte.lineaTransporte,
+                lineaTransporte_es_draft: lineaEsDraft,
+                operador: editedTransporte.operador,
+                operador_es_draft: operadorEsDraft,
+                creado_por: `${user.firstName} ${user.lastName}`,
+              }),
+            });
+            if (roleData?.aceptar_draft) fetchDrafts();
+          } catch (err) {
+            console.error("Error creating draft on edit:", err);
+          }
+        }
+      }
+
       setEditTransporteModalVisible(false);
       setSelectedTransporte(null);
       setEditedTransporte(null);
       setGpsSearchTerm(""); // Limpiar búsqueda
+      setEditTransporteActiveTab("tracto");
+
+      if (pendingRejectDraftId) {
+        try {
+          await fetch(`${baseUrl}/drafts/${pendingRejectDraftId}/reject`, {
+            method: "PUT",
+            credentials: "include",
+          });
+        } catch (err) {
+          console.error("Error rejecting draft after edit:", err);
+        }
+        setPendingRejectDraftId(null);
+        await fetchDrafts();
+      }
     } catch (error) {
       console.error("Error al guardar transporte editado:", error);
       alert("No se pudo guardar el transporte. Intenta nuevamente.");
@@ -619,6 +678,41 @@ const BitacoraDetailPage = ({edited}) => {
       }
 
       fetchBitacora(); // Keep this to refresh the state
+    }
+  };
+
+  const fetchDrafts = async () => {
+    if (!bitacora?._id) return;
+    try {
+      const res = await fetch(`${baseUrl}/drafts?bitacora_id=${bitacora._id}`, {
+        credentials: "include",
+      });
+      if (res.ok) setDrafts(await res.json());
+    } catch (e) {
+      console.error("Error fetching drafts:", e);
+    }
+  };
+
+  useEffect(() => {
+    if (bitacora?._id && roleData?.aceptar_draft) fetchDrafts();
+  }, [bitacora?._id, roleData]);
+
+  useEffect(() => {
+    if (roleData?.aceptar_draft && bitacora?.draft_pendiente && drafts.length > 0) {
+      setShowDraftsModal(true);
+    }
+  }, [drafts]);
+
+  const handleDraftAction = async (draftId, action) => {
+    try {
+      await fetch(`${baseUrl}/drafts/${draftId}/${action}`, {
+        method: "PUT",
+        credentials: "include",
+      });
+      await fetchDrafts();
+      await fetchBitacora();
+    } catch (e) {
+      console.error(`Error ${action} draft:`, e);
     }
   };
 
@@ -1386,6 +1480,23 @@ const BitacoraDetailPage = ({edited}) => {
               )}
             </div>
 
+            {/* Draft badge */}
+            {roleData?.aceptar_draft && bitacora.draft_pendiente && (
+              <button
+                className="action-btn btn-warning position-relative"
+                onClick={() => setShowDraftsModal(true)}
+                title="Borradores pendientes de aprobación">
+                <i className="fa-solid fa-file-pen"></i>
+                {drafts.length > 0 && (
+                  <span
+                    className="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger"
+                    style={{fontSize: "0.6rem"}}>
+                    {drafts.length}
+                  </span>
+                )}
+              </button>
+            )}
+
             {/* Action Buttons */}
             {activeTab === "detalles" && roleData?.bit_detalles?.update && (
               <button className="action-btn btn-primary" onClick={() => setEditModalVisible(true)}>
@@ -2120,7 +2231,7 @@ const BitacoraDetailPage = ({edited}) => {
           title="Editar Transporte"
           onClose={() => setEditTransporteModalVisible(false)}
           onSubmit={handleTransportEdit}>
-          <Tabs defaultActiveKey="tracto" className="mb-3">
+          <Tabs activeKey={editTransporteActiveTab} onSelect={setEditTransporteActiveTab} className="mb-3">
             {/* GPS ID Tab */}
             {roleData?.gps_id?.update && (
               <Tab eventKey="gps" title="GPS ID">
@@ -2429,66 +2540,36 @@ const BitacoraDetailPage = ({edited}) => {
                 <Form.Group className="mb-3">
                   <Form.Label>Línea de Transporte</Form.Label>
                   <Form.Select
-                    value={editedTransporte.lineaTransporte || ""}
+                    value={editDraftLineaText ? "" : (editedTransporte.lineaTransporte || "")}
                     onChange={async (e) => {
                       const selectedLinea = e.target.value;
                       const currentOperador = editedTransporte.operador;
-                      console.log(
-                        "LineaTransporte changed to:",
-                        selectedLinea,
-                        "current operador:",
-                        currentOperador
-                      );
-
-                      // Clear operadores immediately
+                      setEditDraftLineaText("");
+                      setEditDraftOperadorText("");
                       setOperadores([]);
 
-                      // Fetch operadores for the selected linea de transporte
                       if (selectedLinea && selectedLinea !== "all") {
                         try {
-                          let url = `${baseUrl}/operadores?lineaTransporte=${encodeURIComponent(
-                            selectedLinea
-                          )}`;
-                          const response = await fetch(url, {
-                            method: "GET",
-                            credentials: "include",
-                          });
-
+                          let url = `${baseUrl}/operadores?lineaTransporte=${encodeURIComponent(selectedLinea)}`;
+                          const response = await fetch(url, { method: "GET", credentials: "include" });
                           if (response.ok) {
                             const newOperadores = await response.json();
                             setOperadores(newOperadores);
-
-                            // Check if current operador is still valid for the new lineaTransporte
-                            const isOperadorValid = newOperadores.some(
-                              (op) => op.nombre === currentOperador
-                            );
-
+                            const isOperadorValid = newOperadores.some((op) => op.nombre === currentOperador);
                             setEditedTransporte((prev) => ({
                               ...prev,
                               lineaTransporte: selectedLinea,
-                              operador: isOperadorValid ? currentOperador : "", // Keep operador if valid, otherwise reset
+                              operador: isOperadorValid ? currentOperador : "",
                             }));
                           } else {
-                            setEditedTransporte((prev) => ({
-                              ...prev,
-                              lineaTransporte: selectedLinea,
-                              operador: "", // Reset operador on error
-                            }));
+                            setEditedTransporte((prev) => ({ ...prev, lineaTransporte: selectedLinea, operador: "" }));
                           }
                         } catch (error) {
                           console.error("Error fetching operadores:", error);
-                          setEditedTransporte((prev) => ({
-                            ...prev,
-                            lineaTransporte: selectedLinea,
-                            operador: "", // Reset operador on error
-                          }));
+                          setEditedTransporte((prev) => ({ ...prev, lineaTransporte: selectedLinea, operador: "" }));
                         }
                       } else {
-                        setEditedTransporte((prev) => ({
-                          ...prev,
-                          lineaTransporte: selectedLinea,
-                          operador: "", // Reset operador when no lineaTransporte selected
-                        }));
+                        setEditedTransporte((prev) => ({ ...prev, lineaTransporte: selectedLinea, operador: "" }));
                       }
                     }}>
                     <option value="">Selecciona una línea de transporte</option>
@@ -2498,34 +2579,56 @@ const BitacoraDetailPage = ({edited}) => {
                       </option>
                     ))}
                   </Form.Select>
+                  {roleData?.crear_draft_transporte && (
+                    <Form.Control
+                      type="text"
+                      className="mt-2"
+                      value={editDraftLineaText}
+                      placeholder="O escribe una línea nueva..."
+                      onChange={async (e) => {
+                        const val = e.target.value;
+                        setEditDraftLineaText(val);
+                        setEditDraftOperadorText("");
+                        setOperadores([]);
+                        setEditedTransporte((prev) => ({ ...prev, lineaTransporte: val, operador: "" }));
+                        if (val) fetchOperadores(val);
+                      }}
+                    />
+                  )}
                 </Form.Group>
                 <Form.Group className="mb-3">
                   <Form.Label>Operador</Form.Label>
                   <Form.Select
-                    value={editedTransporte.operador || ""}
-                    onChange={(e) =>
-                      setEditedTransporte((prev) => ({...prev, operador: e.target.value}))
-                    }
+                    value={editDraftOperadorText ? "" : (editedTransporte.operador || "")}
+                    onChange={(e) => {
+                      setEditDraftOperadorText("");
+                      setEditedTransporte((prev) => ({ ...prev, operador: e.target.value }));
+                    }}
                     disabled={!editedTransporte.lineaTransporte}>
                     <option value="">
                       {editedTransporte.lineaTransporte
                         ? "Selecciona un operador"
                         : "Selecciona una línea de transporte primero"}
                     </option>
-                    {(() => {
-                      // Since fetchOperadores already filters by lineaTransporte, we don't need to filter again
-                      console.log("Displaying operadores:", {
-                        allOperadores: operadores,
-                        editedTransporteLinea: editedTransporte.lineaTransporte,
-                        operadoresCount: operadores.length,
-                      });
-                      return operadores.map((operador) => (
-                        <option key={operador._id} value={operador.nombre}>
-                          {operador.nombre}
-                        </option>
-                      ));
-                    })()}
+                    {operadores.map((operador) => (
+                      <option key={operador._id} value={operador.nombre}>
+                        {operador.nombre}
+                      </option>
+                    ))}
                   </Form.Select>
+                  {roleData?.crear_draft_transporte && (
+                    <Form.Control
+                      type="text"
+                      className="mt-2"
+                      value={editDraftOperadorText}
+                      placeholder="O escribe un operador nuevo..."
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setEditDraftOperadorText(val);
+                        setEditedTransporte((prev) => ({ ...prev, operador: val }));
+                      }}
+                    />
+                  )}
                 </Form.Group>
                 <Form.Group className="mb-3">
                   <Form.Label>Teléfono</Form.Label>
@@ -2557,7 +2660,7 @@ const BitacoraDetailPage = ({edited}) => {
         </ModalTemplate>
       )}
 
-      {/* CREATE TRASNPORTES */}
+      {/* CREATE TRANSPORTES */}
       <CreateTransporteModal
         show={showModal}
         handleClose={handleClose}
@@ -2565,7 +2668,88 @@ const BitacoraDetailPage = ({edited}) => {
         transportes={transportes}
         bitacora={bitacora}
         units={units}
+        onDraftCreated={fetchDrafts}
       />
+
+      {/* DRAFTS MODAL */}
+      {showDraftsModal && (
+        <ModalTemplate
+          show={showDraftsModal}
+          title="Borradores pendientes de aprobación"
+          onClose={() => setShowDraftsModal(false)}
+          hideFooter>
+          {drafts.length === 0 ? (
+            <p className="text-muted">No hay borradores pendientes.</p>
+          ) : (
+            <div className="d-flex flex-column gap-3">
+              {drafts.map((draft) => (
+                <div key={draft._id} className="border rounded p-3 bg-light">
+                  <div className="mb-1">
+                    <small className="text-muted">Transporte ID:</small>{" "}
+                    <strong>{draft.transporte_id}</strong>
+                  </div>
+                  {draft.lineaTransporte_es_draft && (
+                    <div className="mb-1">
+                      <small className="text-muted">Línea de Transporte:</small>{" "}
+                      <strong>{draft.lineaTransporte}</strong>
+                    </div>
+                  )}
+                  {draft.operador_es_draft && (
+                    <div className="mb-1">
+                      <small className="text-muted">Operador:</small>{" "}
+                      <strong>{draft.operador}</strong>
+                    </div>
+                  )}
+                  <div className="mb-2">
+                    <small className="text-muted">Creado por:</small> {draft.creado_por}
+                  </div>
+                  <div className="d-flex gap-2">
+                    <button
+                      type="button"
+                      className="btn btn-success btn-sm"
+                      onClick={() => handleDraftAction(draft._id, "accept")}>
+                      <i className="fa-solid fa-check me-1"></i> Aceptar
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-danger btn-sm"
+                      onClick={async () => {
+                        const transporte = bitacora.transportes.find(
+                          (t) => t.id === draft.transporte_id
+                        );
+                        if (!transporte) return;
+                        setPendingRejectDraftId(draft._id);
+                        setEditedTransporte({...transporte, originalId: transporte.id});
+                        setIdMethod(
+                          transporte.id &&
+                          !transporte.id.startsWith("T") &&
+                          !transporte.id.startsWith("blank_")
+                            ? "wialon"
+                            : "automatic"
+                        );
+                        if (transporte.lineaTransporte) {
+                          await fetchOperadores(transporte.lineaTransporte);
+                        } else {
+                          setOperadores([]);
+                        }
+                        setSelectedGpsUnits(
+                          transporte.gpsUnits?.map((g) => ({id: g.wialonId, name: g.name})) ?? []
+                        );
+                        setEditDraftLineaText("");
+                        setEditDraftOperadorText("");
+                        setEditTransporteActiveTab("operador");
+                        setShowDraftsModal(false);
+                        setEditTransporteModalVisible(true);
+                      }}>
+                      <i className="fa-solid fa-xmark me-1"></i> Rechazar
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </ModalTemplate>
+      )}
     </section>
   );
 };

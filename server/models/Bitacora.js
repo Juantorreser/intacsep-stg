@@ -67,9 +67,9 @@ const BitSchema = new mongoose.Schema(
       validate: {
         validator: function (v) {
           // Validar que sea un ObjectId válido (24 caracteres hexadecimales)
-          return /^[0-9A-F]{24}$/.test(v);
+          return /^[0-9a-fA-F]{24}$/.test(v);
         },
-        message: 'El destino debe ser un ID válido (24 caracteres hexadecimales en mayúsculas)'
+        message: 'El destino debe ser un ID válido (24 caracteres hexadecimales)'
       }
     },
     origen: {
@@ -78,9 +78,9 @@ const BitSchema = new mongoose.Schema(
       validate: {
         validator: function (v) {
           // Validar que sea un ObjectId válido (24 caracteres hexadecimales)
-          return /^[0-9A-F]{24}$/.test(v);
+          return /^[0-9a-fA-F]{24}$/.test(v);
         },
-        message: 'El origen debe ser un ID válido (24 caracteres hexadecimales en mayúsculas)'
+        message: 'El origen debe ser un ID válido (24 caracteres hexadecimales)'
       }
     },
     monitoreo: { type: String, required: true },
@@ -122,6 +122,7 @@ const BitSchema = new mongoose.Schema(
     eventos: [EventoSchema],
     edited: { type: Boolean, required: true, default: false },
     edited_bitacora: Object, // Reference to Bitacora model
+    draft_pendiente: { type: Boolean, default: false },
     deleted: { type: Boolean, default: false },
     deleted_at: { type: Date },
     deleted_by: { type: String }

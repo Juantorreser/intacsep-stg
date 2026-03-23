@@ -10,6 +10,7 @@ const CreateTransporteModal = ({
   transportes,
   bitacora,
   units,
+  onDraftCreated,
 }) => {
   const [transporteData, setTransporteData] = useState({
     tracto: {
@@ -46,6 +47,8 @@ const CreateTransporteModal = ({
 
   const [roleData, setRoleData] = useState(null);
   const [phoneError, setPhoneError] = useState("");
+  const [draftLineaText, setDraftLineaText] = useState("");
+  const [draftOperadorText, setDraftOperadorText] = useState("");
 
   const {user, verifyToken, setUser} = useAuth();
   const token = import.meta.env.VITE_WIALON_TOKEN;
@@ -261,10 +264,8 @@ const CreateTransporteModal = ({
     }
   };
 
-  const handleSubmitTransporte = (e) => {
+  const handleSubmitTransporte = async (e) => {
     e.preventDefault();
-
-    console.log("Datos finales del transporte:", transporteData);
 
     // Validar teléfono antes de enviar
     if (transporteData.telefono && !validatePhoneNumber(transporteData.telefono)) {
@@ -298,9 +299,45 @@ const CreateTransporteModal = ({
       gpsUnits: selectedGpsUnits.map((unit) => ({
         wialonId: unit.id,
         name: unit.name,
-        data: {}, // Se llenará cuando se obtengan los datos
+        data: {},
       })),
     };
+
+    // Check if any draft values were entered (not in catalog)
+    if (roleData?.crear_draft_transporte) {
+      const lineaEnCatalog = lineasTransporte.some(
+        (l) => l.nombre.toUpperCase() === transporteData.lineaTransporte?.toUpperCase()
+      );
+      const operadorEnCatalog = operadores.some(
+        (o) => o.nombre.toUpperCase() === transporteData.operador?.toUpperCase()
+      );
+      const lineaEsDraft = !!transporteData.lineaTransporte && !lineaEnCatalog;
+      const operadorEsDraft = !!transporteData.operador && !operadorEnCatalog;
+
+      if (lineaEsDraft || operadorEsDraft) {
+        try {
+          await fetch(`${baseUrl}/drafts`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({
+              bitacora_id: bitacora._id,
+              bitacora_num_id: bitacora.bitacora_id,
+              transporte_id: newId,
+              cliente: bitacora.cliente,
+              lineaTransporte: transporteData.lineaTransporte,
+              lineaTransporte_es_draft: lineaEsDraft,
+              operador: transporteData.operador,
+              operador_es_draft: operadorEsDraft,
+              creado_por: `${user.firstName} ${user.lastName}`,
+            }),
+          });
+          if (onDraftCreated) onDraftCreated();
+        } catch (err) {
+          console.error("Error creating draft:", err);
+        }
+      }
+    }
 
     addTransporte(newTransporte, bitacora._id);
 
@@ -317,6 +354,8 @@ const CreateTransporteModal = ({
     setSelectedGpsUnits([]);
     setGpsSearchTerm(""); // Limpiar búsqueda
     setSearchTerm("");
+    setDraftLineaText("");
+    setDraftOperadorText("");
     handleClose();
   };
 
@@ -522,7 +561,7 @@ const CreateTransporteModal = ({
             <h5>Datos del Tracto</h5>
             {["eco", "placa", "marca", "modelo", "color", "tipo"].map((field) => (
               <Form.Group className="mb-3" key={field}>
-                <Form.Label>{field.toUpperCase()}</Form.Label>
+                <Form.Label>{field.toUpperCase()} <span className="text-danger">*</span></Form.Label>
                 <Form.Control
                   type="text"
                   name={`tracto.${field}`}
@@ -540,7 +579,7 @@ const CreateTransporteModal = ({
             <h5>Datos del Remolque</h5>
             {["eco", "placa", "color", "capacidad", "sello"].map((field) => (
               <Form.Group className="mb-3" key={field}>
-                <Form.Label>{field.toUpperCase()}</Form.Label>
+                <Form.Label>{field.toUpperCase()} <span className="text-danger">*</span></Form.Label>
                 <Form.Control
                   type="text"
                   name={`remolque.${field}`}
@@ -557,30 +596,19 @@ const CreateTransporteModal = ({
           <Tab eventKey="operador" title="OPERADOR">
             <h5>Datos del Operador</h5>
             <Form.Group className="mb-3">
-              <Form.Label>Línea de Transporte</Form.Label>
+              <Form.Label>Línea de Transporte <span className="text-danger">*</span></Form.Label>
               <Form.Select
                 name="lineaTransporte"
-                value={transporteData.lineaTransporte}
+                value={draftLineaText ? "" : transporteData.lineaTransporte}
                 onChange={async (e) => {
                   const selectedLinea = e.target.value;
-
-                  // Update state
-                  setTransporteData((prev) => ({
-                    ...prev,
-                    lineaTransporte: selectedLinea,
-                    operador: "", // Reset operador when lineaTransporte changes
-                  }));
-
-                  // Clear operadores immediately
+                  setDraftLineaText("");
+                  setDraftOperadorText("");
+                  setTransporteData((prev) => ({ ...prev, lineaTransporte: selectedLinea, operador: "" }));
                   setOperadores([]);
-
-                  // Fetch operadores for the selected linea de transporte
-                  if (selectedLinea && selectedLinea !== "all") {
-                    console.log("Fetching operadores for:", selectedLinea);
-                    fetchOperadores(selectedLinea);
-                  }
+                  if (selectedLinea && selectedLinea !== "all") fetchOperadores(selectedLinea);
                 }}
-                required={!!roleData?.operador?.create}>
+                required={!!roleData?.operador?.create && !draftLineaText}>
                 <option value="">Selecciona una línea de transporte</option>
                 {lineasTransporte.map((linea) => (
                   <option key={linea._id} value={linea.nombre}>
@@ -588,14 +616,33 @@ const CreateTransporteModal = ({
                   </option>
                 ))}
               </Form.Select>
+              {roleData?.crear_draft_transporte && (
+                <Form.Control
+                  type="text"
+                  className="mt-2"
+                  value={draftLineaText}
+                  placeholder="O escribe una línea nueva..."
+                  onChange={async (e) => {
+                    const val = e.target.value;
+                    setDraftLineaText(val);
+                    setDraftOperadorText("");
+                    setTransporteData((prev) => ({ ...prev, lineaTransporte: val, operador: "" }));
+                    setOperadores([]);
+                    if (val) fetchOperadores(val);
+                  }}
+                />
+              )}
             </Form.Group>
             <Form.Group className="mb-3">
-              <Form.Label>Operador</Form.Label>
+              <Form.Label>Operador <span className="text-danger">*</span></Form.Label>
               <Form.Select
                 name="operador"
-                value={transporteData.operador}
-                onChange={handleChange}
-                required={!!roleData?.operador?.create}
+                value={draftOperadorText ? "" : transporteData.operador}
+                onChange={(e) => {
+                  setDraftOperadorText("");
+                  setTransporteData((prev) => ({ ...prev, operador: e.target.value }));
+                }}
+                required={!!roleData?.operador?.create && !draftOperadorText}
                 disabled={!transporteData.lineaTransporte}>
                 <option value="">
                   {transporteData.lineaTransporte
@@ -608,9 +655,22 @@ const CreateTransporteModal = ({
                   </option>
                 ))}
               </Form.Select>
+              {roleData?.crear_draft_transporte && (
+                <Form.Control
+                  type="text"
+                  className="mt-2"
+                  value={draftOperadorText}
+                  placeholder="O escribe un operador nuevo..."
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setDraftOperadorText(val);
+                    setTransporteData((prev) => ({ ...prev, operador: val }));
+                  }}
+                />
+              )}
             </Form.Group>
             <Form.Group className="mb-3">
-              <Form.Label>Teléfono</Form.Label>
+              <Form.Label>Teléfono <span className="text-danger">*</span></Form.Label>
               <Form.Control
                 type="text"
                 name="telefono"

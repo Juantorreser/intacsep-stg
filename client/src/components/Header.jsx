@@ -35,7 +35,7 @@ const Header = () => {
             <i className={`fa fa-${isSidebarCollapsed ? "bars" : "times"}`}></i>
           </button>
           <div className="header-title">
-            <h1 className="fs-4 fw-semibold text-black m-0">Intacsep</h1>
+            <h1 className="m-0">Intacsep</h1>
           </div>
         </div>
         <div className="header-right">

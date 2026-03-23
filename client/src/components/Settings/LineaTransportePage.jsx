@@ -353,7 +353,6 @@ const LineaTransportePage = () => {
                 </div>
               )}
             </div>
-          </div>
 
           {/* Pagination Controls */}
           {filteredLineasTransporte.length > 0 && (
@@ -422,6 +421,7 @@ const LineaTransportePage = () => {
               </div>
             </div>
           )}
+          </div>
 
           {/* Modal: Crear */}
           {modalType === "create" && (

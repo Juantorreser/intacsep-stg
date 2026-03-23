@@ -448,11 +448,7 @@ const UsersPage = () => {
                   )}
                 </div>
               </div>
-            </div>
-          )}
-
-          {/* Pagination Controls */}
-          {roleData?.usuarios?.read && filteredUsers.length > 0 && (
+              {filteredUsers.length > 0 && (
             <div className="pagination-container">
               <div className="pagination-content">
                 <div className="pagination-info">
@@ -516,6 +512,8 @@ const UsersPage = () => {
                   </button>
                 </div>
               </div>
+            </div>
+          )}
             </div>
           )}
 

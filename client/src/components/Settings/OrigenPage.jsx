@@ -370,6 +370,7 @@ const OrigenPage = () => {
 
           {/* Tabla */}
           {roleData?.origenes?.read && (
+            <>
             <div className="settings-content">
               <div className="table-wrapper" style={{maxHeight: "60vh", overflowY: "auto"}}>
                 <div className="table-responsive">
@@ -415,24 +416,21 @@ const OrigenPage = () => {
                           </td>
                         </tr>
                       ))}
+                      {filteredOrigenes.length === 0 && (
+                        <tr>
+                          <td colSpan="5" className="text-center py-4">
+                            <p className="text-muted">
+                              No se encontraron orígenes que coincidan con los filtros.
+                            </p>
+                          </td>
+                        </tr>
+                      )}
                     </tbody>
                   </table>
-                  {filteredOrigenes.length === 0 && (
-                    <tr>
-                      <td colSpan="5" className="text-center py-4">
-                        <p className="text-muted">
-                          No se encontraron orígenes que coincidan con los filtros.
-                        </p>
-                      </td>
-                    </tr>
-                  )}
                 </div>
               </div>
             </div>
-          )}
 
-          {/* Pagination Controls */}
-          {roleData?.origenes?.read && filteredOrigenes.length > 0 && (
             <div className="pagination-container">
               <div className="pagination-content">
                 <div className="pagination-info">
@@ -497,6 +495,7 @@ const OrigenPage = () => {
                 </div>
               </div>
             </div>
+            </>
           )}
 
           {/* Modal: Crear */}

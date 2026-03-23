@@ -293,133 +293,135 @@ const TiposMonitoreo = () => {
 
           {/* Tabla */}
           {roleData?.tipos_de_monitoreo?.read && (
-            <div className="settings-content">
-              <div className="table-wrapper" style={{maxHeight: "60vh", overflowY: "auto"}}>
-                <div className="table-responsive">
-                  <table className="table">
-                    <thead>
-                      <tr>
-                        <th style={{width: "60px"}}>ID</th>
-                        <th>Tipo de Monitoreo</th>
-                        <th className="text-end">Acciones</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {getPaginatedMonitoreos().map((monitoreo) => (
-                        <tr key={monitoreo._id}>
-                          <td className="text-center fw-bold">
-                            {monitoreo.numericId
-                              ? monitoreo.numericId.toString().padStart(4, "0")
-                              : "N/A"}
-                          </td>
-                          <td>{monitoreo.tipoMonitoreo}</td>
-                          <td className="text-end">
-                            <div className="action-buttons">
-                              {roleData?.tipos_de_monitoreo?.update && (
-                                <button
-                                  className="btn btn-primary"
-                                  onClick={() => {
-                                    setCurrentMonitoreo(monitoreo);
-                                    setEditingName(monitoreo.tipoMonitoreo);
-                                    setShowModal("edit");
-                                  }}>
-                                  <i className="fas fa-edit"></i>
-                                </button>
-                              )}
-
-                              {roleData?.tipos_de_monitoreo?.delete && (
-                                <button
-                                  className="btn btn-danger"
-                                  onClick={() => handleDelete(monitoreo._id)}>
-                                  <i className="fas fa-trash"></i>
-                                </button>
-                              )}
-                            </div>
-                          </td>
+            <>
+              <div className="settings-content">
+                <div className="table-wrapper" style={{maxHeight: "60vh", overflowY: "auto"}}>
+                  <div className="table-responsive">
+                    <table className="table">
+                      <thead>
+                        <tr>
+                          <th style={{width: "60px"}}>ID</th>
+                          <th>Tipo de Monitoreo</th>
+                          <th className="text-end">Acciones</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                  {filteredMonitoreos.length === 0 && (
-                    <tr>
-                      <td colSpan="3" className="text-center py-4">
-                        <p className="text-muted">
-                          No se encontraron tipos de monitoreo que coincidan con los filtros.
-                        </p>
-                      </td>
-                    </tr>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
+                      </thead>
+                      <tbody>
+                        {getPaginatedMonitoreos().map((monitoreo) => (
+                          <tr key={monitoreo._id}>
+                            <td className="text-center fw-bold">
+                              {monitoreo.numericId
+                                ? monitoreo.numericId.toString().padStart(4, "0")
+                                : "N/A"}
+                            </td>
+                            <td>{monitoreo.tipoMonitoreo}</td>
+                            <td className="text-end">
+                              <div className="action-buttons">
+                                {roleData?.tipos_de_monitoreo?.update && (
+                                  <button
+                                    className="btn btn-primary"
+                                    onClick={() => {
+                                      setCurrentMonitoreo(monitoreo);
+                                      setEditingName(monitoreo.tipoMonitoreo);
+                                      setShowModal("edit");
+                                    }}>
+                                    <i className="fas fa-edit"></i>
+                                  </button>
+                                )}
 
-          {/* Pagination Controls */}
-          {roleData?.tipos_de_monitoreo?.read && filteredMonitoreos.length > 0 && (
-            <div className="pagination-container">
-              <div className="pagination-content">
-                <div className="pagination-info">
-                  <div className="items-per-page">
-                    <label htmlFor="itemsPerPage" className="form-label">
-                      Items por página:
-                    </label>
-                    <select
-                      id="itemsPerPage"
-                      className="form-select form-select-sm modern-select"
-                      value={itemsPerPage}
-                      onChange={handleItemsPerPageChange}>
-                      <option value={25}>25</option>
-                      <option value={50}>50</option>
-                      <option value={100}>100</option>
-                    </select>
+                                {roleData?.tipos_de_monitoreo?.delete && (
+                                  <button
+                                    className="btn btn-danger"
+                                    onClick={() => handleDelete(monitoreo._id)}>
+                                    <i className="fas fa-trash"></i>
+                                  </button>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                        {filteredMonitoreos.length === 0 && (
+                          <tr>
+                            <td colSpan="3" className="text-center py-4">
+                              <p className="text-muted">
+                                No se encontraron tipos de monitoreo que coincidan con los filtros.
+                              </p>
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
                   </div>
                 </div>
-
-                <div className="pagination-stats">
-                  <span className="stats-text">{`${startItem}-${endItem} de ${totalItems}`}</span>
-                </div>
-
-                <div className="pagination-controls">
-                  <button
-                    className="pagination-btn"
-                    disabled={currentPage === 1}
-                    onClick={() => handlePageChange(currentPage - 1)}>
-                    <i className="fa fa-chevron-left"></i>
-                  </button>
-
-                  <div className="page-numbers">
-                    {Array.from({length: Math.min(3, totalPages)}).map((_, index) => {
-                      const pageNum = index + 1;
-                      return (
-                        <button
-                          key={pageNum}
-                          className={`page-btn ${pageNum === currentPage ? "active" : ""}`}
-                          onClick={() => handlePageChange(pageNum)}>
-                          {pageNum}
-                        </button>
-                      );
-                    })}
-                    {totalPages > 3 && (
-                      <>
-                        <span className="page-ellipsis">...</span>
-                        <button
-                          className={`page-btn ${totalPages === currentPage ? "active" : ""}`}
-                          onClick={() => handlePageChange(totalPages)}>
-                          {totalPages}
-                        </button>
-                      </>
-                    )}
-                  </div>
-
-                  <button
-                    className="pagination-btn"
-                    disabled={currentPage === totalPages}
-                    onClick={() => handlePageChange(currentPage + 1)}>
-                    <i className="fa fa-chevron-right"></i>
-                  </button>
-                </div>
               </div>
-            </div>
+
+              {/* Pagination Controls */}
+              {filteredMonitoreos.length > 0 && (
+                <div className="pagination-container">
+                  <div className="pagination-content">
+                    <div className="pagination-info">
+                      <div className="items-per-page">
+                        <label htmlFor="itemsPerPage" className="form-label">
+                          Items por página:
+                        </label>
+                        <select
+                          id="itemsPerPage"
+                          className="form-select form-select-sm modern-select"
+                          value={itemsPerPage}
+                          onChange={handleItemsPerPageChange}>
+                          <option value={25}>25</option>
+                          <option value={50}>50</option>
+                          <option value={100}>100</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="pagination-stats">
+                      <span className="stats-text">{`${startItem}-${endItem} de ${totalItems}`}</span>
+                    </div>
+
+                    <div className="pagination-controls">
+                      <button
+                        className="pagination-btn"
+                        disabled={currentPage === 1}
+                        onClick={() => handlePageChange(currentPage - 1)}>
+                        <i className="fa fa-chevron-left"></i>
+                      </button>
+
+                      <div className="page-numbers">
+                        {Array.from({length: Math.min(3, totalPages)}).map((_, index) => {
+                          const pageNum = index + 1;
+                          return (
+                            <button
+                              key={pageNum}
+                              className={`page-btn ${pageNum === currentPage ? "active" : ""}`}
+                              onClick={() => handlePageChange(pageNum)}>
+                              {pageNum}
+                            </button>
+                          );
+                        })}
+                        {totalPages > 3 && (
+                          <>
+                            <span className="page-ellipsis">...</span>
+                            <button
+                              className={`page-btn ${totalPages === currentPage ? "active" : ""}`}
+                              onClick={() => handlePageChange(totalPages)}>
+                              {totalPages}
+                            </button>
+                          </>
+                        )}
+                      </div>
+
+                      <button
+                        className="pagination-btn"
+                        disabled={currentPage === totalPages}
+                        onClick={() => handlePageChange(currentPage + 1)}>
+                        <i className="fa fa-chevron-right"></i>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>

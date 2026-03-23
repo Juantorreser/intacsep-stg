@@ -365,6 +365,7 @@ const DestinoPage = () => {
 
           {/* Tabla */}
           {roleData?.destinos?.read && (
+            <>
             <div className="settings-content">
               <div className="table-wrapper" style={{maxHeight: "60vh", overflowY: "auto"}}>
                 <div className="table-responsive">
@@ -410,24 +411,21 @@ const DestinoPage = () => {
                           </td>
                         </tr>
                       ))}
+                      {filteredDestinos.length === 0 && (
+                        <tr>
+                          <td colSpan="5" className="text-center py-4">
+                            <p className="text-muted">
+                              No se encontraron destinos que coincidan con los filtros.
+                            </p>
+                          </td>
+                        </tr>
+                      )}
                     </tbody>
                   </table>
-                  {filteredDestinos.length === 0 && (
-                    <tr>
-                      <td colSpan="5" className="text-center py-4">
-                        <p className="text-muted">
-                          No se encontraron destinos que coincidan con los filtros.
-                        </p>
-                      </td>
-                    </tr>
-                  )}
                 </div>
               </div>
             </div>
-          )}
 
-          {/* Pagination Controls */}
-          {roleData?.destinos?.read && filteredDestinos.length > 0 && (
             <div className="pagination-container">
               <div className="pagination-content">
                 <div className="pagination-info">
@@ -492,6 +490,7 @@ const DestinoPage = () => {
                 </div>
               </div>
             </div>
+            </>
           )}
 
           {/* Modal: Crear */}

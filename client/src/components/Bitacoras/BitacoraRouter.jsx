@@ -2,6 +2,7 @@ import {useParams} from "react-router-dom";
 import {useState, useEffect} from "react";
 import BitacoraDetailPage from "./BitacoraDetailPage";
 import OldBitacoraDetailPage from "./OldBitacoraDetailPage";
+import LoadingScreen from "../LoadingScreen";
 
 const BitacoraRouter = ({edited}) => {
   const {id} = useParams();
@@ -32,7 +33,7 @@ const BitacoraRouter = ({edited}) => {
     fetchBitacora();
   }, [id]);
 
-  if (loading) return <p>Loading...</p>;
+  if (loading) return <LoadingScreen />;
   if (!bitacora) return <p>Error: Bitácora no encontrada</p>;
 
   const oldBitacorasCount = import.meta.env.VITE_OLD_BITACORAS_COUNT;

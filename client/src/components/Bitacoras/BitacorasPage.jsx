@@ -1,4 +1,5 @@
 import {useState, useEffect, useCallback} from "react";
+import Tooltip from "../Tooltip";
 import {createRoot} from "react-dom/client";
 import {useAuth} from "../../context/AuthContext";
 import {useSidebar} from "../../context/SidebarContext";
@@ -1171,10 +1172,17 @@ const BitacorasPage = () => {
                               </span>
                             </td>
                             <td className="table-cell" style={{width: "120px"}}>
-                              <span className={`status-badge status-${bitacora.status}`}>
-                                {bitacora.status}
-                                {bitacora.edited ? " (e)" : ""}
-                              </span>
+                              <div style={{display: "flex", alignItems: "center", gap: "0.375rem"}}>
+                                <span className={`status-badge status-${bitacora.status}`}>
+                                  {bitacora.status}
+                                  {bitacora.edited ? " (e)" : ""}
+                                </span>
+                                {roleData?.aceptar_draft && bitacora.draft_pendiente && (
+                                  <Tooltip text="Borrador pendiente de aprobación" position="top">
+                                    <span className="draft-dot" />
+                                  </Tooltip>
+                                )}
+                              </div>
                             </td>
                             <td
                               className="table-cell d-none d-lg-table-cell"
@@ -1202,9 +1210,6 @@ const BitacorasPage = () => {
                                 </button>
                               )}
                             </td>
-                            <td className="table-cell" style={{width: "120px"}}>
-                              {/* Empty cell for alignment */}
-                            </td>
                           </tr>
                         ))
                       )}
@@ -1212,72 +1217,69 @@ const BitacorasPage = () => {
                   </table>
                 </div>
               </div>
-            </div>
-          )}
 
-          {/* Pagination Controls */}
-          {roleData?.bitacoras?.read && (
-            <div className="pagination-container">
-              <div className="pagination-content">
-                <div className="pagination-info">
-                  <div className="items-per-page">
-                    <label htmlFor="itemsPerPage" className="form-label">
-                      Items por página:
-                    </label>
-                    <select
-                      id="itemsPerPage"
-                      className="form-select form-select-sm modern-select"
-                      value={itemsPerPage}
-                      onChange={handleItemsPerPageChange}>
-                      <option value={25}>25</option>
-                      <option value={50}>50</option>
-                      <option value={100}>100</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div className="pagination-stats">
-                  <span className="stats-text">{`${startItem}-${endItem} de ${totalItems}`}</span>
-                </div>
-
-                <div className="pagination-controls">
-                  <button
-                    className="pagination-btn"
-                    disabled={currentPage === 1}
-                    onClick={() => handlePageChange(currentPage - 1)}>
-                    <i className="fa fa-chevron-left"></i>
-                  </button>
-
-                  <div className="page-numbers">
-                    {Array.from({length: Math.min(3, totalPages)}).map((_, index) => {
-                      const pageNum = index + 1;
-                      return (
-                        <button
-                          key={pageNum}
-                          className={`page-btn ${pageNum === currentPage ? "active" : ""}`}
-                          onClick={() => handlePageChange(pageNum)}>
-                          {pageNum}
-                        </button>
-                      );
-                    })}
-                    {totalPages > 3 && (
-                      <>
-                        <span className="page-ellipsis">...</span>
-                        <button
-                          className={`page-btn ${totalPages === currentPage ? "active" : ""}`}
-                          onClick={() => handlePageChange(totalPages)}>
-                          {totalPages}
-                        </button>
-                      </>
-                    )}
+              <div className="pagination-container">
+                <div className="pagination-content">
+                  <div className="pagination-info">
+                    <div className="items-per-page">
+                      <label htmlFor="itemsPerPage" className="form-label">
+                        Items por página:
+                      </label>
+                      <select
+                        id="itemsPerPage"
+                        className="form-select form-select-sm modern-select"
+                        value={itemsPerPage}
+                        onChange={handleItemsPerPageChange}>
+                        <option value={25}>25</option>
+                        <option value={50}>50</option>
+                        <option value={100}>100</option>
+                      </select>
+                    </div>
                   </div>
 
-                  <button
-                    className="pagination-btn"
-                    disabled={currentPage === totalPages}
-                    onClick={() => handlePageChange(currentPage + 1)}>
-                    <i className="fa fa-chevron-right"></i>
-                  </button>
+                  <div className="pagination-stats">
+                    <span className="stats-text">{`${startItem}-${endItem} de ${totalItems}`}</span>
+                  </div>
+
+                  <div className="pagination-controls">
+                    <button
+                      className="pagination-btn"
+                      disabled={currentPage === 1}
+                      onClick={() => handlePageChange(currentPage - 1)}>
+                      <i className="fa fa-chevron-left"></i>
+                    </button>
+
+                    <div className="page-numbers">
+                      {Array.from({length: Math.min(3, totalPages)}).map((_, index) => {
+                        const pageNum = index + 1;
+                        return (
+                          <button
+                            key={pageNum}
+                            className={`page-btn ${pageNum === currentPage ? "active" : ""}`}
+                            onClick={() => handlePageChange(pageNum)}>
+                            {pageNum}
+                          </button>
+                        );
+                      })}
+                      {totalPages > 3 && (
+                        <>
+                          <span className="page-ellipsis">...</span>
+                          <button
+                            className={`page-btn ${totalPages === currentPage ? "active" : ""}`}
+                            onClick={() => handlePageChange(totalPages)}>
+                            {totalPages}
+                          </button>
+                        </>
+                      )}
+                    </div>
+
+                    <button
+                      className="pagination-btn"
+                      disabled={currentPage === totalPages}
+                      onClick={() => handlePageChange(currentPage + 1)}>
+                      <i className="fa fa-chevron-right"></i>
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1374,7 +1376,7 @@ const BitacorasPage = () => {
             {/* Tipo de Monitoreo */}
             <div className="mb-3">
               <label htmlFor="monitoreo" className="form-label">
-                Tipo de Monitoreo
+                Tipo de Monitoreo <span className="text-danger">*</span>
               </label>
               <select
                 className="form-select"
@@ -1396,7 +1398,7 @@ const BitacorasPage = () => {
             {/* Cliente */}
             <div className="mb-3">
               <label htmlFor="cliente" className="form-label">
-                Cliente
+                Cliente <span className="text-danger">*</span>
               </label>
               <select
                 className="form-select"
@@ -1416,7 +1418,7 @@ const BitacorasPage = () => {
             </div>
 
             <div className="form-group mb-3">
-              <label htmlFor="folio_servicio">Folio de Servicio</label>
+              <label htmlFor="folio_servicio">Folio de Servicio <span className="text-danger">*</span></label>
               <input
                 id="folio_servicio"
                 type="text"
@@ -1430,7 +1432,7 @@ const BitacorasPage = () => {
             {/* Origen */}
             <div className="mb-3">
               <label htmlFor="origen" className="form-label">
-                Origen
+                Origen <span className="text-danger">*</span>
               </label>
               <select
                 id="origen"
@@ -1459,7 +1461,7 @@ const BitacorasPage = () => {
             {/* Destino */}
             <div className="mb-3">
               <label htmlFor="destino" className="form-label">
-                Destino
+                Destino <span className="text-danger">*</span>
               </label>
               <select
                 id="destino"
@@ -1489,7 +1491,7 @@ const BitacorasPage = () => {
               formData.monitoreo?.toLowerCase() === "custodia fisica") && (
               <>
                 <div className="mb-3">
-                  <label className="form-label">Nombre de Primer Custodio</label>
+                  <label className="form-label">Nombre de Primer Custodio <span className="text-danger">*</span></label>
                   <input
                     type="text"
                     id="custodia_custodio1_nombre"
@@ -1501,7 +1503,7 @@ const BitacorasPage = () => {
                 </div>
 
                 <div className="mb-3">
-                  <label className="form-label">Teléfono Primer Custodio</label>
+                  <label className="form-label">Teléfono Primer Custodio <span className="text-danger">*</span></label>
                   <input
                     type="text"
                     id="custodia_custodio1_telefono"

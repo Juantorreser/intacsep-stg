@@ -361,7 +361,6 @@ const OperadorPage = () => {
                 </div>
               )}
             </div>
-          </div>
 
           {/* Pagination Controls */}
           {filteredOperadores.length > 0 && (
@@ -430,6 +429,7 @@ const OperadorPage = () => {
               </div>
             </div>
           )}
+          </div>
 
           {/* Modal: Crear */}
           {modalType === "create" && (

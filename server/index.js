@@ -29,6 +29,7 @@ import ClienteSequence from "./models/ClienteSequence.js";
 import EventTypeSequence from "./models/EventTypeSequence.js";
 import LineaTransporteSequence from "./models/LineaTransporteSequence.js";
 import OperadorSequence from "./models/OperadorSequence.js";
+import DraftTransporte from "./models/DraftTransporte.js";
 import { auditCreation, auditUpdate, auditDeletion } from "./auditoriaUtils.js";
 import { convertToUpperCase } from "./utils/textUtils.js";
 
@@ -609,7 +610,11 @@ app.get("/bitacoras", async (req, res) => {
     }
 
     // Build query based on filters
-    if (operador) query.operador = operador;
+    if (operador) {
+      // Case-insensitive exact match: bitacoras store operador uppercased via convertToUpperCase
+      const escapedOperador = operador.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      query.operador = { $regex: `^${escapedOperador}$`, $options: "i" };
+    }
     if (statusFilter) query.status = statusFilter;
     if (clienteFilter) {
       // Si ya hay filtro de clientes permitidos, hacer intersección
@@ -623,7 +628,17 @@ app.get("/bitacoras", async (req, res) => {
       }
     }
     if (monitoreoFilter) query.monitoreo = { $regex: monitoreoFilter, $options: "i" };
-    if (operadorFilter) query.operador = { $regex: operadorFilter, $options: "i" };
+    if (operadorFilter) {
+      if (operador) {
+        // User restriction is active: combine both so user can only filter within their own bitacoras
+        if (!query.$and) query.$and = [];
+        query.$and.push({ operador: query.operador });
+        query.$and.push({ operador: { $regex: operadorFilter, $options: "i" } });
+        delete query.operador;
+      } else {
+        query.operador = { $regex: operadorFilter, $options: "i" };
+      }
+    }
     if (idFilter) query.bitacora_id = { $regex: idFilter, $options: "i" };
     if (creationDateFilter) {
       const startDate = new Date(creationDateFilter);
@@ -2107,7 +2122,7 @@ app.patch("/bitacora/:id", async (req, res) => {
     // Update the existing bitacora with the new data
     Object.assign(bitacora, updatedData);
 
-    const updatedBitacora = await bitacora.save();
+    const updatedBitacora = await bitacora.save({ validateModifiedOnly: true });
     await auditUpdate({ oldData: bitacora.toObject(), newData: updatedData, modelId: id, user: req.session.user || {}, seccion: "Bitacora" });
 
     // Use aggregation to resolve origen and destino names in the response
@@ -3331,6 +3346,206 @@ app.delete("/operadores/:id", async (req, res) => {
     res.status(200).json({ message: "Operador deleted successfully" });
   } catch (e) {
     res.status(500).json({ message: "Error deleting operador", error: e.message });
+  }
+});
+
+// ─── DRAFT TRANSPORTES ───────────────────────────────────────────────────────
+
+// GET all pending drafts (optionally filtered by bitacora_id)
+app.get("/drafts", async (req, res) => {
+  try {
+    const { bitacora_id } = req.query;
+    const query = bitacora_id ? { bitacora_id, status: "pendiente" } : { status: "pendiente" };
+    const drafts = await DraftTransporte.find(query).sort({ createdAt: -1 });
+    res.json(drafts);
+  } catch (e) {
+    res.status(500).json({ message: "Error fetching drafts", error: e.message });
+  }
+});
+
+// POST create a draft transporte entry
+app.post("/drafts", async (req, res) => {
+  try {
+    const { bitacora_id, bitacora_num_id, transporte_id, cliente, lineaTransporte, lineaTransporte_es_draft, operador, operador_es_draft, creado_por } = req.body;
+
+    // Remove any existing pendiente draft for this transporte (replace on re-submit)
+    await DraftTransporte.deleteOne({ bitacora_id, transporte_id, status: "pendiente" });
+
+    const draft = new DraftTransporte({
+      bitacora_id, bitacora_num_id, transporte_id, cliente,
+      lineaTransporte, lineaTransporte_es_draft,
+      operador, operador_es_draft,
+      creado_por,
+    });
+    await draft.save();
+
+    // Set draft_pendiente on the bitacora
+    await Bitacora.findByIdAndUpdate(bitacora_id, { draft_pendiente: true });
+
+    res.status(201).json(draft);
+  } catch (e) {
+    res.status(500).json({ message: "Error creating draft", error: e.message });
+  }
+});
+
+// Helper: resolve draft_pendiente flag after any accept/reject
+const resolveBitacoraDraftFlag = async (bitacora_id) => {
+  const remainingPending = await DraftTransporte.countDocuments({ bitacora_id, status: "pendiente" });
+  if (remainingPending === 0) {
+    await Bitacora.findByIdAndUpdate(bitacora_id, { draft_pendiente: false });
+  }
+};
+
+// PUT accept a draft → create LineaTransporte and/or Operador records
+app.put("/drafts/:id/accept", async (req, res) => {
+  try {
+    const draft = await DraftTransporte.findById(req.params.id);
+    if (!draft) return res.status(404).json({ message: "Draft not found" });
+    if (draft.status !== "pendiente") return res.status(400).json({ message: "Draft already resolved" });
+
+    let createdLinea = null;
+
+    // Create LineaTransporte if it's a draft
+    if (draft.lineaTransporte_es_draft && draft.lineaTransporte) {
+      const exists = await LineaTransporte.findOne({
+        nombre: { $regex: `^${draft.lineaTransporte}$`, $options: "i" },
+        cliente: draft.cliente,
+      });
+      if (!exists) {
+        const numericId = await getNextLineaTransporteSequence();
+        createdLinea = new LineaTransporte({ nombre: draft.lineaTransporte.toUpperCase(), cliente: draft.cliente, numericId });
+        await createdLinea.save();
+      } else {
+        createdLinea = exists;
+      }
+    }
+
+    // Create Operador if it's a draft
+    let finalOperadorNombre = draft.operador;
+    if (draft.operador_es_draft && draft.operador) {
+      const lineaRef = createdLinea ? createdLinea.nombre : draft.lineaTransporte;
+      const exists = await Operador.findOne({ nombre: { $regex: `^${draft.operador}$`, $options: "i" } });
+      if (!exists) {
+        const numericId = await getNextOperadorSequence();
+        const newOperador = new Operador({ nombre: draft.operador.toUpperCase(), lineaTransporte: lineaRef, numericId });
+        await newOperador.save();
+        finalOperadorNombre = newOperador.nombre;
+      } else {
+        finalOperadorNombre = exists.nombre;
+      }
+    }
+
+    // Update matching transportes in the bitacora (top-level and nested in eventos)
+    const finalLineaNombre = draft.lineaTransporte_es_draft
+      ? (createdLinea?.nombre ?? draft.lineaTransporte.toUpperCase())
+      : draft.lineaTransporte;
+
+    const setFields = {};
+    if (draft.lineaTransporte_es_draft) {
+      setFields["transportes.$[t].lineaTransporte"] = finalLineaNombre;
+      setFields["eventos.$[].transportes.$[t].lineaTransporte"] = finalLineaNombre;
+    }
+    if (draft.operador_es_draft) {
+      setFields["transportes.$[t].operador"] = finalOperadorNombre;
+      setFields["eventos.$[].transportes.$[t].operador"] = finalOperadorNombre;
+    }
+    if (Object.keys(setFields).length > 0) {
+      await Bitacora.updateOne(
+        { _id: draft.bitacora_id },
+        { $set: setFields },
+        { arrayFilters: [{ "t.id": draft.transporte_id }] }
+      );
+    }
+
+    draft.status = "aceptado";
+    await draft.save();
+
+    await resolveBitacoraDraftFlag(draft.bitacora_id);
+
+    res.json({ message: "Draft accepted", draft });
+  } catch (e) {
+    res.status(500).json({ message: "Error accepting draft", error: e.message });
+  }
+});
+
+// PUT reject a draft
+app.put("/drafts/:id/reject", async (req, res) => {
+  try {
+    const draft = await DraftTransporte.findById(req.params.id);
+    if (!draft) return res.status(404).json({ message: "Draft not found" });
+    if (draft.status !== "pendiente") return res.status(400).json({ message: "Draft already resolved" });
+
+    draft.status = "rechazado";
+    await draft.save();
+
+    await resolveBitacoraDraftFlag(draft.bitacora_id);
+
+    res.json({ message: "Draft rejected", draft });
+  } catch (e) {
+    res.status(500).json({ message: "Error rejecting draft", error: e.message });
+  }
+});
+
+// PUT reject a draft and provide a replacement value
+app.put("/drafts/:id/reject-with-replacement", async (req, res) => {
+  try {
+    const draft = await DraftTransporte.findById(req.params.id);
+    if (!draft) return res.status(404).json({ message: "Draft not found" });
+    if (draft.status !== "pendiente") return res.status(400).json({ message: "Draft already resolved" });
+
+    const { lineaTransporte, lineaTransporte_es_draft, operador, operador_es_draft, creado_por } = req.body;
+
+    const anyNewDraft = lineaTransporte_es_draft || operador_es_draft;
+
+    if (!anyNewDraft) {
+      // Both replacements are existing catalog entries — update the bitacora directly
+      const setFields = {};
+      if (draft.lineaTransporte_es_draft && lineaTransporte) {
+        setFields["transportes.$[t].lineaTransporte"] = lineaTransporte;
+        setFields["eventos.$[].transportes.$[t].lineaTransporte"] = lineaTransporte;
+      }
+      if (draft.operador_es_draft && operador) {
+        setFields["transportes.$[t].operador"] = operador;
+        setFields["eventos.$[].transportes.$[t].operador"] = operador;
+      }
+      if (Object.keys(setFields).length > 0) {
+        await Bitacora.updateOne(
+          { _id: draft.bitacora_id },
+          { $set: setFields },
+          { arrayFilters: [{ "t.id": draft.transporte_id }] }
+        );
+      }
+
+      draft.status = "rechazado";
+      await draft.save();
+      await resolveBitacoraDraftFlag(draft.bitacora_id);
+
+      return res.json({ replaced: true, draft });
+    }
+
+    // At least one replacement is a new draft text — reject original and create a new draft
+    draft.status = "rechazado";
+    await draft.save();
+
+    const newDraft = new DraftTransporte({
+      bitacora_id: draft.bitacora_id,
+      bitacora_num_id: draft.bitacora_num_id,
+      transporte_id: draft.transporte_id,
+      cliente: draft.cliente,
+      lineaTransporte: lineaTransporte_es_draft ? lineaTransporte : draft.lineaTransporte,
+      lineaTransporte_es_draft: !!lineaTransporte_es_draft,
+      operador: operador_es_draft ? operador : draft.operador,
+      operador_es_draft: !!operador_es_draft,
+      creado_por: creado_por || draft.creado_por,
+    });
+    await newDraft.save();
+
+    // Ensure bitacora.draft_pendiente stays true
+    await Bitacora.findByIdAndUpdate(draft.bitacora_id, { draft_pendiente: true });
+
+    return res.json({ replaced: false, newDraftId: newDraft._id, draft });
+  } catch (e) {
+    res.status(500).json({ message: "Error rejecting draft with replacement", error: e.message });
   }
 });
 

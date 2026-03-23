@@ -1,6 +1,7 @@
 import React, {useState, useEffect} from "react";
 import {useAuth} from "../../context/AuthContext";
 import {useNavigate} from "react-router-dom";
+import LoadingScreen from "../LoadingScreen";
 
 const ProfileModal = ({showModal, handleClose}) => {
   const {user, verifyToken, setUser} = useAuth();
@@ -62,7 +63,7 @@ const ProfileModal = ({showModal, handleClose}) => {
   }, []);
 
   if (!initialized || !user) {
-    return <div>Loading...</div>;
+    return <LoadingScreen />;
   }
 
   const handleChange = (e) => {
