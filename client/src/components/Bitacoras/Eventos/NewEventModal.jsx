@@ -558,7 +558,7 @@ const NewEventModal = ({show, onClose, edited, eventTypes, onEventAdded}) => {
                       checked={newEvent.transportes.some((t) => t.id === transporte.id)}
                     />
                     <label className="form-check-label" htmlFor={`transporte-${transporte.id}`}>
-                      {`${transporteId} - ${transporte.tracto.eco}`}
+                      {`${transporteId}${transporte.tracto?.eco ? ` - ${transporte.tracto.eco}` : ""}`}
                     </label>
                   </div>
                 );

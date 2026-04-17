@@ -24,6 +24,10 @@ import WialonTracker from "./components/wialon/WialonTracker";
 import WialonUnits from "./components/wialon/WialonUnits";
 import BitacoraRouter from "./components/Bitacoras/BitacoraRouter";
 import AuditoriasPage from "./components/Auditorias/AuditoriasPage";
+import PlanesDeEmbarquePage from "./components/PlanesDeEmbarque/PlanesDeEmbarquePage";
+import BuscadorPlanPage from "./components/PlanesDeEmbarque/BuscadorPlanPage";
+import ReporteEventosPage from "./components/ReporteEventosPage";
+import ReporteEstadisticasPage from "./components/ReporteEstadisticasPage";
 
 function App() {
   return (
@@ -51,6 +55,10 @@ function App() {
         <Route path="/wialon" element={<WialonTracker />} />
         <Route path="/units" element={<WialonUnits />} />
         <Route path="/auditoria/bitacoras" element={<AuditoriasPage />} />
+        <Route path="/planes-embarque" element={<PlanesDeEmbarquePage />} />
+        <Route path="/buscador-plan" element={<BuscadorPlanPage />} />
+        <Route path="/reporte-eventos" element={<ReporteEventosPage />} />
+        <Route path="/reporte-estadisticas" element={<ReporteEstadisticasPage />} />
       </Routes>
     </SidebarProvider>
   );

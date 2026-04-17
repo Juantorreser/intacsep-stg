@@ -15,6 +15,8 @@ const OperadorSchema = new mongoose.Schema(
     { timestamps: true }
 );
 
+OperadorSchema.index({ lineaTransporte: 1 });
+
 const Operador = mongoose.model("Operador", OperadorSchema);
 
 export default Operador;

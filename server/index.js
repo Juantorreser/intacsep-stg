@@ -30,6 +30,7 @@ import EventTypeSequence from "./models/EventTypeSequence.js";
 import LineaTransporteSequence from "./models/LineaTransporteSequence.js";
 import OperadorSequence from "./models/OperadorSequence.js";
 import DraftTransporte from "./models/DraftTransporte.js";
+import PlanDeEmbarque from "./models/PlanDeEmbarque.js";
 import { auditCreation, auditUpdate, auditDeletion } from "./auditoriaUtils.js";
 import { convertToUpperCase } from "./utils/textUtils.js";
 
@@ -597,6 +598,7 @@ app.get("/bitacoras", async (req, res) => {
     const sortOrder = req.query.sortOrder || "desc";
     const allowedClients = req.query.allowed_clients; // Nuevo parámetro para filtrar por permisos de cliente
     const hideCerradas = req.query.hideCerradas === "true";
+    const lean = req.query.lean === "true";
 
     const query = {};
 
@@ -660,8 +662,29 @@ app.get("/bitacoras", async (req, res) => {
     const totalItems = await Bitacora.countDocuments(query);
     const bitacoras = await Bitacora.find(query).sort(sortObj).skip(skip).limit(limit);
 
+    // Batch-lookup destino/origen nombres so clients don't have to show raw IDs.
+    // Note: edited bitácoras may store origen/destino as plain name strings instead of
+    // ObjectIds (fallback from getObjectId in BitacoraDetailPage), so we handle both.
+    const isObjectId = (v) => /^[0-9a-f]{24}$/i.test(v || "");
+    const allDestinos = bitacoras.map(b => b.destino).filter(Boolean);
+    const allOrigenes = bitacoras.map(b => b.origen).filter(Boolean);
+    const destinoIds = [...new Set(allDestinos.filter(isObjectId))];
+    const origenIds  = [...new Set(allOrigenes.filter(isObjectId))];
+    const [destinos, origenes] = await Promise.all([
+      Destino.find({ _id: { $in: destinoIds } }).select("_id nombre").lean(),
+      Origen.find({ _id: { $in: origenIds } }).select("_id nombre").lean(),
+    ]);
+    const destinoMap = Object.fromEntries(destinos.map(d => [d._id.toString(), d.nombre]));
+    const origenMap  = Object.fromEntries(origenes.map(o => [o._id.toString(), o.nombre]));
+    const enriched = bitacoras.map(b => ({
+      ...b.toObject(),
+      // When destino/origen is a name string (edited bitácora fallback), use it directly
+      destino_nombre: destinoMap[b.destino] || (!isObjectId(b.destino) ? b.destino : "") || "",
+      origen_nombre:  origenMap[b.origen]   || (!isObjectId(b.origen)  ? b.origen  : "") || "",
+    }));
+
     res.status(200).json({
-      bitacoras,
+      bitacoras: enriched,
       totalItems,
       totalPages: Math.ceil(totalItems / limit),
     });
@@ -2069,6 +2092,15 @@ app.patch("/bitacora/:id/event", async (req, res) => {
     // Add the new event to the bitacora's eventos array
     bitacora.eventos.push(newEvent);
 
+    // If a "validación" event is added to a plan-de-embarque bitacora, promote status
+    const nombreNorm = nombre?.trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    if (
+      nombreNorm === "validacion" &&
+      bitacora.status?.toLowerCase() === "plan de embarque"
+    ) {
+      bitacora.status = "validada";
+    }
+
     // Save the updated bitacora
     await bitacora.save();
 
@@ -3366,15 +3398,16 @@ app.get("/drafts", async (req, res) => {
 // POST create a draft transporte entry
 app.post("/drafts", async (req, res) => {
   try {
-    const { bitacora_id, bitacora_num_id, transporte_id, cliente, lineaTransporte, lineaTransporte_es_draft, operador, operador_es_draft, creado_por } = req.body;
+    const { bitacora_id, bitacora_num_id, transporte_id, transporte, cliente, lineaTransporte, lineaTransporte_es_draft, operador, operador_es_draft, telefono, creado_por } = req.body;
 
     // Remove any existing pendiente draft for this transporte (replace on re-submit)
     await DraftTransporte.deleteOne({ bitacora_id, transporte_id, status: "pendiente" });
 
     const draft = new DraftTransporte({
-      bitacora_id, bitacora_num_id, transporte_id, cliente,
+      bitacora_id, bitacora_num_id, transporte_id, transporte: transporte ?? null, cliente,
       lineaTransporte, lineaTransporte_es_draft,
       operador, operador_es_draft,
+      telefono: telefono ?? null,
       creado_por,
     });
     await draft.save();
@@ -7563,6 +7596,589 @@ app.get('/dashboard/event-categories-stats', async (req, res) => {
   } catch (error) {
     console.error('[GET /dashboard/event-categories-stats] Error:', error);
     res.status(500).json({ error: 'Failed to fetch event categories statistics' });
+  }
+});
+
+// ── PLANES DE EMBARQUE ───────────────────────────────────────
+
+// GET all
+app.get("/planes-embarque", async (req, res) => {
+  try {
+    const planes = await PlanDeEmbarque.find()
+      .populate("cliente", "razon_social")
+      .populate("destino", "nombre")
+      .sort({ citaCarga: 1 })
+      .lean();
+
+    const planIds = planes.map((plan) => plan._id);
+    const linkedBitacoras = await Bitacora.find(
+      {
+        deleted: { $ne: true },
+        planDeEmbarque_id: { $in: planIds },
+      },
+      {
+        _id: 1,
+        bitacora_id: 1,
+        status: 1,
+        planDeEmbarque_id: 1,
+      }
+    ).lean();
+
+    const linkedBitacoraMap = Object.fromEntries(
+      linkedBitacoras.map((bitacora) => [
+        bitacora.planDeEmbarque_id?.toString(),
+        {
+          _id: bitacora._id,
+          bitacora_id: bitacora.bitacora_id,
+          status: bitacora.status,
+        },
+      ])
+    );
+
+    const enrichedPlanes = planes.map((plan) => ({
+      ...plan,
+      linked_bitacora: linkedBitacoraMap[plan._id.toString()] || null,
+    }));
+
+    res.json(enrichedPlanes);
+  } catch (e) {
+    res.status(500).json({ message: e.message });
+  }
+});
+
+// GET exact carrierMove search (must be before /:id)
+app.get("/planes-embarque/search/carrier", async (req, res) => {
+  try {
+    const { carrierMove } = req.query;
+    if (!carrierMove?.trim()) return res.json(null);
+    const plan = await PlanDeEmbarque.findOne({
+      carrierMove: { $regex: `^${carrierMove.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, $options: "i" },
+    })
+      .populate("cliente", "razon_social")
+      .populate("destino", "nombre")
+      .lean();
+
+    if (!plan) return res.json(null);
+
+    const linkedBitacora = await Bitacora.findOne(
+      {
+        deleted: { $ne: true },
+        planDeEmbarque_id: plan._id,
+      },
+      {
+        _id: 1,
+        bitacora_id: 1,
+        status: 1,
+      }
+    ).lean();
+
+    res.json({
+      ...plan,
+      linked_bitacora: linkedBitacora || null,
+    });
+  } catch (e) {
+    res.status(500).json({ message: e.message });
+  }
+});
+
+// POST start a plan — create a bitacora from an existing plan
+app.post("/planes-embarque/:id/start", async (req, res) => {
+  try {
+    const { creado_por, lineaTransporte, operador, telefono } = req.body;
+    const plan = await PlanDeEmbarque.findById(req.params.id)
+      .populate("cliente", "razon_social")
+      .populate("destino", "nombre");
+    if (!plan) return res.status(404).json({ message: "Plan no encontrado" });
+
+    const existingBitacora = await Bitacora.findOne(
+      {
+        deleted: { $ne: true },
+        planDeEmbarque_id: plan._id,
+      },
+      {
+        _id: 1,
+        bitacora_id: 1,
+        status: 1,
+      }
+    ).lean();
+
+    if (existingBitacora) {
+      return res.status(409).json({
+        message: `Este plan ya fue usado en la bitácora #${existingBitacora.bitacora_id}.`,
+        bitacora: existingBitacora,
+      });
+    }
+
+    const sequence = await BitSequence.findOneAndUpdate(
+      { name: "bitacora_id" },
+      { $inc: { sequence_value: 1 } },
+      { new: true, upsert: true }
+    );
+    const sequenceNumber = sequence.sequence_value.toString().padStart(6, "0");
+
+    const transporteId = plan.transporte;
+
+    const planMetadata = {
+      tipoViaje:       plan.tipoViaje,
+      carrierMove:     plan.carrierMove,
+      cliente:         plan.cliente?.razon_social,
+      destino:         plan.destino?.nombre,
+      citaCarga:       plan.citaCarga,
+      horaSalida:      plan.horaSalida,
+      citaEntrega:     plan.citaEntrega,
+      transporte:      plan.transporte,
+      lineaTransporte: lineaTransporte?.trim() || null,
+      operador:        operador?.trim() || null,
+      telefono:        telefono?.trim() || null,
+    };
+
+    const bitacora = await new Bitacora({
+      bitacora_id:       sequenceNumber,
+      cliente:           plan.cliente?.razon_social,
+      destino:           plan.destino?._id?.toString() ?? "",
+      status:            "plan de embarque",
+      fechaPlanEmbarque: new Date(),
+      planDeEmbarque_id: plan._id,
+      draft_pendiente:   true,
+      transportes: [{
+        id:             transporteId,
+        lineaTransporte: lineaTransporte?.trim() || "",
+        operador:       operador?.trim() || "",
+        telefono:       telefono?.trim() || "",
+      }],
+      eventos: [{
+        nombre:         "PRESENCIA EN ORIGEN",
+        registrado_por: creado_por ?? "Sistema",
+        metadata:       planMetadata,
+      }],
+    }).save();
+
+    await new DraftTransporte({
+      bitacora_id:              bitacora._id,
+      bitacora_num_id:          sequenceNumber,
+      transporte_id:            transporteId,
+      transporte:               plan.transporte ?? null,
+      cliente:                  plan.cliente?.razon_social,
+      lineaTransporte:          lineaTransporte?.trim() || null,
+      lineaTransporte_es_draft: false,
+      operador:                 operador?.trim() || null,
+      operador_es_draft:        false,
+      telefono:                 telefono?.trim() || null,
+      creado_por:               creado_por ?? "Sistema",
+    }).save();
+
+    res.status(201).json({ bitacora_id: bitacora._id, bitacora_num_id: sequenceNumber });
+  } catch (e) {
+    res.status(500).json({ message: e.message });
+  }
+});
+
+// GET single
+app.get("/planes-embarque/:id", async (req, res) => {
+  try {
+    const plan = await PlanDeEmbarque.findById(req.params.id)
+      .populate("cliente", "razon_social")
+      .populate("destino", "nombre");
+    if (!plan) return res.status(404).json({ message: "Plan no encontrado" });
+    res.json(plan);
+  } catch (e) {
+    res.status(500).json({ message: e.message });
+  }
+});
+
+// POST create plan + bitacora + evento + draft transporte atomically
+app.post("/planes-embarque/with-bitacora", async (req, res) => {
+  try {
+    const { tipoViaje, carrierMove, cliente, destino, citaCarga, horaSalida, citaEntrega, transporte, creado_por } = req.body;
+
+    // Fetch client and destino names for embedding
+    const clienteDoc  = await Client.findById(cliente).catch(() => null);
+    const destinoDoc  = await Destino.findById(destino).catch(() => null);
+
+    // 1. Create the PlanDeEmbarque record
+    const plan = await new PlanDeEmbarque({ tipoViaje, carrierMove, cliente, destino, citaCarga, horaSalida, citaEntrega, transporte }).save();
+
+    // 2. Get next sequence number
+    const sequence = await BitSequence.findOneAndUpdate(
+      { name: "bitacora_id" },
+      { $inc: { sequence_value: 1 } },
+      { new: true, upsert: true }
+    );
+    const sequenceNumber = sequence.sequence_value.toString().padStart(6, "0");
+
+    // 3. Build the "PRESENCIA EN ORIGEN" evento metadata
+    const planMetadata = {
+      tipoViaje,
+      carrierMove,
+      cliente: clienteDoc?.razon_social ?? cliente,
+      destino: destinoDoc?.nombre ?? destino,
+      citaCarga,
+      horaSalida,
+      citaEntrega,
+      transporte,
+    };
+
+    // 4. Create the Bitacora
+    // Use a unique placeholder ID for the transporte (transport name alone is not unique)
+    const placeholderTransporteId = `plan_${sequenceNumber}_${Date.now()}`;
+
+    const bitacora = await new Bitacora({
+      bitacora_id: sequenceNumber,
+      cliente: clienteDoc?.razon_social ?? "",
+      status: "plan de embarque",
+      fechaPlanEmbarque: new Date(),
+      planDeEmbarque_id: plan._id,
+      draft_pendiente: true,
+      transportes: [{ id: placeholderTransporteId }],
+      eventos: [{
+        nombre: "PRESENCIA EN ORIGEN",
+        registrado_por: creado_por ?? "Sistema",
+        metadata: planMetadata,
+      }],
+    }).save();
+
+    // 5. Create the DraftTransporte so another user can complete it
+    await new DraftTransporte({
+      bitacora_id: bitacora._id,
+      bitacora_num_id: sequenceNumber,
+      transporte_id: placeholderTransporteId,
+      cliente: clienteDoc?.razon_social ?? "",
+      lineaTransporte: null,
+      lineaTransporte_es_draft: true,
+      operador: null,
+      operador_es_draft: true,
+      creado_por: creado_por ?? "Sistema",
+    }).save();
+
+    const populatedPlan = await PlanDeEmbarque.findById(plan._id)
+      .populate("cliente", "razon_social")
+      .populate("destino", "nombre");
+
+    res.status(201).json({ plan: populatedPlan, bitacora });
+  } catch (e) {
+    res.status(400).json({ message: e.message });
+  }
+});
+
+// POST bulk create plans + bitacoras from imported rows
+app.post("/planes-embarque/bulk-with-bitacora", async (req, res) => {
+  const { rows, creado_por } = req.body;
+  if (!Array.isArray(rows) || rows.length === 0)
+    return res.status(400).json({ message: "No rows provided" });
+
+  const results = [];
+
+  for (const row of rows) {
+    const { _rowNum, tipoViaje, carrierMove, clienteNombre, destinoNombre, citaCarga, horaSalida, citaEntrega, transporte } = row;
+
+    try {
+      // Validate required text fields
+      if (!tipoViaje || !carrierMove || !clienteNombre || !destinoNombre || !citaCarga || !horaSalida || !citaEntrega || !transporte)
+        throw new Error("Faltan campos requeridos");
+
+      // Match client by razon_social (case-insensitive)
+      const clienteDoc = await Client.findOne({
+        razon_social: { $regex: `^${clienteNombre.trim()}$`, $options: "i" },
+      });
+      if (!clienteDoc) throw new Error(`Cliente "${clienteNombre}" no encontrado`);
+
+      // Match destino by nombre, scoped to that client
+      const destinoDoc = await Destino.findOne({
+        nombre:  { $regex: `^${destinoNombre.trim()}$`, $options: "i" },
+        cliente: clienteDoc.razon_social,
+      });
+      if (!destinoDoc) throw new Error(`Destino "${destinoNombre}" no encontrado para cliente "${clienteNombre}"`);
+
+      // Create PlanDeEmbarque
+      const plan = await new PlanDeEmbarque({
+        tipoViaje, carrierMove,
+        cliente: clienteDoc._id,
+        destino: destinoDoc._id,
+        citaCarga: new Date(citaCarga),
+        horaSalida: new Date(horaSalida),
+        citaEntrega: new Date(citaEntrega),
+        transporte,
+      }).save();
+
+      // Next sequence number
+      const sequence = await BitSequence.findOneAndUpdate(
+        { name: "bitacora_id" },
+        { $inc: { sequence_value: 1 } },
+        { new: true, upsert: true }
+      );
+      const sequenceNumber = sequence.sequence_value.toString().padStart(6, "0");
+
+      const planMetadata = {
+        tipoViaje, carrierMove,
+        cliente: clienteDoc.razon_social,
+        destino: destinoDoc.nombre,
+        citaCarga, horaSalida, citaEntrega, transporte,
+      };
+
+      const placeholderTransporteId = `plan_${sequenceNumber}_${Date.now()}`;
+
+      const bitacora = await new Bitacora({
+        bitacora_id: sequenceNumber,
+        cliente: clienteDoc.razon_social,
+        status: "plan de embarque",
+        fechaPlanEmbarque: new Date(),
+        planDeEmbarque_id: plan._id,
+        draft_pendiente: true,
+        transportes: [{ id: placeholderTransporteId }],
+        eventos: [{
+          nombre: "PRESENCIA EN ORIGEN",
+          registrado_por: creado_por ?? "Sistema",
+          metadata: planMetadata,
+        }],
+      }).save();
+
+      await new DraftTransporte({
+        bitacora_id: bitacora._id,
+        bitacora_num_id: sequenceNumber,
+        transporte_id: placeholderTransporteId,
+        cliente: clienteDoc.razon_social,
+        lineaTransporte: null,
+        lineaTransporte_es_draft: true,
+        operador: null,
+        operador_es_draft: true,
+        creado_por: creado_por ?? "Sistema",
+      }).save();
+
+      const populatedPlan = await PlanDeEmbarque.findById(plan._id)
+        .populate("cliente", "razon_social")
+        .populate("destino", "nombre");
+
+      results.push({ row: _rowNum, status: "ok", plan: populatedPlan, tipoViaje, clienteNombre, destinoNombre, transporte });
+    } catch (e) {
+      results.push({ row: _rowNum, status: "error", message: e.message, tipoViaje, clienteNombre, destinoNombre, transporte });
+    }
+  }
+
+  res.json({ results });
+});
+
+// POST create
+app.post("/planes-embarque", async (req, res) => {
+  try {
+    const plan = new PlanDeEmbarque(req.body);
+    const saved = await plan.save();
+    const populated = await PlanDeEmbarque.findById(saved._id)
+      .populate("cliente", "razon_social")
+      .populate("destino", "nombre");
+    res.status(201).json(populated);
+  } catch (e) {
+    res.status(400).json({ message: e.message });
+  }
+});
+
+// PUT update
+app.put("/planes-embarque/:id", async (req, res) => {
+  try {
+    const updated = await PlanDeEmbarque.findByIdAndUpdate(
+      req.params.id,
+      req.body,
+      { new: true, runValidators: true }
+    )
+      .populate("cliente", "razon_social")
+      .populate("destino", "nombre");
+    if (!updated) return res.status(404).json({ message: "Plan no encontrado" });
+    res.json(updated);
+  } catch (e) {
+    res.status(400).json({ message: e.message });
+  }
+});
+
+// DELETE
+app.delete("/planes-embarque/:id", async (req, res) => {
+  try {
+    const deleted = await PlanDeEmbarque.findByIdAndDelete(req.params.id);
+    if (!deleted) return res.status(404).json({ message: "Plan no encontrado" });
+    res.json({ message: "Plan eliminado" });
+  } catch (e) {
+    res.status(500).json({ message: e.message });
+  }
+});
+
+// ── Reporte Estadísticas ─────────────────────────────────────────
+app.get("/reporte-estadisticas", async (req, res) => {
+  try {
+    const { startDate, endDate, clienteFilter, origenFilter, destinoFilter, statusFilter } = req.query;
+
+    if (!startDate || !endDate) {
+      return res.status(400).json({ error: "startDate y endDate son requeridos" });
+    }
+
+    const start = new Date(startDate);
+    const end   = new Date(endDate);
+    end.setHours(23, 59, 59, 999);
+
+    const query = {
+      deleted:   { $ne: true },
+      createdAt: { $gte: start, $lte: end },
+    };
+
+    if (clienteFilter) {
+      query.cliente = { $regex: clienteFilter, $options: "i" };
+    }
+    if (statusFilter) {
+      query.status = statusFilter;
+    }
+
+    // Resolve origen/destino name → ObjectId for filtering
+    if (origenFilter) {
+      const origenDocs = await Origen.find(
+        { nombre: { $regex: origenFilter, $options: "i" } }
+      ).select("_id").lean();
+      query.origen = { $in: origenDocs.map((o) => o._id.toString()) };
+    }
+    if (destinoFilter) {
+      const destinoDocs = await Destino.find(
+        { nombre: { $regex: destinoFilter, $options: "i" } }
+      ).select("_id").lean();
+      query.destino = { $in: destinoDocs.map((d) => d._id.toString()) };
+    }
+
+    const bitacoras = await Bitacora.find(
+      query,
+      { bitacora_id: 1, cliente: 1, operador: 1, createdAt: 1, eventos: 1,
+        edited_bitacora: 1, origen: 1, destino: 1, status: 1, transportes: 1, linea_transporte: 1 }
+    ).lean();
+
+    // Batch-resolve origen/destino names
+    const isObjectId = (v) => /^[0-9a-f]{24}$/i.test(v || "");
+    const getLookupId = (value) => {
+      if (!value) return null;
+      if (typeof value === "string") return isObjectId(value) ? value : null;
+      if (typeof value === "object" && value._id) {
+        const id = value._id.toString();
+        return isObjectId(id) ? id : null;
+      }
+      return null;
+    };
+    const destinoIds = [...new Set(
+      bitacoras.flatMap((b) => [getLookupId(b.destino), getLookupId(b.edited_bitacora?.destino)]).filter(Boolean)
+    )];
+    const origenIds  = [...new Set(
+      bitacoras.flatMap((b) => [getLookupId(b.origen), getLookupId(b.edited_bitacora?.origen)]).filter(Boolean)
+    )];
+    const [destinoDocs2, origenDocs2] = await Promise.all([
+      Destino.find({ _id: { $in: destinoIds } }).select("_id nombre").lean(),
+      Origen.find(  { _id: { $in: origenIds  } }).select("_id nombre").lean(),
+    ]);
+    const destinoMap = Object.fromEntries(destinoDocs2.map((d) => [d._id.toString().toLowerCase(), d.nombre]));
+    const origenMap  = Object.fromEntries(origenDocs2.map((o) => [o._id.toString().toLowerCase(), o.nombre]));
+
+    const normalizeNombre = (s) =>
+      (s || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    const getResolvedLocationName = (value, map) => {
+      if (!value) return "";
+      if (typeof value === "object") {
+        if (value.nombre) return value.nombre;
+        if (value._id) return map[value._id.toString().toLowerCase()] || "";
+        return "";
+      }
+      return map[String(value).toLowerCase()] || (!isObjectId(value) ? value : "") || "";
+    };
+    const getMetadataValue = (metadata = {}, keys = []) => {
+      for (const key of keys) {
+        if (metadata?.[key] !== undefined && metadata?.[key] !== null && metadata?.[key] !== "") {
+          return metadata[key];
+        }
+      }
+      return null;
+    };
+    const getFirstLineaTransporte = (transportes = []) =>
+      transportes.find((t) => t?.lineaTransporte)?.lineaTransporte || "";
+
+    const servicios = bitacoras.map((bit) => {
+      const eventos = (bit.eventos?.length ? bit.eventos : null)
+        || bit.edited_bitacora?.eventos
+        || [];
+
+      const presenciaOrigenEvento =
+        eventos.find((e) => normalizeNombre(e.nombre) === "presencia en origen")
+        || eventos.find((e) => e.nombre?.toUpperCase() === "PLAN DE EMBARQUE");
+      const validacionEvento = eventos.find(
+        (e) => normalizeNombre(e.nombre) === "validacion"
+      );
+      const inicioRecorridoEvento = eventos.find(
+        (e) => normalizeNombre(e.nombre).includes("inicio de recorrido")
+      );
+      const arriboDestinoEvento = eventos.find(
+        (e) => {
+          const nombre = normalizeNombre(e.nombre);
+          return nombre.includes("arribo a destino")
+            || nombre.includes("arribo al destino")
+            || nombre.includes("arribo destino");
+        }
+      );
+
+      const citaCarga = getMetadataValue(presenciaOrigenEvento?.metadata, ["citaCarga", "cita_carga", "Cita de Carga", "citacarga"]);
+      const horaSalida = getMetadataValue(presenciaOrigenEvento?.metadata, ["horaSalida", "hora_salida", "Hora de Salida", "horasalida"]);
+      const citaEntrega = getMetadataValue(presenciaOrigenEvento?.metadata, ["citaEntrega", "cita_entrega", "Cita de Entrega", "citaentrega"]);
+      const planEmbarqueAt = presenciaOrigenEvento?.createdAt ?? null;
+      const validacionAt = validacionEvento?.createdAt ?? null;
+      const inicioRecorridoAt = inicioRecorridoEvento?.createdAt ?? null;
+      const arriboDestinoAt = arriboDestinoEvento?.createdAt ?? null;
+      const carrierMove = getMetadataValue(presenciaOrigenEvento?.metadata, ["carrierMove", "carrier_move", "carriermove", "Carrier Move", "carrier"]) || "";
+      const lineaTransporte =
+        getMetadataValue(presenciaOrigenEvento?.metadata, ["lineaTransporte", "linea_transporte", "Linea de Transporte", "linea transporte"])
+        || bit.linea_transporte
+        || getFirstLineaTransporte(bit.transportes)
+        || bit.edited_bitacora?.linea_transporte
+        || getFirstLineaTransporte(bit.edited_bitacora?.transportes)
+        || "";
+      const origenNombre =
+        getResolvedLocationName(bit.origen, origenMap)
+        || getResolvedLocationName(bit.edited_bitacora?.origen, origenMap)
+        || getMetadataValue(presenciaOrigenEvento?.metadata, ["origen", "Origen"])
+        || "";
+      const destinoNombre =
+        getResolvedLocationName(bit.destino, destinoMap)
+        || getResolvedLocationName(bit.edited_bitacora?.destino, destinoMap)
+        || getMetadataValue(presenciaOrigenEvento?.metadata, ["destino", "Destino"])
+        || "";
+
+      const desfaseCitaCargaMs = citaCarga && planEmbarqueAt
+        ? new Date(planEmbarqueAt).getTime() - new Date(citaCarga).getTime()
+        : null;
+      const desfaseHoraSalidaMs = horaSalida && inicioRecorridoAt
+        ? new Date(inicioRecorridoAt).getTime() - new Date(horaSalida).getTime()
+        : null;
+      const tiempoPresenciaValidacionMs = planEmbarqueAt && validacionAt
+        ? new Date(validacionAt).getTime() - new Date(planEmbarqueAt).getTime()
+        : null;
+      const desfaseCitaEntregaMs = citaEntrega && arriboDestinoAt
+        ? new Date(arriboDestinoAt).getTime() - new Date(citaEntrega).getTime()
+        : null;
+
+      return {
+        bitacora_id:         bit.bitacora_id,
+        cliente:             bit.cliente,
+        origen_nombre:       origenNombre,
+        destino_nombre:      destinoNombre,
+        carrierMove,
+        lineaTransporte,
+        status:              bit.status,
+        createdAt:           bit.createdAt,
+        citaCarga,
+        horaSalida,
+        citaEntrega,
+        planEmbarqueAt,
+        validacionAt,
+        inicioRecorridoAt,
+        arriboDestinoAt,
+        desfaseCitaCargaMs,
+        tiempoPresenciaValidacionMs,
+        desfaseHoraSalidaMs,
+        desfaseCitaEntregaMs,
+      };
+    });
+
+    res.json({ servicios });
+  } catch (e) {
+    console.error("Error en /reporte-estadisticas:", e);
+    res.status(500).json({ error: e.message });
   }
 });
 

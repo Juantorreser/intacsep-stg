@@ -28,6 +28,8 @@ const RolePage = () => {
     bit_eventos: {create: false, read: false, update: false, delete: false},
     bit_transportes: {create: false, read: false, update: false, delete: false},
     auditoria_bitacora: {create: false, read: false, update: false, delete: false},
+    dashboard: {create: false, read: false, update: false, delete: false},
+    dashboard_anomalias: {create: false, read: false, update: false, delete: false},
     gps_id: {create: false, read: false, update: false, delete: false},
     tracto: {create: false, read: false, update: false, delete: false},
     remolque: {create: false, read: false, update: false, delete: false},
@@ -38,6 +40,10 @@ const RolePage = () => {
     ver_bitacoras_cerradas: true,
     crear_draft_transporte: false,
     aceptar_draft: false,
+    planes_embarque: {create: false, read: false, update: false, delete: false},
+    buscador_plan: {create: false, read: false, update: false, delete: false},
+    reporte_eventos: {create: false, read: false, update: false, delete: false},
+    reporte_estadisticas: {create: false, read: false, update: false, delete: false},
   });
 
   const [editRole, setEditRole] = useState(null);
@@ -59,6 +65,8 @@ const RolePage = () => {
     bit_eventos: {create: false, read: false, update: false, delete: false},
     bit_transportes: {create: false, read: false, update: false, delete: false},
     auditoria_bitacora: {create: false, read: false, update: false, delete: false},
+    dashboard: {create: false, read: false, update: false, delete: false},
+    dashboard_anomalias: {create: false, read: false, update: false, delete: false},
     gps_id: {create: false, read: false, update: false, delete: false},
     tracto: {create: false, read: false, update: false, delete: false},
     remolque: {create: false, read: false, update: false, delete: false},
@@ -69,6 +77,10 @@ const RolePage = () => {
     ver_bitacoras_cerradas: true,
     crear_draft_transporte: false,
     aceptar_draft: false,
+    planes_embarque: {create: false, read: false, update: false, delete: false},
+    buscador_plan: {create: false, read: false, update: false, delete: false},
+    reporte_eventos: {create: false, read: false, update: false, delete: false},
+    reporte_estadisticas: {create: false, read: false, update: false, delete: false},
   });
 
   const [showModal, setShowModal] = useState(false);
@@ -337,6 +349,16 @@ const RolePage = () => {
       update: true,
       delete: true,
     },
+    dashboard: {
+      create: true,
+      update: true,
+      delete: true,
+    },
+    dashboard_anomalias: {
+      create: true,
+      update: true,
+      delete: true,
+    },
   };
 
   const renderPermissionRow = (key, roleData, setRoleData) => {
@@ -491,7 +513,7 @@ const RolePage = () => {
                           <tr className="table-group-divider fw-bold bg-secondary text-white">
                             <td colSpan="6">Monitoreo</td>
                           </tr>
-                          {["bitacoras"].map((key) =>
+                          {["bitacoras", "planes_embarque", "buscador_plan"].map((key) =>
                             renderPermissionRow(key, editRoleData, setEditRoleData)
                           )}
                           <tr className="table-group-divider fw-bold bg-secondary text-white">
@@ -535,6 +557,14 @@ const RolePage = () => {
                             <td colSpan="6">Auditoría</td>
                           </tr>
                           {["auditoria_bitacora"].map((key) =>
+                            renderPermissionRow(key, editRoleData, setEditRoleData)
+                          )}
+
+                          {/* PANEL 4: Dashboard */}
+                          <tr className="table-group-divider fw-bold bg-secondary text-white">
+                            <td colSpan="6">Dashboard</td>
+                          </tr>
+                          {["dashboard", "dashboard_anomalias", "reporte_eventos", "reporte_estadisticas"].map((key) =>
                             renderPermissionRow(key, editRoleData, setEditRoleData)
                           )}
                         </tbody>

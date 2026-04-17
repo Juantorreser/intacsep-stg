@@ -26,12 +26,12 @@ const TransporteSchema = new mongoose.Schema(
     gpsUnits: [{
       wialonId: { type: String, required: true },
       name: { type: String },
-      data: { type: Object } // Para almacenar datos en tiempo real de Wialon
+      data: { type: Object }
     }],
     gpsData: [{
       wialonId: { type: String },
       name: { type: String },
-      data: { type: Object } // Para almacenar datos de GPS en eventos
+      data: { type: Object }
     }],
     registro: {
       ubicacion: { type: String, default: "" },
@@ -41,94 +41,103 @@ const TransporteSchema = new mongoose.Schema(
       coordenadas: { type: String, default: "" },
     },
   },
-  { timestamps: true } // Esto agregará automáticamente los campos `createdAt` y `updatedAt`
+  { timestamps: true }
 );
 
 const EventoSchema = new mongoose.Schema(
   {
     nombre: { type: String, required: true },
-    descripcion: { type: String, required: true },
+    descripcion: { type: String, default: "" },
     registrado_por: { type: String, default: "Nombre Usuario" },
     frecuencia: { type: Number, default: 0 },
     isFrecuenciaMet: { type: Boolean, default: null },
     transportes: [TransporteSchema],
+    // Structured extra data (used by "Plan de embarque" evento and similar)
+    metadata: { type: Object, default: null },
   },
-  { timestamps: true } // Esto agregará automáticamente los campos `createdAt` y `updatedAt`
+  { timestamps: true }
 );
 
 const BitSchema = new mongoose.Schema(
   {
     bitacora_id: { type: String, required: true, unique: true },
-    folio_servicio: { type: String, required: true },
-    linea_transporte: { type: String, required: true },
+
+    // ── Fields required for a full bitacora ──────────────────────
+    // Made optional so a "plan de embarque" bitacora can be created
+    // with partial data; remaining fields are filled by the next user.
+    folio_servicio:  { type: String, default: "" },
+    linea_transporte:{ type: String, default: "" },
+    monitoreo:       { type: String, default: "" },
+    enlace:          { type: String, default: "" },
+    id_acceso:       { type: String, default: "" },
+    contra_acceso:   { type: String, default: "" },
+    operador:        { type: String, default: "" },
+    telefono:        { type: String, default: "" },
+
+    // ObjectId references stored as strings — validator allows empty
     destino: {
       type: String,
-      required: true,
+      default: "",
       validate: {
-        validator: function (v) {
-          // Validar que sea un ObjectId válido (24 caracteres hexadecimales)
-          return /^[0-9a-fA-F]{24}$/.test(v);
-        },
-        message: 'El destino debe ser un ID válido (24 caracteres hexadecimales)'
-      }
+        validator: (v) => !v || /^[0-9a-fA-F]{24}$/.test(v),
+        message: "El destino debe ser un ID válido (24 caracteres hexadecimales)",
+      },
     },
     origen: {
       type: String,
-      required: true,
+      default: "",
       validate: {
-        validator: function (v) {
-          // Validar que sea un ObjectId válido (24 caracteres hexadecimales)
-          return /^[0-9a-fA-F]{24}$/.test(v);
-        },
-        message: 'El origen debe ser un ID válido (24 caracteres hexadecimales)'
-      }
+        validator: (v) => !v || /^[0-9a-fA-F]{24}$/.test(v),
+        message: "El origen debe ser un ID válido (24 caracteres hexadecimales)",
+      },
     },
-    monitoreo: { type: String, required: true },
+
     cliente: { type: String, required: true },
-    enlace: { type: String, required: true },
-    id_acceso: { type: String, required: true },
-    contra_acceso: { type: String, required: true },
+
     remolque: {
-      eco: String,
-      placa: String,
-      color: String,
-      capacidad: String,
-      sello: String,
+      eco: String, placa: String, color: String, capacidad: String, sello: String,
     },
     tracto: {
-      eco: String,
-      placa: String,
-      marca: String,
-      modelo: String,
-      color: String,
-      tipo: String,
+      eco: String, placa: String, marca: String, modelo: String, color: String, tipo: String,
     },
     custodia: {
-      custodio1_nombre: { type: String },
-      custodio1_telefono: { type: String },
-      custodio2_nombre: { type: String },
-      custodio2_telefono: { type: String },
-      placa: { type: String },
+      custodio1_nombre:  { type: String },
+      custodio1_telefono:{ type: String },
+      custodio2_nombre:  { type: String },
+      custodio2_telefono:{ type: String },
+      placa:  { type: String },
       modelo: { type: String },
-      color: { type: String },
-      marca: { type: String },
+      color:  { type: String },
+      marca:  { type: String },
     },
-    operador: { type: String, required: true },
-    telefono: { type: String, required: true },
+
     inicioMonitoreo: { type: Date },
-    finalMonitoreo: { type: Date },
+    finalMonitoreo:  { type: Date },
     status: { type: String, default: "creada", required: true },
     transportes: [TransporteSchema],
-    eventos: [EventoSchema],
-    edited: { type: Boolean, required: true, default: false },
-    edited_bitacora: Object, // Reference to Bitacora model
+    eventos:     [EventoSchema],
+    edited:      { type: Boolean, required: true, default: false },
+    edited_bitacora: Object,
     draft_pendiente: { type: Boolean, default: false },
-    deleted: { type: Boolean, default: false },
+    deleted:    { type: Boolean, default: false },
     deleted_at: { type: Date },
-    deleted_by: { type: String }
+    deleted_by: { type: String },
+
+    // ── Plan de embarque linkage ─────────────────────────────────
+    fechaPlanEmbarque: { type: Date, default: null },
+    planDeEmbarque_id: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "PlanDeEmbarque",
+      default: null,
+    },
   },
   { timestamps: true }
 );
+
+BitSchema.index({ deleted: 1, cliente: 1 });
+BitSchema.index({ deleted: 1, status: 1 });
+BitSchema.index({ deleted: 1, createdAt: -1 });
+BitSchema.index({ deleted: 1, bitacora_id: -1 });
 
 const Bitacora = mongoose.model("Bitacora", BitSchema);
 export default Bitacora;

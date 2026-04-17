@@ -20,6 +20,20 @@ import {
 } from "../../utils/api";
 import {generateAuditoriaForCreation} from "../../utils/auditoria";
 
+const getPageNumbers = (currentPage, totalPages) => {
+  if (totalPages <= 7) return Array.from({length: totalPages}, (_, i) => i + 1);
+  const visible = new Set([1, totalPages, currentPage]);
+  if (currentPage > 1) visible.add(currentPage - 1);
+  if (currentPage < totalPages) visible.add(currentPage + 1);
+  const sorted = Array.from(visible).sort((a, b) => a - b);
+  const result = [];
+  for (let i = 0; i < sorted.length; i++) {
+    if (i > 0 && sorted[i] - sorted[i - 1] > 1) result.push("...");
+    result.push(sorted[i]);
+  }
+  return result;
+};
+
 const defaultFormData = {
   bitacora_id: "",
   folio_servicio: "",
@@ -101,6 +115,11 @@ const BitacorasPage = () => {
   const [formData, setFormData] = useState(defaultFormData);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [bitacoraToDelete, setBitacoraToDelete] = useState(null);
+  const [showMobileFilters, setShowMobileFilters] = useState(false);
+
+  const hasActiveFilters =
+    idFilter || clienteFilter || statusFilter || monitoreoFilter ||
+    operadorFilter || lineaTransporteFilter || creationDateFilter;
 
   const updateFormDataFromUser = useCallback(() => {
     if (user) {
@@ -827,17 +846,81 @@ const BitacorasPage = () => {
           <Sidebar />
         </div>
         <div className={`content-wrapper ${isSidebarCollapsed ? "sidebar-collapsed" : ""}`}>
-          <div className="page-header">
-            <h1>Monitoreo - Bitácoras</h1>
-            {roleData?.bitacoras?.create && (
-              <button className="new-btn" onClick={() => setShowModal(!showModal)}>
-                <i className="fa fa-plus"></i>
+          {/* Page header */}
+          <div className="bits-header">
+            <div className="bits-header__left">
+              <h1 className="bits-header__title">Bitácoras</h1>
+              {totalItems > 0 && (
+                <span className="bits-header__count">{totalItems}</span>
+              )}
+            </div>
+            <div className="bits-header__right">
+              <button
+                type="button"
+                className={`bits-filter-toggle d-md-none${hasActiveFilters ? " has-filters" : ""}`}
+                onClick={() => setShowMobileFilters((v) => !v)}
+                title="Filtros">
+                <i className="fa fa-filter"></i>
+                {hasActiveFilters && <span className="bits-filter-dot" />}
               </button>
-            )}
+              {roleData?.bitacoras?.create && (
+                <button className="bits-new-btn" onClick={() => setShowModal(!showModal)}>
+                  <i className="fa fa-plus"></i>
+                  <span className="d-none d-sm-inline">Nueva Bitácora</span>
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Mobile filter drawer */}
+          <div className={`bits-mobile-filters${showMobileFilters ? " bits-mobile-filters--open" : ""}`}>
+            <div className="bits-mobile-filters__grid">
+              <input
+                type="text"
+                className="form-control form-control-sm"
+                placeholder="Buscar ID..."
+                value={idFilter}
+                onChange={(e) => handleIdFilterChange(e.target.value)}
+              />
+              <select
+                className="form-select form-select-sm"
+                value={clienteFilter}
+                onChange={(e) => handleClienteFilterChange(e.target.value)}>
+                <option value="">Todos los clientes</option>
+                {clients
+                  .sort((a, b) => a.razon_social.localeCompare(b.razon_social))
+                  .map((c, i) => (
+                    <option key={i} value={c.razon_social}>{c.razon_social}</option>
+                  ))}
+              </select>
+              <select
+                className="form-select form-select-sm"
+                value={statusFilter}
+                onChange={(e) => handleStatusFilterChange(e.target.value)}>
+                <option value="">Todos los estatus</option>
+                <option value="nueva">Nueva</option>
+                <option value="validada">Validada</option>
+                <option value="iniciada">Iniciada</option>
+                {roleData?.ver_bitacoras_cerradas !== false && (
+                  <>
+                    <option value="cerrada">Cerrada</option>
+                    <option value="cerrada (e)">Cerrada (e)</option>
+                  </>
+                )}
+                <option value="finalizada">Finalizada</option>
+              </select>
+              <button
+                type="button"
+                className="bits-mobile-filters__clear"
+                onClick={() => { clearFilters(); setShowMobileFilters(false); }}>
+                <i className="fa fa-times me-1"></i>Limpiar
+              </button>
+            </div>
           </div>
 
           {/* Table */}
           {roleData?.bitacoras?.read && (
+            <div className="bits-table-shell">
             <div className="table-wrapper">
               <div className="table-container">
                 <div className="table-responsive">
@@ -1117,7 +1200,7 @@ const BitacorasPage = () => {
                       ) : (
                         sortedFilteredBitacoras.map((bitacora) => (
                           <tr key={bitacora._id} className="table-row">
-                            <td className="table-cell" style={{width: "80px"}}>
+                            <td data-label="Frec" className="table-cell" style={{width: "80px"}}>
                               <div
                                 className="semaforo-container"
                                 onClick={() => openFrecuenciaModal(bitacora)}
@@ -1132,7 +1215,7 @@ const BitacorasPage = () => {
                                 ))}
                               </div>
                             </td>
-                            <td className="table-cell" style={{width: "100px"}}>
+                            <td data-label="ID" className="table-cell" style={{width: "100px"}}>
                               <a
                                 href={`/bitacora/${bitacora._id}`}
                                 className={`bitacora-link ${
@@ -1146,7 +1229,7 @@ const BitacorasPage = () => {
                                 {bitacora.bitacora_id}
                               </a>
                             </td>
-                            <td className="table-cell" style={{width: "150px"}}>
+                            <td data-label="Cliente" className="table-cell" style={{width: "150px"}}>
                               <span className="cell-text">{bitacora.cliente}</span>
                             </td>
                             <td
@@ -1171,7 +1254,7 @@ const BitacorasPage = () => {
                                 {new Date(bitacora.createdAt).toLocaleDateString()}
                               </span>
                             </td>
-                            <td className="table-cell" style={{width: "120px"}}>
+                            <td data-label="Estatus" className="table-cell" style={{width: "120px"}}>
                               <div style={{display: "flex", alignItems: "center", gap: "0.375rem"}}>
                                 <span className={`status-badge status-${bitacora.status}`}>
                                   {bitacora.status}
@@ -1189,7 +1272,7 @@ const BitacorasPage = () => {
                               style={{width: "150px"}}>
                               <span className="cell-text">{getRecorrido(bitacora)}</span>
                             </td>
-                            <td className="table-cell text-center" style={{width: "80px"}}>
+                            <td className="table-cell table-cell-actions text-center" style={{width: "80px"}}>
                               <button
                                 className={`action-btn ${
                                   isAnyTransporteClosed(bitacora) ? "btn-primary" : "btn-secondary"
@@ -1200,7 +1283,7 @@ const BitacorasPage = () => {
                                 <i className="fa fa-file-pdf"></i>
                               </button>
                             </td>
-                            <td className="table-cell text-center" style={{width: "80px"}}>
+                            <td className="table-cell table-cell-actions text-center" style={{width: "80px"}}>
                               {roleData?.bitacoras?.delete && (
                                 <button
                                   className="action-btn btn-danger"
@@ -1243,6 +1326,7 @@ const BitacorasPage = () => {
 
                   <div className="pagination-controls">
                     <button
+                      type="button"
                       className="pagination-btn"
                       disabled={currentPage === 1}
                       onClick={() => handlePageChange(currentPage - 1)}>
@@ -1250,30 +1334,23 @@ const BitacorasPage = () => {
                     </button>
 
                     <div className="page-numbers">
-                      {Array.from({length: Math.min(3, totalPages)}).map((_, index) => {
-                        const pageNum = index + 1;
-                        return (
+                      {getPageNumbers(currentPage, totalPages).map((page, i) =>
+                        page === "..." ? (
+                          <span key={`ellipsis-${i}`} className="page-ellipsis">...</span>
+                        ) : (
                           <button
-                            key={pageNum}
-                            className={`page-btn ${pageNum === currentPage ? "active" : ""}`}
-                            onClick={() => handlePageChange(pageNum)}>
-                            {pageNum}
+                            key={page}
+                            type="button"
+                            className={`page-btn ${page === currentPage ? "active" : ""}`}
+                            onClick={() => handlePageChange(page)}>
+                            {page}
                           </button>
-                        );
-                      })}
-                      {totalPages > 3 && (
-                        <>
-                          <span className="page-ellipsis">...</span>
-                          <button
-                            className={`page-btn ${totalPages === currentPage ? "active" : ""}`}
-                            onClick={() => handlePageChange(totalPages)}>
-                            {totalPages}
-                          </button>
-                        </>
+                        )
                       )}
                     </div>
 
                     <button
+                      type="button"
                       className="pagination-btn"
                       disabled={currentPage === totalPages}
                       onClick={() => handlePageChange(currentPage + 1)}>
@@ -1283,11 +1360,13 @@ const BitacorasPage = () => {
                 </div>
               </div>
             </div>
+            </div>
           )}
         </div>
       </div>
 
       {/* Print PDF Select Modal */}
+
       <>
         {showPrintModal && selectedBitacora && (
           <ModalTemplate

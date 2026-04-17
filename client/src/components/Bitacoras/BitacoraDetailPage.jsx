@@ -1,4 +1,4 @@
-import {useState, useEffect} from "react";
+import React, {useState, useEffect} from "react";
 import {useParams, useNavigate} from "react-router-dom";
 import Sidebar from "../Sidebar";
 import {FontAwesomeIcon} from "@fortawesome/react-fontawesome";
@@ -52,7 +52,9 @@ const BitacoraDetailPage = ({edited}) => {
   const [editDraftLineaText, setEditDraftLineaText] = useState("");
   const [editDraftOperadorText, setEditDraftOperadorText] = useState("");
   const [pendingRejectDraftId, setPendingRejectDraftId] = useState(null);
-  const [editTransporteActiveTab, setEditTransporteActiveTab] = useState("tracto");
+  const [editIsPlanDraft, setEditIsPlanDraft] = useState(false);
+  const [editTransporteStep, setEditTransporteStep] = useState(0);
+  const [editTransporteSlide, setEditTransporteSlide] = useState("forward");
 
   const validatePhoneNumber = (phone) => {
     // Regex para validar número de teléfono mexicano de exactamente 10 dígitos seguidos
@@ -76,6 +78,8 @@ const BitacoraDetailPage = ({edited}) => {
 
     setEditedTransporte({
       ...selected,
+      tracto:   selected.tracto   ?? {},
+      remolque: selected.remolque ?? {},
       originalId: selected.id,
     });
     setIdMethod(initialIdMethod);
@@ -103,6 +107,8 @@ const BitacoraDetailPage = ({edited}) => {
 
     setEditDraftLineaText("");
     setEditDraftOperadorText("");
+    setEditTransporteStep(0);
+    setEditTransporteSlide("forward");
     setEditTransporteModalVisible(true);
   };
 
@@ -147,8 +153,15 @@ const BitacoraDetailPage = ({edited}) => {
   //TRANSPORTES LOGIC
   const handleClose = () => setShowModal(false);
   const handleShow = () => setShowModal(true);
+  const transporteDetailRef = React.useRef(null);
   const handleSelectTransporte = (transporte) => {
     setSelectedTransporte(transporte);
+    // On mobile: scroll detail panel into view after state update
+    if (window.innerWidth <= 576) {
+      setTimeout(() => {
+        transporteDetailRef.current?.scrollIntoView({behavior: "smooth", block: "start"});
+      }, 50);
+    }
   };
 
   const handleTransportEdit = async (e) => {
@@ -165,7 +178,10 @@ const BitacoraDetailPage = ({edited}) => {
     // Ensure ID is properly updated before saving
     let updatedId = editedTransporte.id;
 
-    if (idMethod === "automatic") {
+    if (editIsPlanDraft) {
+      // Plan-originated transporte: keep the plan.transporte text as the ID
+      updatedId = editedTransporte.originalId;
+    } else if (idMethod === "automatic") {
       // FIXED: Extract existing numeric ID from original ID, don't generate new one
       // Original ID format: T001_PLACA or blank_timestamp
       let numericId;
@@ -247,8 +263,8 @@ const BitacoraDetailPage = ({edited}) => {
       const data = await response.json();
       setBitacora(data);
 
-      // Check for draft values in edited transporte
-      if (roleData?.crear_draft_transporte) {
+      // Check for draft values in edited transporte (skip for plan drafts — values already confirmed)
+      if (!editIsPlanDraft && roleData?.crear_draft_transporte) {
         const lineaEnCatalog = lineasTransporte.some(
           (l) => l.nombre.toUpperCase() === editedTransporte.lineaTransporte?.toUpperCase()
         );
@@ -260,6 +276,8 @@ const BitacoraDetailPage = ({edited}) => {
 
         if (lineaEsDraft || operadorEsDraft) {
           try {
+            // Carry the plan's transporte name if this came from a plan draft
+            const planTransporte = bitacora.eventos?.[0]?.metadata?.transporte ?? null;
             await fetch(`${baseUrl}/drafts`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
@@ -268,11 +286,13 @@ const BitacoraDetailPage = ({edited}) => {
                 bitacora_id: bitacora._id,
                 bitacora_num_id: bitacora.bitacora_id,
                 transporte_id: updatedEditedTransporte.id,
+                transporte: planTransporte,
                 cliente: bitacora.cliente,
                 lineaTransporte: editedTransporte.lineaTransporte,
                 lineaTransporte_es_draft: lineaEsDraft,
                 operador: editedTransporte.operador,
                 operador_es_draft: operadorEsDraft,
+                telefono: editedTransporte.telefono ?? null,
                 creado_por: `${user.firstName} ${user.lastName}`,
               }),
             });
@@ -286,8 +306,8 @@ const BitacoraDetailPage = ({edited}) => {
       setEditTransporteModalVisible(false);
       setSelectedTransporte(null);
       setEditedTransporte(null);
-      setGpsSearchTerm(""); // Limpiar búsqueda
-      setEditTransporteActiveTab("tracto");
+      setGpsSearchTerm("");
+      setEditTransporteStep(0);
 
       if (pendingRejectDraftId) {
         try {
@@ -651,6 +671,11 @@ const BitacoraDetailPage = ({edited}) => {
   }, [initialized, user]);
 
   const handleFinish = async (latestBitacora = bitacora) => {
+    const hasPendingDrafts = drafts.some((d) => d.status === "pendiente");
+    if (hasPendingDrafts) {
+      setShowDraftsModal(true);
+      return;
+    }
     if (latestBitacora.status === "iniciada" && areAllTransportesClosed(latestBitacora)) {
       try {
         const response = await fetch(`${baseUrl}/bitacora/${id}/status`, {
@@ -1307,8 +1332,15 @@ const BitacoraDetailPage = ({edited}) => {
     const submitBitacora = updatedBitacora ? updatedBitacora : bitacora;
     console.log(submitBitacora);
     try {
-      // Extract ObjectId from origen and destino if they are objects
-      const getObjectId = (location) => {
+      const normalizeLocationText = (value) =>
+        String(value ?? "")
+          .trim()
+          .toLowerCase()
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "");
+
+      // Extract ObjectId from origen/destino if they are objects or names
+      const getObjectId = (location, type) => {
         console.log("getObjectId called with:", location, "type:", typeof location);
 
         if (!location) return location;
@@ -1342,18 +1374,17 @@ const BitacoraDetailPage = ({edited}) => {
         // If it's a location name (not an ObjectId), find the corresponding ObjectId
         if (typeof location === "string" && !location.match(/^[0-9a-fA-F]{24}$/)) {
           console.log("Searching for location by name:", location);
-          // Search in origenes first
-          const foundOrigen = origenes.find((origen) => origen.nombre === location);
-          if (foundOrigen) {
-            console.log("Found origen by name:", foundOrigen._id);
-            return foundOrigen._id;
-          }
+          const targetValue = normalizeLocationText(location.split(",")[0]);
+          const sourceList = type === "origen" ? origenes : destinos;
+          const foundLocation = sourceList.find((item) => {
+            const nombreMatch = normalizeLocationText(item.nombre) === targetValue;
+            const labelMatch = normalizeLocationText(`${item.nombre}, ${item.estado}`) === normalizeLocationText(location);
+            return nombreMatch || labelMatch;
+          });
 
-          // Search in destinos
-          const foundDestino = destinos.find((destino) => destino.nombre === location);
-          if (foundDestino) {
-            console.log("Found destino by name:", foundDestino._id);
-            return foundDestino._id;
+          if (foundLocation) {
+            console.log(`Found ${type} by name:`, foundLocation._id);
+            return foundLocation._id;
           }
         }
 
@@ -1365,8 +1396,8 @@ const BitacoraDetailPage = ({edited}) => {
         folio_servicio: submitBitacora.folio_servicio,
         cliente: submitBitacora.cliente,
         monitoreo: submitBitacora.monitoreo,
-        origen: getObjectId(submitBitacora.origen),
-        destino: getObjectId(submitBitacora.destino),
+        origen: getObjectId(submitBitacora.origen, "origen"),
+        destino: getObjectId(submitBitacora.destino, "destino"),
         // Include custodia data if it exists
         ...(submitBitacora.custodia && {custodia: submitBitacora.custodia}),
         // Include eventos array if it exists and has been modified
@@ -1739,7 +1770,7 @@ const BitacoraDetailPage = ({edited}) => {
 
                         <div className="col-md-8 ps-4">
                           {selectedTransporte ? (
-                            <div className="transporte-details">
+                            <div className="transporte-details" ref={transporteDetailRef}>
                               <div className="d-flex justify-content-end mb-3">
                                 {roleData.bit_transportes.update && (
                                   <button
@@ -1758,37 +1789,37 @@ const BitacoraDetailPage = ({edited}) => {
                                       <div className="info-group mb-2">
                                         <label className="info-label">Eco:</label>
                                         <span className="info-value">
-                                          {selectedTransporte.tracto.eco}
+                                          {selectedTransporte.tracto?.eco}
                                         </span>
                                       </div>
                                       <div className="info-group mb-2">
                                         <label className="info-label">Placa:</label>
                                         <span className="info-value">
-                                          {selectedTransporte.tracto.placa}
+                                          {selectedTransporte.tracto?.placa}
                                         </span>
                                       </div>
                                       <div className="info-group mb-2">
                                         <label className="info-label">Marca:</label>
                                         <span className="info-value">
-                                          {selectedTransporte.tracto.marca}
+                                          {selectedTransporte.tracto?.marca}
                                         </span>
                                       </div>
                                       <div className="info-group mb-2">
                                         <label className="info-label">Modelo:</label>
                                         <span className="info-value">
-                                          {selectedTransporte.tracto.modelo}
+                                          {selectedTransporte.tracto?.modelo}
                                         </span>
                                       </div>
                                       <div className="info-group mb-2">
                                         <label className="info-label">Color:</label>
                                         <span className="info-value">
-                                          {selectedTransporte.tracto.color}
+                                          {selectedTransporte.tracto?.color}
                                         </span>
                                       </div>
                                       <div className="info-group mb-2">
                                         <label className="info-label">Tipo:</label>
                                         <span className="info-value">
-                                          {selectedTransporte.tracto.tipo}
+                                          {selectedTransporte.tracto?.tipo}
                                         </span>
                                       </div>
                                     </div>
@@ -1802,31 +1833,31 @@ const BitacoraDetailPage = ({edited}) => {
                                       <div className="info-group mb-2">
                                         <label className="info-label">Eco:</label>
                                         <span className="info-value">
-                                          {selectedTransporte.remolque.eco}
+                                          {selectedTransporte.remolque?.eco}
                                         </span>
                                       </div>
                                       <div className="info-group mb-2">
                                         <label className="info-label">Placa:</label>
                                         <span className="info-value">
-                                          {selectedTransporte.remolque.placa}
+                                          {selectedTransporte.remolque?.placa}
                                         </span>
                                       </div>
                                       <div className="info-group mb-2">
                                         <label className="info-label">Color:</label>
                                         <span className="info-value">
-                                          {selectedTransporte.remolque.color}
+                                          {selectedTransporte.remolque?.color}
                                         </span>
                                       </div>
                                       <div className="info-group mb-2">
                                         <label className="info-label">Capacidad:</label>
                                         <span className="info-value">
-                                          {selectedTransporte.remolque.capacidad}
+                                          {selectedTransporte.remolque?.capacidad}
                                         </span>
                                       </div>
                                       <div className="info-group mb-2">
                                         <label className="info-label">Sello:</label>
                                         <span className="info-value">
-                                          {selectedTransporte.remolque.sello}
+                                          {selectedTransporte.remolque?.sello}
                                         </span>
                                       </div>
                                     </div>
@@ -1961,12 +1992,19 @@ const BitacoraDetailPage = ({edited}) => {
               {roleData?.bit_eventos.read && (
                 <div className={`tab-pane-modern ${activeTab === "eventos" ? "active" : ""}`}>
                   <div className="eventos-container">
-                    {eventos
-                      .slice()
-                      .reverse()
-                      .map((event, index) => (
-                        <EventCard key={index} event={event} eventos={eventos} />
-                      ))}
+                    {eventos.length === 0 ? (
+                      <div className="eventos-empty">
+                        <i className="fa-regular fa-calendar-xmark"></i>
+                        <p>No hay eventos registrados aún</p>
+                      </div>
+                    ) : (
+                      eventos
+                        .slice()
+                        .reverse()
+                        .map((event, index) => (
+                          <EventCard key={index} event={event} eventos={eventos} />
+                        ))
+                    )}
                   </div>
                 </div>
               )}
@@ -2225,16 +2263,55 @@ const BitacoraDetailPage = ({edited}) => {
       )}
 
       {/* EDIT TRANSPORTES */}
-      {isEditTransporteModalVisible && editedTransporte && (
+      {isEditTransporteModalVisible && editedTransporte && (() => {
+        const EDIT_STEPS = [
+          {key: "gps",      label: "GPS",      icon: "fa-solid fa-satellite-dish"},
+          {key: "tracto",   label: "Tracto",   icon: "fa-solid fa-truck"},
+          {key: "remolque", label: "Remolque", icon: "fa-solid fa-trailer"},
+          {key: "operador", label: "Operador", icon: "fa-solid fa-user-tie"},
+        ];
+        const isLastEditStep = editTransporteStep === EDIT_STEPS.length - 1;
+        const goEditNext = () => { setEditTransporteSlide("forward");  setEditTransporteStep((s) => s + 1); };
+        const goEditPrev = () => { setEditTransporteSlide("backward"); setEditTransporteStep((s) => s - 1); };
+        const currentKey = EDIT_STEPS[editTransporteStep]?.key;
+
+        return (
         <ModalTemplate
+          wide
           show={isEditTransporteModalVisible}
           title="Editar Transporte"
           onClose={() => setEditTransporteModalVisible(false)}
-          onSubmit={handleTransportEdit}>
-          <Tabs activeKey={editTransporteActiveTab} onSelect={setEditTransporteActiveTab} className="mb-3">
-            {/* GPS ID Tab */}
-            {roleData?.gps_id?.update && (
-              <Tab eventKey="gps" title="GPS ID">
+          onSubmit={(e) => e.preventDefault()}
+          hideFooter>
+
+          {/* Step indicator */}
+          <div className="wizard-steps">
+            {EDIT_STEPS.map((step, i) => (
+              <React.Fragment key={step.key}>
+                <div className={`wizard-step ${i === editTransporteStep ? "active" : ""} ${i < editTransporteStep ? "completed" : ""}`}>
+                  <div className="wizard-step-circle">
+                    {i < editTransporteStep ? <i className="fa-solid fa-check"></i> : <span>{i + 1}</span>}
+                  </div>
+                  <span className="wizard-step-label">{step.label}</span>
+                </div>
+                {i < EDIT_STEPS.length - 1 && (
+                  <div className={`wizard-step-connector ${i < editTransporteStep ? "completed" : ""}`} />
+                )}
+              </React.Fragment>
+            ))}
+          </div>
+
+          <div className="wizard-numeric-indicator">
+            Paso {editTransporteStep + 1} de {EDIT_STEPS.length} — {EDIT_STEPS[editTransporteStep]?.label}
+          </div>
+
+          {/* Step content */}
+          <div key={`edit-step-${editTransporteStep}-${editTransporteSlide}`}
+               className={`wizard-step-content slide-${editTransporteSlide}`}>
+
+            {/* GPS step */}
+            {currentKey === "gps" && (
+              <div className="wizard-step-content">
                 {isTransporteInEvento ? (
                   <>
                     <Form.Group className="mb-3">
@@ -2461,15 +2538,16 @@ const BitacoraDetailPage = ({edited}) => {
                     )}
                   </>
                 )}
-              </Tab>
+              </div>
             )}
 
-            {/* Tracto Tab */}
-            {roleData?.tracto?.update && (
-              <Tab eventKey="tracto" title="TRACTO">
+            {/* Tracto step */}
+            {currentKey === "tracto" && (
+              <div className="wizard-step-content">
+                <div className="wizard-grid-2">
                 {["eco", "placa", "marca", "modelo", "color", "tipo"].map((field) => (
                   <Form.Group className="mb-3" key={field}>
-                    <Form.Label>{field.toUpperCase()}</Form.Label>
+                    <Form.Label className="fw-semibold">{field.toUpperCase()}</Form.Label>
                     <Form.Control
                       type="text"
                       value={editedTransporte.tracto[field] || ""}
@@ -2510,15 +2588,17 @@ const BitacoraDetailPage = ({edited}) => {
                     />
                   </Form.Group>
                 ))}
-              </Tab>
+                </div>
+              </div>
             )}
 
-            {/* Remolque Tab */}
-            {roleData?.remolque?.update && (
-              <Tab eventKey="remolque" title="REMOLQUE">
+            {/* Remolque step */}
+            {currentKey === "remolque" && (
+              <div className="wizard-step-content">
+                <div className="wizard-grid-2">
                 {["eco", "placa", "color", "capacidad", "sello"].map((field) => (
                   <Form.Group className="mb-3" key={field}>
-                    <Form.Label>{field.toUpperCase()}</Form.Label>
+                    <Form.Label className="fw-semibold">{field.toUpperCase()}</Form.Label>
                     <Form.Control
                       type="text"
                       value={editedTransporte.remolque[field] || ""}
@@ -2531,46 +2611,23 @@ const BitacoraDetailPage = ({edited}) => {
                     />
                   </Form.Group>
                 ))}
-              </Tab>
+                </div>
+              </div>
             )}
 
-            {/* Operador Tab */}
-            {roleData?.operador?.update && (
-              <Tab eventKey="operador" title="OPERADOR">
+            {/* Operador step */}
+            {currentKey === "operador" && (
+              <div className="wizard-step-content">
                 <Form.Group className="mb-3">
                   <Form.Label>Línea de Transporte</Form.Label>
                   <Form.Select
                     value={editDraftLineaText ? "" : (editedTransporte.lineaTransporte || "")}
-                    onChange={async (e) => {
+                    onChange={(e) => {
                       const selectedLinea = e.target.value;
-                      const currentOperador = editedTransporte.operador;
                       setEditDraftLineaText("");
-                      setEditDraftOperadorText("");
                       setOperadores([]);
-
-                      if (selectedLinea && selectedLinea !== "all") {
-                        try {
-                          let url = `${baseUrl}/operadores?lineaTransporte=${encodeURIComponent(selectedLinea)}`;
-                          const response = await fetch(url, { method: "GET", credentials: "include" });
-                          if (response.ok) {
-                            const newOperadores = await response.json();
-                            setOperadores(newOperadores);
-                            const isOperadorValid = newOperadores.some((op) => op.nombre === currentOperador);
-                            setEditedTransporte((prev) => ({
-                              ...prev,
-                              lineaTransporte: selectedLinea,
-                              operador: isOperadorValid ? currentOperador : "",
-                            }));
-                          } else {
-                            setEditedTransporte((prev) => ({ ...prev, lineaTransporte: selectedLinea, operador: "" }));
-                          }
-                        } catch (error) {
-                          console.error("Error fetching operadores:", error);
-                          setEditedTransporte((prev) => ({ ...prev, lineaTransporte: selectedLinea, operador: "" }));
-                        }
-                      } else {
-                        setEditedTransporte((prev) => ({ ...prev, lineaTransporte: selectedLinea, operador: "" }));
-                      }
+                      setEditedTransporte((prev) => ({ ...prev, lineaTransporte: selectedLinea, operador: "" }));
+                      if (selectedLinea && selectedLinea !== "all") fetchOperadores(selectedLinea);
                     }}>
                     <option value="">Selecciona una línea de transporte</option>
                     {lineasTransporte.map((linea) => (
@@ -2579,16 +2636,15 @@ const BitacoraDetailPage = ({edited}) => {
                       </option>
                     ))}
                   </Form.Select>
-                  {roleData?.crear_draft_transporte && (
+                  {(roleData?.crear_draft_transporte || editDraftLineaText) && (
                     <Form.Control
                       type="text"
                       className="mt-2"
                       value={editDraftLineaText}
                       placeholder="O escribe una línea nueva..."
-                      onChange={async (e) => {
+                      onChange={(e) => {
                         const val = e.target.value;
                         setEditDraftLineaText(val);
-                        setEditDraftOperadorText("");
                         setOperadores([]);
                         setEditedTransporte((prev) => ({ ...prev, lineaTransporte: val, operador: "" }));
                         if (val) fetchOperadores(val);
@@ -2616,7 +2672,7 @@ const BitacoraDetailPage = ({edited}) => {
                       </option>
                     ))}
                   </Form.Select>
-                  {roleData?.crear_draft_transporte && (
+                  {(roleData?.crear_draft_transporte || editDraftOperadorText) && (
                     <Form.Control
                       type="text"
                       className="mt-2"
@@ -2654,11 +2710,33 @@ const BitacoraDetailPage = ({edited}) => {
                   )}
                   <Form.Text className="text-muted">Formato: 1234567890</Form.Text>
                 </Form.Group>
-              </Tab>
+              </div>
             )}
-          </Tabs>
+
+          </div>{/* end step content wrapper */}
+
+          {/* Wizard footer */}
+          <div className="wizard-footer">
+            <button type="button" className="btn btn-outline-secondary"
+              onClick={editTransporteStep === 0 ? () => setEditTransporteModalVisible(false) : goEditPrev}>
+              {editTransporteStep === 0
+                ? <><i className="fa-solid fa-xmark me-1"></i>Cancelar</>
+                : <><i className="fa-solid fa-arrow-left me-1"></i>Anterior</>}
+            </button>
+            {isLastEditStep ? (
+              <button type="button" className="btn btn-success" onClick={handleTransportEdit}>
+                <i className="fa-solid fa-check me-1"></i>Guardar
+              </button>
+            ) : (
+              <button type="button" className="btn btn-primary" onClick={goEditNext}>
+                Siguiente<i className="fa-solid fa-arrow-right ms-1"></i>
+              </button>
+            )}
+          </div>
+
         </ModalTemplate>
-      )}
+        );
+      })()}
 
       {/* CREATE TRANSPORTES */}
       <CreateTransporteModal
@@ -2682,70 +2760,134 @@ const BitacoraDetailPage = ({edited}) => {
             <p className="text-muted">No hay borradores pendientes.</p>
           ) : (
             <div className="d-flex flex-column gap-3">
-              {drafts.map((draft) => (
+              {drafts.map((draft) => {
+                const isPlanDraft = !!draft.transporte;
+                return (
                 <div key={draft._id} className="border rounded p-3 bg-light">
-                  <div className="mb-1">
-                    <small className="text-muted">Transporte ID:</small>{" "}
-                    <strong>{draft.transporte_id}</strong>
-                  </div>
-                  {draft.lineaTransporte_es_draft && (
-                    <div className="mb-1">
-                      <small className="text-muted">Línea de Transporte:</small>{" "}
-                      <strong>{draft.lineaTransporte}</strong>
-                    </div>
-                  )}
-                  {draft.operador_es_draft && (
-                    <div className="mb-1">
-                      <small className="text-muted">Operador:</small>{" "}
-                      <strong>{draft.operador}</strong>
-                    </div>
+                  {isPlanDraft ? (
+                    // Plan draft — show confirmed values directly, no approval needed
+                    <>
+                      <div className="mb-1">
+                        <small className="text-muted">Transporte:</small>{" "}
+                        <strong>{draft.transporte}</strong>
+                      </div>
+                      {draft.lineaTransporte && (
+                        <div className="mb-1">
+                          <small className="text-muted">Línea de Transporte:</small>{" "}
+                          <strong>{draft.lineaTransporte}</strong>
+                        </div>
+                      )}
+                      {draft.operador && (
+                        <div className="mb-1">
+                          <small className="text-muted">Operador:</small>{" "}
+                          <strong>{draft.operador}</strong>
+                        </div>
+                      )}
+                      {draft.telefono && (
+                        <div className="mb-1">
+                          <small className="text-muted">Teléfono:</small>{" "}
+                          <strong>{draft.telefono}</strong>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    // Regular draft — show pending approval fields
+                    <>
+                      {draft.lineaTransporte_es_draft && (
+                        <div className="mb-1">
+                          <small className="text-muted">Línea de Transporte (pendiente):</small>{" "}
+                          <strong>{draft.lineaTransporte ?? <span className="text-muted fst-italic">Sin asignar</span>}</strong>
+                        </div>
+                      )}
+                      {draft.operador_es_draft && (
+                        <div className="mb-1">
+                          <small className="text-muted">Operador (pendiente):</small>{" "}
+                          <strong>{draft.operador ?? <span className="text-muted fst-italic">Sin asignar</span>}</strong>
+                        </div>
+                      )}
+                      {draft.telefono && (
+                        <div className="mb-1">
+                          <small className="text-muted">Teléfono:</small>{" "}
+                          <strong>{draft.telefono}</strong>
+                        </div>
+                      )}
+                    </>
                   )}
                   <div className="mb-2">
                     <small className="text-muted">Creado por:</small> {draft.creado_por}
                   </div>
-                  <div className="d-flex gap-2">
-                    <button
-                      type="button"
-                      className="btn btn-success btn-sm"
-                      onClick={() => handleDraftAction(draft._id, "accept")}>
-                      <i className="fa-solid fa-check me-1"></i> Aceptar
-                    </button>
-                    <button
-                      type="button"
-                      className="btn btn-danger btn-sm"
-                      onClick={async () => {
-                        const transporte = bitacora.transportes.find(
-                          (t) => t.id === draft.transporte_id
-                        );
-                        if (!transporte) return;
-                        setPendingRejectDraftId(draft._id);
-                        setEditedTransporte({...transporte, originalId: transporte.id});
-                        setIdMethod(
-                          transporte.id &&
-                          !transporte.id.startsWith("T") &&
-                          !transporte.id.startsWith("blank_")
-                            ? "wialon"
-                            : "automatic"
-                        );
-                        if (transporte.lineaTransporte) {
-                          await fetchOperadores(transporte.lineaTransporte);
-                        } else {
-                          setOperadores([]);
-                        }
-                        setSelectedGpsUnits(
-                          transporte.gpsUnits?.map((g) => ({id: g.wialonId, name: g.name})) ?? []
-                        );
-                        setEditDraftLineaText("");
-                        setEditDraftOperadorText("");
-                        setEditTransporteActiveTab("operador");
-                        setShowDraftsModal(false);
-                        setEditTransporteModalVisible(true);
-                      }}>
-                      <i className="fa-solid fa-xmark me-1"></i> Rechazar
-                    </button>
-                  </div>
+                  {(() => {
+                    const openEdit = async () => {
+                      const transporte = bitacora.transportes.find(
+                        (t) => t.id === draft.transporte_id
+                      );
+                      if (!transporte) return;
+                      setPendingRejectDraftId(draft._id);
+                      setEditIsPlanDraft(isPlanDraft);
+                      // Values for plan drafts come from the stored bitacora transporte
+                      const lineaVal = transporte.lineaTransporte || draft.lineaTransporte || "";
+                      const operadorVal = transporte.operador || draft.operador || "";
+                      const telefonoVal = transporte.telefono || draft.telefono || "";
+                      setEditedTransporte({
+                        ...transporte,
+                        tracto:          transporte.tracto   ?? {},
+                        remolque:        transporte.remolque ?? {},
+                        originalId:      transporte.id,
+                        lineaTransporte: lineaVal,
+                        operador:        operadorVal,
+                        telefono:        telefonoVal,
+                      });
+                      setIdMethod(isPlanDraft ? "automatic" : (
+                        transporte.id &&
+                        !transporte.id.startsWith("T") &&
+                        !transporte.id.startsWith("blank_")
+                          ? "wialon"
+                          : "automatic"
+                      ));
+                      // For plan drafts, pre-fill the text inputs with the confirmed values
+                      if (isPlanDraft) {
+                        setEditDraftLineaText(lineaVal);
+                        setEditDraftOperadorText(operadorVal);
+                        if (lineaVal) await fetchOperadores(lineaVal);
+                        else setOperadores([]);
+                      } else {
+                        const lineaToFetch = transporte.lineaTransporte || (!draft.lineaTransporte_es_draft && draft.lineaTransporte);
+                        if (lineaToFetch) await fetchOperadores(lineaToFetch);
+                        else setOperadores([]);
+                        setEditDraftLineaText(draft.lineaTransporte_es_draft ? (draft.lineaTransporte ?? "") : "");
+                        setEditDraftOperadorText(draft.operador_es_draft ? (draft.operador ?? "") : "");
+                      }
+                      setSelectedGpsUnits(
+                        transporte.gpsUnits?.map((g) => ({id: g.wialonId, name: g.name})) ?? []
+                      );
+                      setEditTransporteStep(0);
+                      setEditTransporteSlide("forward");
+                      setShowDraftsModal(false);
+                      setEditTransporteModalVisible(true);
+                    };
+                    return (
+                      <div className="d-flex gap-2">
+                        {!isPlanDraft && (
+                          <button
+                            type="button"
+                            className="draft-action-btn draft-action-btn--accept"
+                            onClick={() => handleDraftAction(draft._id, "accept")}>
+                            <i className="fa-solid fa-check"></i> Aceptar
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          className="draft-action-btn draft-action-btn--edit"
+                          onClick={openEdit}>
+                          <i className="fa-solid fa-pen"></i>{" "}
+                          {isPlanDraft ? "Completar registro" : "Editar"}
+                        </button>
+                      </div>
+                    );
+                  })()}
                 </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </ModalTemplate>

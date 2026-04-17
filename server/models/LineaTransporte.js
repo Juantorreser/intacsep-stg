@@ -6,6 +6,8 @@ const LineaTransporteSchema = new mongoose.Schema({
     cliente: { type: String, required: true }
 }, { timestamps: true });
 
+LineaTransporteSchema.index({ cliente: 1 });
+
 const LineaTransporte = mongoose.model("LineaTransporte", LineaTransporteSchema);
 export default LineaTransporte;
 

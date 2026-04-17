@@ -1,5 +1,5 @@
 import "bootstrap/dist/js/bootstrap.bundle.min";
-import {useState} from "react";
+import {useState, useEffect} from "react";
 import {useNavigate} from "react-router-dom";
 import {useAuth} from "../context/AuthContext.jsx";
 import {useSidebar} from "../context/SidebarContext.jsx";
@@ -10,9 +10,11 @@ const Sidebar = () => {
   const {user, logout} = useAuth();
   const {isSidebarCollapsed, toggleSidebar} = useSidebar();
   const navigate = useNavigate();
+  const baseUrl = import.meta.env.VITE_BASE_URL;
 
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [showInacModal, setShowInacModal] = useState(false);
+  const [roleData, setRoleData] = useState(null);
   const [collapsedItems, setCollapsedItems] = useState({
     dashboardCollapse: false,
     bitacorasCollapse: false,
@@ -21,20 +23,45 @@ const Sidebar = () => {
     sistemaCollapse: false,
     auditoriaCollapse: false,
   });
-  // Mock roleData - en una implementación real, esto vendría del contexto de autenticación
-  const [roleData] = useState({
-    // Permisos básicos para mostrar las opciones del menú
-    bitacoras: {read: true, create: true, update: true, delete: true},
-    tipos_de_monitoreo: {read: true, create: true, update: true, delete: true},
-    eventos: {read: true, create: true, update: true, delete: true},
-    clientes: {read: true, create: true, update: true, delete: true},
-    origenes: {read: true, create: true, update: true, delete: true},
-    destinos: {read: true, create: true, update: true, delete: true},
-    usuarios: {read: true, create: true, update: true, delete: true},
-    roles: {read: true, create: true, update: true, delete: true},
-    inactividad: {read: true, create: true, update: true, delete: true},
-    auditoria_bitacora: {read: true, create: true, update: true, delete: true},
-  });
+
+  useEffect(() => {
+    if (!user?.role) return;
+    const fetchRolePermissions = async () => {
+      try {
+        const response = await fetch(`${baseUrl}/roles/${user.role}`, {method: "GET", credentials: "include"});
+        if (response.ok) setRoleData(await response.json());
+      } catch (e) {
+        console.error("Error fetching role permissions:", e);
+      }
+    };
+    fetchRolePermissions();
+  }, [user]);
+
+  // Derived visibility flags for parent groups
+  const hasRead = (...keys) => keys.some((k) => roleData?.[k]?.read);
+  const showDashboardGeneral = hasRead("dashboard");
+  const showDashboardAnomalias = hasRead("dashboard_anomalias");
+  const showReporteEventos = hasRead("reporte_eventos");
+  const showReporteEstadisticas = hasRead("reporte_estadisticas");
+  const showDashboard = showDashboardGeneral || showDashboardAnomalias || showReporteEventos || showReporteEstadisticas;
+
+  const showCatalogos = roleData && (
+    roleData.tipos_de_monitoreo?.read ||
+    roleData.eventos?.read ||
+    roleData.clientes?.read ||
+    roleData.origenes?.read ||
+    roleData.destinos?.read ||
+    roleData.operadores?.read
+  );
+  const showSistema = roleData && (roleData.usuarios?.read || roleData.roles?.read || roleData.inactividad?.read);
+  const showAuditoria = roleData && roleData.auditoria_bitacora?.read;
+  const showConfiguracion = roleData && (showCatalogos || showSistema || showAuditoria);
+
+  const showBitacoras = hasRead("bitacoras");
+  // Backwards-compat: some roles use `plandeembarque` instead of `planes_embarque`
+  const showPlanesEmbarque = hasRead("planes_embarque", "plandeembarque");
+  const showBuscadorPlan = hasRead("buscador_plan");
+  const showMonitoreo = showBitacoras || showPlanesEmbarque || showBuscadorPlan;
 
   // Functions
   const openInacModal = () => {
@@ -121,41 +148,59 @@ const Sidebar = () => {
           <nav className="sidebar-nav">
             <ul className="nav-menu">
               {/* Dashboard */}
-              <li className="nav-item">
-                <div
-                  className="nav-link has-submenu"
-                  onClick={() =>
-                    handleIconClick(() => toggleCollapse("dashboardCollapse"), "dashboardCollapse")
-                  }>
-                  <div className="nav-link-content">
-                    <i className="fa fa-tachometer-alt"></i>
-                    {!isSidebarCollapsed && <span>Dashboard</span>}
+              {showDashboard && (
+                <li className="nav-item">
+                  <div
+                    className="nav-link has-submenu"
+                    onClick={() =>
+                      handleIconClick(() => toggleCollapse("dashboardCollapse"), "dashboardCollapse")
+                    }>
+                    <div className="nav-link-content">
+                      <i className="fa fa-tachometer-alt"></i>
+                      {!isSidebarCollapsed && <span>Dashboard</span>}
+                    </div>
+                    {!isSidebarCollapsed && (
+                      <i
+                        className={`fa fa-chevron-${
+                          collapsedItems.dashboardCollapse ? "up" : "down"
+                        }`}
+                      />
+                    )}
                   </div>
-                  {!isSidebarCollapsed && (
-                    <i
-                      className={`fa fa-chevron-${
-                        collapsedItems.dashboardCollapse ? "up" : "down"
-                      }`}
-                    />
-                  )}
-                </div>
 
-                {collapsedItems.dashboardCollapse && !isSidebarCollapsed && (
-                  <ul className="submenu">
-                    <li onClick={() => navigate("/dashboard/general")}>
-                      <i className="fa fa-chart-bar"></i>
-                      <span>General</span>
-                    </li>
-                    <li onClick={() => navigate("/dashboard/anomalias")}>
-                      <i className="fa fa-exclamation-triangle"></i>
-                      <span>Anomalías</span>
-                    </li>
-                  </ul>
-                )}
-              </li>
+                  {collapsedItems.dashboardCollapse && !isSidebarCollapsed && (
+                    <ul className="submenu">
+                      {showDashboardGeneral && (
+                        <li onClick={() => navigate("/dashboard/general")}>
+                          <i className="fa fa-chart-bar"></i>
+                          <span>General</span>
+                        </li>
+                      )}
+                      {showDashboardAnomalias && (
+                        <li onClick={() => navigate("/dashboard/anomalias")}>
+                          <i className="fa fa-exclamation-triangle"></i>
+                          <span>Anomalías</span>
+                        </li>
+                      )}
+                      {showReporteEventos && (
+                        <li onClick={() => navigate("/reporte-eventos")}>
+                          <i className="fa fa-file-lines"></i>
+                          <span>Reporte Eventos</span>
+                        </li>
+                      )}
+                      {showReporteEstadisticas && (
+                        <li onClick={() => navigate("/reporte-estadisticas")}>
+                          <i className="fa fa-clock"></i>
+                          <span>Reporte de puntualidad</span>
+                        </li>
+                      )}
+                    </ul>
+                  )}
+                </li>
+              )}
 
               {/* Monitoreo */}
-              {roleData?.bitacoras?.read && (
+              {showMonitoreo && (
                 <li className="nav-item">
                   <div
                     className="nav-link has-submenu"
@@ -180,17 +225,31 @@ const Sidebar = () => {
 
                   {collapsedItems.bitacorasCollapse && !isSidebarCollapsed && (
                     <ul className="submenu">
-                      <li onClick={() => navigate("/bitacoras")}>
-                        <i className="fa fa-book"></i>
-                        <span>Bitácoras</span>
-                      </li>
+                      {showBitacoras && (
+                        <li onClick={() => navigate("/bitacoras")}>
+                          <i className="fa fa-book"></i>
+                          <span>Bitácoras</span>
+                        </li>
+                      )}
+                      {showPlanesEmbarque && (
+                        <li onClick={() => navigate("/planes-embarque")}>
+                          <i className="fa fa-ship"></i>
+                          <span>Planes de Embarque</span>
+                        </li>
+                      )}
+                      {showBuscadorPlan && (
+                        <li onClick={() => navigate("/buscador-plan")}>
+                          <i className="fa fa-magnifying-glass"></i>
+                          <span>Buscador de Plan</span>
+                        </li>
+                      )}
                     </ul>
                   )}
                 </li>
               )}
 
               {/* Configuración */}
-              {roleData && (
+              {showConfiguracion && (
                 <li className="nav-item">
                   <div
                     className="nav-link has-submenu"
@@ -213,7 +272,7 @@ const Sidebar = () => {
                   {collapsedItems.settingsCollapse && !isSidebarCollapsed && (
                     <ul className="submenu">
                       {/* Catálogos */}
-                      <li className="submenu-item">
+                      {showCatalogos && <li className="submenu-item">
                         <div
                           className="submenu-link has-submenu"
                           onClick={() => toggleCollapse("catalogosCollapse")}>
@@ -260,20 +319,18 @@ const Sidebar = () => {
                                 <span>Destinos</span>
                               </li>
                             )}
-                            <li onClick={() => navigate("/lineas-transporte")}>
-                              <i className="fa fa-truck"></i>
-                              <span>Líneas de Transporte</span>
-                            </li>
-                            <li onClick={() => navigate("/operadores")}>
-                              <i className="fa fa-user-tie"></i>
-                              <span>Operadores</span>
-                            </li>
+                            {roleData?.operadores?.read && (
+                              <li onClick={() => navigate("/operadores")}>
+                                <i className="fa fa-user-tie"></i>
+                                <span>Operadores</span>
+                              </li>
+                            )}
                           </ul>
                         )}
-                      </li>
+                      </li>}
 
                       {/* Sistema */}
-                      <li className="submenu-item">
+                      {showSistema && <li className="submenu-item">
                         <div
                           className="submenu-link has-submenu"
                           onClick={() => toggleCollapse("sistemaCollapse")}>
@@ -310,10 +367,10 @@ const Sidebar = () => {
                             )}
                           </ul>
                         )}
-                      </li>
+                      </li>}
 
                       {/* Auditoría */}
-                      <li className="submenu-item">
+                      {showAuditoria && <li className="submenu-item">
                         <div
                           className="submenu-link has-submenu"
                           onClick={() => toggleCollapse("auditoriaCollapse")}>
@@ -338,7 +395,7 @@ const Sidebar = () => {
                             )}
                           </ul>
                         )}
-                      </li>
+                      </li>}
                     </ul>
                   )}
                 </li>

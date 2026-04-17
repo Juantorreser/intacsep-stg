@@ -32,10 +32,15 @@ const RoleSchema = new mongoose.Schema({
   operador: permissionSchema,
   auditoria_bitacora: permissionSchema,
   dashboard: permissionSchema,
+  dashboard_anomalias: permissionSchema,
 
   ver_bitacoras_cerradas: { type: Boolean, default: true },
   crear_draft_transporte: { type: Boolean, default: false },
   aceptar_draft: { type: Boolean, default: false },
+  planes_embarque: permissionSchema,
+  buscador_plan: permissionSchema,
+  reporte_eventos: permissionSchema,
+  reporte_estadisticas: permissionSchema,
 
   // Sistema de permisos de clientes
   client_access: {
