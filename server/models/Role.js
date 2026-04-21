@@ -19,6 +19,7 @@ const RoleSchema = new mongoose.Schema({
   origenes: permissionSchema,
   destinos: permissionSchema,
   operadores: permissionSchema,
+  lineas_transporte: permissionSchema,
   tipos_de_monitoreo: permissionSchema,
   inactividad: permissionSchema,
   bitacora_abierta: permissionSchema,

@@ -20,6 +20,7 @@ const RolePage = () => {
     origenes: {create: false, read: false, update: false, delete: false},
     destinos: {create: false, read: false, update: false, delete: false},
     operadores: {create: false, read: false, update: false, delete: false},
+    lineas_transporte: {create: false, read: false, update: false, delete: false},
     tipos_de_monitoreo: {create: false, read: false, update: false, delete: false},
     inactividad: {create: false, read: false, update: false, delete: false},
     bitacora_abierta: {create: false, read: false, update: false, delete: false},
@@ -57,6 +58,7 @@ const RolePage = () => {
     origenes: {create: false, read: false, update: false, delete: false},
     destinos: {create: false, read: false, update: false, delete: false},
     operadores: {create: false, read: false, update: false, delete: false},
+    lineas_transporte: {create: false, read: false, update: false, delete: false},
     tipos_de_monitoreo: {create: false, read: false, update: false, delete: false},
     inactividad: {create: false, read: false, update: false, delete: false},
     bitacora_abierta: {create: false, read: false, update: false, delete: false},
@@ -361,6 +363,34 @@ const RolePage = () => {
     },
   };
 
+  const permissionLabels = {
+    bitacoras: "Bitácoras",
+    planes_embarque: "Planes de embarque",
+    buscador_plan: "Buscador de planes",
+    bit_detalles: "Detalles de bitácora",
+    bit_transportes: "Transportes de bitácora",
+    bit_eventos: "Eventos de bitácora",
+    gps_id: "GPS ID",
+    remolque: "Remolque",
+    tracto: "Tracto",
+    operador: "Operador",
+    tipos_de_monitoreo: "Tipos de monitoreo",
+    eventos: "Eventos",
+    clientes: "Clientes",
+    origenes: "Orígenes",
+    destinos: "Destinos",
+    lineas_transporte: "Líneas de transporte",
+    operadores: "Operadores",
+    usuarios: "Usuarios",
+    roles: "Roles",
+    inactividad: "Inactividad",
+    auditoria_bitacora: "Auditoría bitácora",
+    dashboard: "Dashboard",
+    dashboard_anomalias: "Dashboard anomalías",
+    reporte_eventos: "Reporte eventos",
+    reporte_estadisticas: "Reporte de puntualidad",
+  };
+
   const renderPermissionRow = (key, roleData, setRoleData) => {
     const actions =
       key === "bitacoras"
@@ -369,7 +399,7 @@ const RolePage = () => {
 
     return (
       <tr key={key}>
-        <td className="text-capitalize">{key.replace(/_/g, " ")}</td>
+        <td>{permissionLabels[key] || key.replace(/_/g, " ")}</td>
         {actions.map((action) => {
           const isDisabled = disabledPermissions[key]?.[action];
 
@@ -542,6 +572,8 @@ const RolePage = () => {
                             "clientes",
                             "origenes",
                             "destinos",
+                            "lineas_transporte",
+                            "operadores",
                           ].map((key) => renderPermissionRow(key, editRoleData, setEditRoleData))}
 
                           {/* PANEL 2: Configuración > Sistema */}
@@ -774,7 +806,7 @@ const RolePage = () => {
                     .filter(([, val]) => typeof val === "object" && "create" in val)
                     .map(([key]) => (
                       <tr key={key}>
-                        <td className="text-capitalize">{key.replace(/_/g, " ")}</td>
+                        <td>{permissionLabels[key] || key.replace(/_/g, " ")}</td>
                         {["create", "read", "update", "delete"].map((action) => (
                           <td className="text-center" key={action}>
                             <input

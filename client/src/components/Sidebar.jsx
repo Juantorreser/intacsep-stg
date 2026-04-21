@@ -51,6 +51,7 @@ const Sidebar = () => {
     roleData.clientes?.read ||
     roleData.origenes?.read ||
     roleData.destinos?.read ||
+    roleData.lineas_transporte?.read ||
     roleData.operadores?.read
   );
   const showSistema = roleData && (roleData.usuarios?.read || roleData.roles?.read || roleData.inactividad?.read);
@@ -317,6 +318,12 @@ const Sidebar = () => {
                               <li onClick={() => navigate("/destinos")}>
                                 <i className="fa fa-map-pin"></i>
                                 <span>Destinos</span>
+                              </li>
+                            )}
+                            {roleData?.lineas_transporte?.read && (
+                              <li onClick={() => navigate("/lineas-transporte")}>
+                                <i className="fa fa-truck"></i>
+                                <span>Líneas de transporte</span>
                               </li>
                             )}
                             {roleData?.operadores?.read && (
