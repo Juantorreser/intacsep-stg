@@ -249,7 +249,7 @@ const Sidebar = () => {
                 </li>
               )}
 
-              {/* Placa Test (prototype, always visible) */}
+              {/* Placa Test (prototype, disabled for prod)
               <li className="nav-item">
                 <div className="nav-link" onClick={() => navigate("/placa-test")}>
                   <div className="nav-link-content">
@@ -258,6 +258,7 @@ const Sidebar = () => {
                   </div>
                 </div>
               </li>
+              */}
 
               {/* Configuración */}
               {showConfiguracion && (
