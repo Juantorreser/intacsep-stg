@@ -9,6 +9,7 @@ const clientSchema = new mongoose.Schema(
         clave_pais: String,
         codigo_postal: String,
         colonia: String,
+        ID_Cliente: { type: String, required: true },
         numericId: { type: Number, required: true },
         num_ext: String,
         num_int: String,

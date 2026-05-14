@@ -3080,13 +3080,14 @@ app.get("/clients", async (req, res) => {
 app.post("/clients", async (req, res) => {
   try {
     // Get next sequence number
+    const maxClient = await Client.findOne().sort({ numericId: -1 }).select("numericId");
+    const maxId = maxClient?.numericId || 0;
+    await ClienteSequence.findByIdAndUpdate("clienteSequence", { $max: { seq: maxId } }, { upsert: true });
     const numericId = await getNextClienteSequence();
+    const ID_Cliente = numericId.toString().padStart(5, "0");
+    const excludeFields = ['_id', 'createdAt', 'updatedAt', 'numericId', 'ID_Cliente'];
+    const clientData = { ...convertToUpperCase(req.body, excludeFields), numericId, ID_Cliente };
 
-    // Add numericId to request body and convert to uppercase
-    const excludeFields = ['_id', 'createdAt', 'updatedAt', 'numericId'];
-    const clientData = { ...convertToUpperCase(req.body, excludeFields), numericId };
-
-    // Create new client with ID_Cliente
     const client = new Client(clientData);
     const newClient = await client.save();
     await auditCreation({ newData: newClient.toObject(), modelId: newClient._id, user: req.session.user || {}, seccion: "Cliente" });

@@ -154,7 +154,7 @@ const ClientCard = ({client, onDelete, fetchClients}) => {
       <div className="client-card__header" onClick={toggleExpanded}>
         <div className="client-card__id">
           <span className="client-card__id-label">ID Cliente</span>
-          <span className="client-card__id-value">{formatID(formData.ID_Cliente || "")}</span>
+          <span className="client-card__id-value">{formData.ID_Cliente ? formatID(formData.ID_Cliente) : "—"}</span>
           {formData.razon_social && (
             <span className="client-card__company-name">{formData.razon_social}</span>
           )}
