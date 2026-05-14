@@ -13,6 +13,7 @@
     "license": "ISC",
     "description": "",
     "dependencies": {
+        "@google-cloud/vision": "^5.3.6",
         "bcrypt": "^5.1.1",
         "cookie-parser": "^1.4.6",
         "cors": "^2.8.5",
@@ -20,9 +21,14 @@
         "dotenv": "^16.4.5",
         "express": "^4.19.2",
         "express-session": "^1.18.0",
+        "form-data": "^4.0.5",
         "jsonwebtoken": "^9.0.2",
         "mongoose": "^8.5.1",
-        "nodemailer": "^6.9.14"
+        "multer": "^2.1.1",
+        "node-fetch": "^3.3.2",
+        "nodemailer": "^6.9.14",
+        "sharp": "^0.34.5",
+        "tesseract.js": "^7.0.0"
     },
     "overrides": {
         "jwa": "2.0.0"

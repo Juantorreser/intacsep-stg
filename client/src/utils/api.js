@@ -204,3 +204,128 @@ export const getLocationText = (field, list) => {
   // Fallback
   return "Ubicación no encontrada";
 };
+
+export const fetchIntegrations = async () => {
+  try {
+    const response = await fetch(`${baseUrl}/integrations`, {
+      method: "GET",
+      credentials: "include",
+    });
+    if (!response.ok) throw new Error("Failed to fetch integrations");
+    return await response.json();
+  } catch (e) {
+    console.error("Error fetching integrations:", e);
+    return [];
+  }
+};
+
+export const createIntegration = async (data) => {
+  try {
+    const response = await fetch(`${baseUrl}/integrations`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+      credentials: "include",
+    });
+    if (!response.ok) throw new Error("Failed to create integration");
+    return await response.json();
+  } catch (e) {
+    console.error("Error creating integration:", e);
+    throw e;
+  }
+};
+
+export const updateIntegration = async (id, data) => {
+  try {
+    const response = await fetch(`${baseUrl}/integrations/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+      credentials: "include",
+    });
+    if (!response.ok) throw new Error("Failed to update integration");
+    return await response.json();
+  } catch (e) {
+    console.error("Error updating integration:", e);
+    throw e;
+  }
+};
+
+export const deleteIntegration = async (id) => {
+  try {
+    const response = await fetch(`${baseUrl}/integrations/${id}`, {
+      method: "DELETE",
+      credentials: "include",
+    });
+    if (!response.ok) throw new Error("Failed to delete integration");
+    return await response.json();
+  } catch (e) {
+    console.error("Error deleting integration:", e);
+    throw e;
+  }
+};
+
+export const fetchVehicleMappings = async (integrationId) => {
+  try {
+    const response = await fetch(`${baseUrl}/integrations/${integrationId}/vehicles`, {
+      method: "GET",
+      credentials: "include",
+    });
+    if (!response.ok) throw new Error("Failed to fetch vehicle mappings");
+    return await response.json();
+  } catch (e) {
+    console.error("Error fetching vehicle mappings:", e);
+    return [];
+  }
+};
+
+export const upsertVehicleMappings = async (integrationId, vehicles) => {
+  try {
+    const response = await fetch(`${baseUrl}/integrations/${integrationId}/vehicles`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ vehicles }),
+      credentials: "include",
+    });
+    if (!response.ok) throw new Error("Failed to upsert vehicle mappings");
+    return await response.json();
+  } catch (e) {
+    console.error("Error upserting vehicle mappings:", e);
+    throw e;
+  }
+};
+
+export const importToWialon = async (integrationId, mappingIds = []) => {
+  try {
+    const response = await fetch(`${baseUrl}/integrations/${integrationId}/import-to-wialon`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ mappingIds }),
+      credentials: "include",
+    });
+    if (!response.ok) throw new Error("Failed to trigger Wialon import");
+    return await response.json();
+  } catch (e) {
+    console.error("Error triggering Wialon import:", e);
+    throw e;
+  }
+};
+
+export const testInbound = async (integrationId, body = {}) => {
+  const response = await fetch(`${baseUrl}/integrations/${integrationId}/test-inbound`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+    credentials: "include",
+  });
+  return await response.json();
+};
+
+export const flushWialon = async (integrationId) => {
+  const response = await fetch(`${baseUrl}/integrations/${integrationId}/flush-wialon`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+  });
+  return await response.json();
+};

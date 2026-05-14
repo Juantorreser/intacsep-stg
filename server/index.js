@@ -31,8 +31,18 @@ import LineaTransporteSequence from "./models/LineaTransporteSequence.js";
 import OperadorSequence from "./models/OperadorSequence.js";
 import DraftTransporte from "./models/DraftTransporte.js";
 import PlanDeEmbarque from "./models/PlanDeEmbarque.js";
+import Integration from "./models/Integration.js";
+import VehicleMapping from "./models/VehicleMapping.js";
+import InboundMessage from "./models/InboundMessage.js";
+import wialonIntegrationService from "./services/wialonIntegrationService.js";
+import telemetryService from "./services/telemetryService.js";
+import { readPlateFromImage } from "./services/plateRecognitionService.js";
 import { auditCreation, auditUpdate, auditDeletion } from "./auditoriaUtils.js";
 import { convertToUpperCase } from "./utils/textUtils.js";
+import multer from "multer";
+import { writeFile, unlink } from "fs/promises";
+import { tmpdir } from "os";
+import { join } from "path";
 
 // Helper function to get next sequence number for Origen
 const getNextOrigenSequence = async () => {
@@ -231,6 +241,7 @@ app.use(
 );
 
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 app.use(
   session({
@@ -251,6 +262,7 @@ app.use((req, res, next) => {
     req.path === "/register" ||
     req.path === "/request-reset-password" ||
     req.path === "/reset-password" ||
+    req.path.startsWith("/inbound/") ||
     (req.method === "GET" && req.path == "/")
   ) {
     return next();
@@ -2557,6 +2569,380 @@ app.post("/monitoreos", async (req, res) => {
   } catch (error) {
     console.error("Error creating monitoreo:", error);
     res.status(500).json({ message: "Internal server error" });
+  }
+});
+
+// INTEGRATIONS
+// Inbound telemetry route (Alpha-style)
+// Public endpoint: secured by integration's own inboundToken (not JWT).
+// Response shape mirrors Alpha/Layrz: { status: "OK" } or { status: "<ERROR>", reason: ["..."] }
+app.post("/inbound/:inboundKey", async (req, res) => {
+  try {
+    const { inboundKey } = req.params;
+    const authHeader = req.headers.authorization;
+
+    // Accept "Bearer <token>" or "LayrzToken <token>"
+    let token = null;
+    if (authHeader) {
+      const [scheme, value] = authHeader.split(" ");
+      if ((scheme === "Bearer" || scheme === "LayrzToken") && value) {
+        token = value;
+      }
+    }
+
+    if (!token) {
+      return res.status(401).json({
+        status: "UNAUTHORIZED",
+        reason: ["Missing or invalid Authorization header. Expected 'Bearer <token>' or 'LayrzToken <token>'."],
+      });
+    }
+
+    const integration = await Integration.findOne({ inboundKey });
+    if (!integration) {
+      return res.status(401).json({
+        status: "ACCESSDENIED",
+        reason: ["Integration not found for the given inbound key."],
+      });
+    }
+
+    if (integration.inboundToken !== token) {
+      return res.status(401).json({
+        status: "UNAUTHORIZED",
+        reason: ["Invalid inbound token."],
+      });
+    }
+
+    if (integration.type !== "inbound-rest") {
+      return res.status(403).json({
+        status: "ACCESSDENIED",
+        reason: ["Integration is not of type 'inbound-rest'."],
+      });
+    }
+
+    if (integration.status !== "active") {
+      return res.status(403).json({
+        status: "ACCESSDENIED",
+        reason: ["Integration is inactive."],
+      });
+    }
+
+    // Accept payload from body or query string (Alpha guide supports both).
+    const ident = req.body?.ident ?? req.query?.ident;
+    let position = req.body?.position ?? req.query?.position;
+
+    // Position can arrive as a JSON string (especially via query params).
+    if (typeof position === "string") {
+      try {
+        position = JSON.parse(position);
+      } catch (e) {
+        return res.status(400).json({
+          status: "BADREQUEST",
+          reason: ["'position' is not valid JSON."],
+        });
+      }
+    }
+
+    const reasons = [];
+    if (!ident || typeof ident !== "string") {
+      reasons.push("'ident' is required and must be a string.");
+    }
+    if (!position || typeof position !== "object") {
+      reasons.push("'position' is required and must be an object.");
+    } else {
+      if (typeof position.latitude !== "number") reasons.push("'position.latitude' must be a number.");
+      if (typeof position.longitude !== "number") reasons.push("'position.longitude' must be a number.");
+      if (typeof position.speed !== "number") reasons.push("'position.speed' must be a number.");
+    }
+
+    if (reasons.length > 0) {
+      return res.status(400).json({ status: "BADREQUEST", reason: reasons });
+    }
+
+    const result = await telemetryService.handleInbound(inboundKey, { ident, position });
+
+    if (result && result.success === false) {
+      // Mapping not found or other soft failure: still acknowledge with detail.
+      return res.status(200).json({
+        status: "OK",
+        warning: result.message || "No vehicle mapping matched 'ident'.",
+      });
+    }
+
+    return res.json({ status: "OK" });
+  } catch (error) {
+    console.error("Error handling inbound telemetry:", error);
+    return res.status(500).json({
+      status: "BADREQUEST",
+      reason: [error.message || "Internal server error."],
+    });
+  }
+});
+
+// List all integrations
+// SECURITY: never include inboundToken / apiKey in list responses.
+app.get("/integrations", async (req, res) => {
+  try {
+    const integrations = await Integration.find()
+      .select("-inboundToken -apiKey -wialonToken")
+      .populate("clientId", "razon_social name");
+
+    // Aggregate the latest inbound message timestamp per integration in a single query.
+    const lastByIntegration = await InboundMessage.aggregate([
+      { $sort: { createdAt: -1 } },
+      { $group: { _id: "$integrationId", lastInboundAt: { $first: "$createdAt" } } },
+    ]);
+    const lastMap = new Map(lastByIntegration.map((r) => [String(r._id), r.lastInboundAt]));
+
+    const enrichedIntegrations = await Promise.all(
+      integrations.map(async (integration) => {
+        const vehicleCount = await VehicleMapping.countDocuments({ integrationId: integration._id });
+        const obj = integration.toObject();
+        return {
+          ...obj,
+          vehicleCount,
+          hasInboundUrl: !!obj.inboundKey,
+          lastInboundAt: lastMap.get(String(integration._id)) || null,
+        };
+      })
+    );
+
+    res.json(enrichedIntegrations);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// Helper: build the absolute inbound URL for an integration.
+// Honors INBOUND_BASE_URL env var if set, otherwise derives from the request.
+const buildInboundUrl = (req, inboundKey) => {
+  if (!inboundKey) return null;
+  const base = process.env.INBOUND_BASE_URL
+    ? process.env.INBOUND_BASE_URL.replace(/\/+$/, "")
+    : `${req.protocol}://${req.get("host")}`;
+  return `${base}/inbound/${inboundKey}`;
+};
+
+// Create a new integration
+app.post("/integrations", async (req, res) => {
+  try {
+    const data = { ...req.body };
+
+    // Auto-generate keys for inbound integrations.
+    // inboundKey: short URL-safe slug (16 hex chars). inboundToken: 48 hex chars (24 bytes).
+    if (data.type === "inbound-rest") {
+      data.inboundKey = data.inboundKey || crypto.randomBytes(8).toString("hex");
+      data.inboundToken = data.inboundToken || crypto.randomBytes(24).toString("hex");
+    }
+
+    const integration = new Integration(data);
+    const newIntegration = await integration.save();
+    await auditCreation({
+      newData: newIntegration.toObject(),
+      modelId: newIntegration._id,
+      user: req.session.user || {},
+      seccion: "Integracion",
+    });
+
+    // Return inboundToken (only on create) plus the full inbound URL for immediate display.
+    const obj = newIntegration.toObject();
+    obj.derivedInboundUrl = buildInboundUrl(req, obj.inboundKey);
+    res.status(201).json(obj);
+  } catch (error) {
+    console.error("Error creating integration:", error);
+    res.status(400).json({ message: error.message });
+  }
+});
+
+// Get detailed info for an integration
+// Returns inboundToken on this authenticated detail endpoint (allowed by spec).
+app.get("/integrations/:id", async (req, res) => {
+  try {
+    const integration = await Integration.findById(req.params.id).populate("clientId", "razon_social name");
+    if (!integration) return res.status(404).json({ message: "Integration not found" });
+    const obj = integration.toObject();
+    obj.derivedInboundUrl = buildInboundUrl(req, obj.inboundKey);
+    res.json(obj);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// Update an integration
+app.put("/integrations/:id", async (req, res) => {
+  try {
+    const prevIntegration = await Integration.findById(req.params.id);
+    if (!prevIntegration) return res.status(404).json({ message: "Integration not found" });
+    const oldData = prevIntegration.toObject();
+
+    const updatedIntegration = await Integration.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    await auditUpdate({
+      oldData,
+      newData: req.body,
+      modelId: req.params.id,
+      user: req.session.user || {},
+      seccion: "Integracion",
+    });
+    res.json(updatedIntegration);
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
+});
+
+// Delete an integration
+app.delete("/integrations/:id", async (req, res) => {
+  try {
+    const deletedIntegration = await Integration.findByIdAndDelete(req.params.id);
+    if (!deletedIntegration) return res.status(404).json({ message: "Integration not found" });
+
+    // Also delete associated vehicle mappings
+    await VehicleMapping.deleteMany({ integrationId: req.params.id });
+
+    await auditDeletion({
+      oldData: deletedIntegration.toObject(),
+      modelId: req.params.id,
+      user: req.session.user || {},
+      seccion: "Integracion",
+    });
+    res.json({ message: "Integration and associated mappings deleted" });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// List all vehicle mappings for a given integration
+app.get("/integrations/:id/vehicles", async (req, res) => {
+  try {
+    const mappings = await VehicleMapping.find({ integrationId: req.params.id });
+
+    // Latest inbound timestamp per mapping for this integration in a single query.
+    const lastByMapping = await InboundMessage.aggregate([
+      { $match: { integrationId: new mongoose.Types.ObjectId(req.params.id), vehicleMappingId: { $ne: null } } },
+      { $sort: { createdAt: -1 } },
+      { $group: { _id: "$vehicleMappingId", lastInboundAt: { $first: "$createdAt" } } },
+    ]);
+    const lastMap = new Map(lastByMapping.map((r) => [String(r._id), r.lastInboundAt]));
+
+    const enriched = mappings.map((m) => ({
+      ...m.toObject(),
+      lastInboundAt: lastMap.get(String(m._id)) || null,
+    }));
+
+    res.json(enriched);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// Bulk create or upsert vehicle mappings
+app.post("/integrations/:id/vehicles", async (req, res) => {
+  try {
+    const integrationId = req.params.id;
+    const { vehicles } = req.body; // Array of { imei, economico, placa, providerIdent, wialonUnitId, wialonUniqueId }
+
+    if (!Array.isArray(vehicles)) {
+      return res.status(400).json({ message: "Vehicles must be an array" });
+    }
+
+    const operations = vehicles.map((v) => ({
+      updateOne: {
+        filter: { integrationId, imei: v.imei },
+        update: { $set: { ...v, integrationId } },
+        upsert: true,
+      },
+    }));
+
+    const result = await VehicleMapping.bulkWrite(operations);
+    
+    // Audit log (simplified for bulk)
+    await auditCreation({
+      newData: { integrationId, count: vehicles.length },
+      modelId: integrationId,
+      user: req.session.user || {},
+      seccion: "VehicleMapping Bulk",
+    });
+
+    res.json({ message: "Vehicles updated successfully", result });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// Manually fire a sample inbound message at the integration to validate
+// vehicle mappings, validation logic, and the Wialon push pipeline.
+// Bypasses HTTP auth (admin already authenticated via session).
+app.post("/integrations/:id/test-inbound", async (req, res) => {
+  try {
+    const integration = await Integration.findById(req.params.id);
+    if (!integration) return res.status(404).json({ message: "Integration not found" });
+    if (integration.type !== "inbound-rest") {
+      return res.status(400).json({ message: "Only inbound-rest integrations can be tested via this endpoint." });
+    }
+
+    const samplePosition = {
+      hdop: 10,
+      speed: 10,
+      altitude: 10.0,
+      latitude: 10.0,
+      direction: 10,
+      longitude: 10.0,
+      satellites: 10,
+    };
+
+    const ident = req.body?.ident || "TEST-IDENT";
+    let position = req.body?.position || samplePosition;
+    if (typeof position === "string") {
+      try { position = JSON.parse(position); } catch (e) {
+        return res.status(400).json({ status: "BADREQUEST", reason: ["'position' is not valid JSON."] });
+      }
+    }
+
+    try {
+      const result = await telemetryService.handleInbound(integration.inboundKey, { ident, position });
+      if (result && result.success === false) {
+        return res.status(200).json({ status: "OK", warning: result.message });
+      }
+      return res.json({ status: "OK", echoed: { ident, position } });
+    } catch (err) {
+      return res.status(400).json({ status: "BADREQUEST", reason: [err.message] });
+    }
+  } catch (error) {
+    console.error("Error in test-inbound:", error);
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// Trigger bulk activation (ensure units exist in Wialon)
+app.post("/integrations/:id/activate-wialon", async (req, res) => {
+  try {
+    const { mappingIds } = req.body;
+    const result = await wialonIntegrationService.activateIntegration(req.params.id, mappingIds);
+    res.json(result);
+  } catch (error) {
+    console.error("Error in activate-wialon:", error);
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// Manually flush pending InboundMessages for this integration into Wialon.
+// Useful for testing without waiting for the periodic worker.
+app.post("/integrations/:id/flush-wialon", async (req, res) => {
+  try {
+    const result = await wialonIntegrationService.pushBatchToWialon(req.params.id);
+    res.json(result);
+  } catch (error) {
+    console.error("Error in flush-wialon:", error);
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// Legacy endpoint maintained for compatibility if needed
+app.post("/integrations/:id/import-to-wialon", async (req, res) => {
+  try {
+    const { mappingIds } = req.body;
+    const result = await wialonIntegrationService.importVehicles(req.params.id, mappingIds);
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
   }
 });
 
@@ -8182,7 +8568,71 @@ app.get("/reporte-estadisticas", async (req, res) => {
   }
 });
 
+// -----------------------------------------------------------------------
+// Plates test endpoint (Placa Test prototype)
+// Receives a single image upload and runs OpenALPR via the
+// plateRecognitionService. No DB writes. Results live only in the browser
+// via localStorage.
+// -----------------------------------------------------------------------
+const plateUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB
+});
+
+app.post("/plates/test-scan", plateUpload.single("image"), async (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ success: false, message: "No image received" });
+  }
+
+  const ext = (req.file.mimetype || "").split("/")[1] || "jpg";
+  const tmpPath = join(tmpdir(), `plate-${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`);
+
+  try {
+    await writeFile(tmpPath, req.file.buffer);
+    console.log("[/plates/test-scan] Processing image at:", tmpPath);
+    const result = await readPlateFromImage(tmpPath);
+    if (!result) throw new Error("OCR service returned nothing");
+    console.log("[/plates/test-scan] OCR Result:", result);
+    res.set('Content-Type', 'application/json');
+    return res.status(200).send(JSON.stringify(result));
+  } catch (err) {
+    console.error("[/plates/test-scan] CRITICAL error:", err);
+    // Use .status().json() to ensure a complete response
+    return res.status(500).json({ success: false, message: "OCR processing failed" });
+  } finally {
+    try {
+      await unlink(tmpPath);
+    } catch (cleanupErr) {
+      console.warn("Cleanup error for", tmpPath, cleanupErr);
+    }
+  }
+});
+
 //start the server
 app.listen(PORT, () => {
   console.log(`Server Running at ${PORT}`);
 });
+
+// -----------------------------------------------------------------------
+// Wialon flush worker
+// Drains InboundMessage records with wialonStatus="pending" and pushes them
+// to Wialon via exchange/import_messages. Skipped if WIALON_FLUSH_INTERVAL_MS=0.
+// -----------------------------------------------------------------------
+const WIALON_FLUSH_INTERVAL_MS = parseInt(process.env.WIALON_FLUSH_INTERVAL_MS || "60000", 10);
+if (WIALON_FLUSH_INTERVAL_MS > 0) {
+  setInterval(async () => {
+    try {
+      const result = await wialonIntegrationService.pushAllPending();
+      if (result && (result.pushed || result.failed)) {
+        console.log(
+          `[wialon-flush] integrations=${result.integrations} pushed=${result.pushed} failed=${result.failed} skipped=${result.skipped}`
+        );
+      }
+    } catch (err) {
+      console.error("[wialon-flush] worker error:", err);
+    }
+  }, WIALON_FLUSH_INTERVAL_MS);
+  console.log(`[wialon-flush] Worker enabled (interval=${WIALON_FLUSH_INTERVAL_MS}ms)`);
+} else {
+  console.log("[wialon-flush] Worker disabled (WIALON_FLUSH_INTERVAL_MS=0)");
+}

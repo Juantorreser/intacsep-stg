@@ -22,6 +22,7 @@ const RolePage = () => {
     operadores: {create: false, read: false, update: false, delete: false},
     lineas_transporte: {create: false, read: false, update: false, delete: false},
     tipos_de_monitoreo: {create: false, read: false, update: false, delete: false},
+    integraciones: {create: false, read: false, update: false, delete: false},
     inactividad: {create: false, read: false, update: false, delete: false},
     bitacora_abierta: {create: false, read: false, update: false, delete: false},
     bitacora_cerrada: {create: false, read: false, update: false, delete: false},
@@ -60,6 +61,7 @@ const RolePage = () => {
     operadores: {create: false, read: false, update: false, delete: false},
     lineas_transporte: {create: false, read: false, update: false, delete: false},
     tipos_de_monitoreo: {create: false, read: false, update: false, delete: false},
+    integraciones: {create: false, read: false, update: false, delete: false},
     inactividad: {create: false, read: false, update: false, delete: false},
     bitacora_abierta: {create: false, read: false, update: false, delete: false},
     bitacora_cerrada: {create: false, read: false, update: false, delete: false},
@@ -383,6 +385,7 @@ const RolePage = () => {
     operadores: "Operadores",
     usuarios: "Usuarios",
     roles: "Roles",
+    integraciones: "Integraciones",
     inactividad: "Inactividad",
     auditoria_bitacora: "Auditoría bitácora",
     dashboard: "Dashboard",
@@ -580,7 +583,7 @@ const RolePage = () => {
                           <tr className="fw-bold bg-secondary text-white">
                             <td colSpan="6">Configuración &gt; Sistema</td>
                           </tr>
-                          {["usuarios", "roles", "inactividad"].map((key) =>
+                          {["usuarios", "roles", "integraciones", "inactividad"].map((key) =>
                             renderPermissionRow(key, editRoleData, setEditRoleData)
                           )}
 

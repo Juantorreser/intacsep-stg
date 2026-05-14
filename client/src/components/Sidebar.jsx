@@ -249,6 +249,16 @@ const Sidebar = () => {
                 </li>
               )}
 
+              {/* Placa Test (prototype, always visible) */}
+              <li className="nav-item">
+                <div className="nav-link" onClick={() => navigate("/placa-test")}>
+                  <div className="nav-link-content">
+                    <i className="fa fa-id-card"></i>
+                    {!isSidebarCollapsed && <span>Placa Test</span>}
+                  </div>
+                </div>
+              </li>
+
               {/* Configuración */}
               {showConfiguracion && (
                 <li className="nav-item">
@@ -364,6 +374,12 @@ const Sidebar = () => {
                               <li onClick={() => navigate("/roles")}>
                                 <i className="fa fa-user-shield"></i>
                                 <span>Roles</span>
+                              </li>
+                            )}
+                            {roleData.integraciones?.read && (
+                              <li onClick={() => navigate("/integraciones")}>
+                                <i className="fa fa-plug"></i>
+                                <span>Integraciones</span>
                               </li>
                             )}
                             {roleData.inactividad?.read && (

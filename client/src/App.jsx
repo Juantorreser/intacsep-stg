@@ -19,6 +19,7 @@ import DestinoPage from "./components/Settings/DestinoPage";
 import LineaTransportePage from "./components/Settings/LineaTransportePage";
 import OperadorPage from "./components/Settings/OperadorPage";
 import ProfilePage from "./components/Profile/ProfilePage";
+import IntegracionesPage from "./components/Integraciones/IntegracionesPage";
 import ResetPassword from "./components/ResetPassword";
 import WialonTracker from "./components/wialon/WialonTracker";
 import WialonUnits from "./components/wialon/WialonUnits";
@@ -28,6 +29,7 @@ import PlanesDeEmbarquePage from "./components/PlanesDeEmbarque/PlanesDeEmbarque
 import BuscadorPlanPage from "./components/PlanesDeEmbarque/BuscadorPlanPage";
 import ReporteEventosPage from "./components/ReporteEventosPage";
 import ReporteEstadisticasPage from "./components/ReporteEstadisticasPage";
+import PlacaTestPage from "./components/PlacaTest/PlacaTestPage";
 
 function App() {
   return (
@@ -51,6 +53,7 @@ function App() {
         <Route path="/lineas-transporte" element={<LineaTransportePage />}></Route>
         <Route path="/operadores" element={<OperadorPage />}></Route>
         <Route path="/perfil" element={<ProfilePage />}></Route>
+        <Route path="/integraciones" element={<IntegracionesPage />}></Route>
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/wialon" element={<WialonTracker />} />
         <Route path="/units" element={<WialonUnits />} />
@@ -59,6 +62,7 @@ function App() {
         <Route path="/buscador-plan" element={<BuscadorPlanPage />} />
         <Route path="/reporte-eventos" element={<ReporteEventosPage />} />
         <Route path="/reporte-estadisticas" element={<ReporteEstadisticasPage />} />
+        <Route path="/placa-test" element={<PlacaTestPage />} />
       </Routes>
     </SidebarProvider>
   );
