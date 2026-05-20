@@ -224,7 +224,7 @@ const PlanesDeEmbarquePage = () => {
 
       if (res.ok) {
         const result = await res.json();
-        const saved = editingId ? result : result.plan;
+        const saved = result;
         setPlanes((prev) =>
           editingId
             ? prev.map((p) => (p._id === saved._id ? saved : p))
@@ -357,7 +357,7 @@ const PlanesDeEmbarquePage = () => {
     setIsImporting(true);
     setImportFetchError("");
     try {
-      const res = await fetch(`${baseUrl}/planes-embarque/bulk-with-bitacora`, {
+      const res = await fetch(`${baseUrl}/planes-embarque/bulk`, {
         method: "POST",
         headers: {"Content-Type": "application/json"},
         credentials: "include",

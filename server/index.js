@@ -8248,6 +8248,54 @@ app.post("/planes-embarque/with-bitacora", async (req, res) => {
 });
 
 // POST bulk create plans + bitacoras from imported rows
+app.post("/planes-embarque/bulk", async (req, res) => {
+  const { rows } = req.body;
+  if (!Array.isArray(rows) || rows.length === 0)
+    return res.status(400).json({ message: "No rows provided" });
+
+  const results = [];
+
+  for (const row of rows) {
+    const { _rowNum, tipoViaje, carrierMove, clienteNombre, destinoNombre, citaCarga, horaSalida, citaEntrega, transporte } = row;
+
+    try {
+      if (!tipoViaje || !carrierMove || !clienteNombre || !destinoNombre || !citaCarga || !horaSalida || !citaEntrega || !transporte)
+        throw new Error("Faltan campos requeridos");
+
+      const clienteDoc = await Client.findOne({
+        razon_social: { $regex: `^${clienteNombre.trim()}$`, $options: "i" },
+      });
+      if (!clienteDoc) throw new Error(`Cliente "${clienteNombre}" no encontrado`);
+
+      const destinoDoc = await Destino.findOne({
+        nombre:  { $regex: `^${destinoNombre.trim()}$`, $options: "i" },
+        cliente: clienteDoc.razon_social,
+      });
+      if (!destinoDoc) throw new Error(`Destino "${destinoNombre}" no encontrado para cliente "${clienteNombre}"`);
+
+      const plan = await new PlanDeEmbarque({
+        tipoViaje, carrierMove,
+        cliente: clienteDoc._id,
+        destino: destinoDoc._id,
+        citaCarga: new Date(citaCarga),
+        horaSalida: new Date(horaSalida),
+        citaEntrega: new Date(citaEntrega),
+        transporte,
+      }).save();
+
+      const populatedPlan = await PlanDeEmbarque.findById(plan._id)
+        .populate("cliente", "razon_social")
+        .populate("destino", "nombre");
+
+      results.push({ row: _rowNum, status: "ok", plan: populatedPlan, tipoViaje, clienteNombre, destinoNombre, transporte });
+    } catch (e) {
+      results.push({ row: _rowNum, status: "error", message: e.message, tipoViaje, clienteNombre, destinoNombre, transporte });
+    }
+  }
+
+  res.json({ results });
+});
+
 app.post("/planes-embarque/bulk-with-bitacora", async (req, res) => {
   const { rows, creado_por } = req.body;
   if (!Array.isArray(rows) || rows.length === 0)
