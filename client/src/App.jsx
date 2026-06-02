@@ -30,6 +30,7 @@ import BuscadorPlanPage from "./components/PlanesDeEmbarque/BuscadorPlanPage";
 import ReporteEventosPage from "./components/ReporteEventosPage";
 import ReporteEstadisticasPage from "./components/ReporteEstadisticasPage";
 import PlacaTestPage from "./components/PlacaTest/PlacaTestPage";
+import ReporteControlPatiosPage from "./components/PlacaTest/ReporteControlPatiosPage";
 
 function App() {
   return (
@@ -63,6 +64,7 @@ function App() {
         <Route path="/reporte-eventos" element={<ReporteEventosPage />} />
         <Route path="/reporte-estadisticas" element={<ReporteEstadisticasPage />} />
         <Route path="/placa-test" element={<PlacaTestPage />} />
+        <Route path="/reporte-control-patios" element={<ReporteControlPatiosPage />} />
       </Routes>
     </SidebarProvider>
   );

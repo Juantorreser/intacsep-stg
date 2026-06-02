@@ -34,6 +34,7 @@ import PlanDeEmbarque from "./models/PlanDeEmbarque.js";
 import Integration from "./models/Integration.js";
 import VehicleMapping from "./models/VehicleMapping.js";
 import InboundMessage from "./models/InboundMessage.js";
+import ControlPatios from "./models/ControlPatios.js";
 import wialonIntegrationService from "./services/wialonIntegrationService.js";
 import telemetryService from "./services/telemetryService.js";
 import { readPlateFromImage } from "./services/plateRecognitionService.js";
@@ -8654,6 +8655,98 @@ app.post("/plates/test-scan", plateUpload.single("image"), async (req, res) => {
     } catch (cleanupErr) {
       console.warn("Cleanup error for", tmpPath, cleanupErr);
     }
+  }
+});
+
+// Control Patios Endpoints
+app.post("/control-patios", async (req, res) => {
+  try {
+    const { placa, linea_transporte, fecha_hora_inicio, cliente, confidence, image_preview } = req.body;
+    const usuario_registro = req.session?.user?.email || "Unknown";
+
+    const record = new ControlPatios({
+      placa,
+      linea_transporte,
+      fecha_hora_inicio: fecha_hora_inicio || new Date(),
+      cliente,
+      usuario_registro,
+      confidence,
+      image_preview
+    });
+
+    await record.save();
+    res.status(201).json(record);
+  } catch (err) {
+    console.error("Error creating control-patios record:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get("/control-patios", async (req, res) => {
+  try {
+    const { cliente } = req.query;
+    const query = {};
+    if (cliente && cliente !== "all") {
+      query.cliente = cliente;
+    }
+
+    const records = await ControlPatios.find(query).sort({ fecha_hora_inicio: -1 });
+    res.json(records);
+  } catch (err) {
+    console.error("Error fetching control-patios records:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.patch("/control-patios/:id/salida", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { fecha_hora_salida } = req.body;
+
+    const record = await ControlPatios.findById(id);
+    if (!record) return res.status(404).json({ error: "Record not found" });
+
+    record.fecha_hora_salida = fecha_hora_salida || new Date();
+    // Pre-save hook will handle status: "Finalizado"
+    await record.save();
+    res.json(record);
+  } catch (err) {
+    console.error("Error updating control-patios exit:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.put("/control-patios/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { placa, linea_transporte, fecha_hora_inicio, fecha_hora_salida, status } = req.body;
+
+    const record = await ControlPatios.findById(id);
+    if (!record) return res.status(404).json({ error: "Record not found" });
+
+    if (placa) record.placa = placa;
+    if (linea_transporte) record.linea_transporte = linea_transporte;
+    if (fecha_hora_inicio) record.fecha_hora_inicio = fecha_hora_inicio;
+    if (fecha_hora_salida !== undefined) record.fecha_hora_salida = fecha_hora_salida;
+    if (status) record.status = status;
+
+    await record.save();
+    res.json(record);
+  } catch (err) {
+    console.error("Error updating control-patios record:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete("/control-patios/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const deleted = await ControlPatios.findByIdAndDelete(id);
+    if (!deleted) return res.status(404).json({ error: "Record not found" });
+    res.json({ message: "Record deleted successfully" });
+  } catch (err) {
+    console.error("Error deleting control-patios record:", err);
+    res.status(500).json({ error: err.message });
   }
 });
 

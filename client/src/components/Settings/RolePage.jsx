@@ -46,6 +46,8 @@ const RolePage = () => {
     buscador_plan: {create: false, read: false, update: false, delete: false},
     reporte_eventos: {create: false, read: false, update: false, delete: false},
     reporte_estadisticas: {create: false, read: false, update: false, delete: false},
+    reporte_control_patios: {create: false, read: false, update: false, delete: false},
+    control_patios: {create: false, read: false, update: false, delete: false},
   });
 
   const [editRole, setEditRole] = useState(null);
@@ -85,6 +87,8 @@ const RolePage = () => {
     buscador_plan: {create: false, read: false, update: false, delete: false},
     reporte_eventos: {create: false, read: false, update: false, delete: false},
     reporte_estadisticas: {create: false, read: false, update: false, delete: false},
+    reporte_control_patios: {create: false, read: false, update: false, delete: false},
+    control_patios: {create: false, read: false, update: false, delete: false},
   });
 
   const [showModal, setShowModal] = useState(false);
@@ -392,6 +396,8 @@ const RolePage = () => {
     dashboard_anomalias: "Dashboard anomalías",
     reporte_eventos: "Reporte eventos",
     reporte_estadisticas: "Reporte de puntualidad",
+    reporte_control_patios: "Reporte Control de Patios",
+    control_patios: "Control de patios",
   };
 
   const renderPermissionRow = (key, roleData, setRoleData) => {
@@ -546,7 +552,7 @@ const RolePage = () => {
                           <tr className="table-group-divider fw-bold bg-secondary text-white">
                             <td colSpan="6">Monitoreo</td>
                           </tr>
-                          {["bitacoras", "planes_embarque", "buscador_plan"].map((key) =>
+                          {["bitacoras", "planes_embarque", "buscador_plan", "control_patios"].map((key) =>
                             renderPermissionRow(key, editRoleData, setEditRoleData)
                           )}
                           <tr className="table-group-divider fw-bold bg-secondary text-white">
@@ -599,7 +605,7 @@ const RolePage = () => {
                           <tr className="table-group-divider fw-bold bg-secondary text-white">
                             <td colSpan="6">Dashboard</td>
                           </tr>
-                          {["dashboard", "dashboard_anomalias", "reporte_eventos", "reporte_estadisticas"].map((key) =>
+                          {["dashboard", "dashboard_anomalias", "reporte_eventos", "reporte_estadisticas", "reporte_control_patios"].map((key) =>
                             renderPermissionRow(key, editRoleData, setEditRoleData)
                           )}
                         </tbody>

@@ -43,7 +43,8 @@ const Sidebar = () => {
   const showDashboardAnomalias = hasRead("dashboard_anomalias");
   const showReporteEventos = hasRead("reporte_eventos");
   const showReporteEstadisticas = hasRead("reporte_estadisticas");
-  const showDashboard = showDashboardGeneral || showDashboardAnomalias || showReporteEventos || showReporteEstadisticas;
+  const showReporteControlPatios = hasRead("reporte_control_patios");
+  const showDashboard = showDashboardGeneral || showDashboardAnomalias || showReporteEventos || showReporteEstadisticas || showReporteControlPatios;
 
   const showCatalogos = roleData && (
     roleData.tipos_de_monitoreo?.read ||
@@ -62,7 +63,8 @@ const Sidebar = () => {
   // Backwards-compat: some roles use `plandeembarque` instead of `planes_embarque`
   const showPlanesEmbarque = hasRead("planes_embarque", "plandeembarque");
   const showBuscadorPlan = hasRead("buscador_plan");
-  const showMonitoreo = showBitacoras || showPlanesEmbarque || showBuscadorPlan;
+  const showControlPatios = hasRead("control_patios");
+  const showMonitoreo = showBitacoras || showPlanesEmbarque || showBuscadorPlan || showControlPatios;
 
   // Functions
   const openInacModal = () => {
@@ -195,6 +197,12 @@ const Sidebar = () => {
                           <span>Reporte de puntualidad</span>
                         </li>
                       )}
+                      {showReporteControlPatios && (
+                        <li onClick={() => navigate("/reporte-control-patios")}>
+                          <i className="fa fa-warehouse"></i>
+                          <span>Reporte Control de Patios</span>
+                        </li>
+                      )}
                     </ul>
                   )}
                 </li>
@@ -244,21 +252,16 @@ const Sidebar = () => {
                           <span>Buscador de Plan</span>
                         </li>
                       )}
+                      {showControlPatios && (
+                        <li onClick={() => navigate("/placa-test")}>
+                          <i className="fa fa-id-card"></i>
+                          <span>Control de patios</span>
+                        </li>
+                      )}
                     </ul>
                   )}
                 </li>
               )}
-
-              {/* Placa Test (prototype, disabled for prod)
-              <li className="nav-item">
-                <div className="nav-link" onClick={() => navigate("/placa-test")}>
-                  <div className="nav-link-content">
-                    <i className="fa fa-id-card"></i>
-                    {!isSidebarCollapsed && <span>Placa Test</span>}
-                  </div>
-                </div>
-              </li>
-              */}
 
               {/* Configuración */}
               {showConfiguracion && (

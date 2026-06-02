@@ -15,17 +15,49 @@ const fmt = (dt) =>
 const normaliseHeader = (h) => String(h ?? "").trim().toLowerCase()
   .normalize("NFD").replace(/[\u0300-\u036f]/g, ""); // strip accents
 
-// Excel serial date → JS Date (UTC noon to avoid timezone off-by-one)
+// Excel serial date → JS Date
 const excelSerialToDate = (serial) => {
   const utc_days = Math.floor(serial - 25569);
   return new Date(utc_days * 86400 * 1000);
 };
 
+const MONTH_ABBR = {
+  jan:0, feb:1, mar:2, apr:3, may:4, jun:5,
+  jul:6, aug:7, sep:8, oct:9, nov:10, dec:11,
+  ene:0, abr:3, ago:7, oct2:9, // spanish aliases already covered by above
+};
+
 const parseExcelDate = (val) => {
   if (!val) return null;
-  if (val instanceof Date) return val;
+  if (val instanceof Date) return isNaN(val) ? null : val;
   if (typeof val === "number") return excelSerialToDate(val);
-  const d = new Date(val);
+
+  const s = String(val).trim();
+
+  // "02/Jun/2026 18:00" or "02/Jun/2026"
+  const abbr = s.match(/^(\d{1,2})\/([A-Za-z]{3})\/(\d{2,4})(?:\s+(\d{1,2}):(\d{2}))?/);
+  if (abbr) {
+    const mon = MONTH_ABBR[abbr[2].toLowerCase()];
+    if (mon !== undefined) {
+      let yr = parseInt(abbr[3], 10);
+      if (yr < 100) yr += 2000;
+      const h = abbr[4] ? parseInt(abbr[4], 10) : 0;
+      const m = abbr[5] ? parseInt(abbr[5], 10) : 0;
+      return new Date(yr, mon, parseInt(abbr[1], 10), h, m);
+    }
+  }
+
+  // "6/3/26 6:00" or "6/3/2026 6:00" — M/D/YY(YY) H:MM
+  const mdy = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})(?:\s+(\d{1,2}):(\d{2}))?/);
+  if (mdy) {
+    let yr = parseInt(mdy[3], 10);
+    if (yr < 100) yr += 2000;
+    const h = mdy[4] ? parseInt(mdy[4], 10) : 0;
+    const m = mdy[5] ? parseInt(mdy[5], 10) : 0;
+    return new Date(yr, parseInt(mdy[1], 10) - 1, parseInt(mdy[2], 10), h, m);
+  }
+
+  const d = new Date(s);
   return isNaN(d) ? null : d;
 };
 
