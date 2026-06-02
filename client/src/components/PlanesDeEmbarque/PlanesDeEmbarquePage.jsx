@@ -516,7 +516,7 @@ const PlanesDeEmbarquePage = () => {
           <select className="form-select" name="cliente" value={formData.cliente}
             onChange={handleChange} required>
             <option value="">Selecciona un cliente</option>
-            {clientes.map((c) => (
+            {[...clientes].sort((a, b) => a.razon_social.localeCompare(b.razon_social)).map((c) => (
               <option key={c._id} value={c._id}>{c.razon_social}</option>
             ))}
           </select>
@@ -528,7 +528,7 @@ const PlanesDeEmbarquePage = () => {
             <option value="">
               {formData.cliente ? "Selecciona un destino" : "Selecciona un cliente primero"}
             </option>
-            {filteredDestinos.map((d) => (
+            {[...filteredDestinos].sort((a, b) => a.nombre.localeCompare(b.nombre)).map((d) => (
               <option key={d._id} value={d._id}>{d.nombre}</option>
             ))}
           </select>
