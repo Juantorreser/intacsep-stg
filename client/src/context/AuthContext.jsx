@@ -1,4 +1,4 @@
-import {createContext, useState, useEffect, useContext, useRef} from "react";
+import {createContext, useState, useEffect, useContext, useRef, useCallback} from "react";
 import {useNavigate} from "react-router-dom";
 import PropTypes from "prop-types";
 
@@ -10,7 +10,7 @@ const AuthProvider = ({children}) => {
   const navigate = useNavigate();
   const [showInactivityPopup, setShowInactivityPopup] = useState(false);
   const inactivityTimeoutRef = useRef(null);
-  const [timeoutMinutes, setTimeoutMinutes] = useState(5); // Default to 5 if not fetched
+  const [timeoutMinutes, setTimeoutMinutes] = useState(5);
 
   useEffect(() => {
     const fetchTimeout = async () => {
@@ -29,81 +29,57 @@ const AuthProvider = ({children}) => {
     };
 
     if (user) fetchTimeout();
-  }, [user]);
+  }, [user, baseUrl]);
 
-  const resetInactivityTimer = () => {
+  const resetInactivityTimer = useCallback(() => {
     if (inactivityTimeoutRef.current) {
       clearTimeout(inactivityTimeoutRef.current);
     }
 
     inactivityTimeoutRef.current = setTimeout(() => {
-      console.log("User inactive");
       setShowInactivityPopup(true);
-    }, timeoutMinutes * 60 * 1000); // Convert minutes to ms
-  };
+    }, timeoutMinutes * 60 * 1000);
+  }, [timeoutMinutes]);
 
   useEffect(() => {
     if (user) {
-      resetInactivityTimer(); // Set initial timer
+      resetInactivityTimer();
 
       const activityEvents = ["mousemove", "keydown", "click"];
-      activityEvents.forEach((event) => window.addEventListener(event, resetInactivityTimer));
+      const handler = () => resetInactivityTimer();
+      activityEvents.forEach((event) => window.addEventListener(event, handler));
 
       return () => {
-        activityEvents.forEach((event) => window.removeEventListener(event, resetInactivityTimer));
-        clearTimeout(inactivityTimeoutRef.current);
+        activityEvents.forEach((event) => window.removeEventListener(event, handler));
+        if (inactivityTimeoutRef.current) {
+          clearTimeout(inactivityTimeoutRef.current);
+        }
       };
     }
-  }, [user, timeoutMinutes]);
+  }, [user, resetInactivityTimer]);
 
-  // Remove handleUserActivity as it is not used
+  const logout = useCallback(async () => {
+    try {
+      await fetch(`${baseUrl}/logout`, {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        credentials: "include",
+      });
+      setUser(null);
+      navigate("/");
+    } catch (e) {
+      console.error("Error during logout:", e);
+      setUser(null);
+      navigate("/");
+    }
+  }, [baseUrl, navigate]);
 
   const handleRedirectToLogin = () => {
     setShowInactivityPopup(false);
     logout();
   };
 
-  // useEffect(() => {
-  //   handleUserActivity(); // Initialize the inactivity timer
-
-  //   window.addEventListener("mousemove", handleUserActivity);
-  //   window.addEventListener("keypress", handleUserActivity);
-  //   return () => {
-  //     window.removeEventListener("mousemove", handleUserActivity);
-  //     window.removeEventListener("keypress", handleUserActivity);
-  //     if (inactivityTimeoutRef.current) {
-  //       clearTimeout(inactivityTimeoutRef.current);
-  //     }
-  //   };
-  // }, [user, seconds]);
-
-  const verifyToken = async () => {
-    try {
-      // console.log("VERIFIED");
-
-      const response = await fetch(`${baseUrl}/protected`, {
-        method: "POST",
-        headers: {"Content-Type": "application/json"},
-        credentials: "include",
-      });
-
-      if (response.status === 401) {
-        // Attempt to refresh token if unauthorized
-        await refreshToken();
-        return; // Do not set user here; refreshToken will handle it
-      }
-
-      const data = await response.json();
-      // setUser(data.user);
-      return data.user;
-    } catch (e) {
-      console.error("Error verifying token:", e);
-      // setUser(null); // Set user to null if there's an error
-      navigate("/login");
-    }
-  };
-
-  const refreshToken = async () => {
+  const refreshToken = useCallback(async () => {
     try {
       const response = await fetch(`${baseUrl}/refresh_token`, {
         method: "POST",
@@ -114,17 +90,49 @@ const AuthProvider = ({children}) => {
       if (!response.ok) {
         throw new Error("Failed to refresh token");
       }
-
-      await response.json();
-      await verifyToken(); // Verify the token again after refreshing
+      return await response.json();
     } catch (e) {
       console.error("Error refreshing token:", e);
-      logout(); // Optionally, navigate to login or home
+      logout();
+      return null;
     }
-  };
-  const login = async (email, password) => {
+  }, [baseUrl, logout]);
+
+  const verifyToken = useCallback(async () => {
+    try {
+      let response = await fetch(`${baseUrl}/protected`, {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        credentials: "include",
+      });
+
+      if (response.status === 401) {
+        const refreshed = await refreshToken();
+        if (refreshed) {
+          response = await fetch(`${baseUrl}/protected`, {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            credentials: "include",
+          });
+        } else {
+          return null;
+        }
+      }
+
+      if (!response.ok) return null;
+      
+      const data = await response.json();
+      return data.user;
+    } catch (e) {
+      console.error("Error verifying token:", e);
+      navigate("/login");
+      return null;
+    }
+  }, [baseUrl, navigate, refreshToken]);
+
+  const login = useCallback(async (email, password) => {
     const errorMsg = document.getElementById("errorMsg");
-    errorMsg.classList.add("visually-hidden");
+    if (errorMsg) errorMsg.classList.add("visually-hidden");
     try {
       const response = await fetch(`${baseUrl}/login`, {
         method: "POST",
@@ -134,42 +142,18 @@ const AuthProvider = ({children}) => {
       });
 
       if (!response.ok) {
-        // Read the response JSON to get the error message
-        console.log("ERROR");
-        errorMsg.classList.remove("visually-hidden");
+        if (errorMsg) errorMsg.classList.remove("visually-hidden");
         const errorData = await response.json();
         throw new Error(errorData.error || "Login failed");
       }
-      errorMsg.classList.add("visually-hidden");
+      if (errorMsg) errorMsg.classList.add("visually-hidden");
       const data = await response.json();
       setUser(data.user);
-      navigate("/bitacoras"); // Always redirect to bitacoras after login
+      navigate("/bitacoras");
     } catch (e) {
       console.error("Error during login:", e);
-      // Show an appropriate error message to the user
     }
-  };
-
-  const logout = async () => {
-    try {
-      const response = await fetch(`${baseUrl}/logout`, {
-        method: "POST",
-        headers: {"Content-Type": "application/json"},
-        credentials: "include",
-      });
-
-      if (!response.ok) {
-        throw new Error("Logout failed");
-      }
-
-      setUser(null); // Clear user state upon logout
-      navigate("/"); // Navigate to the home or login page
-    } catch (e) {
-      console.error("Error during logout:", e);
-      setUser(null); // Clear user state upon logout
-      navigate("/"); // Navigate to the home or login page
-    }
-  };
+  }, [baseUrl, navigate]);
 
   return (
     <AuthContext.Provider value={{user, login, logout, verifyToken, refreshToken, setUser}}>

@@ -396,7 +396,7 @@ const RolePage = () => {
     dashboard_anomalias: "Dashboard anomalías",
     reporte_eventos: "Reporte eventos",
     reporte_estadisticas: "Reporte de puntualidad",
-    reporte_control_patios: "Reporte Control de Patios",
+    reporte_control_patios: "Control de Patios Dashboard",
     control_patios: "Control de patios",
   };
 

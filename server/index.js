@@ -35,6 +35,9 @@ import Integration from "./models/Integration.js";
 import VehicleMapping from "./models/VehicleMapping.js";
 import InboundMessage from "./models/InboundMessage.js";
 import ControlPatios from "./models/ControlPatios.js";
+import PatioEntryEvent from "./models/PatioEntryEvent.js";
+import PatioExitEvent from "./models/PatioExitEvent.js";
+import PatioAnomaly from "./models/PatioAnomaly.js";
 import wialonIntegrationService from "./services/wialonIntegrationService.js";
 import telemetryService from "./services/telemetryService.js";
 import { readPlateFromImage } from "./services/plateRecognitionService.js";
@@ -8122,6 +8125,7 @@ app.post("/planes-embarque/:id/start", async (req, res) => {
 
     const bitacora = await new Bitacora({
       bitacora_id:       sequenceNumber,
+      folio_servicio:    plan.carrierMove, // Map carrierMove to folio_servicio
       cliente:           plan.cliente?.razon_social,
       destino:           plan.destino?._id?.toString() ?? "",
       status:            "plan de embarque",
@@ -8659,11 +8663,112 @@ app.post("/plates/test-scan", plateUpload.single("image"), async (req, res) => {
 });
 
 // Control Patios Endpoints
+app.get("/control-patios/dashboard-summary", async (req, res) => {
+  try {
+    const { desde, hasta, plate, cliente, linea } = req.query;
+    
+    // Base query for distinct values (ignores plate/linea filters)
+    const baseQuery = {};
+    if (cliente && cliente !== "all") baseQuery.cliente = cliente;
+    if (desde || hasta) {
+      baseQuery.fecha_hora_inicio = {};
+      if (desde) baseQuery.fecha_hora_inicio.$gte = new Date(desde);
+      if (hasta) baseQuery.fecha_hora_inicio.$lte = new Date(hasta);
+    }
+    
+    // Main query for movements (includes plate/linea filters)
+    const query = { ...baseQuery };
+    if (plate) {
+      const plates = Array.isArray(plate) ? plate : plate.split(',').filter(Boolean);
+      if (plates.length > 0) query.placa = { $in: plates.map(p => new RegExp(p, "i")) };
+    }
+    
+    if (linea) {
+      const lineas = Array.isArray(linea) ? linea : linea.split(',').filter(Boolean);
+      if (lineas.length > 0) query.linea_transporte = { $in: lineas };
+    }
+
+    const movements = await ControlPatios.find(query).sort({ fecha_hora_inicio: -1 });
+
+    const movementsWithDuration = movements.map(m => {
+      const obj = m.toObject();
+      let duration = obj.stay_seconds;
+      if (duration == null && obj.fecha_hora_inicio) {
+        const end = obj.fecha_hora_salida ? new Date(obj.fecha_hora_salida) : new Date();
+        duration = Math.floor((end - new Date(obj.fecha_hora_inicio)) / 1000);
+      }
+      return { ...obj, stay_seconds: duration };
+    });
+
+    const totalRecords = movementsWithDuration.length;
+    const anomaliesCount = await PatioAnomaly.countDocuments({ resolved: false });
+    const anomaliesList = await PatioAnomaly.find({ resolved: false }).sort({ createdAt: -1 }).limit(20);
+
+    let longestStay = null;
+    let shortestStay = null;
+
+    if (movementsWithDuration.length > 0) {
+      longestStay = movementsWithDuration.reduce((prev, curr) => (prev.stay_seconds > curr.stay_seconds) ? prev : curr);
+      shortestStay = movementsWithDuration.reduce((prev, curr) => (prev.stay_seconds < curr.stay_seconds) ? prev : curr);
+    }
+
+    // Chart data: Group stay durations
+    // For now, let's just return the movementsWithDuration for the frontend to process into a bar chart
+    // And some entry/exit events for the right-side timeline
+    const entryEvents = await PatioEntryEvent.find(plate ? { plate: new RegExp(plate, "i") } : {}).sort({ entry_datetime: -1 }).limit(50);
+    const exitEvents = await PatioExitEvent.find(plate ? { plate: new RegExp(plate, "i") } : {}).sort({ exit_datetime: -1 }).limit(50);
+
+    const distinctPlates = await ControlPatios.distinct("placa", baseQuery);
+    const distinctLineas = await ControlPatios.distinct("linea_transporte", baseQuery);
+
+    res.json({
+      totalRecords,
+      anomaliesCount,
+      anomaliesList,
+      longestStay: longestStay ? { plate: longestStay.placa, seconds: longestStay.stay_seconds } : null,
+      shortestStay: shortestStay ? { plate: shortestStay.placa, seconds: shortestStay.stay_seconds } : null,
+      movements: movementsWithDuration,
+      entryEvents,
+      exitEvents,
+      distinctPlates,
+      distinctLineas
+    });
+  } catch (err) {
+    console.error("Error in dashboard-summary:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get("/patio-anomalies", async (req, res) => {
+  try {
+    const { resolved } = req.query;
+    const query = {};
+    if (resolved !== undefined) query.resolved = resolved === "true";
+    const anomalies = await PatioAnomaly.find(query).sort({ createdAt: -1 });
+    res.json(anomalies);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.patch("/patio-anomalies/:id/resolve", async (req, res) => {
+  try {
+    const anomaly = await PatioAnomaly.findByIdAndUpdate(req.params.id, { resolved: true }, { new: true });
+    res.json(anomaly);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.post("/control-patios", async (req, res) => {
   try {
-    const { placa, linea_transporte, fecha_hora_inicio, cliente, confidence, image_preview } = req.body;
+    const { placa, linea_transporte, fecha_hora_inicio, cliente, confidence, image_preview, source } = req.body;
     const usuario_registro = req.session?.user?.email || "Unknown";
 
+    // 1. Check for anomalies (Duplicate plate currently in patio)
+    const existing = await ControlPatios.findOne({ placa: placa.toUpperCase(), status: "En patio" });
+    let anomaly_flag = false;
+    
     const record = new ControlPatios({
       placa,
       linea_transporte,
@@ -8671,10 +8776,37 @@ app.post("/control-patios", async (req, res) => {
       cliente,
       usuario_registro,
       confidence,
-      image_preview
+      image_preview,
+      movement_type: "cycle"
     });
 
+    if (existing) {
+      anomaly_flag = true;
+      record.anomaly_flag = true;
+    }
+
     await record.save();
+
+    // 2. Create Entry Event
+    const entryEvent = new PatioEntryEvent({
+      plate: placa.toUpperCase(),
+      entry_datetime: record.fecha_hora_inicio,
+      source: source || "Manual"
+    });
+    await entryEvent.save();
+
+    // 3. Create anomaly if duplicate
+    if (existing) {
+      const anomaly = new PatioAnomaly({
+        movement_id: record._id,
+        plate: placa.toUpperCase(),
+        anomaly_type: "duplicate_plate",
+        severity: "medium",
+        description: `Vehículo con placa ${placa} ya se encuentra registrado en el patio.`
+      });
+      await anomaly.save();
+    }
+
     res.status(201).json(record);
   } catch (err) {
     console.error("Error creating control-patios record:", err);
@@ -8701,14 +8833,42 @@ app.get("/control-patios", async (req, res) => {
 app.patch("/control-patios/:id/salida", async (req, res) => {
   try {
     const { id } = req.params;
-    const { fecha_hora_salida } = req.body;
+    const { fecha_hora_salida, source } = req.body;
 
     const record = await ControlPatios.findById(id);
     if (!record) return res.status(404).json({ error: "Record not found" });
 
     record.fecha_hora_salida = fecha_hora_salida || new Date();
-    // Pre-save hook will handle status: "Finalizado"
+    
+    // Calculate stay seconds
+    if (record.fecha_hora_inicio && record.fecha_hora_salida) {
+      const diff = new Date(record.fecha_hora_salida).getTime() - new Date(record.fecha_hora_inicio).getTime();
+      record.stay_seconds = Math.floor(diff / 1000);
+      
+      // Anomaly: Unusual duration (e.g., > 24 hours or < 1 minute)
+      if (record.stay_seconds > 86400 || record.stay_seconds < 60) {
+        record.anomaly_flag = true;
+        const anomaly = new PatioAnomaly({
+          movement_id: record._id,
+          plate: record.placa,
+          anomaly_type: "unusual_duration",
+          severity: "low",
+          description: `Duración de estadía inusual: ${Math.floor(record.stay_seconds / 60)} minutos.`
+        });
+        await anomaly.save();
+      }
+    }
+
     await record.save();
+
+    // Create Exit Event
+    const exitEvent = new PatioExitEvent({
+      plate: record.placa,
+      exit_datetime: record.fecha_hora_salida,
+      source: source || "Manual"
+    });
+    await exitEvent.save();
+
     res.json(record);
   } catch (err) {
     console.error("Error updating control-patios exit:", err);

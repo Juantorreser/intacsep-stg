@@ -200,7 +200,7 @@ const Sidebar = () => {
                       {showReporteControlPatios && (
                         <li onClick={() => navigate("/reporte-control-patios")}>
                           <i className="fa fa-warehouse"></i>
-                          <span>Reporte Control de Patios</span>
+                          <span>Control de Patios Dashboard</span>
                         </li>
                       )}
                     </ul>

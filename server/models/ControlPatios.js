@@ -39,6 +39,23 @@ const ControlPatiosSchema = new mongoose.Schema(
       type: Number,
       default: null,
     },
+    image_preview: {
+      type: String,
+      default: null,
+    },
+    stay_seconds: {
+      type: Number,
+      default: null,
+    },
+    anomaly_flag: {
+      type: Boolean,
+      default: false,
+    },
+    movement_type: {
+      type: String,
+      enum: ["entry", "exit", "cycle"],
+      default: "cycle",
+    },
   },
   { timestamps: true }
 );

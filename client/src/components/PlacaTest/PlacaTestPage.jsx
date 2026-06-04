@@ -344,6 +344,14 @@ const PlacaTestPage = () => {
 
   return (
     <section id="placaTestPage" className="settings-page">
+      <style>{`
+        @media (max-width: 768px) {
+          .modal-dialog { margin: 0.5rem; }
+          .modal-content { border-radius: 12px; }
+          .btn { width: 100%; padding: 12px; margin-bottom: 5px; }
+          .page-header { flex-direction: column; align-items: flex-start !important; }
+        }
+      `}</style>
       <div className="w-100 d-flex h-100 mt-0">
         <div className="sidebar-wrapper"><Sidebar /></div>
         <div className={`content-wrapper ${isSidebarCollapsed ? "sidebar-collapsed" : ""}`}>
@@ -406,10 +414,6 @@ const PlacaTestPage = () => {
               <label className="btn btn-primary px-4">
                 <i className="fa fa-camera me-2"></i>{capturedDataUrl ? "Tomar otra foto" : "Tomar foto"}
                 <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" hidden onChange={handleImageSelected} />
-              </label>
-              <label className="btn btn-outline-primary px-4">
-                <i className="fa fa-upload me-2"></i>{capturedDataUrl ? "Subir otra" : "Subir imagen"}
-                <input type="file" accept="image/*" hidden onChange={handleImageSelected} />
               </label>
             </div>
           )}
