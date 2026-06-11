@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 
-const PageHeader = ({ title, count, children, filters, onToggleSidebar }) => {
-  const [isFiltersOpen, setIsFiltersOpen] = useState(false);
+const PageHeader = ({ title, count, children, filters, onToggleSidebar, defaultFiltersOpen = false }) => {
+  const [isFiltersOpen, setIsFiltersOpen] = useState(defaultFiltersOpen);
 
   return (
     <div className="bits-header-container">

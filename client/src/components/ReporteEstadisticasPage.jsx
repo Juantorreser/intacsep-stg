@@ -498,6 +498,7 @@ const ReporteEstadisticasPage = () => {
           <PageHeader
             title="Dashboard — Reporte de puntualidad"
             onToggleSidebar={() => setIsMobileSidebarOpen(true)}
+            defaultFiltersOpen={true}
             filters={
               <div className="reporte-est-panel mb-0">
                 <div className="reporte-est-grid">
@@ -621,6 +622,14 @@ const ReporteEstadisticasPage = () => {
 
           {roleData?.reporte_estadisticas?.read && (
           <div className="settings-content mt-4">
+
+            {/* ── Prompt inicial: aún no se ha buscado ─────────────────── */}
+            {!searched && !loading && (
+              <div className="reporte-est-empty">
+                <i className="fas fa-magnifying-glass" />
+                <p>Selecciona un rango de fechas y los filtros que necesites, luego presiona <strong>Buscar</strong> para generar el reporte de puntualidad.</p>
+              </div>
+            )}
 
             {/* ── KPI Cards ─────────────────────────────────────────── */}
             {searched && !loading && (
