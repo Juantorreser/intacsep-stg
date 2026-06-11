@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import Sidebar from "../Sidebar";
+import PageHeader from "../PageHeader";
 import ModalTemplate from "../ModalTemplate";
 import DataTable from "../DataTable";
 import { useAuth } from "../../context/AuthContext";
@@ -49,9 +50,9 @@ const ConfidenceBadge = ({ value }) => {
 
 
 const PlacaTestPage = () => {
-  const { user, verifyToken, setUser } = useAuth();
-  const { isSidebarCollapsed } = useSidebar();
-  const navigate = useNavigate();
+  const {user, verifyToken, setUser} = useAuth();
+  const {isSidebarCollapsed, setIsMobileSidebarOpen} = useSidebar();
+  const navigate                     = useNavigate();
 
   const cameraInputRef = useRef(null);
   const [capturedDataUrl, setCapturedDataUrl] = useState(null);
@@ -204,8 +205,7 @@ const PlacaTestPage = () => {
         if (isSmartModeRef.current) {
           const activeRecord = savedRecordsRef.current.find(r => r.placa.toUpperCase() === detectedPlate && !r.fecha_hora_salida);
           if (activeRecord) {
-            setSelectedRecordForSalida(activeRecord);
-            setFormData(prev => ({ ...prev, placa: detectedPlate, lineaTransporte: activeRecord.linea_transporte, cliente: activeRecord.cliente }));
+            setPendingExit(activeRecord);
           } else {
             setSelectedRecordForSalida(null);
             setFormData(prev => ({ ...prev, placa: detectedPlate }));
@@ -227,12 +227,16 @@ const PlacaTestPage = () => {
     }
   };
 
+  const [saving, setSaving] = useState(false);
+  const [pendingExit, setPendingExit] = useState(null);
+
   const savePlate = async () => {
     if (!formData.placa || !formData.lineaTransporte) return;
     if (selectedRecordForSalida && formData.placa.toUpperCase() !== selectedRecordForSalida.placa.toUpperCase()) {
       setError("La placa debe coincidir exactamente para registrar la salida.");
       return;
     }
+    setSaving(true);
     try {
       if (isEditMode && formData._id) {
         const response = await fetch(`${baseUrl}/control-patios/${formData._id}`, {
@@ -241,7 +245,7 @@ const PlacaTestPage = () => {
           body: JSON.stringify({ placa: formData.placa, linea_transporte: formData.lineaTransporte }),
           credentials: "include",
         });
-        if (response.ok) { loadSavedRecords(); }
+        if (response.ok) { loadSavedRecords(); setShowModal(false); }
         else { const e = await response.json(); setError(e.error || "Error al actualizar el registro."); }
       } else if (selectedRecordForSalida) {
         const response = await fetch(`${baseUrl}/control-patios/${selectedRecordForSalida._id}/salida`, {
@@ -250,7 +254,7 @@ const PlacaTestPage = () => {
           body: JSON.stringify({ fecha_hora_salida: formData.timestamp }),
           credentials: "include",
         });
-        if (response.ok) { loadSavedRecords(); }
+        if (response.ok) { loadSavedRecords(); setShowModal(false); }
         else { const e = await response.json(); setError(e.error || "Error al registrar la salida."); }
       } else {
         let clientToSave = "";
@@ -269,12 +273,14 @@ const PlacaTestPage = () => {
           }),
           credentials: "include",
         });
-        if (response.ok) { loadSavedRecords(); }
+        if (response.ok) { loadSavedRecords(); setShowModal(false); }
         else { const e = await response.json(); setError(e.error || "Error al guardar el registro."); }
       }
     } catch (e) {
       console.error("Error saving record:", e);
       setError("Error de conexión al guardar.");
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -355,16 +361,14 @@ const PlacaTestPage = () => {
       <div className="w-100 d-flex h-100 mt-0">
         <div className="sidebar-wrapper"><Sidebar /></div>
         <div className={`content-wrapper ${isSidebarCollapsed ? "sidebar-collapsed" : ""}`}>
-          <div className="page-header">
-            <div className="header-left">
-              <h1>Control de patios</h1>
-            </div>
-            <div className="header-right">
-              <button className="new-btn" onClick={() => handleOpenModal()} title="Nuevo registro">
-                <i className="fa fa-plus"></i>
-              </button>
-            </div>
-          </div>
+          <PageHeader
+            title="Control de patios"
+            onToggleSidebar={() => setIsMobileSidebarOpen(true)}
+          >
+            <button className="new-btn" onClick={() => handleOpenModal()} title="Nuevo registro">
+              <i className="fa fa-plus"></i>
+            </button>
+          </PageHeader>
 
           <div className="settings-content">
             <div className="d-flex mb-3">
@@ -396,9 +400,9 @@ const PlacaTestPage = () => {
         show={showModal}
         title={isEditMode ? "Editar registro" : "Nuevo registro"}
         onClose={closeModal}
-        onSubmit={(e) => { e.preventDefault(); savePlateAndClose(); }}
-        submitText={isEditMode ? "Actualizar registro" : "Guardar registro"}
-        submitDisabled={(!canSave && !isEditMode) || !formData.lineaTransporte}
+        onSubmit={(e) => { e.preventDefault(); savePlate(); }}
+        submitText={saving ? "Guardando..." : (isEditMode ? "Actualizar registro" : "Guardar registro")}
+        submitDisabled={saving || (!canSave && !isEditMode) || !formData.lineaTransporte}
       >
         {error && (
           <div className="alert alert-danger d-flex align-items-center mb-3" role="alert">
@@ -411,10 +415,14 @@ const PlacaTestPage = () => {
           {!isEditMode && (
             <div className="d-flex flex-wrap gap-2 justify-content-center border-bottom pb-3">
               {/* capture="environment" opens the native camera app directly on mobile */}
-              <label className="btn btn-primary px-4">
+              <button 
+                type="button" 
+                className="btn btn-primary px-4"
+                onClick={() => cameraInputRef.current.click()}
+              >
                 <i className="fa fa-camera me-2"></i>{capturedDataUrl ? "Tomar otra foto" : "Tomar foto"}
-                <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" hidden onChange={handleImageSelected} />
-              </label>
+              </button>
+              <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" hidden onChange={handleImageSelected} />
             </div>
           )}
 
@@ -479,6 +487,25 @@ const PlacaTestPage = () => {
           </div>
         </div>
       </ModalTemplate>
+
+      {pendingExit && (
+        <ModalTemplate
+          show={!!pendingExit}
+          title="Placa en proceso"
+          onClose={() => setPendingExit(null)}
+          onSubmit={(e) => {
+            e.preventDefault();
+            setSelectedRecordForSalida(pendingExit);
+            setFormData(prev => ({ ...prev, placa: pendingExit.placa, lineaTransporte: pendingExit.linea_transporte, cliente: pendingExit.cliente }));
+            setPendingExit(null);
+            setShowModal(true);
+          }}
+          submitClass="btn btn-primary"
+          submitText="Registrar Salida"
+        >
+          <p>La placa <strong>{pendingExit.placa}</strong> ya se encuentra en proceso. ¿Desea registrar esta foto como salida para este proceso?</p>
+        </ModalTemplate>
+      )}
 
       {showDeleteModal && (
         <ModalTemplate

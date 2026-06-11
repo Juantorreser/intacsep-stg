@@ -1,5 +1,6 @@
 import {useState, useEffect, useMemo} from "react";
 import Sidebar from "../Sidebar";
+import PageHeader from "../PageHeader";
 import ModalTemplate from "../ModalTemplate";
 import DataTable from "../DataTable";
 import FilterBar from "../FilterBar";
@@ -21,7 +22,7 @@ const OperadorPage = () => {
 
   const {user, verifyToken, setUser} = useAuth();
   const [roleData, setRoleData] = useState(null);
-  const {isSidebarCollapsed} = useSidebar();
+  const {isSidebarCollapsed, setIsMobileSidebarOpen} = useSidebar();
 
   useEffect(() => {
     const init = async () => {
@@ -222,49 +223,50 @@ const OperadorPage = () => {
           <Sidebar />
         </div>
         <div className={`content-wrapper ${isSidebarCollapsed ? "sidebar-collapsed" : ""}`}>
-          <div className="page-header">
-            <h1>Catálogos - Operadores</h1>
+          <PageHeader
+            title="Catálogos - Operadores"
+            onToggleSidebar={() => setIsMobileSidebarOpen(true)}
+            filters={
+              roleData?.operadores?.read && (
+                <FilterBar onClear={clearFilters}>
+                  <input
+                    type="text"
+                    className="form-control form-control-sm border-0 bg-white shadow-sm"
+                    placeholder="Buscar por nombre..."
+                    name="nombre"
+                    value={filters.nombre}
+                    onChange={handleFilterChange}
+                  />
+                  <select
+                    className="form-control form-control-sm border-0 bg-white shadow-sm"
+                    name="lineaTransporte"
+                    value={filters.lineaTransporte}
+                    onChange={handleFilterChange}>
+                    <option value="">Todas las líneas de transporte</option>
+                    {lineasTransporte.map((linea) => (
+                      <option key={linea._id} value={linea.nombre}>{linea.nombre}</option>
+                    ))}
+                  </select>
+                </FilterBar>
+              )
+            }
+          >
             {roleData?.operadores?.create && (
               <button type="button" className="new-btn" onClick={() => setModalType("create")}>
                 <i className="fas fa-plus"></i>
               </button>
             )}
-          </div>
+          </PageHeader>
 
           {roleData?.operadores?.read && (
-            <>
-              {/* Filtros */}
-              <FilterBar onClear={clearFilters}>
-                <input
-                  type="text"
-                  className="form-control form-control-sm border-0 bg-white shadow-sm"
-                  placeholder="Buscar por nombre..."
-                  name="nombre"
-                  value={filters.nombre}
-                  onChange={handleFilterChange}
-                />
-                <select
-                  className="form-control form-control-sm border-0 bg-white shadow-sm"
-                  name="lineaTransporte"
-                  value={filters.lineaTransporte}
-                  onChange={handleFilterChange}>
-                  <option value="">Todas las líneas de transporte</option>
-                  {lineasTransporte.map((linea) => (
-                    <option key={linea._id} value={linea.nombre}>{linea.nombre}</option>
-                  ))}
-                </select>
-              </FilterBar>
-
-              {/* Tabla */}
-              <div className="settings-content">
-                <DataTable
-                  data={filteredOperadores}
-                  columns={columns}
-                  actions={actions}
-                  emptyMessage="No se encontraron operadores que coincidan con los filtros."
-                />
-              </div>
-            </>
+            <div className="settings-content mt-4">
+              <DataTable
+                data={filteredOperadores}
+                columns={columns}
+                actions={actions}
+                emptyMessage="No se encontraron operadores que coincidan con los filtros."
+              />
+            </div>
           )}
         </div>
       </div>

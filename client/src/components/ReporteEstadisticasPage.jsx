@@ -2,6 +2,7 @@ import {useEffect, useState} from "react";
 import jsPDF from "jspdf";
 import {useNavigate} from "react-router-dom";
 import Sidebar from "./Sidebar";
+import PageHeader from "./PageHeader";
 import {useAuth} from "../context/AuthContext";
 import {useSidebar} from "../context/SidebarContext";
 import {fetchClients, fetchOrigenes, fetchDestinos} from "../utils/api";
@@ -87,7 +88,7 @@ const STATUS_OPTIONS = [
 
 const ReporteEstadisticasPage = () => {
   const {user, verifyToken, setUser} = useAuth();
-  const {isSidebarCollapsed} = useSidebar();
+  const {isSidebarCollapsed, setIsMobileSidebarOpen} = useSidebar();
   const navigate = useNavigate();
   const baseUrl = import.meta.env.VITE_BASE_URL;
 
@@ -494,135 +495,132 @@ const ReporteEstadisticasPage = () => {
         </div>
 
         <div className={`content-wrapper ${isSidebarCollapsed ? "sidebar-collapsed" : ""}`}>
-          <div className="page-header">
-            <h1 className="fs-3 fw-semibold text-black text-center m-0">Dashboard — Reporte de puntualidad</h1>
-          </div>
+          <PageHeader
+            title="Dashboard — Reporte de puntualidad"
+            onToggleSidebar={() => setIsMobileSidebarOpen(true)}
+            filters={
+              <div className="reporte-est-panel mb-0">
+                <div className="reporte-est-grid">
+                  {/* Fecha inicio */}
+                  <div className="reporte-est-field">
+                    <label className="reporte-est-field__label">Fecha inicio</label>
+                    <input
+                      type="date"
+                      className="reporte-est-field__control form-control"
+                      value={filters.startDate}
+                      onChange={(e) => handleFilterChange("startDate", e.target.value)}
+                    />
+                  </div>
+
+                  {/* Fecha fin */}
+                  <div className="reporte-est-field">
+                    <label className="reporte-est-field__label">Fecha fin</label>
+                    <input
+                      type="date"
+                      className="reporte-est-field__control form-control"
+                      value={filters.endDate}
+                      onChange={(e) => handleFilterChange("endDate", e.target.value)}
+                    />
+                  </div>
+
+                  {/* Cliente */}
+                  <div className="reporte-est-field">
+                    <label className="reporte-est-field__label">Cliente</label>
+                    <select
+                      className="reporte-est-field__control form-select"
+                      value={filters.cliente}
+                      onChange={(e) => handleFilterChange("cliente", e.target.value)}>
+                      <option value="">Todos los clientes</option>
+                      {clients.map((c) => (
+                        <option key={c._id} value={c.razon_social}>{c.razon_social}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Origen */}
+                  <div className="reporte-est-field">
+                    <label className="reporte-est-field__label">Origen</label>
+                    <select
+                      className="reporte-est-field__control form-select"
+                      value={filters.origenFilter}
+                      disabled={!filters.cliente}
+                      onChange={(e) => handleFilterChange("origenFilter", e.target.value)}>
+                      <option value="">Todos los orígenes</option>
+                      {origenes.map((o) => (
+                        <option key={o._id} value={o.nombre}>{o.nombre}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Destino */}
+                  <div className="reporte-est-field">
+                    <label className="reporte-est-field__label">Destino</label>
+                    <select
+                      className="reporte-est-field__control form-select"
+                      value={filters.destinoFilter}
+                      disabled={!filters.cliente}
+                      onChange={(e) => handleFilterChange("destinoFilter", e.target.value)}>
+                      <option value="">Todos los destinos</option>
+                      {destinos.map((d) => (
+                        <option key={d._id} value={d.nombre}>{d.nombre}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Status */}
+                  <div className="reporte-est-field">
+                    <label className="reporte-est-field__label">Estatus</label>
+                    <select
+                      className="reporte-est-field__control form-select"
+                      value={filters.statusFilter}
+                      onChange={(e) => handleFilterChange("statusFilter", e.target.value)}>
+                      {STATUS_OPTIONS.map((opt) => (
+                        <option key={opt.value} value={opt.value}>{opt.label}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                </div>
+
+                <div className="reporte-est-actions-row">
+                  <div className="reporte-est-actions">
+                    <button
+                      type="button"
+                      className="btn btn-primary reporte-est-search-btn"
+                      onClick={handleSearch}
+                      title="Buscar"
+                      aria-label="Buscar"
+                      disabled={loading || !filters.startDate || !filters.endDate}>
+                      {loading ? (
+                        <>
+                          <span className="spinner-border spinner-border-sm" />
+                          <span>Buscar</span>
+                        </>
+                      ) : (
+                        <>
+                          <i className="fas fa-search" />
+                          <span>Buscar</span>
+                        </>
+                      )}
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-success btn-sm reporte-est-export-btn"
+                      title="Exportar PDF"
+                      aria-label="Exportar PDF"
+                      onClick={handlePrintPDF}
+                      disabled={!searched || loading}>
+                      <i className="fas fa-file-pdf"></i>
+                      <span>Exportar</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            }
+          />
 
           {roleData?.reporte_estadisticas?.read && (
-          <div className="settings-content">
-
-            {/* ── Filters ───────────────────────────────────────────── */}
-            <div className="reporte-est-panel">
-              <div className="reporte-est-panel__header">
-                <h5 className="mb-0">Filtros</h5>
-              </div>
-
-              <div className="reporte-est-grid">
-                {/* Fecha inicio */}
-                <div className="reporte-est-field">
-                  <label className="reporte-est-field__label">Fecha inicio</label>
-                  <input
-                    type="date"
-                    className="reporte-est-field__control form-control"
-                    value={filters.startDate}
-                    onChange={(e) => handleFilterChange("startDate", e.target.value)}
-                  />
-                </div>
-
-                {/* Fecha fin */}
-                <div className="reporte-est-field">
-                  <label className="reporte-est-field__label">Fecha fin</label>
-                  <input
-                    type="date"
-                    className="reporte-est-field__control form-control"
-                    value={filters.endDate}
-                    onChange={(e) => handleFilterChange("endDate", e.target.value)}
-                  />
-                </div>
-
-                {/* Cliente */}
-                <div className="reporte-est-field">
-                  <label className="reporte-est-field__label">Cliente</label>
-                  <select
-                    className="reporte-est-field__control form-select"
-                    value={filters.cliente}
-                    onChange={(e) => handleFilterChange("cliente", e.target.value)}>
-                    <option value="">Todos los clientes</option>
-                    {clients.map((c) => (
-                      <option key={c._id} value={c.razon_social}>{c.razon_social}</option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Origen */}
-                <div className="reporte-est-field">
-                  <label className="reporte-est-field__label">Origen</label>
-                  <select
-                    className="reporte-est-field__control form-select"
-                    value={filters.origenFilter}
-                    disabled={!filters.cliente}
-                    onChange={(e) => handleFilterChange("origenFilter", e.target.value)}>
-                    <option value="">Todos los orígenes</option>
-                    {origenes.map((o) => (
-                      <option key={o._id} value={o.nombre}>{o.nombre}</option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Destino */}
-                <div className="reporte-est-field">
-                  <label className="reporte-est-field__label">Destino</label>
-                  <select
-                    className="reporte-est-field__control form-select"
-                    value={filters.destinoFilter}
-                    disabled={!filters.cliente}
-                    onChange={(e) => handleFilterChange("destinoFilter", e.target.value)}>
-                    <option value="">Todos los destinos</option>
-                    {destinos.map((d) => (
-                      <option key={d._id} value={d.nombre}>{d.nombre}</option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Status */}
-                <div className="reporte-est-field">
-                  <label className="reporte-est-field__label">Estatus</label>
-                  <select
-                    className="reporte-est-field__control form-select"
-                    value={filters.statusFilter}
-                    onChange={(e) => handleFilterChange("statusFilter", e.target.value)}>
-                    {STATUS_OPTIONS.map((opt) => (
-                      <option key={opt.value} value={opt.value}>{opt.label}</option>
-                    ))}
-                  </select>
-                </div>
-
-              </div>
-
-              <div className="reporte-est-actions-row">
-                <div className="reporte-est-actions">
-                  <button
-                    type="button"
-                    className="btn btn-primary reporte-est-search-btn"
-                    onClick={handleSearch}
-                    title="Buscar"
-                    aria-label="Buscar"
-                    disabled={loading || !filters.startDate || !filters.endDate}>
-                    {loading ? (
-                      <>
-                        <span className="spinner-border spinner-border-sm" />
-                        <span>Buscar</span>
-                      </>
-                    ) : (
-                      <>
-                        <i className="fas fa-search" />
-                        <span>Buscar</span>
-                      </>
-                    )}
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn-success btn-sm reporte-est-export-btn"
-                    title="Exportar PDF"
-                    aria-label="Exportar PDF"
-                    onClick={handlePrintPDF}
-                    disabled={!searched || loading}>
-                    <i className="fas fa-file-pdf"></i>
-                    <span>Exportar</span>
-                  </button>
-                </div>
-              </div>
-            </div>
+          <div className="settings-content mt-4">
 
             {/* ── KPI Cards ─────────────────────────────────────────── */}
             {searched && !loading && (

@@ -1,5 +1,6 @@
 import {useState, useEffect, useMemo} from "react";
 import Sidebar from "../Sidebar";
+import PageHeader from "../PageHeader";
 import ModalTemplate from "../ModalTemplate";
 import DataTable from "../DataTable";
 import FilterBar from "../FilterBar";
@@ -22,7 +23,7 @@ const TiposMonitoreo = () => {
 
   const {user, verifyToken, setUser} = useAuth();
   const [roleData, setRoleData] = useState(null);
-  const {isSidebarCollapsed} = useSidebar();
+  const {isSidebarCollapsed, setIsMobileSidebarOpen} = useSidebar();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -198,39 +199,40 @@ const TiposMonitoreo = () => {
           <Sidebar />
         </div>
         <div className={`content-wrapper ${isSidebarCollapsed ? "sidebar-collapsed" : ""}`}>
-          <div className="page-header">
-            <h1>Catálogos - Tipos de Monitoreo</h1>
+          <PageHeader
+            title="Catálogos - Tipos de Monitoreo"
+            onToggleSidebar={() => setIsMobileSidebarOpen(true)}
+            filters={
+              roleData?.tipos_de_monitoreo?.read && (
+                <FilterBar onClear={clearFilters}>
+                  <input
+                    type="text"
+                    className="form-control form-control-sm border-0 bg-white shadow-sm"
+                    placeholder="Buscar por tipo de monitoreo..."
+                    name="tipoMonitoreo"
+                    value={filters.tipoMonitoreo}
+                    onChange={handleFilterChange}
+                  />
+                </FilterBar>
+              )
+            }
+          >
             {roleData?.tipos_de_monitoreo?.create && (
               <button type="button" className="new-btn" onClick={() => setShowModal("create")}>
                 <i className="fas fa-plus"></i>
               </button>
             )}
-          </div>
+          </PageHeader>
 
           {roleData?.tipos_de_monitoreo?.read && (
-            <>
-              {/* Filtros */}
-              <FilterBar onClear={clearFilters}>
-                <input
-                  type="text"
-                  className="form-control form-control-sm border-0 bg-white shadow-sm"
-                  placeholder="Buscar por tipo de monitoreo..."
-                  name="tipoMonitoreo"
-                  value={filters.tipoMonitoreo}
-                  onChange={handleFilterChange}
-                />
-              </FilterBar>
-
-              {/* Tabla */}
-              <div className="settings-content">
-                <DataTable
-                  data={filteredMonitoreos}
-                  columns={columns}
-                  actions={actions}
-                  emptyMessage="No se encontraron tipos de monitoreo que coincidan con los filtros."
-                />
-              </div>
-            </>
+            <div className="settings-content mt-4">
+              <DataTable
+                data={filteredMonitoreos}
+                columns={columns}
+                actions={actions}
+                emptyMessage="No se encontraron tipos de monitoreo que coincidan con los filtros."
+              />
+            </div>
           )}
         </div>
       </div>

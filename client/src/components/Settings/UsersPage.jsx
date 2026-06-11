@@ -1,5 +1,6 @@
 import {useState, useEffect, useMemo} from "react";
 import Sidebar from "../Sidebar";
+import PageHeader from "../PageHeader";
 import {useAuth} from "../../context/AuthContext";
 import ModalTemplate from "../ModalTemplate";
 import DataTable from "../DataTable";
@@ -26,7 +27,7 @@ const UsersPage = () => {
   const {user, verifyToken, setUser} = useAuth();
   const [roleData, setRoleData] = useState(null);
   const baseUrl = import.meta.env.VITE_BASE_URL;
-  const {isSidebarCollapsed} = useSidebar();
+  const {isSidebarCollapsed, setIsMobileSidebarOpen} = useSidebar();
   const navigate = useNavigate();
 
   // Filter states
@@ -245,18 +246,10 @@ const UsersPage = () => {
           <Sidebar />
         </div>
         <div className={`content-wrapper ${isSidebarCollapsed ? "sidebar-collapsed" : ""}`}>
-          <div className="page-header">
-            <h1 className="fs-3 fw-semibold text-black text-center m-0">Sistema - Usuarios</h1>
-            {roleData?.usuarios?.create && (
-              <button className="new-btn" onClick={handleCreateNew}>
-                <i className="fas fa-plus"></i>
-              </button>
-            )}
-          </div>
-
-          {roleData?.usuarios?.read && (
-            <>
-              {/* Filtros */}
+          <PageHeader
+            title="Sistema - Usuarios"
+            onToggleSidebar={() => setIsMobileSidebarOpen(true)}
+            filters={
               <FilterBar onClear={clearFilters}>
                 <input
                   type="text"
@@ -293,9 +286,18 @@ const UsersPage = () => {
                   ))}
                 </select>
               </FilterBar>
+            }
+          >
+            {roleData?.usuarios?.create && (
+              <button className="new-btn" onClick={handleCreateNew}>
+                <i className="fas fa-plus"></i>
+              </button>
+            )}
+          </PageHeader>
 
+          {roleData?.usuarios?.read && (
+            <div className="settings-content mt-4">
               {/* Tabla */}
-              <div className="settings-content">
                 <DataTable
                   data={filteredUsers}
                   columns={columns}
@@ -303,7 +305,6 @@ const UsersPage = () => {
                   emptyMessage="No se encontraron usuarios que coincidan con los filtros."
                 />
               </div>
-            </>
           )}
         </div>
       </div>

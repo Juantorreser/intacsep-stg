@@ -1,5 +1,6 @@
 import {useState, useEffect, useMemo} from "react";
 import Sidebar from "../Sidebar";
+import PageHeader from "../PageHeader";
 import ModalTemplate from "../ModalTemplate";
 import DataTable from "../DataTable";
 import FilterBar from "../FilterBar";
@@ -56,7 +57,7 @@ const DestinoPage = () => {
 
   const {user, verifyToken, setUser} = useAuth();
   const [roleData, setRoleData] = useState(null);
-  const {isSidebarCollapsed} = useSidebar();
+  const {isSidebarCollapsed, setIsMobileSidebarOpen} = useSidebar();
 
   useEffect(() => {
     const init = async () => {
@@ -266,59 +267,60 @@ const DestinoPage = () => {
           <Sidebar />
         </div>
         <div className={`content-wrapper ${isSidebarCollapsed ? "sidebar-collapsed" : ""}`}>
-          <div className="page-header">
-            <h1>Catálogos - Destinos</h1>
+          <PageHeader
+            title="Catálogos - Destinos"
+            onToggleSidebar={() => setIsMobileSidebarOpen(true)}
+            filters={
+              roleData?.destinos?.read && (
+                <FilterBar onClear={clearFilters}>
+                  <input
+                    type="text"
+                    className="form-control form-control-sm border-0 bg-white shadow-sm"
+                    placeholder="Buscar por nombre..."
+                    name="nombre"
+                    value={filters.nombre}
+                    onChange={handleFilterChange}
+                  />
+                  <select
+                    className="form-control form-control-sm border-0 bg-white shadow-sm"
+                    name="estado"
+                    value={filters.estado}
+                    onChange={handleFilterChange}>
+                    <option value="">Todos los estados</option>
+                    {estados.map((e) => (
+                      <option key={e.clave} value={e.nombre}>{e.nombre}</option>
+                    ))}
+                  </select>
+                  <select
+                    className="form-control form-control-sm border-0 bg-white shadow-sm"
+                    name="cliente"
+                    value={filters.cliente}
+                    onChange={handleFilterChange}>
+                    <option value="">Todos los clientes</option>
+                    {clients.map((c) => (
+                      <option key={c._id} value={c.razon_social}>{c.razon_social}</option>
+                    ))}
+                  </select>
+                </FilterBar>
+              )
+            }
+          >
             {roleData?.destinos?.create && (
               <button type="button" className="new-btn" onClick={() => setModalType("create")}>
                 <i className="fas fa-plus"></i>
               </button>
             )}
-          </div>
+          </PageHeader>
 
           {roleData?.destinos?.read && (
-            <>
-              {/* Filtros */}
-              <FilterBar onClear={clearFilters}>
-                <input
-                  type="text"
-                  className="form-control form-control-sm border-0 bg-white shadow-sm"
-                  placeholder="Buscar por nombre..."
-                  name="nombre"
-                  value={filters.nombre}
-                  onChange={handleFilterChange}
-                />
-                <select
-                  className="form-control form-control-sm border-0 bg-white shadow-sm"
-                  name="estado"
-                  value={filters.estado}
-                  onChange={handleFilterChange}>
-                  <option value="">Todos los estados</option>
-                  {estados.map((e) => (
-                    <option key={e.clave} value={e.nombre}>{e.nombre}</option>
-                  ))}
-                </select>
-                <select
-                  className="form-control form-control-sm border-0 bg-white shadow-sm"
-                  name="cliente"
-                  value={filters.cliente}
-                  onChange={handleFilterChange}>
-                  <option value="">Todos los clientes</option>
-                  {clients.map((c) => (
-                    <option key={c._id} value={c.razon_social}>{c.razon_social}</option>
-                  ))}
-                </select>
-              </FilterBar>
-
-              {/* Tabla */}
-              <div className="settings-content">
-                <DataTable
-                  data={filteredDestinos}
-                  columns={columns}
-                  actions={actions}
-                  emptyMessage="No se encontraron destinos que coincidan con los filtros."
-                />
-              </div>
-            </>
+            <div className="settings-content mt-4">
+              <DataTable
+                data={filteredDestinos}
+                columns={columns}
+                actions={actions}
+                emptyMessage="No se encontraron destinos que coincidan con los filtros."
+              />
+            </div>
           )}
         </div>
       </div>

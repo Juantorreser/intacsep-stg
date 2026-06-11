@@ -1,6 +1,7 @@
 import {useState, useEffect} from "react";
 import {useNavigate} from "react-router-dom";
 import Sidebar from "../Sidebar";
+import PageHeader from "../PageHeader";
 import ModalTemplate from "../ModalTemplate";
 import {useAuth} from "../../context/AuthContext";
 import {useSidebar} from "../../context/SidebarContext";
@@ -27,7 +28,7 @@ const BuscadorPlanPage = () => {
   const [started, setStarted] = useState(null); // { bitacora_id, bitacora_num_id }
 
   const {user} = useAuth();
-  const {isSidebarCollapsed} = useSidebar();
+  const {isSidebarCollapsed, setIsMobileSidebarOpen} = useSidebar();
   const baseUrl = import.meta.env.VITE_BASE_URL;
   const navigate = useNavigate();
 
@@ -37,7 +38,7 @@ const BuscadorPlanPage = () => {
       .then((r) => r.json())
       .then((role) => { if (!role?.buscador_plan?.read) navigate("/"); })
       .catch(() => {});
-  }, [user]);
+  }, [user, baseUrl, navigate]);
 
   const handleSearch = async (e) => {
     e.preventDefault();
@@ -126,12 +127,10 @@ const BuscadorPlanPage = () => {
           <Sidebar />
         </div>
         <div className={`content-wrapper ${isSidebarCollapsed ? "sidebar-collapsed" : ""}`}>
-
-          <div className="page-header">
-            <h1 className="fs-3 fw-semibold text-black text-center m-0">
-              Buscador de Plan
-            </h1>
-          </div>
+          <PageHeader
+            title="Buscador de Plan"
+            onToggleSidebar={() => setIsMobileSidebarOpen(true)}
+          />
 
           <div className="buscador-plan-container">
 

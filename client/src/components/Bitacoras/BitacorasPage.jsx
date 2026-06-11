@@ -6,6 +6,7 @@ import {useSidebar} from "../../context/SidebarContext";
 import Sidebar from "../Sidebar";
 import "jspdf-autotable"; // For table support in jsPDF
 import {convertToUpperCase} from "../../utils/utils"; // Assume these functions exist
+import PageHeader from "../PageHeader";
 import BitacoraDetail from "./BitacoraDetail";
 import OldBitacoraDetail from "./OldBitacoraPDF";
 import ModalTemplate from "../ModalTemplate";
@@ -81,7 +82,7 @@ const defaultFormData = {
 const BitacorasPage = () => {
   const baseUrl = import.meta.env.VITE_BASE_URL;
   const {user} = useAuth();
-  const {isSidebarCollapsed} = useSidebar();
+  const {isSidebarCollapsed, toggleSidebar, setIsMobileSidebarOpen} = useSidebar();
   const [showModal, setShowModal] = useState(false);
   const [roleData, setRoleData] = useState(null);
   const [showPrintModal, setShowPrintModal] = useState(false);
@@ -847,80 +848,134 @@ const BitacorasPage = () => {
         </div>
         <div className={`content-wrapper ${isSidebarCollapsed ? "sidebar-collapsed" : ""}`}>
           {/* Page header */}
-          <div className="bits-header">
-            <div className="bits-header__left">
-              <h1 className="bits-header__title">Bitácoras</h1>
-              {totalItems > 0 && (
-                <span className="bits-header__count">{totalItems}</span>
-              )}
-            </div>
-            <div className="bits-header__right">
-              <button
-                type="button"
-                className={`bits-filter-toggle d-md-none${hasActiveFilters ? " has-filters" : ""}`}
-                onClick={() => setShowMobileFilters((v) => !v)}
-                title="Filtros">
-                <i className="fa fa-filter"></i>
-                {hasActiveFilters && <span className="bits-filter-dot" />}
-              </button>
-              {roleData?.bitacoras?.create && (
-                <button className="bits-new-btn" onClick={() => setShowModal(!showModal)}>
+          <PageHeader
+            title="Bitácoras"
+            count={totalItems}
+            onToggleSidebar={() => setIsMobileSidebarOpen(true)}
+            filters={
+              <div className="bits-filters-panel">
+                <div className="row g-2">
+                  <div className="col-12 col-sm-6 col-md-3 col-lg-2">
+                    <label className="small fw-bold mb-1">ID</label>
+                    <input
+                      type="text"
+                      className="form-control form-control-sm"
+                      placeholder="Buscar ID..."
+                      value={idFilter}
+                      onChange={(e) => handleIdFilterChange(e.target.value)}
+                    />
+                  </div>
+                  <div className="col-12 col-sm-6 col-md-3 col-lg-2">
+                    <label className="small fw-bold mb-1">Cliente</label>
+                    <select
+                      className="form-select form-select-sm"
+                      value={clienteFilter}
+                      onChange={(e) => handleClienteFilterChange(e.target.value)}>
+                      <option value="">Todos los clientes</option>
+                      {clients
+                        .sort((a, b) => a.razon_social.localeCompare(b.razon_social))
+                        .map((c, i) => (
+                          <option key={i} value={c.razon_social}>{c.razon_social}</option>
+                        ))}
+                    </select>
+                  </div>
+                  <div className="col-12 col-sm-6 col-md-3 col-lg-2">
+                    <label className="small fw-bold mb-1">Línea Transporte</label>
+                    <select
+                      className="form-select form-select-sm"
+                      value={lineaTransporteFilter}
+                      onChange={(e) => handleLineaTransporteFilterChange(e.target.value)}>
+                      <option value="">Todas las líneas</option>
+                      {getAllUniqueTransportLines().map((linea, id) => (
+                        <option key={id} value={linea}>
+                          {linea}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="col-12 col-sm-6 col-md-3 col-lg-2">
+                    <label className="small fw-bold mb-1">Tipo Monitoreo</label>
+                    <select
+                      className="form-select form-select-sm"
+                      value={monitoreoFilter}
+                      onChange={(e) => handleMonitoreoFilterChange(e.target.value)}>
+                      <option value="">Todos los tipos</option>
+                      {monitoreos
+                        .sort((a, b) => a.tipoMonitoreo.localeCompare(b.tipoMonitoreo))
+                        .map((monitreo, id) => (
+                          <option key={id} value={monitreo.tipoMonitoreo}>
+                            {monitreo.tipoMonitoreo}
+                          </option>
+                        ))}
+                    </select>
+                  </div>
+                  <div className="col-12 col-sm-6 col-md-3 col-lg-2">
+                    <label className="small fw-bold mb-1">Usuario</label>
+                    <select
+                      className="form-select form-select-sm"
+                      value={operadorFilter}
+                      onChange={(e) => handleOperadorFilterChange(e.target.value)}>
+                      <option value="">Todos los usuarios</option>
+                      {operadores
+                        .filter((operador) => operador && operador.name)
+                        .sort((a, b) => (a.name || "").localeCompare(b.name || ""))
+                        .map((operador, id) => (
+                          <option key={id} value={operador.name}>
+                            {operador.name}
+                          </option>
+                        ))}
+                    </select>
+                  </div>
+                  <div className="col-12 col-sm-6 col-md-3 col-lg-2">
+                    <label className="small fw-bold mb-1">Fecha Creación</label>
+                    <input
+                      type="date"
+                      className="form-control form-control-sm"
+                      value={creationDateFilter}
+                      onChange={(e) => handleCreationDateFilterChange(e.target.value)}
+                    />
+                  </div>
+                  <div className="col-12 col-sm-6 col-md-3 col-lg-2">
+                    <label className="small fw-bold mb-1">Estatus</label>
+                    <select
+                      className="form-select form-select-sm"
+                      value={statusFilter}
+                      onChange={(e) => handleStatusFilterChange(e.target.value)}>
+                      <option value="">Todos los estatus</option>
+                      <option value="nueva">Nueva</option>
+                      <option value="validada">Validada</option>
+                      <option value="iniciada">Iniciada</option>
+                      {roleData?.ver_bitacoras_cerradas !== false && (
+                        <>
+                          <option value="cerrada">Cerrada</option>
+                          <option value="cerrada (e)">Cerrada (e)</option>
+                        </>
+                      )}
+                      <option value="finalizada">Finalizada</option>
+                    </select>
+                  </div>
+                  <div className="col-12 col-sm-6 col-md-3 col-lg-2 d-flex align-items-end">
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-outline-secondary w-100"
+                      onClick={() => { clearFilters(); }}>
+                      <i className="fa fa-eraser me-1"></i>Limpiar
+                    </button>
+                  </div>
+                </div>
+              </div>
+            }
+          >
+            {roleData?.bitacoras?.create && (
+                <button className="new-btn" onClick={() => setShowModal(!showModal)}>
                   <i className="fa fa-plus"></i>
-                  <span className="d-none d-sm-inline">Nueva Bitácora</span>
                 </button>
               )}
-            </div>
-          </div>
-
-          {/* Mobile filter drawer */}
-          <div className={`bits-mobile-filters${showMobileFilters ? " bits-mobile-filters--open" : ""}`}>
-            <div className="bits-mobile-filters__grid">
-              <input
-                type="text"
-                className="form-control form-control-sm"
-                placeholder="Buscar ID..."
-                value={idFilter}
-                onChange={(e) => handleIdFilterChange(e.target.value)}
-              />
-              <select
-                className="form-select form-select-sm"
-                value={clienteFilter}
-                onChange={(e) => handleClienteFilterChange(e.target.value)}>
-                <option value="">Todos los clientes</option>
-                {clients
-                  .sort((a, b) => a.razon_social.localeCompare(b.razon_social))
-                  .map((c, i) => (
-                    <option key={i} value={c.razon_social}>{c.razon_social}</option>
-                  ))}
-              </select>
-              <select
-                className="form-select form-select-sm"
-                value={statusFilter}
-                onChange={(e) => handleStatusFilterChange(e.target.value)}>
-                <option value="">Todos los estatus</option>
-                <option value="nueva">Nueva</option>
-                <option value="validada">Validada</option>
-                <option value="iniciada">Iniciada</option>
-                {roleData?.ver_bitacoras_cerradas !== false && (
-                  <>
-                    <option value="cerrada">Cerrada</option>
-                    <option value="cerrada (e)">Cerrada (e)</option>
-                  </>
-                )}
-                <option value="finalizada">Finalizada</option>
-              </select>
-              <button
-                type="button"
-                className="bits-mobile-filters__clear"
-                onClick={() => { clearFilters(); setShowMobileFilters(false); }}>
-                <i className="fa fa-times me-1"></i>Limpiar
-              </button>
-            </div>
-          </div>
+          </PageHeader>
 
           {/* Table */}
           {roleData?.bitacoras?.read && (
-            <div className="bits-table-shell">
+            <div className="bits-table-shell mt-4">
             <div className="table-wrapper">
               <div className="table-container">
                 <div className="table-responsive">
@@ -1057,134 +1112,6 @@ const BitacorasPage = () => {
                         <th className="text-center" style={{width: "80px"}}>
                           <i className="fa fa-trash text-muted"></i>
                         </th>
-                        <th className="text-center" style={{width: "120px"}}>
-                          <i className="fa fa-filter text-muted"></i>
-                        </th>
-                      </tr>
-
-                      {/* Filter Row */}
-                      <tr className="filter-row">
-                        <th className="filter-cell" style={{width: "80px"}}>
-                          <div className="filter-placeholder"></div>
-                        </th>
-                        <th className="filter-cell" style={{width: "100px"}}>
-                          <input
-                            type="text"
-                            className="form-control form-control-sm modern-input"
-                            placeholder="Buscar ID..."
-                            value={idFilter}
-                            onChange={(e) => handleIdFilterChange(e.target.value)}
-                          />
-                        </th>
-                        <th className="filter-cell" style={{width: "150px"}}>
-                          <select
-                            className="form-select form-select-sm modern-select"
-                            value={clienteFilter}
-                            onChange={(e) => handleClienteFilterChange(e.target.value)}>
-                            <option value="">Todos los clientes</option>
-                            {clients
-                              .sort((a, b) => a.razon_social.localeCompare(b.razon_social))
-                              .map((client, id) => (
-                                <option key={id} value={client.razon_social}>
-                                  {client.razon_social}
-                                </option>
-                              ))}
-                          </select>
-                        </th>
-                        <th className="filter-cell d-none d-lg-table-cell" style={{width: "180px"}}>
-                          <select
-                            className="form-select form-select-sm modern-select"
-                            value={lineaTransporteFilter}
-                            onChange={(e) => handleLineaTransporteFilterChange(e.target.value)}>
-                            <option value="">Todas las líneas</option>
-                            {getAllUniqueTransportLines().map((linea, id) => (
-                              <option key={id} value={linea}>
-                                {linea}
-                              </option>
-                            ))}
-                          </select>
-                        </th>
-                        <th className="filter-cell d-none d-md-table-cell" style={{width: "120px"}}>
-                          <select
-                            className="form-select form-select-sm modern-select"
-                            value={monitoreoFilter}
-                            onChange={(e) => handleMonitoreoFilterChange(e.target.value)}>
-                            <option value="">Todos los tipos</option>
-                            {monitoreos
-                              .sort((a, b) => a.tipoMonitoreo.localeCompare(b.tipoMonitoreo))
-                              .map((monitreo, id) => (
-                                <option key={id} value={monitreo.tipoMonitoreo}>
-                                  {monitreo.tipoMonitoreo}
-                                </option>
-                              ))}
-                          </select>
-                        </th>
-                        <th className="filter-cell d-none d-lg-table-cell" style={{width: "140px"}}>
-                          <select
-                            className="form-select form-select-sm modern-select"
-                            value={operadorFilter}
-                            onChange={(e) => handleOperadorFilterChange(e.target.value)}>
-                            <option value="">Todos los operadores</option>
-                            {operadores
-                              .filter((operador) => operador && operador.name) // Filter out undefined/null items
-                              .sort((a, b) => (a.name || "").localeCompare(b.name || ""))
-                              .map((operador, id) => (
-                                <option key={id} value={operador.name}>
-                                  {operador.name}
-                                </option>
-                              ))}
-                          </select>
-                        </th>
-                        <th className="filter-cell d-none d-md-table-cell" style={{width: "110px"}}>
-                          <input
-                            type="date"
-                            className="form-control form-control-sm modern-input"
-                            value={creationDateFilter}
-                            onChange={(e) => handleCreationDateFilterChange(e.target.value)}
-                          />
-                        </th>
-                        <th className="filter-cell" style={{width: "120px"}}>
-                          <select
-                            className="form-select form-select-sm modern-select"
-                            value={statusFilter}
-                            onChange={(e) => handleStatusFilterChange(e.target.value)}>
-                            <option value="">Todos los estatus</option>
-                            <option value="nueva">Nueva</option>
-                            <option value="validada">Validada</option>
-                            <option value="iniciada">Iniciada</option>
-                            {roleData?.ver_bitacoras_cerradas !== false && (
-                              <>
-                                <option value="cerrada">Cerrada</option>
-                                <option value="cerrada (e)">Cerrada (e)</option>
-                              </>
-                            )}
-                            <option value="finalizada">Finalizada</option>
-                          </select>
-                        </th>
-                        <th className="filter-cell d-none d-lg-table-cell" style={{width: "150px"}}>
-                          <div className="filter-placeholder"></div>
-                        </th>
-                        <th className="filter-cell" style={{width: "80px"}}>
-                          <div className="filter-placeholder"></div>
-                        </th>
-                        <th className="filter-cell" style={{width: "80px"}}>
-                          <div className="filter-placeholder"></div>
-                        </th>
-                        <th className="filter-cell" style={{width: "120px"}}>
-                          <button
-                            type="button"
-                            className="btn btn-outline-secondary btn-sm"
-                            onClick={clearFilters}
-                            title="Limpiar todos los filtros"
-                            style={{
-                              width: "100%",
-                              fontSize: "12px",
-                              padding: "4px 8px",
-                            }}>
-                            <i className="fas fa-times me-1"></i>
-                            Limpiar
-                          </button>
-                        </th>
                       </tr>
                     </thead>
                     <tbody className="table-body">
@@ -1254,8 +1181,8 @@ const BitacorasPage = () => {
                                 {new Date(bitacora.createdAt).toLocaleDateString()}
                               </span>
                             </td>
-                            <td data-label="Estatus" className="table-cell" style={{width: "120px"}}>
-                              <div style={{display: "flex", alignItems: "center", gap: "0.375rem"}}>
+                            <td data-label="Estatus" className="table-cell text-center" style={{width: "120px"}}>
+                              <div style={{display: "flex", justifyContent: "center", alignItems: "center", gap: "0.375rem"}}>
                                 <span className={`status-badge status-${bitacora.status}`}>
                                   {bitacora.status}
                                   {bitacora.edited ? " (e)" : ""}
@@ -1273,25 +1200,29 @@ const BitacorasPage = () => {
                               <span className="cell-text">{getRecorrido(bitacora)}</span>
                             </td>
                             <td className="table-cell table-cell-actions text-center" style={{width: "80px"}}>
-                              <button
-                                className={`action-btn ${
-                                  isAnyTransporteClosed(bitacora) ? "btn-primary" : "btn-secondary"
-                                }`}
-                                onClick={() => handlePDFToggle(bitacora)}
-                                disabled={!isAnyTransporteClosed(bitacora)}
-                                title="Descargar PDF">
-                                <i className="fa fa-file-pdf"></i>
-                              </button>
+                              <div className="d-flex justify-content-center">
+                                <button
+                                  className={`action-btn ${
+                                    isAnyTransporteClosed(bitacora) ? "btn-primary" : "btn-secondary"
+                                  }`}
+                                  onClick={() => handlePDFToggle(bitacora)}
+                                  disabled={!isAnyTransporteClosed(bitacora)}
+                                  title="Descargar PDF">
+                                  <i className="fa fa-file-pdf"></i>
+                                </button>
+                              </div>
                             </td>
                             <td className="table-cell table-cell-actions text-center" style={{width: "80px"}}>
-                              {roleData?.bitacoras?.delete && (
-                                <button
-                                  className="action-btn btn-danger"
-                                  onClick={() => handleDeleteClick(bitacora)}
-                                  title="Eliminar bitácora">
-                                  <i className="fa fa-trash"></i>
-                                </button>
-                              )}
+                              <div className="d-flex justify-content-center">
+                                {roleData?.bitacoras?.delete && (
+                                  <button
+                                    className="action-btn btn-danger"
+                                    onClick={() => handleDeleteClick(bitacora)}
+                                    title="Eliminar bitácora">
+                                    <i className="fa fa-trash"></i>
+                                  </button>
+                                )}
+                              </div>
                             </td>
                           </tr>
                         ))

@@ -2,6 +2,7 @@ import {useEffect, useRef, useState} from "react";
 import {useNavigate} from "react-router-dom";
 import jsPDF from "jspdf";
 import Sidebar from "./Sidebar";
+import PageHeader from "./PageHeader";
 import {useAuth} from "../context/AuthContext";
 import {useSidebar} from "../context/SidebarContext";
 import {fetchClients, fetchLineasTransporte, fetchOperadores} from "../utils/api";
@@ -44,7 +45,7 @@ const formatDeviation = (actual, planned) => {
 
 const ReporteEventosPage = () => {
   const {user, verifyToken, setUser} = useAuth();
-  const {isSidebarCollapsed} = useSidebar();
+  const {isSidebarCollapsed, setIsMobileSidebarOpen} = useSidebar();
   const navigate = useNavigate();
   const baseUrl = import.meta.env.VITE_BASE_URL;
 
@@ -617,9 +618,10 @@ const ReporteEventosPage = () => {
         </div>
 
         <div className={`content-wrapper ${isSidebarCollapsed ? "sidebar-collapsed" : ""}`}>
-          <div className="page-header">
-            <h1 className="fs-3 fw-semibold text-black text-center m-0">Dashboard - Reporte Eventos</h1>
-          </div>
+          <PageHeader
+            title="Dashboard - Reporte Eventos"
+            onToggleSidebar={() => setIsMobileSidebarOpen(true)}
+          />
 
           {roleData?.reporte_eventos?.read && (
             <div className="settings-content">

@@ -8,11 +8,10 @@ import Footer from "./Footer.jsx";
 
 const Sidebar = () => {
   const {user, logout} = useAuth();
-  const {isSidebarCollapsed, toggleSidebar} = useSidebar();
+  const {isSidebarCollapsed, toggleSidebar, isMobileSidebarOpen, setIsMobileSidebarOpen} = useSidebar();
   const navigate = useNavigate();
   const baseUrl = import.meta.env.VITE_BASE_URL;
 
-  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [showInacModal, setShowInacModal] = useState(false);
   const [roleData, setRoleData] = useState(null);
   const [collapsedItems, setCollapsedItems] = useState({
@@ -92,46 +91,38 @@ const Sidebar = () => {
 
   return (
     <>
-      <button
-        className="sidebar-toggle-btn d-md-none"
-        onClick={() => setIsMobileSidebarOpen(!isMobileSidebarOpen)}>
-        <i className="fa fa-bars"></i>
-      </button>
-
       <aside
         id="leftsidebar"
         className={`${isSidebarCollapsed ? "collapsed" : ""} ${
           isMobileSidebarOpen ? "mobile-open" : ""
         }`}>
         {/* Floating Collapse Button (only when collapsed) */}
-        {isSidebarCollapsed && (
-          <div className="floating-collapse-btn">
+        {/* {isSidebarCollapsed && (
+          <div className="floating-collapse-btn d-none d-md-block">
             <button onClick={toggleSidebar} className="collapse-btn">
               <i className="fa fa-chevron-right"></i>
             </button>
           </div>
-        )}
+        )} */}
 
         <div className="sidebar-wrapper">
           {/* Mobile close button */}
-          {isMobileSidebarOpen && (
-            <div className="mobile-close-btn">
-              <button onClick={() => setIsMobileSidebarOpen(false)}>
-                <i className="fa fa-times"></i>
-              </button>
-            </div>
-          )}
+          <div className="mobile-close-btn d-md-none">
+            <button onClick={() => setIsMobileSidebarOpen(false)}>
+              <i className="fa fa-times"></i>
+            </button>
+          </div>
 
           {/* User Profile Section */}
           <div className="user-profile">
             {/* Collapse/Expand Button (only when expanded) */}
-            {!isSidebarCollapsed && (
-              <div className="sidebar-toggle" onClick={(e) => e.stopPropagation()}>
+            {/* {!isSidebarCollapsed && (
+              <div className="sidebar-toggle d-none d-md-block" onClick={(e) => e.stopPropagation()}>
                 <button onClick={toggleSidebar} className="collapse-btn">
                   <i className="fa fa-chevron-left"></i>
                 </button>
               </div>
-            )}
+            )} */}
 
             <div className="user-avatar">
               <img src="/logo1.png" alt="Logo" />
@@ -200,7 +191,7 @@ const Sidebar = () => {
                       {showReporteControlPatios && (
                         <li onClick={() => navigate("/reporte-control-patios")}>
                           <i className="fa fa-warehouse"></i>
-                          <span>Control de Patios Dashboard</span>
+                          <span>Control de Patios</span>
                         </li>
                       )}
                     </ul>

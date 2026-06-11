@@ -3,11 +3,12 @@ import {useAuth} from "../context/AuthContext";
 import {useSidebar} from "../context/SidebarContext";
 import {useNavigate} from "react-router-dom";
 import Sidebar from "./Sidebar";
+import PageHeader from "./PageHeader";
 import {getAllowedClients} from "../utils/clientPermissions";
 
 const DashboardPage = () => {
   const {user} = useAuth();
-  const {isSidebarCollapsed} = useSidebar();
+  const {isSidebarCollapsed, setIsMobileSidebarOpen} = useSidebar();
   const navigate = useNavigate();
 
   const [roleData, setRoleData] = useState(null);
@@ -3647,203 +3648,179 @@ const DashboardPage = () => {
           <Sidebar />
         </div>
         <div className={`content-wrapper ${isSidebarCollapsed ? "sidebar-collapsed" : ""}`}>
-          {/* Título */}
-          <div className="page-header">
-            <h1 className="fs-3 fw-semibold text-black m-0">Dashboard General</h1>
-          </div>
-
-          <div className="container-fluid px-3 px-md-4">
-            {/* Welcome Section */}
-            <div className="row mb-3 mb-md-4">
-              <div className="col-12">
-                <div className="welcome-card">
-                  <div className="welcome-content">
-                    <div className="welcome-icon dashboard-general">
-                      <i className="fa fa-chart-line"></i>
-                    </div>
-                    <div className="welcome-text">
-                      <h4 className="fs-5 fs-md-4">
-                        Hola, {user?.firstName} {user?.lastName}
-                      </h4>
-                      <p className="mb-0 d-none d-md-block">
-                        Tablero de control del sistema de monitoreo Intacsep
-                      </p>
-                    </div>
+          <PageHeader
+            title="Dashboard General"
+            onToggleSidebar={() => setIsMobileSidebarOpen(true)}
+            filters={
+              <div className="filter-card border-0 p-0 bg-transparent">
+                <div className="filter-header d-flex justify-content-end align-items-center mb-2">
+                  <div className="d-flex align-items-center gap-2">
+                    {loading && (
+                      <span className="badge bg-warning">
+                        <i className="fa fa-spinner fa-spin me-1"></i>
+                        Cargando...
+                      </span>
+                    )}
+                    {(appliedFechaDesde ||
+                      appliedFechaHasta !== new Date().toISOString().split("T")[0] ||
+                      appliedClientFilter !== "all" ||
+                      appliedLineaTransporteFilter !== "all" ||
+                      appliedOperadorFilter !== "all") && (
+                      <span className="badge bg-primary">
+                        <i className="fa fa-filter me-1"></i>
+                        Filtros Activos
+                      </span>
+                    )}
                   </div>
                 </div>
-              </div>
-            </div>
-
-            {/* Filtros */}
-            <div className="row mb-3 mb-md-4">
-              <div className="col-12">
-                <div className="filter-card">
-                  <div className="filter-header d-flex justify-content-end align-items-center mb-2">
-                    <div className="d-flex align-items-center gap-2">
-                      {loading && (
-                        <span className="badge bg-warning">
-                          <i className="fa fa-spinner fa-spin me-1"></i>
-                          Cargando...
-                        </span>
-                      )}
-                      {(appliedFechaDesde ||
-                        appliedFechaHasta !== new Date().toISOString().split("T")[0] ||
-                        appliedClientFilter !== "all" ||
-                        appliedLineaTransporteFilter !== "all" ||
-                        appliedOperadorFilter !== "all") && (
-                        <span className="badge bg-primary">
-                          <i className="fa fa-filter me-1"></i>
-                          Filtros Activos
-                        </span>
-                      )}
+                <div className="filter-content">
+                  <div className="row g-2 g-md-3 align-items-end">
+                    {/* Filtros de fecha primero */}
+                    <div className="col-12 col-sm-6 col-lg-2">
+                      <div className="filter-section">
+                        <label className="form-label small mb-1">Fecha Desde:</label>
+                        <input
+                          type="date"
+                          value={fechaDesde}
+                          onChange={(e) => setFechaDesde(e.target.value)}
+                          className="filter-select form-control form-control-sm"
+                        />
+                      </div>
                     </div>
-                  </div>
-                  <div className="filter-content">
-                    <div className="row g-2 g-md-3 align-items-end">
-                      {/* Filtros de fecha primero */}
-                      <div className="col-12 col-sm-6 col-lg-2">
-                        <div className="filter-section">
-                          <label className="form-label small mb-1">Fecha Desde:</label>
-                          <input
-                            type="date"
-                            value={fechaDesde}
-                            onChange={(e) => setFechaDesde(e.target.value)}
-                            className="filter-select form-control form-control-sm"
-                          />
-                        </div>
+                    <div className="col-12 col-sm-6 col-lg-2">
+                      <div className="filter-section">
+                        <label className="form-label small mb-1">Fecha Hasta:</label>
+                        <input
+                          type="date"
+                          value={fechaHasta}
+                          onChange={(e) => setFechaHasta(e.target.value)}
+                          className="filter-select form-control form-control-sm"
+                        />
                       </div>
-                      <div className="col-12 col-sm-6 col-lg-2">
-                        <div className="filter-section">
-                          <label className="form-label small mb-1">Fecha Hasta:</label>
-                          <input
-                            type="date"
-                            value={fechaHasta}
-                            onChange={(e) => setFechaHasta(e.target.value)}
-                            className="filter-select form-control form-control-sm"
-                          />
-                        </div>
-                      </div>
+                    </div>
 
-                      {/* Filtro de cliente después */}
-                      <div className="col-12 col-sm-6 col-lg-2">
-                        <div className="filter-section">
-                          <label className="form-label small mb-1">Cliente:</label>
-                          <select
-                            value={clientFilter}
-                            onChange={(e) => {
-                              const newClientFilter = e.target.value;
-                              setClientFilter(newClientFilter);
+                    {/* Filtro de cliente después */}
+                    <div className="col-12 col-sm-6 col-lg-2">
+                      <div className="filter-section">
+                        <label className="form-label small mb-1">Cliente:</label>
+                        <select
+                          value={clientFilter}
+                          onChange={(e) => {
+                            const newClientFilter = e.target.value;
+                            setClientFilter(newClientFilter);
 
-                              // Reset transport line filter when client changes
-                              if (newClientFilter !== clientFilter) {
-                                setLineaTransporteFilter("all");
-                                setOperadorFilter("all");
-                              }
-                            }}
-                            className="filter-select form-select form-select-sm">
-                            <option value="all">Todos los clientes</option>
-                            {availableClients && availableClients.length > 0
-                              ? availableClients
-                                  .filter((client) => client && client.razon_social)
-                                  .sort((a, b) => a.razon_social.localeCompare(b.razon_social))
-                                  .map((client) => (
-                                    <option key={client._id} value={client.razon_social}>
-                                      {client.razon_social}
-                                    </option>
-                                  ))
-                              : null}
-                          </select>
-                        </div>
+                            // Reset transport line filter when client changes
+                            if (newClientFilter !== clientFilter) {
+                              setLineaTransporteFilter("all");
+                              setOperadorFilter("all");
+                            }
+                          }}
+                          className="filter-select form-select form-select-sm">
+                          <option value="all">Todos los clientes</option>
+                          {availableClients && availableClients.length > 0
+                            ? availableClients
+                                .filter((client) => client && client.razon_social)
+                                .sort((a, b) => a.razon_social.localeCompare(b.razon_social))
+                                .map((client) => (
+                                  <option key={client._id} value={client.razon_social}>
+                                    {client.razon_social}
+                                  </option>
+                                ))
+                            : null}
+                        </select>
                       </div>
+                    </div>
 
-                      {/* Filtros de línea de transporte y operador */}
-                      <div className="col-12 col-sm-6 col-lg-2">
-                        <div className="filter-section">
-                          <label className="form-label small mb-1">
-                            Línea Transporte:
-                            {loadingLineasTransporte && (
-                              <i className="fa fa-spinner fa-spin ms-1"></i>
-                            )}
-                          </label>
-                          <select
-                            value={lineaTransporteFilter}
-                            onChange={(e) => {
-                              const newLineaTransporteFilter = e.target.value;
-                              setLineaTransporteFilter(newLineaTransporteFilter);
+                    {/* Filtros de línea de transporte y operador */}
+                    <div className="col-12 col-sm-6 col-lg-2">
+                      <div className="filter-section">
+                        <label className="form-label small mb-1">
+                          Línea Transporte:
+                          {loadingLineasTransporte && (
+                            <i className="fa fa-spinner fa-spin ms-1"></i>
+                          )}
+                        </label>
+                        <select
+                          value={lineaTransporteFilter}
+                          onChange={(e) => {
+                            const newLineaTransporteFilter = e.target.value;
+                            setLineaTransporteFilter(newLineaTransporteFilter);
 
-                              // Reset operator filter when transport line changes
-                              if (newLineaTransporteFilter !== lineaTransporteFilter) {
-                                setOperadorFilter("all");
-                              }
-                            }}
-                            className="filter-select form-select form-select-sm"
-                            disabled={loadingLineasTransporte || clientFilter === "all"}>
-                            <option value="all">
-                              {clientFilter === "all"
-                                ? "Selecciona un cliente primero"
-                                : "Todas las líneas"}
-                            </option>
-                            {availableLineasTransporte && availableLineasTransporte.length > 0
-                              ? availableLineasTransporte
-                                  .filter((linea) => linea && linea.nombre)
-                                  .sort((a, b) => a.nombre.localeCompare(b.nombre))
-                                  .map((linea) => (
-                                    <option key={linea._id} value={linea.nombre}>
-                                      {linea.nombre}
-                                    </option>
-                                  ))
-                              : null}
-                          </select>
-                        </div>
+                            // Reset operator filter when transport line changes
+                            if (newLineaTransporteFilter !== lineaTransporteFilter) {
+                              setOperadorFilter("all");
+                            }
+                          }}
+                          className="filter-select form-select form-select-sm"
+                          disabled={loadingLineasTransporte || clientFilter === "all"}>
+                          <option value="all">
+                            {clientFilter === "all"
+                              ? "Selecciona un cliente primero"
+                              : "Todas las líneas"}
+                          </option>
+                          {availableLineasTransporte && availableLineasTransporte.length > 0
+                            ? availableLineasTransporte
+                                .filter((linea) => linea && linea.nombre)
+                                .sort((a, b) => a.nombre.localeCompare(b.nombre))
+                                .map((linea) => (
+                                  <option key={linea._id} value={linea.nombre}>
+                                    {linea.nombre}
+                                  </option>
+                                ))
+                            : null}
+                        </select>
                       </div>
-                      <div className="col-12 col-sm-6 col-lg-2">
-                        <div className="filter-section">
-                          <label className="form-label small mb-1">
-                            Operador:
-                            {loadingOperadores && <i className="fa fa-spinner fa-spin ms-1"></i>}
-                          </label>
-                          <select
-                            value={operadorFilter}
-                            onChange={(e) => setOperadorFilter(e.target.value)}
-                            className="filter-select form-select form-select-sm"
-                            disabled={loadingOperadores || lineaTransporteFilter === "all"}>
-                            <option value="all">
-                              {lineaTransporteFilter === "all"
-                                ? "Selecciona una línea de transporte primero"
-                                : "Todos los operadores"}
-                            </option>
-                            {availableOperadores && availableOperadores.length > 0
-                              ? availableOperadores
-                                  .filter((operador) => operador && operador.nombre)
-                                  .sort((a, b) => a.nombre.localeCompare(b.nombre))
-                                  .map((operador) => (
-                                    <option key={operador._id} value={operador.nombre}>
-                                      {operador.nombre}
-                                    </option>
-                                  ))
-                              : null}
-                          </select>
-                        </div>
+                    </div>
+                    <div className="col-12 col-sm-6 col-lg-2">
+                      <div className="filter-section">
+                        <label className="form-label small mb-1">
+                          Operador:
+                          {loadingOperadores && <i className="fa fa-spinner fa-spin ms-1"></i>}
+                        </label>
+                        <select
+                          value={operadorFilter}
+                          onChange={(e) => setOperadorFilter(e.target.value)}
+                          className="filter-select form-select form-select-sm"
+                          disabled={loadingOperadores || lineaTransporteFilter === "all"}>
+                          <option value="all">
+                            {lineaTransporteFilter === "all"
+                              ? "Selecciona una línea de transporte primero"
+                              : "Todos los operadores"}
+                          </option>
+                          {availableOperadores && availableOperadores.length > 0
+                            ? availableOperadores
+                                .filter((operador) => operador && operador.nombre)
+                                .sort((a, b) => a.nombre.localeCompare(b.nombre))
+                                .map((operador) => (
+                                  <option key={operador._id} value={operador.nombre}>
+                                    {operador.nombre}
+                                  </option>
+                                ))
+                            : null}
+                        </select>
                       </div>
-                      <div className="col-12 col-sm-6 col-lg-2">
-                        <div className="filter-actions d-flex justify-content-end gap-2">
-                          <button
-                            className="filter-btn btn btn-outline-primary btn-sm"
-                            onClick={applyFilters}>
-                            <i className="fa fa-check me-1"></i>
-                          </button>
-                          <button
-                            className="filter-btn btn btn-outline-secondary btn-sm"
-                            onClick={resetFilters}>
-                            <i className="fa fa-refresh me-1"></i>
-                          </button>
-                        </div>
+                    </div>
+                    <div className="col-12 col-sm-6 col-lg-2">
+                      <div className="filter-actions d-flex justify-content-end gap-2">
+                        <button
+                          className="filter-btn btn btn-outline-primary btn-sm"
+                          onClick={applyFilters}>
+                          <i className="fa fa-check me-1"></i>
+                        </button>
+                        <button
+                          className="filter-btn btn btn-outline-secondary btn-sm"
+                          onClick={resetFilters}>
+                          <i className="fa fa-refresh me-1"></i>
+                        </button>
                       </div>
                     </div>
                   </div>
                 </div>
               </div>
-            </div>
+            }
+          />
+
+          <div className="container-fluid px-3 px-md-4 mt-4">
 
             {/* Estadísticas principales con totales y porcentajes integrados */}
             <div className="row mb-3 mb-md-4 g-2 g-md-3">

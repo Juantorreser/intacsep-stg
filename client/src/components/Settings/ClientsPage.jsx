@@ -1,5 +1,6 @@
 import React, {useState, useEffect} from "react";
 import Sidebar from "../Sidebar";
+import PageHeader from "../PageHeader";
 import ClientCard from "./ClientCard";
 import ModalTemplate from "../ModalTemplate";
 import {useAuth} from "../../context/AuthContext";
@@ -35,7 +36,7 @@ const ClientsPage = () => {
 
   const {user, verifyToken, setUser} = useAuth();
   const [roleData, setRoleData] = useState(null);
-  const {isSidebarCollapsed} = useSidebar();
+  const {isSidebarCollapsed, setIsMobileSidebarOpen} = useSidebar();
 
   useEffect(() => {
     const init = async () => {
@@ -221,15 +222,15 @@ const ClientsPage = () => {
           <Sidebar />
         </div>
         <div className={`content-wrapper ${isSidebarCollapsed ? "sidebar-collapsed" : ""}`}>
-          <div className="page-header">
-            <h1 className="fs-3 fw-semibold text-black">Catálogos - Clientes</h1>
-
+          <PageHeader
+            title="Catálogos - Clientes"
+            onToggleSidebar={() => setIsMobileSidebarOpen(true)}>
             {roleData?.clientes?.create && (
               <button className="new-btn" onClick={() => setShowModal(true)}>
                 <i className="fa fa-plus"></i>
               </button>
             )}
-          </div>
+          </PageHeader>
 
           {roleData?.clientes?.read && (
             <div className="mx-3 my-4">

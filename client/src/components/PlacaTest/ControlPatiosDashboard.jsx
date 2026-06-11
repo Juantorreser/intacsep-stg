@@ -4,6 +4,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as ReTooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend
 } from "recharts";
+import PageHeader from "../PageHeader";
 import Sidebar from "../Sidebar";
 import FilterBar from "../FilterBar";
 import DataTable from "../DataTable";
@@ -59,7 +60,7 @@ const toDateTimeLocal = (date) => {
 
 const ControlPatiosDashboard = () => {
   const { user, verifyToken, setUser } = useAuth();
-  const { isSidebarCollapsed } = useSidebar();
+  const { isSidebarCollapsed, setIsMobileSidebarOpen } = useSidebar();
   const navigate = useNavigate();
 
   const [roleData, setRoleData] = useState(null);
@@ -203,37 +204,37 @@ const ControlPatiosDashboard = () => {
       
       <div className={`content-wrapper ${isSidebarCollapsed ? "sidebar-collapsed" : ""}`}>
         
-        <div className="page-header">
-          <div className="header-left">
-            <h1>Control de Patios Dashboard</h1>
-          </div>
-        </div>
+        <PageHeader
+          title="Control de Patios"
+          onToggleSidebar={() => setIsMobileSidebarOpen(true)}
+          filters={
+            <FilterBar onClear={handleClearFilters}>
+              <MultiSelect 
+                label="Placas"
+                options={data.distinctPlates || []}
+                value={selectedPlates}
+                onChange={setSelectedPlates}
+              />
+              
+              <MultiSelect 
+                label="Líneas"
+                options={data.distinctLineas || []}
+                value={selectedLineas}
+                onChange={setSelectedLineas}
+              />
 
-        <FilterBar onClear={handleClearFilters}>
-          <MultiSelect 
-            label="Placas"
-            options={data.distinctPlates || []}
-            value={selectedPlates}
-            onChange={setSelectedPlates}
-          />
-          
-          <MultiSelect 
-            label="Líneas"
-            options={data.distinctLineas || []}
-            value={selectedLineas}
-            onChange={setSelectedLineas}
-          />
+              <DateTimeRangePicker 
+                label="Periodo"
+                startValue={periodRange.start}
+                endValue={periodRange.end}
+                onStartChange={(val) => setPeriodRange(prev => ({ ...prev, start: val }))}
+                onEndChange={(val) => setPeriodRange(prev => ({ ...prev, end: val }))}
+              />
+            </FilterBar>
+          }
+        />
 
-          <DateTimeRangePicker 
-            label="Periodo"
-            startValue={periodRange.start}
-            endValue={periodRange.end}
-            onStartChange={(val) => setPeriodRange(prev => ({ ...prev, start: val }))}
-            onEndChange={(val) => setPeriodRange(prev => ({ ...prev, end: val }))}
-          />
-        </FilterBar>
-
-        <div className="px-3">
+        <div className="px-3 mt-4">
           <div className="row g-3 mb-4 text-center">
             <div className="col-md-3">
               <div className="card kpi-card border-0 shadow-sm">

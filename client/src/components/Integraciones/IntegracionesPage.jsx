@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import Sidebar from "../Sidebar";
+import PageHeader from "../PageHeader";
 import { useAuth } from "../../context/AuthContext";
 import ModalTemplate from "../ModalTemplate";
 import DataTable from "../DataTable";
@@ -18,7 +19,7 @@ const IntegracionesPage = () => {
   const { user, verifyToken, setUser } = useAuth();
   const [roleData, setRoleData] = useState(null);
   const baseUrl = import.meta.env.VITE_BASE_URL;
-  const { isSidebarCollapsed } = useSidebar();
+  const { isSidebarCollapsed, setIsMobileSidebarOpen } = useSidebar();
   const navigate = useNavigate();
 
   // Filter states
@@ -195,48 +196,49 @@ const IntegracionesPage = () => {
           <Sidebar />
         </div>
         <div className={`content-wrapper ${isSidebarCollapsed ? "sidebar-collapsed" : ""}`}>
-          <div className="page-header">
-            <h1 className="fs-3 fw-semibold text-black text-center m-0">Sistema - Integraciones GPS</h1>
+          <PageHeader
+            title="Sistema - Integraciones GPS"
+            onToggleSidebar={() => setIsMobileSidebarOpen(true)}
+            filters={
+              roleData?.integraciones?.read && (
+                <FilterBar onClear={clearFilters}>
+                  <input
+                    type="text"
+                    className="form-control form-control-sm border-0 bg-white shadow-sm"
+                    placeholder="Buscar por nombre..."
+                    name="name"
+                    value={filters.name}
+                    onChange={handleFilterChange}
+                  />
+                  <select
+                    className="form-control form-control-sm border-0 bg-white shadow-sm"
+                    name="provider"
+                    value={filters.provider}
+                    onChange={handleFilterChange}
+                  >
+                    <option value="">Todos los proveedores</option>
+                    <option value="samsara">Samsara</option>
+                  </select>
+                </FilterBar>
+              )
+            }
+          >
             {roleData?.integraciones?.create && (
               <button className="new-btn" onClick={handleCreateNew}>
                 <i className="fas fa-plus"></i>
               </button>
             )}
-          </div>
+          </PageHeader>
 
           {roleData?.integraciones?.read && (
-            <>
-              {/* Filtros */}
-              <FilterBar onClear={clearFilters}>
-                <input
-                  type="text"
-                  className="form-control form-control-sm border-0 bg-white shadow-sm"
-                  placeholder="Buscar por nombre..."
-                  name="name"
-                  value={filters.name}
-                  onChange={handleFilterChange}
-                />
-                <select
-                  className="form-control form-control-sm border-0 bg-white shadow-sm"
-                  name="provider"
-                  value={filters.provider}
-                  onChange={handleFilterChange}
-                >
-                  <option value="">Todos los proveedores</option>
-                  <option value="samsara">Samsara</option>
-                </select>
-              </FilterBar>
-
-              {/* Tabla */}
-              <div className="settings-content">
-                <DataTable
-                  data={filteredIntegrations}
-                  columns={columns}
-                  actions={actions}
-                  emptyMessage="No se encontraron integraciones que coincidan con los filtros."
-                />
-              </div>
-            </>
+            <div className="settings-content mt-4">
+              <DataTable
+                data={filteredIntegrations}
+                columns={columns}
+                actions={actions}
+                emptyMessage="No se encontraron integraciones que coincidan con los filtros."
+              />
+            </div>
           )}
         </div>
       </div>

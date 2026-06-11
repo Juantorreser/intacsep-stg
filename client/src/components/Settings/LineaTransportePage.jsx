@@ -1,5 +1,6 @@
 import {useState, useEffect, useMemo} from "react";
 import Sidebar from "../Sidebar";
+import PageHeader from "../PageHeader";
 import ModalTemplate from "../ModalTemplate";
 import DataTable from "../DataTable";
 import FilterBar from "../FilterBar";
@@ -21,7 +22,7 @@ const LineaTransportePage = () => {
 
   const {user, verifyToken, setUser} = useAuth();
   const [roleData, setRoleData] = useState(null);
-  const {isSidebarCollapsed} = useSidebar();
+  const {isSidebarCollapsed, setIsMobileSidebarOpen} = useSidebar();
 
   useEffect(() => {
     const init = async () => {
@@ -219,49 +220,50 @@ const LineaTransportePage = () => {
           <Sidebar />
         </div>
         <div className={`content-wrapper ${isSidebarCollapsed ? "sidebar-collapsed" : ""}`}>
-          <div className="page-header">
-            <h1>Catálogos - Líneas de Transporte</h1>
+          <PageHeader
+            title="Catálogos - Líneas de Transporte"
+            onToggleSidebar={() => setIsMobileSidebarOpen(true)}
+            filters={
+              roleData?.lineas_transporte?.read && (
+                <FilterBar onClear={clearFilters}>
+                  <input
+                    type="text"
+                    className="form-control form-control-sm border-0 bg-white shadow-sm"
+                    placeholder="Buscar por nombre..."
+                    name="nombre"
+                    value={filters.nombre}
+                    onChange={handleFilterChange}
+                  />
+                  <select
+                    className="form-control form-control-sm border-0 bg-white shadow-sm"
+                    name="cliente"
+                    value={filters.cliente}
+                    onChange={handleFilterChange}>
+                    <option value="">Todos los clientes</option>
+                    {clients.map((client) => (
+                      <option key={client._id} value={client.razon_social}>{client.razon_social}</option>
+                    ))}
+                  </select>
+                </FilterBar>
+              )
+            }
+          >
             {roleData?.lineas_transporte?.create && (
               <button type="button" className="new-btn" onClick={() => setModalType("create")}>
                 <i className="fas fa-plus"></i>
               </button>
             )}
-          </div>
+          </PageHeader>
 
           {roleData?.lineas_transporte?.read && (
-            <>
-              {/* Filtros */}
-              <FilterBar onClear={clearFilters}>
-                <input
-                  type="text"
-                  className="form-control form-control-sm border-0 bg-white shadow-sm"
-                  placeholder="Buscar por nombre..."
-                  name="nombre"
-                  value={filters.nombre}
-                  onChange={handleFilterChange}
-                />
-                <select
-                  className="form-control form-control-sm border-0 bg-white shadow-sm"
-                  name="cliente"
-                  value={filters.cliente}
-                  onChange={handleFilterChange}>
-                  <option value="">Todos los clientes</option>
-                  {clients.map((client) => (
-                    <option key={client._id} value={client.razon_social}>{client.razon_social}</option>
-                  ))}
-                </select>
-              </FilterBar>
-
-              {/* Tabla */}
-              <div className="settings-content">
-                <DataTable
-                  data={filteredLineasTransporte}
-                  columns={columns}
-                  actions={actions}
-                  emptyMessage="No se encontraron líneas de transporte que coincidan con los filtros."
-                />
-              </div>
-            </>
+            <div className="settings-content mt-4">
+              <DataTable
+                data={filteredLineasTransporte}
+                columns={columns}
+                actions={actions}
+                emptyMessage="No se encontraron líneas de transporte que coincidan con los filtros."
+              />
+            </div>
           )}
         </div>
       </div>

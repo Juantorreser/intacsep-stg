@@ -1,5 +1,6 @@
 import {useState, useEffect} from "react";
 import Sidebar from "../Sidebar";
+import PageHeader from "../PageHeader";
 import ModalTemplate from "../ModalTemplate";
 import Toast from "../Toast";
 import {useToast} from "../../hooks/useToast";
@@ -99,7 +100,7 @@ const RolePage = () => {
 
   const {user, verifyToken, setUser} = useAuth();
   const [roleData, setRoleData] = useState(null);
-  const {isSidebarCollapsed} = useSidebar();
+  const {isSidebarCollapsed, setIsMobileSidebarOpen} = useSidebar();
   const navigate = useNavigate();
   const {toasts, showToast, removeToast} = useToast();
 
@@ -396,7 +397,7 @@ const RolePage = () => {
     dashboard_anomalias: "Dashboard anomalías",
     reporte_eventos: "Reporte eventos",
     reporte_estadisticas: "Reporte de puntualidad",
-    reporte_control_patios: "Control de Patios Dashboard",
+    reporte_control_patios: "Control de Patios",
     control_patios: "Control de patios",
   };
 
@@ -451,14 +452,16 @@ const RolePage = () => {
           <Sidebar />
         </div>
         <div className={`content-wrapper ${isSidebarCollapsed ? "sidebar-collapsed" : ""}`}>
-          <div className="page-header">
-            <h1>Sistema - Roles</h1>
+          <PageHeader
+            title="Sistema - Roles"
+            onToggleSidebar={() => setIsMobileSidebarOpen(true)}
+          >
             {roleData?.roles?.create && (
               <button className="new-btn" onClick={() => setShowModal(true)}>
                 <i className="fas fa-plus"></i>
               </button>
             )}
-          </div>
+          </PageHeader>
 
           {/* Role Cards */}
           {roleData?.roles?.read && (

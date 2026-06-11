@@ -1,5 +1,6 @@
 import {useState, useEffect, useMemo} from "react";
 import Sidebar from "../Sidebar";
+import PageHeader from "../PageHeader";
 import ModalTemplate from "../ModalTemplate";
 import DataTable from "../DataTable";
 import FilterBar from "../FilterBar";
@@ -21,7 +22,7 @@ const EventsPage = () => {
 
   const {user, verifyToken, setUser} = useAuth();
   const [roleData, setRoleData] = useState(null);
-  const {isSidebarCollapsed} = useSidebar();
+  const {isSidebarCollapsed, setIsMobileSidebarOpen} = useSidebar();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -230,55 +231,56 @@ const EventsPage = () => {
           <Sidebar />
         </div>
         <div className={`content-wrapper ${isSidebarCollapsed ? "sidebar-collapsed" : ""}`}>
-          <div className="page-header">
-            <h1>Catálogos - Eventos</h1>
+          <PageHeader
+            title="Catálogos - Eventos"
+            onToggleSidebar={() => setIsMobileSidebarOpen(true)}
+            filters={
+              roleData?.eventos?.read && (
+                <FilterBar onClear={clearFilters}>
+                  <input
+                    type="text"
+                    className="form-control form-control-sm border-0 bg-white shadow-sm"
+                    placeholder="Buscar por evento..."
+                    name="evento"
+                    value={filters.evento}
+                    onChange={handleFilterChange}
+                  />
+                  <input
+                    type="text"
+                    className="form-control form-control-sm border-0 bg-white shadow-sm"
+                    placeholder="Buscar por categoría..."
+                    name="categoria"
+                    value={filters.categoria}
+                    onChange={handleFilterChange}
+                  />
+                  <input
+                    type="text"
+                    className="form-control form-control-sm border-0 bg-white shadow-sm"
+                    placeholder="Buscar por calificación..."
+                    name="calificacion"
+                    value={filters.calificacion}
+                    onChange={handleFilterChange}
+                  />
+                </FilterBar>
+              )
+            }
+          >
             {roleData?.eventos?.create && (
               <button type="button" className="new-btn" onClick={() => setModalType("create")}>
                 <i className="fas fa-plus"></i>
               </button>
             )}
-          </div>
+          </PageHeader>
 
           {roleData?.eventos?.read && (
-            <>
-              {/* Filtros */}
-              <FilterBar onClear={clearFilters}>
-                <input
-                  type="text"
-                  className="form-control form-control-sm border-0 bg-white shadow-sm"
-                  placeholder="Buscar por evento..."
-                  name="evento"
-                  value={filters.evento}
-                  onChange={handleFilterChange}
-                />
-                <input
-                  type="text"
-                  className="form-control form-control-sm border-0 bg-white shadow-sm"
-                  placeholder="Buscar por categoría..."
-                  name="categoria"
-                  value={filters.categoria}
-                  onChange={handleFilterChange}
-                />
-                <input
-                  type="text"
-                  className="form-control form-control-sm border-0 bg-white shadow-sm"
-                  placeholder="Buscar por calificación..."
-                  name="calificacion"
-                  value={filters.calificacion}
-                  onChange={handleFilterChange}
-                />
-              </FilterBar>
-
-              {/* Tabla */}
-              <div className="settings-content">
-                <DataTable
-                  data={filteredEvents}
-                  columns={columns}
-                  actions={actions}
-                  emptyMessage="No se encontraron eventos que coincidan con los filtros."
-                />
-              </div>
-            </>
+            <div className="settings-content mt-4">
+              <DataTable
+                data={filteredEvents}
+                columns={columns}
+                actions={actions}
+                emptyMessage="No se encontraron eventos que coincidan con los filtros."
+              />
+            </div>
           )}
         </div>
       </div>

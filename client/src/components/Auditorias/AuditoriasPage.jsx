@@ -1,5 +1,6 @@
 import {useEffect, useState} from "react";
 import Sidebar from "../Sidebar";
+import PageHeader from "../PageHeader";
 import * as XLSX from "xlsx";
 import {saveAs} from "file-saver";
 import {useAuth} from "../../context/AuthContext";
@@ -26,7 +27,7 @@ const AuditoriasPage = () => {
 
   const {user, verifyToken, setUser} = useAuth();
   const [roleData, setRoleData] = useState(null);
-  const {isSidebarCollapsed} = useSidebar();
+  const {isSidebarCollapsed, setIsMobileSidebarOpen} = useSidebar();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -155,17 +156,13 @@ const AuditoriasPage = () => {
           <Sidebar />
         </div>
         <div className={`content-wrapper ${isSidebarCollapsed ? "sidebar-collapsed" : ""}`}>
-          <div className="page-header">
-            <div className="">
-              <h1 className="fs-3 fw-semibold text-black m-0">Auditoría - Bitácoras</h1>
-            </div>
-            <div style={{width: "120px"}}></div> {/* Invisible spacer to balance button width */}
-            <div>
-              <button className="btn btn-export" onClick={exportToExcel}>
-                Exportar a Excel
-              </button>
-            </div>
-          </div>
+          <PageHeader
+            title="Auditoría - Bitácoras"
+            onToggleSidebar={() => setIsMobileSidebarOpen(true)}>
+            <button className="btn btn-export" onClick={exportToExcel}>
+              Exportar a Excel
+            </button>
+          </PageHeader>
 
           {roleData?.auditoria_bitacora?.read && (
             <div className="settings-content">

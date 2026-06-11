@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
 import Sidebar from "../Sidebar";
+import PageHeader from "../PageHeader";
 import { useAuth } from "../../context/AuthContext";
 import { useSidebar } from "../../context/SidebarContext";
 import { fetchLineasTransporte } from "../../utils/api";
@@ -55,7 +56,7 @@ const StatCard = ({ label, value, icon, color }) => (
 
 const ReporteControlPatiosPage = () => {
   const { user, verifyToken, setUser } = useAuth();
-  const { isSidebarCollapsed } = useSidebar();
+  const { isSidebarCollapsed, setIsMobileSidebarOpen } = useSidebar();
   const navigate = useNavigate();
 
   const [roleData, setRoleData] = useState(null);
@@ -200,59 +201,58 @@ const ReporteControlPatiosPage = () => {
       <div className="w-100 d-flex h-100 mt-0">
         <div className="sidebar-wrapper"><Sidebar /></div>
         <div className={`content-wrapper ${isSidebarCollapsed ? "sidebar-collapsed" : ""}`}>
-          <div className="page-header">
-            <div className="header-left">
-              <h1>Reporte Control de Patios</h1>
-            </div>
-            <div className="header-right">
-              <button className="btn btn-danger btn-sm px-3" onClick={exportPDF} disabled={records.length === 0}>
-                <i className="fa fa-file-pdf me-2"></i>Exportar PDF
-              </button>
-            </div>
-          </div>
-
-          <div className="settings-content">
-            {/* Filters */}
-            <div className="card border-0 shadow-sm mb-4">
-              <div className="card-body">
-                <div className="row g-3 align-items-end">
-                  <div className="col-6 col-md-2">
-                    <label className="form-label small fw-bold mb-1">Desde</label>
-                    <input type="date" className="form-control form-control-sm"
-                      value={filters.desde} onChange={e => setFilter("desde", e.target.value)} />
-                  </div>
-                  <div className="col-6 col-md-2">
-                    <label className="form-label small fw-bold mb-1">Hasta</label>
-                    <input type="date" className="form-control form-control-sm"
-                      value={filters.hasta} onChange={e => setFilter("hasta", e.target.value)} />
-                  </div>
-                  {roleData?.client_access !== "specific" && (
+          <PageHeader
+            title="Reporte Control de Patios"
+            onToggleSidebar={() => setIsMobileSidebarOpen(true)}
+            filters={
+              <div className="card border-0 shadow-sm mb-0">
+                <div className="card-body p-2">
+                  <div className="row g-3 align-items-end">
                     <div className="col-6 col-md-2">
-                      <label className="form-label small fw-bold mb-1">Cliente</label>
-                      <select className="form-select form-select-sm" value={filters.cliente} onChange={e => setFilter("cliente", e.target.value)}>
-                        <option value="">Todos</option>
-                        {visibleClients.map(c => <option key={c._id} value={c.nombre}>{c.nombre}</option>)}
+                      <label className="form-label small fw-bold mb-1">Desde</label>
+                      <input type="date" className="form-control form-control-sm"
+                        value={filters.desde} onChange={e => setFilter("desde", e.target.value)} />
+                    </div>
+                    <div className="col-6 col-md-2">
+                      <label className="form-label small fw-bold mb-1">Hasta</label>
+                      <input type="date" className="form-control form-control-sm"
+                        value={filters.hasta} onChange={e => setFilter("hasta", e.target.value)} />
+                    </div>
+                    {roleData?.client_access !== "specific" && (
+                      <div className="col-6 col-md-2">
+                        <label className="form-label small fw-bold mb-1">Cliente</label>
+                        <select className="form-select form-select-sm" value={filters.cliente} onChange={e => setFilter("cliente", e.target.value)}>
+                          <option value="">Todos</option>
+                          {visibleClients.map(c => <option key={c._id} value={c.nombre}>{c.nombre}</option>)}
+                        </select>
+                      </div>
+                    )}
+                    <div className="col-6 col-md-2">
+                      <label className="form-label small fw-bold mb-1">Línea</label>
+                      <select className="form-select form-select-sm" value={filters.linea} onChange={e => setFilter("linea", e.target.value)}>
+                        <option value="">Todas</option>
+                        {lineas.map(l => <option key={l._id} value={l.nombre}>{l.nombre}</option>)}
                       </select>
                     </div>
-                  )}
-                  <div className="col-6 col-md-2">
-                    <label className="form-label small fw-bold mb-1">Línea</label>
-                    <select className="form-select form-select-sm" value={filters.linea} onChange={e => setFilter("linea", e.target.value)}>
-                      <option value="">Todas</option>
-                      {lineas.map(l => <option key={l._id} value={l.nombre}>{l.nombre}</option>)}
-                    </select>
-                  </div>
-                  <div className="col-6 col-md-2">
-                    <label className="form-label small fw-bold mb-1">Estado</label>
-                    <select className="form-select form-select-sm" value={filters.status} onChange={e => setFilter("status", e.target.value)}>
-                      <option value="">Todos</option>
-                      <option value="En patio">En patio</option>
-                      <option value="Finalizado">Finalizado</option>
-                    </select>
+                    <div className="col-6 col-md-2">
+                      <label className="form-label small fw-bold mb-1">Estado</label>
+                      <select className="form-select form-select-sm" value={filters.status} onChange={e => setFilter("status", e.target.value)}>
+                        <option value="">Todos</option>
+                        <option value="En patio">En patio</option>
+                        <option value="Finalizado">Finalizado</option>
+                      </select>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
+            }
+          >
+            <button className="btn btn-danger btn-sm px-3" onClick={exportPDF} disabled={records.length === 0}>
+              <i className="fa fa-file-pdf me-2"></i>Exportar PDF
+            </button>
+          </PageHeader>
+
+          <div className="settings-content mt-4">
 
             {/* Stat cards */}
             <div className="row g-3 mb-4">

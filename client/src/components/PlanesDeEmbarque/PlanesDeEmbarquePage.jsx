@@ -1,5 +1,6 @@
 import {useState, useEffect, useMemo, useRef} from "react";
 import * as XLSX from "xlsx";
+import PageHeader from "../PageHeader";
 import Sidebar from "../Sidebar";
 import ModalTemplate from "../ModalTemplate";
 import DataTable from "../DataTable";
@@ -133,7 +134,7 @@ const PlanesDeEmbarquePage = () => {
   const fileInputRef = useRef(null);
 
   const {user, verifyToken, setUser} = useAuth();
-  const {isSidebarCollapsed}         = useSidebar();
+  const {isSidebarCollapsed, setIsMobileSidebarOpen} = useSidebar();
   const navigate                     = useNavigate();
   const baseUrl                      = import.meta.env.VITE_BASE_URL;
 
@@ -692,57 +693,56 @@ const PlanesDeEmbarquePage = () => {
           <Sidebar />
         </div>
         <div className={`content-wrapper ${isSidebarCollapsed ? "sidebar-collapsed" : ""}`}>
-          <div className="page-header">
-            <h1 className="fs-3 fw-semibold text-black text-center m-0">
-              Monitoreo — Planes de Embarque
-            </h1>
-            <div className="page-header-actions">
-              <button
-                className="header-action-btn"
-                title="Descargar plantilla Excel"
-                onClick={downloadTemplate}>
-                <i className="fas fa-file-download"></i>
-              </button>
-              <button
-                className="header-action-btn"
-                title="Importar desde Excel"
-                onClick={() => fileInputRef.current?.click()}>
-                <i className="fas fa-file-import"></i>
-              </button>
-              <button className="new-btn" title="Nuevo plan" onClick={openCreate}>
-                <i className="fas fa-plus"></i>
-              </button>
-            </div>
-          </div>
+          <PageHeader
+            title="Monitoreo — Planes de Embarque"
+            onToggleSidebar={() => setIsMobileSidebarOpen(true)}
+            filters={
+              <FilterBar onClear={clearFilters}>
+                <input
+                  type="text"
+                  className="form-control form-control-sm border-0 bg-white shadow-sm"
+                  placeholder="Buscar por tipo de viaje…"
+                  name="tipoViaje"
+                  value={filters.tipoViaje}
+                  onChange={handleFilterChange}
+                />
+                <input
+                  type="text"
+                  className="form-control form-control-sm border-0 bg-white shadow-sm"
+                  placeholder="Buscar por cliente…"
+                  name="cliente"
+                  value={filters.cliente}
+                  onChange={handleFilterChange}
+                />
+                <input
+                  type="text"
+                  className="form-control form-control-sm border-0 bg-white shadow-sm"
+                  placeholder="Buscar por transporte…"
+                  name="transporte"
+                  value={filters.transporte}
+                  onChange={handleFilterChange}
+                />
+              </FilterBar>
+            }
+          >
+            <button
+              className="header-action-btn"
+              title="Descargar plantilla Excel"
+              onClick={downloadTemplate}>
+              <i className="fas fa-file-download"></i>
+            </button>
+            <button
+              className="header-action-btn"
+              title="Importar desde Excel"
+              onClick={() => fileInputRef.current?.click()}>
+              <i className="fas fa-file-import"></i>
+            </button>
+            <button className="new-btn" title="Nuevo plan" onClick={openCreate}>
+              <i className="fas fa-plus"></i>
+            </button>
+          </PageHeader>
 
-          <FilterBar onClear={clearFilters}>
-            <input
-              type="text"
-              className="form-control form-control-sm border-0 bg-white shadow-sm"
-              placeholder="Buscar por tipo de viaje…"
-              name="tipoViaje"
-              value={filters.tipoViaje}
-              onChange={handleFilterChange}
-            />
-            <input
-              type="text"
-              className="form-control form-control-sm border-0 bg-white shadow-sm"
-              placeholder="Buscar por cliente…"
-              name="cliente"
-              value={filters.cliente}
-              onChange={handleFilterChange}
-            />
-            <input
-              type="text"
-              className="form-control form-control-sm border-0 bg-white shadow-sm"
-              placeholder="Buscar por transporte…"
-              name="transporte"
-              value={filters.transporte}
-              onChange={handleFilterChange}
-            />
-          </FilterBar>
-
-          <div className="settings-content">
+          <div className="settings-content mt-4">
             <DataTable
               data={filteredPlanes}
               columns={columns}

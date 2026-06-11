@@ -8481,8 +8481,24 @@ app.get("/reporte-estadisticas", async (req, res) => {
     const bitacoras = await Bitacora.find(
       query,
       { bitacora_id: 1, cliente: 1, operador: 1, createdAt: 1, eventos: 1,
-        edited_bitacora: 1, origen: 1, destino: 1, status: 1, transportes: 1, linea_transporte: 1 }
+        edited_bitacora: 1, origen: 1, destino: 1, status: 1, transportes: 1,
+        linea_transporte: 1, folio_servicio: 1, planDeEmbarque_id: 1 }
     ).lean();
+
+    // Batch-resolve linked PlanDeEmbarque docs (source of truth for citas/carrierMove).
+    // The embedded "PRESENCIA EN ORIGEN" metadata is a snapshot taken at creation time
+    // and is frequently incomplete (e.g. citaEntrega missing), so the plan is used as a
+    // fallback to fill any gaps.
+    const planIds = [...new Set(
+      bitacoras.map((b) => b.planDeEmbarque_id?.toString()).filter(Boolean)
+    )];
+    const planDocs = planIds.length
+      ? await PlanDeEmbarque.find(
+          { _id: { $in: planIds } },
+          { carrierMove: 1, citaCarga: 1, horaSalida: 1, citaEntrega: 1, destino: 1, transporte: 1 }
+        ).lean()
+      : [];
+    const planMap = Object.fromEntries(planDocs.map((p) => [p._id.toString(), p]));
 
     // Batch-resolve origen/destino names
     const isObjectId = (v) => /^[0-9a-f]{24}$/i.test(v || "");
@@ -8496,7 +8512,11 @@ app.get("/reporte-estadisticas", async (req, res) => {
       return null;
     };
     const destinoIds = [...new Set(
-      bitacoras.flatMap((b) => [getLookupId(b.destino), getLookupId(b.edited_bitacora?.destino)]).filter(Boolean)
+      bitacoras.flatMap((b) => [
+        getLookupId(b.destino),
+        getLookupId(b.edited_bitacora?.destino),
+        getLookupId(planMap[b.planDeEmbarque_id?.toString()]?.destino),
+      ]).filter(Boolean)
     )];
     const origenIds  = [...new Set(
       bitacoras.flatMap((b) => [getLookupId(b.origen), getLookupId(b.edited_bitacora?.origen)]).filter(Boolean)
@@ -8553,20 +8573,49 @@ app.get("/reporte-estadisticas", async (req, res) => {
         }
       );
 
-      const citaCarga = getMetadataValue(presenciaOrigenEvento?.metadata, ["citaCarga", "cita_carga", "Cita de Carga", "citacarga"]);
-      const horaSalida = getMetadataValue(presenciaOrigenEvento?.metadata, ["horaSalida", "hora_salida", "Hora de Salida", "horasalida"]);
-      const citaEntrega = getMetadataValue(presenciaOrigenEvento?.metadata, ["citaEntrega", "cita_entrega", "Cita de Entrega", "citaentrega"]);
+      const plan = bit.planDeEmbarque_id ? planMap[bit.planDeEmbarque_id.toString()] : null;
+      // folio_servicio is where legacy bitácoras (created without a plan de embarque)
+      // store the carrier move. "S/N" is a "sin número" placeholder, not a real value.
+      const folioCarrier = (val) => {
+        const v = (val || "").trim();
+        return v && v.toUpperCase() !== "S/N" ? v : null;
+      };
+      // The root linea_transporte is frequently a "." placeholder; the real carrier
+      // line lives in transportes[].lineaTransporte, so placeholders are ignored.
+      const cleanLinea = (val) => {
+        const v = (val || "").trim();
+        return v && v !== "." ? v : null;
+      };
+
+      const citaCarga =
+        getMetadataValue(presenciaOrigenEvento?.metadata, ["citaCarga", "cita_carga", "Cita de Carga", "citacarga"])
+        ?? plan?.citaCarga
+        ?? null;
+      const horaSalida =
+        getMetadataValue(presenciaOrigenEvento?.metadata, ["horaSalida", "hora_salida", "Hora de Salida", "horasalida"])
+        ?? plan?.horaSalida
+        ?? null;
+      const citaEntrega =
+        getMetadataValue(presenciaOrigenEvento?.metadata, ["citaEntrega", "cita_entrega", "Cita de Entrega", "citaentrega"])
+        ?? plan?.citaEntrega
+        ?? null;
       const planEmbarqueAt = presenciaOrigenEvento?.createdAt ?? null;
       const validacionAt = validacionEvento?.createdAt ?? null;
       const inicioRecorridoAt = inicioRecorridoEvento?.createdAt ?? null;
       const arriboDestinoAt = arriboDestinoEvento?.createdAt ?? null;
-      const carrierMove = getMetadataValue(presenciaOrigenEvento?.metadata, ["carrierMove", "carrier_move", "carriermove", "Carrier Move", "carrier"]) || "";
+      const carrierMove =
+        getMetadataValue(presenciaOrigenEvento?.metadata, ["carrierMove", "carrier_move", "carriermove", "Carrier Move", "carrier"])
+        || folioCarrier(bit.folio_servicio)
+        || folioCarrier(bit.edited_bitacora?.folio_servicio)
+        || plan?.carrierMove
+        || "";
       const lineaTransporte =
-        getMetadataValue(presenciaOrigenEvento?.metadata, ["lineaTransporte", "linea_transporte", "Linea de Transporte", "linea transporte"])
-        || bit.linea_transporte
-        || getFirstLineaTransporte(bit.transportes)
-        || bit.edited_bitacora?.linea_transporte
-        || getFirstLineaTransporte(bit.edited_bitacora?.transportes)
+        cleanLinea(getMetadataValue(presenciaOrigenEvento?.metadata, ["lineaTransporte", "linea_transporte", "Linea de Transporte", "linea transporte"]))
+        || cleanLinea(getFirstLineaTransporte(bit.transportes))
+        || cleanLinea(bit.linea_transporte)
+        || cleanLinea(getFirstLineaTransporte(bit.edited_bitacora?.transportes))
+        || cleanLinea(bit.edited_bitacora?.linea_transporte)
+        || cleanLinea(plan?.transporte)
         || "";
       const origenNombre =
         getResolvedLocationName(bit.origen, origenMap)
@@ -8576,6 +8625,7 @@ app.get("/reporte-estadisticas", async (req, res) => {
       const destinoNombre =
         getResolvedLocationName(bit.destino, destinoMap)
         || getResolvedLocationName(bit.edited_bitacora?.destino, destinoMap)
+        || getResolvedLocationName(plan?.destino, destinoMap)
         || getMetadataValue(presenciaOrigenEvento?.metadata, ["destino", "Destino"])
         || "";
 
