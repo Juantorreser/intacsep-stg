@@ -2818,10 +2818,29 @@ const BitacoraDetailPage = ({edited}) => {
                   </div>
                   {(() => {
                     const openEdit = async () => {
-                      const transporte = bitacora.transportes.find(
-                        (t) => t.id === draft.transporte_id
-                      );
-                      if (!transporte) return;
+                      // Match the draft to its transporte. The exact id can drift:
+                      // a plan draft starts with transporte_id = plan name (e.g. "ESTAFETA"),
+                      // but once the bitácora advances the transporte gets a real id
+                      // (e.g. "T002_61BB7M"). Fall back to a name match, and finally to the
+                      // sole transporte when there is only one, so "Completar registro" keeps working.
+                      const transportes = bitacora.transportes || [];
+                      const draftId = (draft.transporte_id || "").trim();
+                      const draftName = (draft.transporte || "").trim().toLowerCase();
+                      const transporte =
+                        transportes.find((t) => t.id === draft.transporte_id)
+                        || (draftId && transportes.find((t) => (t.id || "").trim() === draftId))
+                        || (draftName && transportes.find((t) =>
+                              (t.id || "").toLowerCase().includes(draftName)
+                              || (t.lineaTransporte || "").trim().toLowerCase() === draftName))
+                        || (transportes.length === 1 ? transportes[0] : null);
+                      if (!transporte) {
+                        console.error("No se encontró el transporte del borrador", {
+                          draftId: draft._id,
+                          transporte_id: draft.transporte_id,
+                          ids: transportes.map((t) => t.id),
+                        });
+                        return;
+                      }
                       setPendingRejectDraftId(draft._id);
                       setEditIsPlanDraft(isPlanDraft);
                       // Values for plan drafts come from the stored bitacora transporte

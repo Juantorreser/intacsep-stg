@@ -3,9 +3,10 @@ import jsPDF from "jspdf";
 import {useNavigate} from "react-router-dom";
 import Sidebar from "./Sidebar";
 import PageHeader from "./PageHeader";
+import FilterBar from "./FilterBar";
 import {useAuth} from "../context/AuthContext";
 import {useSidebar} from "../context/SidebarContext";
-import {fetchClients, fetchOrigenes, fetchDestinos} from "../utils/api";
+import {fetchClients, fetchOrigenes, fetchDestinos, fetchLineasTransporte, fetchOperadores} from "../utils/api";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -96,6 +97,8 @@ const ReporteEstadisticasPage = () => {
   const [clients, setClients]     = useState([]);
   const [origenes, setOrigenes]   = useState([]);
   const [destinos, setDestinos]   = useState([]);
+  const [lineas, setLineas]       = useState([]);
+  const [operadores, setOperadores] = useState([]);
   const [loading, setLoading]     = useState(false);
   const [searched, setSearched]   = useState(false);
   const [servicios, setServicios] = useState([]);
@@ -107,6 +110,8 @@ const ReporteEstadisticasPage = () => {
     cliente:       "",
     origenFilter:  "",
     destinoFilter: "",
+    lineaFilter:   "",
+    operadorFilter: "",
     statusFilter:  "",
   });
 
@@ -145,14 +150,19 @@ const ReporteEstadisticasPage = () => {
     if (!filters.cliente) {
       setOrigenes([]);
       setDestinos([]);
+      setLineas([]);
       return;
     }
     Promise.all([
       fetchOrigenes(filters.cliente),
       fetchDestinos(filters.cliente),
-    ]).then(([o, d]) => {
+      fetchLineasTransporte(filters.cliente),
+      fetchOperadores(filters.cliente),
+    ]).then(([o, d, l, op]) => {
       setOrigenes(o);
       setDestinos(d);
+      setLineas(l);
+      setOperadores(op);
     }).catch(console.error);
   }, [filters.cliente]);
 
@@ -163,6 +173,8 @@ const ReporteEstadisticasPage = () => {
       if (field === "cliente") {
         next.origenFilter  = "";
         next.destinoFilter = "";
+        next.lineaFilter   = "";
+        next.operadorFilter = "";
       }
       return next;
     });
@@ -181,6 +193,8 @@ const ReporteEstadisticasPage = () => {
       if (filters.cliente)       params.append("clienteFilter",  filters.cliente);
       if (filters.origenFilter)  params.append("origenFilter",   filters.origenFilter);
       if (filters.destinoFilter) params.append("destinoFilter",  filters.destinoFilter);
+      if (filters.lineaFilter)   params.append("lineaFilter",    filters.lineaFilter);
+      if (filters.operadorFilter) params.append("operadorFilter", filters.operadorFilter);
       if (filters.statusFilter)  params.append("statusFilter",   filters.statusFilter);
 
       const res  = await fetch(`${baseUrl}/reporte-estadisticas?${params}`, {credentials: "include"});
@@ -577,6 +591,36 @@ const ReporteEstadisticasPage = () => {
                       onChange={(e) => handleFilterChange("statusFilter", e.target.value)}>
                       {STATUS_OPTIONS.map((opt) => (
                         <option key={opt.value} value={opt.value}>{opt.label}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Linea */}
+                  <div className="reporte-est-field">
+                    <label className="reporte-est-field__label">Línea de transporte</label>
+                    <select
+                      className="reporte-est-field__control form-select"
+                      value={filters.lineaFilter}
+                      disabled={!filters.cliente}
+                      onChange={(e) => handleFilterChange("lineaFilter", e.target.value)}>
+                      <option value="">Todas las líneas</option>
+                      {lineas.map((l) => (
+                        <option key={l._id} value={l.nombre}>{l.nombre}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Operador */}
+                  <div className="reporte-est-field">
+                    <label className="reporte-est-field__label">Operador</label>
+                    <select
+                      className="reporte-est-field__control form-select"
+                      value={filters.operadorFilter}
+                      disabled={!filters.cliente}
+                      onChange={(e) => handleFilterChange("operadorFilter", e.target.value)}>
+                      <option value="">Todos los operadores</option>
+                      {operadores.map((op) => (
+                        <option key={op._id} value={op.nombre}>{op.nombre}</option>
                       ))}
                     </select>
                   </div>

@@ -8442,7 +8442,7 @@ app.delete("/planes-embarque/:id", async (req, res) => {
 // ── Reporte Estadísticas ─────────────────────────────────────────
 app.get("/reporte-estadisticas", async (req, res) => {
   try {
-    const { startDate, endDate, clienteFilter, origenFilter, destinoFilter, statusFilter } = req.query;
+    const { startDate, endDate, clienteFilter, origenFilter, destinoFilter, statusFilter, lineaFilter } = req.query;
 
     if (!startDate || !endDate) {
       return res.status(400).json({ error: "startDate y endDate son requeridos" });
@@ -8464,19 +8464,19 @@ app.get("/reporte-estadisticas", async (req, res) => {
       query.status = statusFilter;
     }
 
-    // Resolve origen/destino name → ObjectId for filtering
-    if (origenFilter) {
-      const origenDocs = await Origen.find(
-        { nombre: { $regex: origenFilter, $options: "i" } }
-      ).select("_id").lean();
-      query.origen = { $in: origenDocs.map((o) => o._id.toString()) };
-    }
-    if (destinoFilter) {
-      const destinoDocs = await Destino.find(
-        { nombre: { $regex: destinoFilter, $options: "i" } }
-      ).select("_id").lean();
-      query.destino = { $in: destinoDocs.map((d) => d._id.toString()) };
-    }
+    // Remove direct ID-based filter as data might store names or not match
+    // if (origenFilter) {
+    //   const origenDocs = await Origen.find(
+    //     { nombre: { $regex: origenFilter, $options: "i" } }
+    //   ).select("_id").lean();
+    //   query.origen = { $in: origenDocs.map((o) => o._id.toString()) };
+    // }
+    // if (destinoFilter) {
+    //   const destinoDocs = await Destino.find(
+    //     { nombre: { $regex: destinoFilter, $options: "i" } }
+    //   ).select("_id").lean();
+    //   query.destino = { $in: destinoDocs.map((d) => d._id.toString()) };
+    // }
 
     const bitacoras = await Bitacora.find(
       query,
@@ -8550,7 +8550,26 @@ app.get("/reporte-estadisticas", async (req, res) => {
     const getFirstLineaTransporte = (transportes = []) =>
       transportes.find((t) => t?.lineaTransporte)?.lineaTransporte || "";
 
-    const servicios = bitacoras.map((bit) => {
+    // Filtering in-memory based on resolved names
+    let bitacorasToProcess = bitacoras;
+    
+    if (origenFilter || destinoFilter || lineaFilter || operadorFilter) {
+      bitacorasToProcess = bitacoras.filter(b => {
+        const oName = getResolvedLocationName(b.origen, origenMap).toLowerCase();
+        const dName = getResolvedLocationName(b.destino, destinoMap).toLowerCase();
+        const lName = getFirstLineaTransporte(b.transportes).toLowerCase();
+        const opName = (b.operador || "").toLowerCase();
+        
+        const oMatch = !origenFilter || oName.includes(origenFilter.toLowerCase());
+        const dMatch = !destinoFilter || dName.includes(destinoFilter.toLowerCase());
+        const lMatch = !lineaFilter || lName.includes(lineaFilter.toLowerCase());
+        const opMatch = !operadorFilter || opName.includes(operadorFilter.toLowerCase());
+        
+        return oMatch && dMatch && lMatch && opMatch;
+      });
+    }
+
+    const servicios = bitacorasToProcess.map((bit) => {
       const eventos = (bit.eventos?.length ? bit.eventos : null)
         || bit.edited_bitacora?.eventos
         || [];
