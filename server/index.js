@@ -8442,7 +8442,7 @@ app.delete("/planes-embarque/:id", async (req, res) => {
 // ── Reporte Estadísticas ─────────────────────────────────────────
 app.get("/reporte-estadisticas", async (req, res) => {
   try {
-    const { startDate, endDate, clienteFilter, origenFilter, destinoFilter, statusFilter, lineaFilter } = req.query;
+    const { startDate, endDate, clienteFilter, origenFilter, destinoFilter, statusFilter, lineaFilter, operadorFilter } = req.query;
 
     if (!startDate || !endDate) {
       return res.status(400).json({ error: "startDate y endDate son requeridos" });
@@ -8557,9 +8557,13 @@ app.get("/reporte-estadisticas", async (req, res) => {
       bitacorasToProcess = bitacoras.filter(b => {
         const oName = getResolvedLocationName(b.origen, origenMap).toLowerCase();
         const dName = getResolvedLocationName(b.destino, destinoMap).toLowerCase();
-        const lName = getFirstLineaTransporte(b.transportes).toLowerCase();
-        const opName = (b.operador || "").toLowerCase();
-        
+        // Línea y operador viven principalmente en transportes[]; el campo raíz suele estar vacío.
+        const lName = (getFirstLineaTransporte(b.transportes) || b.linea_transporte || "").toLowerCase();
+        const opName = [
+          b.operador,
+          ...(b.transportes || []).map((t) => t?.operador),
+        ].filter(Boolean).join(" ").toLowerCase();
+
         const oMatch = !origenFilter || oName.includes(origenFilter.toLowerCase());
         const dMatch = !destinoFilter || dName.includes(destinoFilter.toLowerCase());
         const lMatch = !lineaFilter || lName.includes(lineaFilter.toLowerCase());
