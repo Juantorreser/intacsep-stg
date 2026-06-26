@@ -4,6 +4,10 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as ReTooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend
 } from "recharts";
+import * as XLSX from "xlsx";
+import { saveAs } from "file-saver";
+import jsPDF from "jspdf";
+import "jspdf-autotable";
 import PageHeader from "../PageHeader";
 import Sidebar from "../Sidebar";
 import FilterBar from "../FilterBar";
@@ -88,8 +92,8 @@ const ControlPatiosDashboard = () => {
   const fetchDashboardData = useCallback(async () => {
     try {
       let url = `${baseUrl}/control-patios/dashboard-summary?`;
-      if (periodRange.start) url += `&start=${periodRange.start}`;
-      if (periodRange.end) url += `&end=${periodRange.end}`;
+      if (periodRange.start) url += `&desde=${periodRange.start}`;
+      if (periodRange.end) url += `&hasta=${periodRange.end}`;
       if (selectedPlates.length > 0) url += `&plate=${selectedPlates.join(',')}`;
       if (selectedLineas.length > 0) url += `&linea=${selectedLineas.join(',')}`;
       
@@ -188,8 +192,133 @@ const ControlPatiosDashboard = () => {
     }
   };
 
+  const exportToExcel = () => {
+    if (filteredMovements.length === 0) {
+      alert("No hay datos para exportar");
+      return;
+    }
+    const exportData = filteredMovements.map((m) => ({
+      Placa: m.placa ? m.placa.toUpperCase() : "—",
+      "Línea de Transporte": m.linea_transporte || "—",
+      Entrada: m.fecha_hora_inicio ? `${formatDate(m.fecha_hora_inicio)} ${formatTime(m.fecha_hora_inicio)}` : "—",
+      Salida: m.fecha_hora_salida ? `${formatDate(m.fecha_hora_salida)} ${formatTime(m.fecha_hora_salida)}` : "En patio",
+      Duración: formatDuration(m.stay_seconds),
+      Estado: m.status || "—",
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(exportData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Movimientos");
+
+    const excelBuffer = XLSX.write(workbook, {
+      bookType: "xlsx",
+      type: "array",
+    });
+
+    const fileData = new Blob([excelBuffer], { type: "application/octet-stream" });
+    saveAs(fileData, `movimientos_patios_${new Date().toISOString().slice(0, 10)}.xlsx`);
+  };
+
+  const exportToPDF = async () => {
+    if (filteredMovements.length === 0) {
+      alert("No hay datos para exportar");
+      return;
+    }
+
+    let logoDataUrl = null;
+    try {
+      const resp = await fetch("/logo1.png");
+      const blob = await resp.blob();
+      logoDataUrl = await new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result);
+        reader.readAsDataURL(blob);
+      });
+    } catch (_) { /* logo is optional */ }
+
+    const doc = new jsPDF({ orientation: "portrait" });
+    const now = new Date();
+    const formattedNow = now.toLocaleString("es-MX");
+
+    // Header Background
+    doc.setFillColor(30, 41, 59);
+    doc.rect(0, 0, doc.internal.pageSize.getWidth(), 22, "F");
+
+    if (logoDataUrl) {
+      doc.addImage(logoDataUrl, "PNG", 14, 3, 16, 16);
+    }
+
+    doc.setTextColor(255, 255, 255);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(14);
+    doc.text("Reporte Control de Patios", logoDataUrl ? 35 : 14, 14);
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8.5);
+    doc.text(`Generado: ${formattedNow}`, doc.internal.pageSize.getWidth() - 14, 14, { align: "right" });
+
+    // Reset text color for body
+    doc.setTextColor(0, 0, 0);
+
+    // Filters Summary
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(9);
+    doc.text("Filtros Aplicados:", 14, 30);
+    doc.setFont("helvetica", "normal");
+    
+    const startRange = periodRange.start ? new Date(periodRange.start).toLocaleString("es-MX") : "Inicio";
+    const endRange = periodRange.end ? new Date(periodRange.end).toLocaleString("es-MX") : "Fin";
+    doc.text(`Rango de fecha: ${startRange} - ${endRange}`, 14, 35);
+    doc.text(`Placas filtradas: ${selectedPlates.length > 0 ? selectedPlates.join(", ") : "Todas"}`, 14, 40);
+    doc.text(`Líneas filtradas: ${selectedLineas.length > 0 ? selectedLineas.join(", ") : "Todas"}`, 14, 45);
+
+    // Stats Summary Box
+    doc.setFont("helvetica", "bold");
+    doc.text("Estadísticas del Período:", 14, 54);
+    
+    // Draw box
+    doc.setDrawColor(200, 200, 200);
+    doc.setFillColor(248, 249, 250);
+    doc.rect(14, 57, 182, 28, "FD");
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(9);
+    doc.setTextColor(50, 50, 50);
+    doc.text("Registros Totales:", 18, 64);
+    doc.text("Anomalías Activas:", 18, 70);
+    doc.text("Mayor Tiempo:", 18, 76);
+    doc.text("Menor Tiempo:", 110, 64);
+
+    doc.setFont("helvetica", "normal");
+    doc.text(String(filteredMovements.length), 55, 64);
+    doc.text(String(data.anomaliesCount), 55, 70);
+    doc.text(data.longestStay ? `${data.longestStay.plate} (${formatDuration(data.longestStay.seconds)})` : "—", 55, 76);
+    doc.text(data.shortestStay ? `${data.shortestStay.plate} (${formatDuration(data.shortestStay.seconds)})` : "—", 138, 64);
+
+    doc.setTextColor(0, 0, 0);
+
+    // Table of Movements
+    doc.autoTable({
+      startY: 92,
+      head: [["Placa", "Línea de Transporte", "Entrada", "Salida", "Duración", "Estado"]],
+      body: filteredMovements.map(m => [
+        m.placa ? m.placa.toUpperCase() : "—",
+        m.linea_transporte || "—",
+        m.fecha_hora_inicio ? `${formatDate(m.fecha_hora_inicio)} ${formatTime(m.fecha_hora_inicio)}` : "—",
+        m.fecha_hora_salida ? `${formatDate(m.fecha_hora_salida)} ${formatTime(m.fecha_hora_salida)}` : "En patio",
+        formatDuration(m.stay_seconds),
+        m.status || "—",
+      ]),
+      styles: { fontSize: 8 },
+      headStyles: { fillColor: [30, 41, 59] },
+    });
+
+    doc.save(`reporte-control-patios-${new Date().toISOString().slice(0, 10)}.pdf`);
+  };
+
   const columns = [
-    { key: "placa", header: "Placa", className: "fw-bold" },
+    { key: "placa", header: "Placa", className: "fw-bold text-uppercase" },
+    { key: "linea_transporte", header: "Línea de Transporte" },
     { key: "fecha_hora_inicio", header: "Entrada", render: (row) => `${formatDate(row.fecha_hora_inicio)} ${formatTime(row.fecha_hora_inicio)}` },
     { key: "fecha_hora_salida", header: "Salida", render: (row) => row.fecha_hora_salida ? `${formatDate(row.fecha_hora_salida)} ${formatTime(row.fecha_hora_salida)}` : <span className="badge bg-info">En patio</span> },
     { key: "stay_seconds", header: "Duración", render: (row) => formatDuration(row.stay_seconds) },
@@ -232,7 +361,16 @@ const ControlPatiosDashboard = () => {
               />
             </FilterBar>
           }
-        />
+        >
+          <div className="d-flex gap-2">
+            <button className="btn btn-outline-success btn-sm px-3" onClick={exportToExcel} disabled={filteredMovements.length === 0}>
+              <i className="fa fa-file-excel me-2"></i>Exportar Excel
+            </button>
+            <button className="btn btn-danger btn-sm px-3" onClick={exportToPDF} disabled={filteredMovements.length === 0}>
+              <i className="fa fa-file-pdf me-2"></i>Exportar PDF
+            </button>
+          </div>
+        </PageHeader>
 
         <div className="px-3 mt-4">
           <div className="row g-3 mb-4 text-center">

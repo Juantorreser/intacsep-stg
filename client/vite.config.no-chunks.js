@@ -58,11 +58,11 @@ export default defineConfig(({ mode }) => ({
             'recharts',
             'axios',
             'xlsx',
+            'jspdf',
+            'jspdf-autotable',
         ],
         exclude: [
             // Exclude large libraries that are not needed in dev
-            'jspdf',
-            'jspdf-autotable',
         ],
     },
     // Enable CSS code splitting

@@ -10,23 +10,42 @@ import { fetchLineasTransporte } from "../../utils/api";
 
 const baseUrl = import.meta.env.VITE_BASE_URL;
 
-const MAX_PX = 1600;
+const MAX_PX = 1024;
 const compressImage = (file) =>
   new Promise((resolve) => {
     const img = new Image();
     const url = URL.createObjectURL(file);
     img.onload = () => {
       URL.revokeObjectURL(url);
-      const scale = Math.min(1, MAX_PX / Math.max(img.width, img.height));
-      const w = Math.round(img.width * scale);
-      const h = Math.round(img.height * scale);
-      const canvas = document.createElement("canvas");
-      canvas.width = w;
-      canvas.height = h;
-      canvas.getContext("2d").drawImage(img, 0, 0, w, h);
-      canvas.toBlob((blob) => resolve(blob || file), "image/jpeg", 0.85);
+      try {
+        const scale = Math.min(1, MAX_PX / Math.max(img.width, img.height));
+        const w = Math.round(img.width * scale);
+        const h = Math.round(img.height * scale);
+        const canvas = document.createElement("canvas");
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+          resolve(file);
+          return;
+        }
+        ctx.drawImage(img, 0, 0, w, h);
+        canvas.toBlob(
+          (blob) => {
+            resolve(blob || file);
+          },
+          "image/jpeg",
+          0.85
+        );
+      } catch (err) {
+        console.warn("Canvas compression failed, falling back to original file:", err);
+        resolve(file);
+      }
     };
-    img.onerror = () => { URL.revokeObjectURL(url); resolve(file); };
+    img.onerror = () => { 
+      URL.revokeObjectURL(url); 
+      resolve(file); 
+    };
     img.src = url;
   });
 

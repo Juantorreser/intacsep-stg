@@ -17,17 +17,20 @@ const MultiSelect = ({ label, options, value, onChange }) => {
       onChange={(event, newValue) => onChange(newValue)}
       isOptionEqualToValue={(option, value) => option === value}
       getOptionLabel={(option) => option}
-      renderOption={(props, option, { selected }) => (
-        <li {...props}>
-          <Checkbox
-            icon={icon}
-            checkedIcon={checkedIcon}
-            style={{ marginRight: 8 }}
-            checked={selected}
-          />
-          {option}
-        </li>
-      )}
+      renderOption={(props, option, { selected }) => {
+        const { key, ...optionProps } = props;
+        return (
+          <li key={key} {...optionProps}>
+            <Checkbox
+              icon={icon}
+              checkedIcon={checkedIcon}
+              style={{ marginRight: 8 }}
+              checked={selected}
+            />
+            {option}
+          </li>
+        );
+      }}
       renderInput={(params) => (
         <TextField {...params} label={label} placeholder={label} variant="outlined" size="small" />
       )}
