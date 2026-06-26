@@ -8926,7 +8926,7 @@ app.patch("/control-patios/:id/salida", async (req, res) => {
           plate: record.placa,
           anomaly_type: "unusual_duration",
           severity: "low",
-          description: `Duración de estadía inusual: ${Math.floor(record.stay_seconds / 60)} minutos.`
+          description: `Duración de estadía inusual: ${record.stay_seconds < 60 ? `${record.stay_seconds} segundos` : `${Math.floor(record.stay_seconds / 60)} minutos`}.`
         });
         await anomaly.save();
       }

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as ReTooltip, ResponsiveContainer,
@@ -68,6 +68,24 @@ const ControlPatiosDashboard = () => {
   const navigate = useNavigate();
 
   const [roleData, setRoleData] = useState(null);
+
+  useEffect(() => {
+    const init = async () => {
+      try {
+        const userData = await verifyToken();
+        setUser(userData);
+        const roleRes = await fetch(`${baseUrl}/roles/${userData.role}`, { credentials: "include" });
+        const role = await roleRes.json();
+        setRoleData(role);
+        if (!role?.control_patios?.read) { navigate("/"); return; }
+      } catch (e) {
+        console.error("Error initializing dashboard:", e);
+        navigate("/login");
+      }
+    };
+    init();
+  }, []);
+
   const [data, setData] = useState({
     totalRecords: 0,
     anomaliesCount: 0,
@@ -86,17 +104,26 @@ const ControlPatiosDashboard = () => {
     const now = new Date();
     const oneMonthAgo = new Date();
     oneMonthAgo.setMonth(now.getMonth() - 1);
-    return { start: toDateTimeLocal(oneMonthAgo), end: toDateTimeLocal(now) };
+    // Leave end empty so the API always returns up-to-now
+    return { start: toDateTimeLocal(oneMonthAgo), end: "" };
   });
 
+  // Keep a ref always up-to-date with latest filters so fetchDashboardData closure is never stale
+  const filtersRef = useRef({ periodRange, selectedPlates, selectedLineas });
+  useEffect(() => {
+    filtersRef.current = { periodRange, selectedPlates, selectedLineas };
+  }, [periodRange, selectedPlates, selectedLineas]);
+
+  // Stable fetch function — reads filters from ref so it never needs to be recreated
   const fetchDashboardData = useCallback(async () => {
+    const { periodRange, selectedPlates, selectedLineas } = filtersRef.current;
     try {
       let url = `${baseUrl}/control-patios/dashboard-summary?`;
-      if (periodRange.start) url += `&desde=${periodRange.start}`;
-      if (periodRange.end) url += `&hasta=${periodRange.end}`;
+      if (periodRange.start) url += `&desde=${encodeURIComponent(periodRange.start)}`;
+      if (periodRange.end)   url += `&hasta=${encodeURIComponent(periodRange.end)}`;
       if (selectedPlates.length > 0) url += `&plate=${selectedPlates.join(',')}`;
       if (selectedLineas.length > 0) url += `&linea=${selectedLineas.join(',')}`;
-      
+
       const res = await fetch(url, { credentials: "include" });
       if (res.ok) {
         const result = await res.json();
@@ -105,57 +132,22 @@ const ControlPatiosDashboard = () => {
     } catch (e) {
       console.error("Error fetching dashboard data:", e);
     }
-  }, [periodRange, selectedPlates, selectedLineas]);
+  }, []); // stable — no dependencies needed
 
-  useEffect(() => {
-    const init = async () => {
-      try {
-        const userData = await verifyToken();
-        setUser(userData);
-        const roleRes = await fetch(`${baseUrl}/roles/${userData.role}`, { credentials: "include" });
-        const role = await roleRes.json();
-        setRoleData(role);
-        if (!role?.reporte_control_patios?.read) { navigate("/"); }
-      } catch (e) {
-        navigate("/login");
-      }
-    };
-    init();
-  }, [navigate, setUser, verifyToken, baseUrl]);
-
+  // Re-fetch whenever filters change
   useEffect(() => {
     if (roleData) fetchDashboardData();
+  }, [roleData, periodRange, selectedPlates, selectedLineas, fetchDashboardData]);
+
+  // Auto-refresh every 30 seconds — interval is stable, always uses latest filters via ref
+  useEffect(() => {
+    if (!roleData) return;
+    const interval = setInterval(fetchDashboardData, 30000);
+    return () => clearInterval(interval);
   }, [roleData, fetchDashboardData]);
 
-  const handleClearFilters = () => {
-    setSelectedPlates([]);
-    setSelectedLineas([]);
-    const now = new Date();
-    const oneMonthAgo = new Date();
-    oneMonthAgo.setMonth(now.getMonth() - 1);
-    setPeriodRange({ start: toDateTimeLocal(oneMonthAgo), end: toDateTimeLocal(now) });
-  };
-
-  const filteredMovements = useMemo(() => {
-    let list = data.movements;
-    if (selectedPlates.length > 0) {
-      list = list.filter(m => selectedPlates.includes(m.placa));
-    }
-    if (selectedLineas.length > 0) {
-      list = list.filter(m => selectedLineas.includes(m.linea_transporte));
-    }
-    
-    if (periodRange.start || periodRange.end) {
-      list = list.filter(m => {
-        if (!m.fecha_hora_inicio) return false;
-        const entryTime = new Date(m.fecha_hora_inicio).getTime();
-        const start = periodRange.start ? new Date(periodRange.start).getTime() : 0;
-        const end = periodRange.end ? new Date(periodRange.end).getTime() : Infinity;
-        return entryTime >= start && entryTime <= end;
-      });
-    }
-    return list;
-  }, [data.movements, selectedPlates, selectedLineas, periodRange]);
+  // Server already filters by plate, line and date range — use data.movements directly
+  const filteredMovements = useMemo(() => data.movements, [data.movements]);
 
   const barChartData = useMemo(() => {
     return filteredMovements
@@ -314,6 +306,15 @@ const ControlPatiosDashboard = () => {
     });
 
     doc.save(`reporte-control-patios-${new Date().toISOString().slice(0, 10)}.pdf`);
+  };
+
+  const handleClearFilters = () => {
+    const now = new Date();
+    const oneMonthAgo = new Date();
+    oneMonthAgo.setMonth(now.getMonth() - 1);
+    setPeriodRange({ start: toDateTimeLocal(oneMonthAgo), end: "" });
+    setSelectedPlates([]);
+    setSelectedLineas([]);
   };
 
   const columns = [

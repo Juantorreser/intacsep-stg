@@ -417,10 +417,11 @@ const PlacaTestPage = () => {
 
       <ModalTemplate
         show={showModal}
-        title={isEditMode ? "Editar registro" : "Nuevo registro"}
+        title={isEditMode ? "Editar registro" : (selectedRecordForSalida ? "Registrar salida" : "Nuevo registro")}
         onClose={closeModal}
         onSubmit={(e) => { e.preventDefault(); savePlate(); }}
-        submitText={saving ? "Guardando..." : (isEditMode ? "Actualizar registro" : "Guardar registro")}
+        submitText={saving ? "Guardando..." : (isEditMode ? "Actualizar registro" : (selectedRecordForSalida ? "Registrar salida" : "Registrar ingreso"))}
+        submitClass={selectedRecordForSalida ? "btn btn-warning" : "btn btn-success"}
         submitDisabled={saving || (!canSave && !isEditMode) || !formData.lineaTransporte}
       >
         {error && (
