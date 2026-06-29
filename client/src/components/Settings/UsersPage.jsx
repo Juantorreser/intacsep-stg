@@ -20,6 +20,7 @@ const UsersPage = () => {
     phone: "",
     countryKey: "",
     role: "",
+    inactivityTimeout: 0,
   });
   const [isModalVisible, setModalVisible] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -65,7 +66,7 @@ const UsersPage = () => {
         const response = await fetch(`${baseUrl}/users`, {method: "GET", credentials: "include"});
         if (response.ok) {
           const data = await response.json();
-          const currentUserRole = user.role;
+          const currentUserRole = user?.role;
           const filtered = currentUserRole !== "Máster" ? data.filter((u) => u.role?.name !== "Máster") : data;
           const normalized = filtered.map((u) => ({
             ...u,
@@ -85,7 +86,7 @@ const UsersPage = () => {
         const response = await fetch(`${baseUrl}/roles`, {method: "GET", credentials: "include"});
         if (response.ok) {
           const data = await response.json();
-          const currentUserRole = user.role;
+          const currentUserRole = user?.role;
           const filtered =
             currentUserRole !== "Máster"
               ? data.filter((role) => role.name !== "Máster" && role.name !== "Owner")
@@ -107,10 +108,10 @@ const UsersPage = () => {
     () =>
       users.filter(
         (u) =>
-          u.email.toLowerCase().includes(filters.email.toLowerCase()) &&
-          u.firstName.toLowerCase().includes(filters.firstName.toLowerCase()) &&
-          u.lastName.toLowerCase().includes(filters.lastName.toLowerCase()) &&
-          u.role.toLowerCase().includes(filters.role.toLowerCase())
+          (u.email || "").toLowerCase().includes(filters.email.toLowerCase()) &&
+          (u.firstName || "").toLowerCase().includes(filters.firstName.toLowerCase()) &&
+          (u.lastName || "").toLowerCase().includes(filters.lastName.toLowerCase()) &&
+          (u.role || "").toLowerCase().includes(filters.role.toLowerCase())
       ),
     [users, filters]
   );
@@ -133,7 +134,7 @@ const UsersPage = () => {
 
   const handleEdit = (u) => {
     setEditingUserId(u._id);
-    setFormData({...u});
+    setFormData({...u, password: ""});
     setModalVisible(true);
   };
 
@@ -167,6 +168,7 @@ const UsersPage = () => {
           phone: formData.phone,
           countryKey: formData.countryKey,
           role: formData.role,
+          inactivityTimeout: Number(formData.inactivityTimeout) || 0,
         }),
       });
 
@@ -184,7 +186,7 @@ const UsersPage = () => {
         }
 
         setEditingUserId(null);
-        setFormData({email: "", password: "", firstName: "", lastName: "", phone: "", countryKey: "", role: ""});
+        setFormData({email: "", password: "", firstName: "", lastName: "", phone: "", countryKey: "", role: "", inactivityTimeout: 0});
         setModalVisible(false);
       } else {
         const errorData = await response.json();
@@ -197,7 +199,7 @@ const UsersPage = () => {
 
   const handleCreateNew = () => {
     setEditingUserId(null);
-    setFormData({email: "", password: "", firstName: "", lastName: "", phone: "", countryKey: "", role: ""});
+    setFormData({email: "", password: "", firstName: "", lastName: "", phone: "", countryKey: "", role: "", inactivityTimeout: 0});
     setModalVisible(true);
   };
 
@@ -220,6 +222,11 @@ const UsersPage = () => {
     {key: "lastName", header: "Apellido"},
     {key: "phone", header: "Teléfono"},
     {key: "role", header: "Rol"},
+    {
+      key: "inactivityTimeout",
+      header: "Inactividad",
+      render: (row) => row.inactivityTimeout > 0 ? `${row.inactivityTimeout} min` : "Global",
+    },
   ];
 
   const actions = [
@@ -344,6 +351,26 @@ const UsersPage = () => {
                 <option key={role._id} value={role.name}>{role.name}</option>
               ))}
             </select>
+          </div>
+          <div className="mb-3">
+            <label htmlFor="inactivityTimeout" className="form-label">
+              Tiempo de inactividad personal (Minutos)
+            </label>
+            <input
+              type="number"
+              className="form-control"
+              id="inactivityTimeout"
+              min={0}
+              max={60}
+              value={formData.inactivityTimeout ?? 0}
+              onChange={handleChange}
+              placeholder="0 = usar configuración global"
+            />
+            <div className="form-text">
+              {Number(formData.inactivityTimeout) > 0
+                ? `Sesión expirará tras ${formData.inactivityTimeout} min de inactividad`
+                : "Usará la configuración global del sistema"}
+            </div>
           </div>
         </ModalTemplate>
       )}

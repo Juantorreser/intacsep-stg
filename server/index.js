@@ -3013,7 +3013,7 @@ app.delete("/users/:id", async (req, res) => {
 
 //UPDATE user
 app.put("/users/:id", async (req, res) => {
-  const { password, firstName, lastName, phone, role } = req.body;
+  const { password, firstName, lastName, phone, role, inactivityTimeout } = req.body;
 
   try {
     const prevUser = await User.findById(req.params.id);
@@ -3023,6 +3023,10 @@ app.put("/users/:id", async (req, res) => {
     if (password) {
       const salt = await bcrypt.genSalt(10);
       updateData.password = await bcrypt.hash(password, salt);
+    }
+    // null or 0 means "use global default"; any positive number sets a personal override
+    if (inactivityTimeout !== undefined) {
+      updateData.inactivityTimeout = inactivityTimeout > 0 ? inactivityTimeout : null;
     }
     const user = await User.findByIdAndUpdate(req.params.id, updateData, {
       new: true,
@@ -3974,6 +3978,23 @@ app.put("/drafts/:id/reject-with-replacement", async (req, res) => {
 });
 
 //Inactividad
+app.get("/inactividad/me", async (req, res) => {
+  try {
+    const sessionUser = req.session.user;
+    if (!sessionUser) return res.status(401).json({ message: "Unauthorized" });
+
+    const user = await User.findOne({ email: sessionUser.email });
+    if (user && user.inactivityTimeout != null) {
+      return res.status(200).json({ value: user.inactivityTimeout, isPersonal: true });
+    }
+
+    const globalTimeout = await Inactividad.findOne({ name: "timeoutTime" });
+    res.status(200).json({ value: globalTimeout?.value ?? 5, isPersonal: false });
+  } catch (e) {
+    res.status(500).json({ message: "Error getting effective inactivity time", error: e.message });
+  }
+});
+
 app.get("/inactividad", async (req, res) => {
   try {
     const timeoutTime = await Inactividad.find({ name: "timeoutTime" });
@@ -6661,6 +6682,8 @@ app.get('/dashboard/bitacoras-anomalias', async (req, res) => {
           $group: {
             _id: '$_id',
             bitacora_id: { $first: '$bitacora_id' },
+            folio_servicio: { $first: '$folio_servicio' },
+            edited_bitacora: { $first: '$edited_bitacora' },
             cliente: { $first: '$cliente' },
             linea_transporte: { $first: '$linea_transporte' },
             operador: { $first: '$operador' },
@@ -6891,11 +6914,49 @@ app.get('/dashboard/bitacoras-anomalias', async (req, res) => {
       // Obtener las categorías únicas de eventos para esta bitácora
       const categorias = [...new Set(bitacora.eventTypes.flat().map(et => et.categoria).filter(cat => cat && cat !== 'General'))];
 
+      // Extract GPS data from anomaly events.
+      // GPS is never stored directly on the event object — it lives inside transportes.
+      // Resolution order (mirrors BitacoraDetail rendering logic):
+      //   1. transporte.gpsData[].data.*   (recorded GPS readings)
+      //   2. transporte.gpsUnits[].data.*  (fallback when gpsData is absent)
+      //   3. transporte.registro.*         (manual or synced fallback)
+      // Scope: event-level transportes first; then bitacora top-level transportes as fallback.
+      const eventos = bitacora.eventos || [];
+      const isValid = (v) => v && typeof v === 'string' && v.trim() !== '' && v.trim() !== '--';
 
+      const extractFromTransportes = (transportesList, field, vals) => {
+        for (const t of (transportesList || [])) {
+          // Prefer gpsData readings; fall back to gpsUnits data (same logic as BitacoraDetail)
+          const gpsSrc = (t.gpsData && t.gpsData.length > 0) ? t.gpsData
+                       : (t.gpsUnits && t.gpsUnits.length > 0) ? t.gpsUnits
+                       : [];
+          for (const g of gpsSrc) {
+            if (isValid(g?.data?.[field])) vals.add(g.data[field].trim());
+          }
+          if (isValid(t.registro?.[field])) vals.add(t.registro[field].trim());
+        }
+      };
+
+      const joinUnique = (field) => {
+        const vals = new Set();
+        // Event-level transportes (snapshot at event creation time)
+        for (const e of eventos) {
+          extractFromTransportes(e.transportes, field, vals);
+        }
+        // Bitacora top-level transportes as fallback (updated throughout monitoring)
+        if (vals.size === 0) {
+          extractFromTransportes(bitacora.transportes, field, vals);
+        }
+        return vals.size > 0 ? [...vals].join(' | ') : null;
+      };
 
       return {
         _id: bitacora._id,
         bitacora_id: bitacora.bitacora_id,
+        folio_servicio: (() => {
+          const raw = (bitacora.folio_servicio || bitacora.edited_bitacora?.folio_servicio || '').trim();
+          return raw && raw.toUpperCase() !== 'S/N' ? raw : null;
+        })(),
         cliente: getSafeFieldValue(bitacora.cliente),
         linea_transporte: getTransportLines(bitacora.transportes),
         operador: getTransportOperators(bitacora.transportes),
@@ -6904,7 +6965,11 @@ app.get('/dashboard/bitacoras-anomalias', async (req, res) => {
         status: getSafeFieldValue(bitacora.status),
         createdAt: bitacora.createdAt,
         categorias: categorias,
-        totalEventos: bitacora.eventos.length
+        totalEventos: bitacora.eventos.length,
+        ultimo_posicionamiento: joinUnique('ultimo_posicionamiento'),
+        ubicacion: joinUnique('ubicacion'),
+        coordenadas: joinUnique('coordenadas'),
+        velocidad: joinUnique('velocidad'),
       };
     });
 

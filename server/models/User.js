@@ -10,6 +10,7 @@ const UserSchema = new mongoose.Schema(
         countryKey: {type: String, default: ""},
         role: {type: String},
         refresh_token: String,
+        inactivityTimeout: {type: Number, default: null},
     },
     {timestamps: true}
 );

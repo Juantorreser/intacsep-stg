@@ -15,13 +15,13 @@ const AuthProvider = ({children}) => {
   useEffect(() => {
     const fetchTimeout = async () => {
       try {
-        const res = await fetch(`${baseUrl}/inactividad`, {
+        const res = await fetch(`${baseUrl}/inactividad/me`, {
           method: "GET",
           credentials: "include",
         });
         const data = await res.json();
-        if (data?.[0]?.value) {
-          setTimeoutMinutes(data[0].value);
+        if (data?.value) {
+          setTimeoutMinutes(data.value);
         }
       } catch (err) {
         console.error("Failed to fetch inactivity timeout", err);

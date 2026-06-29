@@ -388,6 +388,7 @@ const AnomaliasDashboardPage = () => {
 
     const excelData = filteredData.map((bitacora) => ({
       "No. Bitácora": bitacora.bitacora_id || "N/A",
+      "Folio servicio": bitacora.folio_servicio || "N/A",
       Cliente: bitacora.cliente || "N/A",
       Anomalías:
         bitacora.categorias && bitacora.categorias.length > 0
@@ -398,6 +399,10 @@ const AnomaliasDashboardPage = () => {
       Origen: bitacora.origen || "N/A",
       Destino: bitacora.destino || "N/A",
       Estado: bitacora.status || "N/A",
+      "Último posicionamiento": bitacora.ultimo_posicionamiento || "N/A",
+      "Ubicación": bitacora.ubicacion || "N/A",
+      "Coordenadas": bitacora.coordenadas || "N/A",
+      "Velocidad": bitacora.velocidad || "N/A",
     }));
 
     const workbook = XLSX.utils.book_new();
@@ -406,10 +411,15 @@ const AnomaliasDashboardPage = () => {
     const columnWidths = [
       {wch: 15},
       {wch: 20},
+      {wch: 20},
       {wch: 30},
       {wch: 20},
       {wch: 20},
       {wch: 25},
+      {wch: 25},
+      {wch: 12},
+      {wch: 22},
+      {wch: 30},
       {wch: 25},
       {wch: 12},
     ];
@@ -1974,6 +1984,7 @@ const AnomaliasDashboardPage = () => {
             <thead>
               <tr>
                 {renderFilterableHeader("No. Bitácora", "bitacoraId", "Ej: 005024", false)}
+                <th><div className="fw-semibold mb-1" style={{fontSize: "12px"}}>Folio Servicio</div></th>
                 {renderFilterableHeader("Cliente", "cliente", "Buscar cliente...", true)}
                 {renderFilterableHeader("Anomalías", "anomalias", "Buscar anomalía...", true)}
                 {renderFilterableHeader(
@@ -1986,6 +1997,10 @@ const AnomaliasDashboardPage = () => {
                 {renderFilterableHeader("Origen", "origen", "Buscar origen...", true)}
                 {renderFilterableHeader("Destino", "destino", "Buscar destino...", true)}
                 {renderFilterableHeader("Estado", "estado", "Buscar estado...", true)}
+                <th><div className="fw-semibold mb-1" style={{fontSize: "12px"}}>Último Posicionamiento</div></th>
+                <th><div className="fw-semibold mb-1" style={{fontSize: "12px"}}>Ubicación</div></th>
+                <th><div className="fw-semibold mb-1" style={{fontSize: "12px"}}>Coordenadas</div></th>
+                <th><div className="fw-semibold mb-1" style={{fontSize: "12px"}}>Velocidad</div></th>
               </tr>
             </thead>
             <tbody>
@@ -1993,6 +2008,9 @@ const AnomaliasDashboardPage = () => {
                 <tr key={bitacora._id || index}>
                   <td>
                     <span className="small fw-medium">{bitacora.bitacora_id || "N/A"}</span>
+                  </td>
+                  <td>
+                    <span className="small">{bitacora.folio_servicio || "N/A"}</span>
                   </td>
                   <td>
                     <span className="small">{bitacora.cliente || "N/A"}</span>
@@ -2033,6 +2051,18 @@ const AnomaliasDashboardPage = () => {
                     <span className={`badge bg-${getStatusColor(bitacora.status)}`}>
                       {bitacora.status || "N/A"}
                     </span>
+                  </td>
+                  <td>
+                    <span className="small">{bitacora.ultimo_posicionamiento || "N/A"}</span>
+                  </td>
+                  <td>
+                    <span className="small">{bitacora.ubicacion || "N/A"}</span>
+                  </td>
+                  <td>
+                    <span className="small">{bitacora.coordenadas || "N/A"}</span>
+                  </td>
+                  <td>
+                    <span className="small">{bitacora.velocidad || "N/A"}</span>
                   </td>
                 </tr>
               ))}
