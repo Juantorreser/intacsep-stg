@@ -2168,10 +2168,12 @@ app.patch("/bitacora/:id", async (req, res) => {
     }
 
     // Update the existing bitacora with the new data
+    const oldData = bitacora.toObject();
     Object.assign(bitacora, updatedData);
+    if (updatedData.custodia) bitacora.markModified('custodia');
 
     const updatedBitacora = await bitacora.save({ validateModifiedOnly: true });
-    await auditUpdate({ oldData: bitacora.toObject(), newData: updatedData, modelId: id, user: req.session.user || {}, seccion: "Bitacora" });
+    await auditUpdate({ oldData, newData: updatedData, modelId: id, user: req.session.user || {}, seccion: "Bitacora" });
 
     // Use aggregation to resolve origen and destino names in the response
     const resolvedBitacora = await Bitacora.aggregate([

@@ -1456,8 +1456,7 @@ const BitacoraDetailPage = ({edited}) => {
       });
 
       if (response.ok) {
-        const updatedBitacora = await response.json();
-        setBitacora(updatedBitacora);
+        setBitacora((prev) => ({...prev, edited: true}));
         setIsEventStarted(true);
         setFinishButtonDisabled(false);
       } else {
@@ -1530,7 +1529,19 @@ const BitacoraDetailPage = ({edited}) => {
 
             {/* Action Buttons */}
             {activeTab === "detalles" && roleData?.bit_detalles?.update && (
-              <button className="action-btn btn-primary" onClick={() => setEditModalVisible(true)}>
+              <button className="action-btn btn-primary" onClick={() => {
+                if (bitacora.monitoreo?.toLowerCase() === "custodia fisica" && !bitacora.custodia) {
+                  setBitacora((prev) => ({
+                    ...prev,
+                    custodia: {
+                      custodio1_nombre: "", custodio1_telefono: "",
+                      custodio2_nombre: "", custodio2_telefono: "",
+                      placa: "", modelo: "", color: "", marca: "",
+                    },
+                  }));
+                }
+                setEditModalVisible(true);
+              }}>
                 <i className="fa fa-edit"></i>
               </button>
             )}
@@ -2179,7 +2190,6 @@ const BitacoraDetailPage = ({edited}) => {
                       name="custodia.custodio1_nombre"
                       value={bitacora.custodia?.custodio1_nombre || ""}
                       onChange={handleEditChange}
-                      required
                     />
                   </Form.Group>
 
@@ -2190,7 +2200,6 @@ const BitacoraDetailPage = ({edited}) => {
                       name="custodia.custodio1_telefono"
                       value={bitacora.custodia?.custodio1_telefono || ""}
                       onChange={handleEditChange}
-                      required
                     />
                   </Form.Group>
 
