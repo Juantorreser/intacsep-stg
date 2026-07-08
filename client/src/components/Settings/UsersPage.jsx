@@ -168,7 +168,7 @@ const UsersPage = () => {
           phone: formData.phone,
           countryKey: formData.countryKey,
           role: formData.role,
-          inactivityTimeout: Number(formData.inactivityTimeout) || 0,
+          inactivityTimeout: formData.inactivityTimeout === "" || formData.inactivityTimeout == null ? null : Number(formData.inactivityTimeout),
         }),
       });
 
@@ -225,7 +225,11 @@ const UsersPage = () => {
     {
       key: "inactivityTimeout",
       header: "Inactividad",
-      render: (row) => row.inactivityTimeout > 0 ? `${row.inactivityTimeout} min` : "Global",
+      render: (row) => {
+        if (row.inactivityTimeout === 0) return <span className="badge bg-success">Infinita</span>;
+        if (row.inactivityTimeout > 0) return `${row.inactivityTimeout} min`;
+        return <span className="text-muted">Global</span>;
+      },
     },
   ];
 
@@ -361,15 +365,16 @@ const UsersPage = () => {
               className="form-control"
               id="inactivityTimeout"
               min={0}
-              max={60}
-              value={formData.inactivityTimeout ?? 0}
+              value={formData.inactivityTimeout ?? ""}
               onChange={handleChange}
-              placeholder="0 = usar configuración global"
+              placeholder="Vacío = usar configuración global"
             />
             <div className="form-text">
-              {Number(formData.inactivityTimeout) > 0
-                ? `Sesión expirará tras ${formData.inactivityTimeout} min de inactividad`
-                : "Usará la configuración global del sistema"}
+              {Number(formData.inactivityTimeout) === 0
+                ? "Sesión infinita — nunca expirará por inactividad"
+                : Number(formData.inactivityTimeout) > 0
+                  ? `Sesión expirará tras ${formData.inactivityTimeout} min de inactividad`
+                  : "Vacío o sin valor = usará la configuración global del sistema"}
             </div>
           </div>
         </ModalTemplate>

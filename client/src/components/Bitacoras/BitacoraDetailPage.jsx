@@ -14,6 +14,284 @@ import {convertToUpperCase} from "../../utils/utils";
 import ModalTemplate from "../../components/ModalTemplate"; // make sure path is valid
 import {useSidebar} from "../../context/SidebarContext";
 
+const CollapsibleTransporte = ({transporte}) => {
+  const [isOpen, setIsOpen] = useState(false);
+
+  const displayId = transporte.id.startsWith("T")
+    ? transporte.id
+    : transporte.id.includes("_")
+    ? `${transporte.id.split("_")[1]} - ${transporte.id.split("_")[2]}`
+    : transporte.id;
+
+  return (
+    <div className="mb-3">
+      <div
+        className="d-flex justify-content-between align-items-center cursor-pointer border p-2 rounded modern-card"
+        onClick={() => setIsOpen((o) => !o)}>
+        <div>
+          <span className="fw-medium">{displayId}</span>
+          {transporte.gpsData && transporte.gpsData.length > 0 && (
+            <small className="d-block text-muted">
+              {transporte.gpsData.length} GPS asociados
+            </small>
+          )}
+        </div>
+        <span className="text-primary fw-bold">{isOpen ? "−" : "+"}</span>
+      </div>
+      {isOpen && (
+        <div className="mt-3 p-3 bg-light rounded">
+          {transporte.gpsData && transporte.gpsData.length > 0 ? (
+            <div>
+              <h6 className="fw-bold mb-3">Datos de GPS</h6>
+              {transporte.gpsData.map((gps, index) => (
+                <div key={index} className="mb-4 p-3 border rounded bg-white">
+                  <h6 className="fw-semibold text-primary mb-2">
+                    {gps.name} (ID: {gps.wialonId})
+                  </h6>
+                  <div className="row">
+                    <div className="col-md-6">
+                      <p className="mb-2"><strong>Duración:</strong> {gps.data?.duracion || "--"}</p>
+                      <p className="mb-2"><strong>Ubicación:</strong> {gps.data?.ubicacion || "--"}</p>
+                      <p className="mb-2"><strong>Velocidad:</strong> {gps.data?.velocidad || "--"}</p>
+                    </div>
+                    <div className="col-md-6">
+                      <p className="mb-2">
+                        <strong>Último Posicionamiento:</strong>{" "}
+                        {gps.data?.ultimo_posicionamiento || "--"}
+                      </p>
+                      <p className="mb-2">
+                        <strong>Coordenadas:</strong> {gps.data?.coordenadas || "--"}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="row">
+              <div className="col-md-6">
+                <p className="mb-2"><strong>Duración:</strong> {transporte.registro?.duracion || "--"}</p>
+                <p className="mb-2"><strong>Ubicación:</strong> {transporte.registro?.ubicacion || "--"}</p>
+                <p className="mb-2"><strong>Velocidad:</strong> {transporte.registro?.velocidad || "--"}</p>
+              </div>
+              <div className="col-md-6">
+                <p className="mb-2">
+                  <strong>Último Posicionamiento:</strong>{" "}
+                  {transporte.registro?.ultimo_posicionamiento || "--"}
+                </p>
+                <p className="mb-2">
+                  <strong>Coordenadas:</strong> {transporte.registro?.coordenadas || "--"}
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
+const EventCard = ({event, events, bitacora, setBitacora, setEventos, handleEditSubmit, roleData}) => {
+  const {user} = useAuth();
+  const baseUrl = import.meta.env.VITE_BASE_URL;
+  const {nombre, descripcion, createdAt, registrado_por, frecuencia} = event;
+  const [showModal, setShowModal] = useState(false);
+  const [formData, setFormData] = useState({
+    nombre,
+    registrado_por,
+    descripcion,
+    frecuencia,
+    createdAt,
+    transportes: event.transportes,
+  });
+  const [eventColor, setEventColor] = useState("#333235");
+  const [showTransporteModal, setShowTransporteModal] = useState(false);
+  const [selectedTransporte, setSelectedTransporte] = useState(null);
+
+  const isLastEvent = event._id === events[events.length - 1]?._id;
+
+  useEffect(() => {
+    const computeEventColor = () => {
+      if (!frecuencia) return "#333235";
+      if (!isLastEvent) {
+        return event.isFrecuenciaMet ? "#51FF4E" : "#F82929";
+      }
+      const frecuenciaMs = frecuencia * 60000;
+      const elapsed = Date.now() - new Date(createdAt).getTime();
+      if (elapsed < frecuenciaMs * 0.75) return "#51FF4E";
+      if (elapsed < frecuenciaMs) return "#ECEC27";
+      return "#F82929";
+    };
+    setEventColor(computeEventColor());
+    const interval = setInterval(() => setEventColor(computeEventColor()), 60000);
+    return () => clearInterval(interval);
+  }, [createdAt, frecuencia, isLastEvent]);
+
+  const handleEditClick = () => setShowModal(true);
+  const handleClose = () => setShowModal(false);
+
+  const handleCloseTransporteModal = () => {
+    setShowTransporteModal(false);
+    setSelectedTransporte(null);
+  };
+
+  const handleInputChange = (e) => {
+    const {name, value} = e.target;
+    setFormData((prev) => ({...prev, [name]: value}));
+  };
+
+  const handleFormSubmit = async (e) => {
+    e.preventDefault();
+    const updatedEventos = bitacora.eventos.map((evt) =>
+      evt._id === event._id
+        ? {...evt, descripcion: formData.descripcion, frecuencia: formData.frecuencia}
+        : evt
+    );
+    const oldEvent = bitacora.eventos.find((evt) => evt._id === event._id);
+    const newEvent = updatedEventos.find((evt) => evt._id === event._id);
+    const updatedBitacora = {...bitacora, eventos: updatedEventos};
+    setBitacora(updatedBitacora);
+    setEventos(updatedEventos);
+    await handleEditSubmit(e, updatedBitacora);
+    await generateAuditoriasFromChanges({
+      oldData: oldEvent,
+      newData: newEvent,
+      bitacoraId: bitacora.bitacora_id,
+      user,
+      seccion: "Eventos",
+    });
+    setShowModal(false);
+  };
+
+  return (
+    <div className="modern-card mb-4">
+      <div className="card-header-modern d-flex justify-content-between align-items-center pt-3 px-4">
+        <div className="d-flex align-items-center gap-3">
+          <span className="text-muted small">
+            {new Date(createdAt).toLocaleString("es-MX", {
+              dateStyle: "short",
+              timeStyle: "short",
+            })}
+          </span>
+          <h5 className="card-title fw-semibold mb-0">{nombre}</h5>
+        </div>
+        {roleData?.bit_eventos?.update && (
+          <button onClick={handleEditClick} className="action-btn btn-primary">
+            <i className="fa fa-edit"></i>
+          </button>
+        )}
+        {!roleData?.bit_eventos?.update && <div></div>}
+      </div>
+
+      <div className="card-body-modern px-4 pb-4">
+        <div className="row">
+          <div className="col-md-6">
+            <div className="info-group mb-3">
+              <label className="info-label">Registrado por:</label>
+              <span className="info-value">{registrado_por}</span>
+            </div>
+            <div className="info-group mb-3">
+              <label className="info-label">Descripción:</label>
+              <span className="info-value">{descripcion}</span>
+            </div>
+            <div className="info-group mb-3">
+              <label className="info-label">Frecuencia:</label>
+              <div className="d-flex align-items-center gap-2">
+                <span className="info-value">{`${frecuencia} min`}</span>
+                <div className="semaforo-container">
+                  <div className="semaforo-circle" style={{backgroundColor: eventColor}}></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="col-md-6">
+            <h6 className="fw-bold text-center mb-3">Transportes</h6>
+            {event.transportes.map((t, i) => (
+              <CollapsibleTransporte key={t.id || i} transporte={t} />
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <ModalTemplate
+        show={showTransporteModal}
+        title="Transporte Information"
+        onClose={handleCloseTransporteModal}>
+        {selectedTransporte && (
+          <div className="row mt-3">
+            <div className="col-md-6">
+              <h5>Tracto:</h5>
+              {["eco", "placa", "marca", "modelo", "color", "tipo"].map((field) => (
+                <p key={field}>
+                  <strong>{field.charAt(0).toUpperCase() + field.slice(1)}:</strong>{" "}
+                  {selectedTransporte.tracto?.[field]}
+                </p>
+              ))}
+            </div>
+            <div className="col-md-6">
+              <h5>Remolque:</h5>
+              {["eco", "placa", "color", "capacidad", "sello"].map((field) => (
+                <p key={field}>
+                  <strong>{field.charAt(0).toUpperCase() + field.slice(1)}:</strong>{" "}
+                  {selectedTransporte.remolque?.[field]}
+                </p>
+              ))}
+            </div>
+          </div>
+        )}
+      </ModalTemplate>
+
+      <ModalTemplate
+        show={showModal}
+        title="Editar Evento"
+        onClose={handleClose}
+        onSubmit={handleFormSubmit}>
+        <Form.Group className="mb-3">
+          <Form.Label>Nombre</Form.Label>
+          <Form.Control type="text" name="nombre" value={formData.nombre} disabled />
+        </Form.Group>
+        <Form.Group className="mb-3">
+          <Form.Label>Registrado Por</Form.Label>
+          <Form.Control type="text" name="registrado_por" value={formData.registrado_por} disabled />
+        </Form.Group>
+        <Form.Group className="mb-3">
+          <Form.Label>Transportes</Form.Label>
+          <Form.Control
+            type="text"
+            name="transportes"
+            value={formData.transportes
+              .map((t) =>
+                t.id.includes("_") ? `${t.id.split("_")[1]} - ${t.id.split("_")[2]}` : t.id
+              )
+              .join(", ")}
+            disabled
+          />
+        </Form.Group>
+        <Form.Group className="mb-3">
+          <Form.Label>Descripción</Form.Label>
+          <Form.Control
+            as="textarea"
+            rows={3}
+            name="descripcion"
+            value={formData.descripcion}
+            onChange={handleInputChange}
+          />
+        </Form.Group>
+        <Form.Group className="mb-3">
+          <Form.Label>Frecuencia</Form.Label>
+          <Form.Control
+            type="number"
+            name="frecuencia"
+            value={formData.frecuencia}
+            onChange={handleInputChange}
+          />
+        </Form.Group>
+      </ModalTemplate>
+    </div>
+  );
+};
+
 const BitacoraDetailPage = ({edited}) => {
   const {id} = useParams();
   const {user, verifyToken, setUser} = useAuth();
@@ -850,326 +1128,6 @@ const BitacoraDetailPage = ({edited}) => {
     );
   }
 
-  const EventCard = ({event}) => {
-    const {_id, nombre, descripcion, createdAt, registrado_por, frecuencia, transportes} = event;
-    const [showModal, setShowModal] = useState(false);
-    const [formData, setFormData] = useState({
-      nombre,
-      registrado_por,
-      descripcion,
-      frecuencia,
-      createdAt,
-      transportes,
-    });
-
-    const [eventColor, setEventColor] = useState("#333235");
-
-    useEffect(() => {
-      const computeEventColor = () => {
-        if (!frecuencia) return "#333235";
-
-        if (!isLastEvent) {
-          return event.isFrecuenciaMet ? "#51FF4E" : "#F82929";
-        }
-
-        const frecuenciaMs = frecuencia * 60000;
-        const elapsed = Date.now() - new Date(createdAt).getTime();
-
-        if (elapsed < frecuenciaMs * 0.75) return "#51FF4E";
-        if (elapsed < frecuenciaMs) return "#ECEC27";
-        return "#F82929";
-      };
-
-      setEventColor(computeEventColor());
-      const interval = setInterval(() => {
-        setEventColor(computeEventColor());
-      }, 60000);
-
-      return () => clearInterval(interval);
-    }, [createdAt, frecuencia]);
-
-    const isLastEvent = event._id === events[events.length - 1]?._id;
-
-    const handleEditClick = () => setShowModal(true);
-    const handleClose = () => setShowModal(false);
-    const [showTransporteModal, setShowTransporteModal] = useState(false);
-    const [selectedTransporte, setSelectedTransporte] = useState(null);
-
-    const handleCloseTransporteModal = () => {
-      setShowTransporteModal(false);
-      setSelectedTransporte(null);
-    };
-
-    const handleInputChange = (e) => {
-      const {name, value} = e.target;
-      setFormData({...formData, [name]: value});
-    };
-
-    const handleFormSubmit = async (e) => {
-      e.preventDefault();
-
-      const updatedEventos = bitacora.eventos.map((evt) =>
-        evt._id === event._id
-          ? {
-              ...evt,
-              descripcion: formData.descripcion,
-              frecuencia: formData.frecuencia,
-            }
-          : evt
-      );
-
-      const oldEvent = bitacora.eventos.find((evt) => evt._id === event._id);
-      const newEvent = updatedEventos.find((evt) => evt._id === event._id);
-
-      const updatedBitacora = {...bitacora, eventos: updatedEventos};
-      setBitacora(updatedBitacora);
-      setEventos(updatedEventos);
-
-      await handleEditSubmit(e, updatedBitacora);
-
-      await generateAuditoriasFromChanges({
-        oldData: oldEvent,
-        newData: newEvent,
-        bitacoraId: bitacora.bitacora_id,
-        user,
-        seccion: "Eventos",
-      });
-
-      setShowModal(false);
-    };
-
-    const CollapsibleTransporte = ({transporte}) => {
-      const [isOpen, setIsOpen] = useState(false);
-
-      const toggleCollapse = () => {
-        setIsOpen(!isOpen);
-      };
-
-      const displayId = transporte.id.startsWith("T")
-        ? transporte.id
-        : transporte.id.includes("_")
-        ? `${transporte.id.split("_")[1]} - ${transporte.id.split("_")[2]}`
-        : transporte.id;
-
-      return (
-        <div className="mb-3">
-          <div
-            className="d-flex justify-content-between align-items-center cursor-pointer border p-2 rounded modern-card"
-            onClick={toggleCollapse}>
-            <div>
-              <span className="fw-medium">{displayId}</span>
-              {transporte.gpsData && transporte.gpsData.length > 0 && (
-                <small className="d-block text-muted">
-                  {transporte.gpsData.length} GPS asociados
-                </small>
-              )}
-            </div>
-            <span className="text-primary fw-bold">{isOpen ? "−" : "+"}</span>
-          </div>
-          {isOpen && (
-            <div className="mt-3 p-3 bg-light rounded">
-              {/* Mostrar múltiples GPS si existen */}
-              {transporte.gpsData && transporte.gpsData.length > 0 ? (
-                <div>
-                  <h6 className="fw-bold mb-3">Datos de GPS</h6>
-                  {transporte.gpsData.map((gps, index) => (
-                    <div key={index} className="mb-4 p-3 border rounded bg-white">
-                      <h6 className="fw-semibold text-primary mb-2">
-                        {gps.name} (ID: {gps.wialonId})
-                      </h6>
-                      <div className="row">
-                        <div className="col-md-6">
-                          <p className="mb-2">
-                            <strong>Duración:</strong> {gps.data.duracion || "--"}
-                          </p>
-                          <p className="mb-2">
-                            <strong>Ubicación:</strong> {gps.data.ubicacion || "--"}
-                          </p>
-                          <p className="mb-2">
-                            <strong>Velocidad:</strong> {gps.data.velocidad || "--"}
-                          </p>
-                        </div>
-                        <div className="col-md-6">
-                          <p className="mb-2">
-                            <strong>Último Posicionamiento:</strong>{" "}
-                            {gps.data.ultimo_posicionamiento || "--"}
-                          </p>
-                          <p className="mb-2">
-                            <strong>Coordenadas:</strong> {gps.data.coordenadas || "--"}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                /* Datos tradicionales para compatibilidad */
-                <div className="row">
-                  <div className="col-md-6">
-                    <p className="mb-2">
-                      <strong>Duración:</strong> {transporte.registro?.duracion || "--"}
-                    </p>
-                    <p className="mb-2">
-                      <strong>Ubicación:</strong> {transporte.registro?.ubicacion || "--"}
-                    </p>
-                    <p className="mb-2">
-                      <strong>Velocidad:</strong> {transporte.registro?.velocidad || "--"}
-                    </p>
-                  </div>
-                  <div className="col-md-6">
-                    <p className="mb-2">
-                      <strong>Último Posicionamiento:</strong>{" "}
-                      {transporte.registro?.ultimo_posicionamiento || "--"}
-                    </p>
-                    <p className="mb-2">
-                      <strong>Coordenadas:</strong> {transporte.registro?.coordenadas || "--"}
-                    </p>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      );
-    };
-
-    return (
-      <div className="modern-card mb-4">
-        <div className="card-header-modern d-flex justify-content-between align-items-center pt-3 px-4">
-          <div className="d-flex align-items-center gap-3">
-            <span className="text-muted small">
-              {new Date(createdAt).toLocaleString("es-MX", {
-                dateStyle: "short",
-                timeStyle: "short",
-              })}
-            </span>
-            <h5 className="card-title fw-semibold mb-0">{nombre}</h5>
-          </div>
-
-          {roleData?.bit_eventos?.update && (
-            <button onClick={handleEditClick} className="action-btn btn-primary">
-              <i className="fa fa-edit"></i>
-            </button>
-          )}
-          {!roleData?.bit_eventos?.update && <div></div>}
-        </div>
-
-        <div className="card-body-modern px-4 pb-4">
-          <div className="row">
-            <div className="col-md-6">
-              <div className="info-group mb-3">
-                <label className="info-label">Registrado por:</label>
-                <span className="info-value">{registrado_por}</span>
-              </div>
-              <div className="info-group mb-3">
-                <label className="info-label">Descripción:</label>
-                <span className="info-value">{descripcion}</span>
-              </div>
-              <div className="info-group mb-3">
-                <label className="info-label">Frecuencia:</label>
-                <div className="d-flex align-items-center gap-2">
-                  <span className="info-value">{`${frecuencia} min`}</span>
-                  <div className="semaforo-container">
-                    <div className="semaforo-circle" style={{backgroundColor: eventColor}}></div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="col-md-6">
-              <h6 className="fw-bold text-center mb-3">Transportes</h6>
-              {event.transportes.map((t, i) => (
-                <div key={i}>
-                  <CollapsibleTransporte transporte={t} />
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        <ModalTemplate
-          show={showTransporteModal}
-          title="Transporte Information"
-          onClose={handleCloseTransporteModal}>
-          {selectedTransporte && (
-            <div className="row mt-3">
-              <div className="col-md-6">
-                <h5>Tracto:</h5>
-                {["eco", "placa", "marca", "modelo", "color", "tipo"].map((field) => (
-                  <p key={field}>
-                    <strong>{field.charAt(0).toUpperCase() + field.slice(1)}:</strong>{" "}
-                    {selectedTransporte.tracto[field]}
-                  </p>
-                ))}
-              </div>
-              <div className="col-md-6">
-                <h5>Remolque:</h5>
-                {["eco", "placa", "color", "capacidad", "sello"].map((field) => (
-                  <p key={field}>
-                    <strong>{field.charAt(0).toUpperCase() + field.slice(1)}:</strong>{" "}
-                    {selectedTransporte.remolque[field]}
-                  </p>
-                ))}
-              </div>
-            </div>
-          )}
-        </ModalTemplate>
-
-        {/* Edit Modal */}
-        <ModalTemplate
-          show={showModal}
-          title="Editar Evento"
-          onClose={handleClose}
-          onSubmit={handleFormSubmit}>
-          <Form.Group className="mb-3">
-            <Form.Label>Nombre</Form.Label>
-            <Form.Control type="text" name="nombre" value={formData.nombre} disabled />
-          </Form.Group>
-          <Form.Group className="mb-3">
-            <Form.Label>Registrado Por</Form.Label>
-            <Form.Control
-              type="text"
-              name="registrado_por"
-              value={formData.registrado_por}
-              disabled
-            />
-          </Form.Group>
-          <Form.Group className="mb-3">
-            <Form.Label>Transportes</Form.Label>
-            <Form.Control
-              type="text"
-              name="transportes"
-              value={formData.transportes
-                .map((t) =>
-                  t.id.includes("_") ? `${t.id.split("_")[1]} - ${t.id.split("_")[2]}` : t.id
-                )
-                .join(", ")}
-              disabled
-            />
-          </Form.Group>
-          <Form.Group className="mb-3">
-            <Form.Label>Descripción</Form.Label>
-            <Form.Control
-              as="textarea"
-              rows={3}
-              name="descripcion"
-              value={formData.descripcion}
-              onChange={handleInputChange}
-            />
-          </Form.Group>
-          <Form.Group className="mb-3">
-            <Form.Label>Frecuencia</Form.Label>
-            <Form.Control
-              type="number"
-              name="frecuencia"
-              value={formData.frecuencia}
-              onChange={handleInputChange}
-            />
-          </Form.Group>
-        </ModalTemplate>
-      </div>
-    );
-  };
 
   const events = Array.isArray(bitacora.eventos) ? bitacora.eventos : [];
 
@@ -1400,8 +1358,8 @@ const BitacoraDetailPage = ({edited}) => {
         destino: getObjectId(submitBitacora.destino, "destino"),
         // Include custodia data if it exists
         ...(submitBitacora.custodia && {custodia: submitBitacora.custodia}),
-        // Include eventos array if it exists and has been modified
-        ...(submitBitacora.eventos && {eventos: submitBitacora.eventos}),
+        // Only include eventos when called from event edit (updatedBitacora explicitly passed)
+        ...(updatedBitacora && submitBitacora.eventos && {eventos: submitBitacora.eventos}),
       };
 
       console.log("minimalUpdate before uppercase conversion:", minimalUpdate);
@@ -2013,7 +1971,16 @@ const BitacoraDetailPage = ({edited}) => {
                         .slice()
                         .reverse()
                         .map((event, index) => (
-                          <EventCard key={index} event={event} eventos={eventos} />
+                          <EventCard
+                            key={event._id || index}
+                            event={event}
+                            events={events}
+                            bitacora={bitacora}
+                            setBitacora={setBitacora}
+                            setEventos={setEventos}
+                            handleEditSubmit={handleEditSubmit}
+                            roleData={roleData}
+                          />
                         ))
                     )}
                   </div>

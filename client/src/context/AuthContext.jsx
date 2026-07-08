@@ -20,7 +20,9 @@ const AuthProvider = ({children}) => {
           credentials: "include",
         });
         const data = await res.json();
-        if (data?.value) {
+        if (data?.isInfinite) {
+          setTimeoutMinutes(0); // 0 = never fire the timer
+        } else if (data?.value) {
           setTimeoutMinutes(data.value);
         }
       } catch (err) {
@@ -36,6 +38,7 @@ const AuthProvider = ({children}) => {
       clearTimeout(inactivityTimeoutRef.current);
     }
 
+    if (timeoutMinutes === 0) return; // infinite session — never expire
     inactivityTimeoutRef.current = setTimeout(() => {
       setShowInactivityPopup(true);
     }, timeoutMinutes * 60 * 1000);

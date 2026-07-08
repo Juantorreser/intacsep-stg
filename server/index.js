@@ -2154,7 +2154,7 @@ app.patch("/bitacora/:id", async (req, res) => {
   }
 
   // Convertir campos de texto a mayúsculas antes de procesar
-  const excludeFields = ['status', 'inicioMonitoreo', 'finalMonitoreo', 'telefono', '_id', 'createdAt', 'updatedAt', 'bitacora_id', 'capacidad', 'gpsUnits', 'origen', 'destino'];
+  const excludeFields = ['status', 'inicioMonitoreo', 'finalMonitoreo', 'telefono', '_id', 'createdAt', 'updatedAt', 'bitacora_id', 'capacidad', 'gpsUnits', 'origen', 'destino', 'eventos'];
   const updatedData = convertToUpperCase(validatedData, excludeFields);
   console.log(updatedData);
 
@@ -3026,9 +3026,13 @@ app.put("/users/:id", async (req, res) => {
       const salt = await bcrypt.genSalt(10);
       updateData.password = await bcrypt.hash(password, salt);
     }
-    // null or 0 means "use global default"; any positive number sets a personal override
+    // null = use global default; 0 = infinite session (never expire); positive = personal timeout in minutes
     if (inactivityTimeout !== undefined) {
-      updateData.inactivityTimeout = inactivityTimeout > 0 ? inactivityTimeout : null;
+      if (inactivityTimeout === null || inactivityTimeout === undefined) {
+        updateData.inactivityTimeout = null;
+      } else {
+        updateData.inactivityTimeout = Number(inactivityTimeout) >= 0 ? Number(inactivityTimeout) : null;
+      }
     }
     const user = await User.findByIdAndUpdate(req.params.id, updateData, {
       new: true,
@@ -3987,11 +3991,12 @@ app.get("/inactividad/me", async (req, res) => {
 
     const user = await User.findOne({ email: sessionUser.email });
     if (user && user.inactivityTimeout != null) {
-      return res.status(200).json({ value: user.inactivityTimeout, isPersonal: true });
+      // 0 means infinite session — never expire
+      return res.status(200).json({ value: user.inactivityTimeout, isPersonal: true, isInfinite: user.inactivityTimeout === 0 });
     }
 
     const globalTimeout = await Inactividad.findOne({ name: "timeoutTime" });
-    res.status(200).json({ value: globalTimeout?.value ?? 5, isPersonal: false });
+    res.status(200).json({ value: globalTimeout?.value ?? 5, isPersonal: false, isInfinite: false });
   } catch (e) {
     res.status(500).json({ message: "Error getting effective inactivity time", error: e.message });
   }

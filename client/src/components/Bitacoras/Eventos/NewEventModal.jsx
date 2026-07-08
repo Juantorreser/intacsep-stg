@@ -34,7 +34,7 @@ const NewEventModal = ({show, onClose, edited, eventTypes, onEventAdded}) => {
       try {
         const userData = await verifyToken();
         setUser(userData);
-        await fetchBitacora(); // Only fetch after token is verified
+        await fetchBitacora();
       } catch (error) {
         console.error("Token verification or Bitacora fetch failed:", error);
         navigate("/login");
@@ -43,6 +43,10 @@ const NewEventModal = ({show, onClose, edited, eventTypes, onEventAdded}) => {
 
     if (token) init();
   }, [token]);
+
+  useEffect(() => {
+    if (show) fetchBitacora();
+  }, [show]);
 
   const fetchBitacora = async () => {
     try {
@@ -53,7 +57,7 @@ const NewEventModal = ({show, onClose, edited, eventTypes, onEventAdded}) => {
       if (response.ok) {
         const data = await response.json();
 
-        if (edited || edited.edited) {
+        if (edited) {
           setBitacora(data.edited_bitacora);
           // setEditedBitacora(data.edited_bitacora);
           setTransportes(data.edited_bitacora.transportes);
@@ -597,32 +601,32 @@ const NewEventModal = ({show, onClose, edited, eventTypes, onEventAdded}) => {
 
                   // Extraer IDs de transportes en eventos "Validación"
                   const transportesConValidacion = new Set(
-                    eventosValidacion.flatMap((evento) => evento.transportes.map((t) => t.id))
+                    eventosValidacion.flatMap((evento) => evento.transportes.map((t) => t.id?.toLowerCase()))
                   );
 
                   // Extraer IDs de transportes en eventos "Inicio de recorrido"
                   const transportesConInicioRecorrido = new Set(
-                    eventosInicioRecorrido.flatMap((evento) => evento.transportes.map((t) => t.id))
+                    eventosInicioRecorrido.flatMap((evento) => evento.transportes.map((t) => t.id?.toLowerCase()))
                   );
 
                   // Extraer IDs de transportes en eventos "Arribo a destino"
                   const transportesConArriboDestino = new Set(
-                    eventosArriboDestino.flatMap((evento) => evento.transportes.map((t) => t.id))
+                    eventosArriboDestino.flatMap((evento) => evento.transportes.map((t) => t.id?.toLowerCase()))
                   );
 
                   // Verificar si TODOS los selectedTransportes están en eventos de "Validación"
                   const allSelectedTransportesInValidacion = newEvent.transportes.every((t) =>
-                    transportesConValidacion.has(t.id)
+                    transportesConValidacion.has(t.id?.toLowerCase())
                   );
 
                   // Verificar si TODOS los selectedTransportes están en eventos de "Inicio de recorrido"
                   const allSelectedTransportesInInicioRecorrido = newEvent.transportes.every((t) =>
-                    transportesConInicioRecorrido.has(t.id)
+                    transportesConInicioRecorrido.has(t.id?.toLowerCase())
                   );
 
                   // Verificar si TODOS los selectedTransportes están en eventos de "Arribo a destino"
                   allSelectedTransportesInArriboDestino = newEvent.transportes.every((t) =>
-                    transportesConArriboDestino.has(t.id)
+                    transportesConArriboDestino.has(t.id?.toLowerCase())
                   );
 
                   if (allSelectedTransportesInValidacion) {

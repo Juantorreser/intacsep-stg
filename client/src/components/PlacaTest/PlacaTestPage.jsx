@@ -334,7 +334,7 @@ const PlacaTestPage = () => {
 
   if (!user) return <div>Cargando...</div>;
 
-  const canSave = !!ocrResult?.success && !!ocrResult?.plate;
+  const canSave = !!formData.placa;
 
   const filteredRecords = savedRecords.filter(p =>
     p.placa?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -473,15 +473,18 @@ const PlacaTestPage = () => {
               <div className="input-group">
                 <input
                   type="text"
-                  className="form-control text-uppercase fw-bold bg-light"
+                  className="form-control text-uppercase fw-bold"
+                  placeholder="Ej. ABC-123"
                   value={formData.placa}
-                  readOnly={!isEditMode}
-                  onChange={isEditMode ? (e) => setFormData(prev => ({ ...prev, placa: e.target.value })) : undefined}
+                  onChange={(e) => setFormData(prev => ({ ...prev, placa: e.target.value.toUpperCase() }))}
                 />
-                <span className="input-group-text bg-light">
+                <span className="input-group-text">
                   <i className="fa fa-id-card"></i>
                 </span>
               </div>
+              {!ocrResult && !ocrLoading && !isEditMode && (
+                <div className="form-text text-muted">Toma una foto o escribe la placa manualmente.</div>
+              )}
             </div>
 
             <div className="col-12">
