@@ -35,6 +35,7 @@ import Integration from "./models/Integration.js";
 import VehicleMapping from "./models/VehicleMapping.js";
 import InboundMessage from "./models/InboundMessage.js";
 import ControlPatios from "./models/ControlPatios.js";
+import RemolqueVisita from "./models/RemolqueVisita.js";
 import PatioEntryEvent from "./models/PatioEntryEvent.js";
 import PatioExitEvent from "./models/PatioExitEvent.js";
 import PatioAnomaly from "./models/PatioAnomaly.js";
@@ -2097,12 +2098,61 @@ app.patch("/bitacora/:id/event", async (req, res) => {
       return { ...t, gpsUnits, gpsData };
     });
 
+    // If this is an anomaly event (non-General), backfill GPS from the most recent General event
+    const eventTypeInfo = await EventType.findOne({ evento: new RegExp(`^${nombre?.trim()}$`, 'i') });
+    const isAnomaly = eventTypeInfo && eventTypeInfo.categoria !== 'General';
+
+    let finalTransportes = normalizedTransportes;
+    if (isAnomaly) {
+      // Find the most recent General event in this bitácora
+      const generalEvents = bitacora.eventos.filter((e) => {
+        // We can't do a DB lookup per event here, so identify General events by presence of GPS in registro
+        return e.transportes?.some((t) => t.registro?.coordenadas || t.registro?.ubicacion);
+      });
+      const latestGeneral = generalEvents[generalEvents.length - 1];
+
+      if (latestGeneral) {
+        // Build a map of GPS data keyed by transport id/placa for matching
+        const gpsMap = new Map();
+        for (const t of (latestGeneral.transportes || [])) {
+          const key = t.transporte_id?.toString() || t.placa;
+          if (key) gpsMap.set(key, t.registro);
+        }
+
+        finalTransportes = normalizedTransportes.map((t) => {
+          const key = t.transporte_id?.toString() || t.placa;
+          const sourceRegistro = (key && gpsMap.get(key)) || latestGeneral.transportes?.[0]?.registro;
+          if (!sourceRegistro) return t;
+          const registro = {
+            ...(t.registro || {}),
+            coordenadas: t.registro?.coordenadas || sourceRegistro.coordenadas || "",
+            ubicacion: t.registro?.ubicacion || sourceRegistro.ubicacion || "",
+            velocidad: t.registro?.velocidad || sourceRegistro.velocidad || "",
+            duracion: t.registro?.duracion || sourceRegistro.duracion || "",
+            ultimo_posicionamiento: t.registro?.ultimo_posicionamiento || sourceRegistro.ultimo_posicionamiento || "",
+          };
+          const gpsData = registro.coordenadas || registro.ubicacion ? [{
+            wialonId: t.gpsUnits?.[0]?.wialonId,
+            name: t.gpsUnits?.[0]?.name,
+            data: {
+              coordenadas: registro.coordenadas,
+              ubicacion: registro.ubicacion,
+              velocidad: registro.velocidad,
+              duracion: registro.duracion,
+              ultimo_posicionamiento: registro.ultimo_posicionamiento,
+            },
+          }] : t.gpsData;
+          return { ...t, registro, gpsData };
+        });
+      }
+    }
+
     const newEvent = {
       nombre,
       descripcion,
       registrado_por,
       frecuencia,
-      transportes: normalizedTransportes,
+      transportes: finalTransportes,
     };
 
     // Add the new event to the bitacora's eventos array
@@ -5557,6 +5607,20 @@ app.get('/dashboard/stats', async (req, res) => {
   }
 });
 
+// Process-level cache for anomaly EventTypes (refreshed every 5 min)
+let _anomalyEventTypeCache = null;
+let _anomalyEventTypeCacheTime = 0;
+async function getCachedAnomalyEventTypes() {
+  const now = Date.now();
+  if (_anomalyEventTypeCache && now - _anomalyEventTypeCacheTime < 5 * 60 * 1000) {
+    return _anomalyEventTypeCache;
+  }
+  const eventTypes = await EventType.find({ categoria: { $in: ['ENA', 'ONC', 'DR', 'FM'] } }).lean();
+  _anomalyEventTypeCache = eventTypes;
+  _anomalyEventTypeCacheTime = now;
+  return eventTypes;
+}
+
 // Dashboard Stats for Anomalias Dashboard (without default time filters)
 app.get('/dashboard/anomalias-stats', async (req, res) => {
   try {
@@ -5675,197 +5739,105 @@ app.get('/dashboard/anomalias-stats', async (req, res) => {
       };
     }
 
-    let totalBitacoras = await Bitacora.countDocuments(totalCardsFilter);
-    const nuevasBitacoras = await Bitacora.countDocuments({ ...totalCardsFilter, status: 'nueva' });
-    const enProcesoBitacoras = await Bitacora.countDocuments({ ...totalCardsFilter, status: { $in: ['validada', 'iniciada'] } });
-    const cerradasBitacoras = await Bitacora.countDocuments({ ...totalCardsFilter, status: { $in: ['cerrada', 'finalizada'] } });
+    // Use cached event types
+    const eventTypes = await getCachedAnomalyEventTypes();
+    const allEventNames = eventTypes.map(et => et.evento);
+    const eventTypeCategoryMap = new Map(eventTypes.map(et => [et.evento?.toLowerCase(), et.categoria]));
+
+    // Parallelize the 4 count queries
+    const [totalBitacoras, nuevasBitacoras, enProcesoBitacoras, cerradasBitacoras] = await Promise.all([
+      Bitacora.countDocuments(totalCardsFilter),
+      Bitacora.countDocuments({ ...totalCardsFilter, status: 'nueva' }),
+      Bitacora.countDocuments({ ...totalCardsFilter, status: { $in: ['validada', 'iniciada'] } }),
+      Bitacora.countDocuments({ ...totalCardsFilter, status: { $in: ['cerrada', 'finalizada'] } }),
+    ]);
 
     // Get event categories statistics for pie chart (excluding "General")
-    // Apply the same strict catalog validation as other anomaly endpoints
     let eventCategoriesStats = [];
     let totalBitacorasConAnomalias = 0;
     try {
-      console.log('=== DEBUG: Starting eventCategoriesStats aggregation ===');
-      console.log('bitacoraFilter for eventCategoriesStats:', JSON.stringify(bitacoraFilter, null, 2));
+      // Pre-filter bitacoras that have at least one anomaly event, then count unique bitacoras
+      const anomaliaFilter = { ...bitacoraFilter, 'eventos.nombre': { $in: allEventNames } };
 
-      // First, let's get all event types to understand the mapping
-      const eventTypes = await EventType.find({ categoria: { $in: ['ENA', 'ONC', 'DR', 'FM'] } });
-      console.log('Found eventTypes:', eventTypes.map(et => ({ evento: et.evento, categoria: et.categoria })));
-
-      // First, get the total count of unique bitacoras with anomalies
-      // This should count bitacoras that have at least one event with categoria != "general"
-      // Apply the same filters as the bitacoras-anomalias endpoint
-      const totalBitacorasConAnomaliasResult = await Bitacora.aggregate([
-        { $match: bitacoraFilter },
-        { $unwind: '$eventos' },
-        {
-          $lookup: {
-            from: 'eventtypes',
-            localField: 'eventos.nombre',
-            foreignField: 'evento',
-            as: 'eventTypeInfo'
-          }
-        },
-        {
-          $match: {
-            'eventTypeInfo.categoria': { $ne: 'General' }
-          }
-        },
-        // Unwind the transportes array within each evento (same as bitacoras-anomalias endpoint)
-        { $unwind: '$eventos.transportes' },
-        // Apply transport line filter if specified (case-insensitive) - same as bitacoras-anomalias endpoint
-        ...(lineaTransporte !== 'all' ? [{
-          $match: {
-            $expr: {
-              $eq: [
-                { $toLower: { $trim: { input: '$eventos.transportes.lineaTransporte' } } },
-                { $toLower: { $trim: { input: lineaTransporte } } }
-              ]
+      const [totalBitacorasConAnomaliasResult, rawCategoryStats] = await Promise.all([
+        // Count unique bitacoras with anomaly eventos (no $lookup needed — pre-filter does it)
+        Bitacora.aggregate([
+          { $match: anomaliaFilter },
+          { $unwind: '$eventos' },
+          { $match: { 'eventos.nombre': { $in: allEventNames } } },
+          ...(lineaTransporte !== 'all' ? [{ $unwind: '$eventos.transportes' }, {
+            $match: {
+              $expr: {
+                $eq: [
+                  { $toLower: { $trim: { input: '$eventos.transportes.lineaTransporte' } } },
+                  { $toLower: { $trim: { input: lineaTransporte } } }
+                ]
+              }
             }
-          }
-        }] : []),
-        // Apply operator filter if specified (case-insensitive) - same as bitacoras-anomalias endpoint
-        ...(operador !== 'all' ? [{
-          $match: {
-            $expr: {
-              $eq: [
-                { $toLower: { $trim: { input: '$eventos.transportes.operador' } } },
-                { $toLower: { $trim: { input: operador } } }
-              ]
+          }] : []),
+          ...(operador !== 'all' ? [
+            ...(lineaTransporte === 'all' ? [{ $unwind: '$eventos.transportes' }] : []),
+            {
+              $match: {
+                $expr: {
+                  $eq: [
+                    { $toLower: { $trim: { input: '$eventos.transportes.operador' } } },
+                    { $toLower: { $trim: { input: operador } } }
+                  ]
+                }
+              }
             }
-          }
-        }] : []),
-        // Group by bitacora ID to count unique bitacoras
-        {
-          $group: {
-            _id: '$_id'
-          }
-        },
-        {
-          $count: 'total'
-        }
+          ] : []),
+          { $group: { _id: '$_id' } },
+          { $count: 'total' }
+        ]),
+        // Count by event nombre, map category in JS (no $lookup to eventtypes/lineas/operadores)
+        Bitacora.aggregate([
+          { $match: anomaliaFilter },
+          { $unwind: '$eventos' },
+          { $match: { 'eventos.nombre': { $in: allEventNames } } },
+          ...(lineaTransporte !== 'all' || operador !== 'all' ? [{ $unwind: '$eventos.transportes' }] : []),
+          ...(lineaTransporte !== 'all' ? [{
+            $match: {
+              $expr: {
+                $eq: [
+                  { $toLower: { $trim: { input: '$eventos.transportes.lineaTransporte' } } },
+                  { $toLower: { $trim: { input: lineaTransporte } } }
+                ]
+              }
+            }
+          }] : []),
+          ...(operador !== 'all' ? [{
+            $match: {
+              $expr: {
+                $eq: [
+                  { $toLower: { $trim: { input: '$eventos.transportes.operador' } } },
+                  { $toLower: { $trim: { input: operador } } }
+                ]
+              }
+            }
+          }] : []),
+          { $group: { _id: '$eventos.nombre', count: { $sum: 1 } } }
+        ])
       ]);
 
       totalBitacorasConAnomalias = totalBitacorasConAnomaliasResult.length > 0 ? totalBitacorasConAnomaliasResult[0].total : 0;
 
-      // Now aggregate by event categories with full catalog validation
-      eventCategoriesStats = await Bitacora.aggregate([
-        { $match: bitacoraFilter },
-        { $unwind: '$eventos' },
-        {
-          $match: {
-            'eventos.nombre': {
-              $in: eventTypes.map(et => et.evento)
-            }
-          }
-        },
-        // Unwind the transportes array within each evento
-        { $unwind: '$eventos.transportes' },
-        // Verify that the transport line exists in the official catalog
-        {
-          $lookup: {
-            from: 'lineatransportes',
-            let: {
-              lineaTransporte: '$eventos.transportes.lineaTransporte',
-              cliente: '$cliente'
-            },
-            pipeline: [
-              {
-                $match: {
-                  $expr: {
-                    $and: [
-                      { $eq: [{ $toLower: { $trim: { input: '$nombre' } } }, { $toLower: { $trim: { input: '$$lineaTransporte' } } }] },
-                      { $eq: [{ $toLower: { $trim: { input: '$cliente' } } }, { $toLower: { $trim: { input: '$$cliente' } } }] }
-                    ]
-                  }
-                }
-              }
-            ],
-            as: 'lineaTransporteInfo'
-          }
-        },
-        // Verify that the operator exists in the official catalog and is linked to the transport line
-        {
-          $lookup: {
-            from: 'operadores',
-            let: {
-              operador: '$eventos.transportes.operador',
-              lineaTransporte: '$eventos.transportes.lineaTransporte'
-            },
-            pipeline: [
-              {
-                $match: {
-                  $expr: {
-                    $and: [
-                      { $eq: [{ $toLower: { $trim: { input: '$nombre' } } }, { $toLower: { $trim: { input: '$$operador' } } }] },
-                      { $eq: [{ $toLower: { $trim: { input: '$lineaTransporte' } } }, { $toLower: { $trim: { input: '$$lineaTransporte' } } }] }
-                    ]
-                  }
-                }
-              }
-            ],
-            as: 'operadorInfo'
-          }
-        },
-        // Only include if both transport line and operator exist in the official catalog
-        {
-          $match: {
-            $and: [
-              { 'lineaTransporteInfo': { $ne: [] } },
-              { 'operadorInfo': { $ne: [] } }
-            ]
-          }
-        },
-        {
-          $lookup: {
-            from: 'eventtypes',
-            localField: 'eventos.nombre',
-            foreignField: 'evento',
-            as: 'eventTypeInfo'
-          }
-        },
-        // Group by bitacora ID and category to count unique bitacoras per category
-        {
-          $group: {
-            _id: {
-              bitacoraId: '$_id',
-              categoria: { $arrayElemAt: ['$eventTypeInfo.categoria', 0] }
-            }
-          }
-        },
-        // Now group by category to get the count of unique bitacoras per category
-        {
-          $group: {
-            _id: '$_id.categoria',
-            count: { $sum: 1 }
-          }
-        },
-        { $sort: { count: -1 } }
-      ]);
+      // Map event names to categories in JS using cached map
+      const catCounts = {};
+      for (const stat of rawCategoryStats) {
+        const cat = eventTypeCategoryMap.get(stat._id?.toLowerCase());
+        if (cat) catCounts[cat] = (catCounts[cat] || 0) + stat.count;
+      }
+      eventCategoriesStats = catCounts;
 
-      console.log('=== DEBUG: eventCategoriesStats aggregation completed ===');
-      console.log('Raw eventCategoriesStats:', JSON.stringify(eventCategoriesStats, null, 2));
-
-      // Define colors for each category
-      const categoryColors = {
-        'ENA': '#3b82f6',  // Blue
-        'FM': '#10b981',   // Green
-        'ONC': '#f59e0b',  // Orange
-        'DR': '#ef4444'    // Red
-      };
-
-      // Format the data with colors and ensure all categories are present
-      const allCategories = ['ENA', 'FM', 'ONC', 'DR'];
-      const formattedCategories = allCategories.map(category => {
-        const found = eventCategoriesStats.find(stat => stat._id === category);
-        return {
-          categoria: category,
-          count: found ? found.count : 0,
-          color: categoryColors[category]
-        };
-      });
-
-      eventCategoriesStats = formattedCategories;
+      // Format with colors
+      const categoryColors = { 'ENA': '#3b82f6', 'FM': '#10b981', 'ONC': '#f59e0b', 'DR': '#ef4444' };
+      eventCategoriesStats = ['ENA', 'FM', 'ONC', 'DR'].map(cat => ({
+        categoria: cat,
+        count: eventCategoriesStats[cat] || 0,
+        color: categoryColors[cat]
+      }));
     } catch (error) {
       console.log('Error fetching event categories stats:', error);
       eventCategoriesStats = [];
@@ -6660,172 +6632,89 @@ app.get('/dashboard/bitacoras-anomalias', async (req, res) => {
     }
     */
 
-    // Obtener bitácoras que tengan al menos un evento de categoría diferente a "General"
-    console.log('Starting aggregation for bitacoras con anomalias...');
-    console.log('Final bitacoraFilter:', JSON.stringify(bitacoraFilter, null, 2));
-    console.log('Transport filters:', { lineaTransporte, operador });
+    // Pre-fetch reference data in parallel — avoids per-doc $lookup inside aggregation
+    const [allEventTypes, allOrigens, allDestinos] = await Promise.all([
+      EventType.find({}).lean(),
+      (await import('./models/Origen.js')).default.find({}).lean().catch(() => []),
+      (await import('./models/Destino.js')).default.find({}).lean().catch(() => []),
+    ]);
+
+    // Build in-memory Maps for O(1) resolution
+    const eventTypeCategoryMap = new Map(allEventTypes.map(et => [et.evento?.toLowerCase(), et.categoria]));
+    const anomalyEventNames = allEventTypes
+      .filter(et => et.categoria && et.categoria !== 'General')
+      .map(et => et.evento);
+
+    const origenById = new Map(allOrigens.map(o => [o._id.toString(), o]));
+    const origenByName = new Map(allOrigens.map(o => [o.nombre?.toLowerCase(), o]));
+    const destinoById = new Map(allDestinos.map(d => [d._id.toString(), d]));
+    const destinoByName = new Map(allDestinos.map(d => [d.nombre?.toLowerCase(), d]));
+
     let bitacorasConAnomalias;
     try {
-      console.log('=== DEBUG: /dashboard/bitacoras-anomalias ===');
-      console.log('bitacoraFilter:', JSON.stringify(bitacoraFilter, null, 2));
-
       bitacorasConAnomalias = await Bitacora.aggregate([
         { $match: bitacoraFilter },
+        // Pre-filter to only bitácoras that have at least one anomaly event — avoids full unwind
+        { $match: { 'eventos.nombre': { $in: anomalyEventNames } } },
         { $unwind: '$eventos' },
-        {
-          $lookup: {
-            from: 'eventtypes',
-            localField: 'eventos.nombre',
-            foreignField: 'evento',
-            as: 'eventTypeInfo'
-          }
-        },
-        {
-          $match: {
-            'eventTypeInfo.categoria': { $ne: 'General' }
-          }
-        },
-        {
-          $group: {
-            _id: '$_id',
-            bitacora_id: { $first: '$bitacora_id' },
-            folio_servicio: { $first: '$folio_servicio' },
-            edited_bitacora: { $first: '$edited_bitacora' },
-            cliente: { $first: '$cliente' },
-            linea_transporte: { $first: '$linea_transporte' },
-            operador: { $first: '$operador' },
-            origen: { $first: '$origen' },
-            destino: { $first: '$destino' },
-            status: { $first: '$status' },
-            createdAt: { $first: '$createdAt' },
-            transportes: { $first: '$transportes' },
-            eventos: { $push: '$eventos' },
-            eventTypes: { $push: '$eventTypeInfo' }
-          }
-        },
-        // Apply transport line filter if specified (case-insensitive)
+        // Keep only anomaly events — no $lookup needed, we matched names above
+        { $match: { 'eventos.nombre': { $in: anomalyEventNames } } },
+        // Transport line filter
         ...(lineaTransporte !== 'all' ? [{
           $match: {
             $expr: {
-              $in: [
-                { $toLower: { $trim: { input: lineaTransporte } } },
+              $or: [
                 {
-                  $map: {
-                    input: '$transportes',
-                    as: 'transporte',
-                    in: { $toLower: { $trim: { input: '$$transporte.lineaTransporte' } } }
-                  }
+                  $in: [
+                    { $toLower: { $trim: { input: lineaTransporte } } },
+                    {
+                      $map: {
+                        input: { $ifNull: ['$transportes', []] },
+                        as: 'transporte',
+                        in: { $toLower: { $trim: { input: { $ifNull: ['$$transporte.lineaTransporte', ''] } } } }
+                      }
+                    }
+                  ]
+                },
+                {
+                  $eq: [
+                    { $toLower: { $trim: { input: lineaTransporte } } },
+                    { $toLower: { $trim: { input: { $ifNull: ['$linea_transporte', ''] } } } }
+                  ]
                 }
               ]
             }
           }
         }] : []),
-        // Apply operator filter if specified (case-insensitive)
+        // Operator filter
         ...(operador !== 'all' ? [{
           $match: {
             $expr: {
-              $in: [
-                { $toLower: { $trim: { input: operador } } },
+              $or: [
                 {
-                  $map: {
-                    input: '$transportes',
-                    as: 'transporte',
-                    in: { $toLower: { $trim: { input: '$$transporte.operador' } } }
-                  }
+                  $in: [
+                    { $toLower: { $trim: { input: operador } } },
+                    {
+                      $map: {
+                        input: { $ifNull: ['$transportes', []] },
+                        as: 'transporte',
+                        in: { $toLower: { $trim: { input: { $ifNull: ['$$transporte.operador', ''] } } } }
+                      }
+                    }
+                  ]
+                },
+                {
+                  $eq: [
+                    { $toLower: { $trim: { input: operador } } },
+                    { $toLower: { $trim: { input: { $ifNull: ['$operador', ''] } } } }
+                  ]
                 }
               ]
             }
           }
         }] : []),
-        // Add fields to handle ObjectId conversion for lookups
-        {
-          $addFields: {
-            origenForLookup: {
-              $cond: {
-                if: {
-                  $and: [
-                    { $eq: [{ $type: '$origen' }, 'string'] },
-                    { $regexMatch: { input: '$origen', regex: '^[0-9a-fA-F]{24}$' } }
-                  ]
-                },
-                then: { $toObjectId: '$origen' },
-                else: '$origen'
-              }
-            },
-            destinoForLookup: {
-              $cond: {
-                if: {
-                  $and: [
-                    { $eq: [{ $type: '$destino' }, 'string'] },
-                    { $regexMatch: { input: '$destino', regex: '^[0-9a-fA-F]{24}$' } }
-                  ]
-                },
-                then: { $toObjectId: '$destino' },
-                else: '$destino'
-              }
-            }
-          }
-        },
-        // Lookups with ObjectId conversion
-        {
-          $lookup: {
-            from: 'origens',
-            localField: 'origenForLookup',
-            foreignField: '_id',
-            as: 'origenInfoById'
-          }
-        },
-        {
-          $lookup: {
-            from: 'origens',
-            localField: 'origen',
-            foreignField: 'nombre',
-            as: 'origenInfoByName'
-          }
-        },
-        {
-          $lookup: {
-            from: 'destinos',
-            localField: 'destinoForLookup',
-            foreignField: '_id',
-            as: 'destinoInfoById'
-          }
-        },
-        {
-          $lookup: {
-            from: 'destinos',
-            localField: 'destino',
-            foreignField: 'nombre',
-            as: 'destinoInfoByName'
-          }
-        },
-        // Combine results - prefer _id match over nombre match
-        {
-          $addFields: {
-            origenInfo: {
-              $cond: {
-                if: { $gt: [{ $size: '$origenInfoById' }, 0] },
-                then: '$origenInfoById',
-                else: '$origenInfoByName'
-              }
-            },
-            destinoInfo: {
-              $cond: {
-                if: { $gt: [{ $size: '$destinoInfoById' }, 0] },
-                then: '$destinoInfoById',
-                else: '$destinoInfoByName'
-              }
-            }
-          }
-        },
         { $sort: { createdAt: -1 } }
       ]);
-
-      console.log(`=== DEBUG: Aggregation completed. Found ${bitacorasConAnomalias.length} bitacoras with anomalies.`);
-
-      if (bitacorasConAnomalias.length > 0) {
-        console.log('First bitacora sample:', JSON.stringify(bitacorasConAnomalias[0], null, 2));
-      }
     } catch (aggregationError) {
       console.error('Error in aggregation pipeline:', aggregationError);
       throw new Error(`Aggregation failed: ${aggregationError.message}`);
@@ -6878,105 +6767,107 @@ app.get('/dashboard/bitacoras-anomalias', async (req, res) => {
       return field;
     };
 
-    // Helper function to get transport lines from transportes array
-    const getTransportLines = (transportes) => {
-      if (!transportes || !Array.isArray(transportes) || transportes.length === 0) {
-        return 'N/A';
-      }
+    // Sentinel placeholder values that mean "no data" — stored historically in the DB
+    const SENTINEL_VALUES = new Set(['s/e', 's/n', 'sn', 'na', 'n/a', 's/d', 'nd', 'sin datos', 'sin dato']);
+    const isSentinel = (v) => SENTINEL_VALUES.has(v.toLowerCase().trim());
 
-      const lines = transportes
-        .map(transporte => {
-          // Convert null, undefined, or empty string to 'N/A'
-          if (!transporte.lineaTransporte || transporte.lineaTransporte.trim() === '') {
-            return 'N/A';
-          }
-          return transporte.lineaTransporte;
-        })
-        .filter((line, index, array) => array.indexOf(line) === index); // Remove duplicates
+    // Helper function to get transport lines from transportes array, with top-level field fallback.
+    // Old records stored linea_transporte as a top-level field; newer records store it per-transporte.
+    const getTransportLines = (transportes, topLevelFallback) => {
+      const lines = (transportes || [])
+        .map(t => (t.lineaTransporte || '').trim())
+        .filter(v => v && !isSentinel(v))
+        .filter((v, i, a) => a.indexOf(v) === i); // deduplicate
 
-      return lines.length > 0 ? lines.join(', ') : 'N/A';
+      if (lines.length > 0) return lines.join(', ');
+
+      // Fallback: top-level bitacora.linea_transporte (legacy single-transporte records)
+      const fallback = (topLevelFallback || '').trim();
+      return (fallback && !isSentinel(fallback)) ? fallback : null;
     };
 
-    // Helper function to get transport operators from transportes array
-    const getTransportOperators = (transportes) => {
-      if (!transportes || !Array.isArray(transportes) || transportes.length === 0) {
-        return 'N/A';
-      }
+    // Helper function to get operators from transportes array, with top-level field fallback.
+    const getTransportOperators = (transportes, topLevelFallback) => {
+      const operators = (transportes || [])
+        .map(t => (t.operador || '').trim())
+        .filter(v => v && !isSentinel(v))
+        .filter((v, i, a) => a.indexOf(v) === i); // deduplicate
 
-      const operators = transportes
-        .map(transporte => {
-          // Convert null, undefined, or empty string to 'N/A'
-          if (!transporte.operador || transporte.operador.trim() === '') {
-            return 'N/A';
-          }
-          return transporte.operador;
-        })
-        .filter((operator, index, array) => array.indexOf(operator) === index); // Remove duplicates
+      if (operators.length > 0) return operators.join(', ');
 
-      return operators.length > 0 ? operators.join(', ') : 'N/A';
+      // Fallback: top-level bitacora.operador (legacy single-transporte records)
+      const fallback = (topLevelFallback || '').trim();
+      return (fallback && !isSentinel(fallback)) ? fallback : null;
     };
 
     // Formatear los datos para la respuesta
     const formattedBitacoras = bitacorasConAnomalias.map(bitacora => {
       // Obtener las categorías únicas de eventos para esta bitácora
-      const categorias = [...new Set(bitacora.eventTypes.flat().map(et => et.categoria).filter(cat => cat && cat !== 'General'))];
+      // Each item is one anomaly event (pipeline no longer groups by bitácora)
+      const evento = bitacora.eventos; // single unwound event
+      const categoria = eventTypeCategoryMap.get(evento?.nombre?.toLowerCase());
 
-      // Extract GPS data from anomaly events.
-      // GPS is never stored directly on the event object — it lives inside transportes.
-      // Resolution order (mirrors BitacoraDetail rendering logic):
-      //   1. transporte.gpsData[].data.*   (recorded GPS readings)
-      //   2. transporte.gpsUnits[].data.*  (fallback when gpsData is absent)
-      //   3. transporte.registro.*         (manual or synced fallback)
-      // Scope: event-level transportes first; then bitacora top-level transportes as fallback.
-      const eventos = bitacora.eventos || [];
       const isValid = (v) => v && typeof v === 'string' && v.trim() !== '' && v.trim() !== '--';
 
-      const extractFromTransportes = (transportesList, field, vals) => {
-        for (const t of (transportesList || [])) {
-          // Prefer gpsData readings; fall back to gpsUnits data (same logic as BitacoraDetail)
-          const gpsSrc = (t.gpsData && t.gpsData.length > 0) ? t.gpsData
-                       : (t.gpsUnits && t.gpsUnits.length > 0) ? t.gpsUnits
-                       : [];
-          for (const g of gpsSrc) {
-            if (isValid(g?.data?.[field])) vals.add(g.data[field].trim());
-          }
-          if (isValid(t.registro?.[field])) vals.add(t.registro[field].trim());
-        }
-      };
+      // Build structured GPS readings per transporte unit, preserving unit identity
+      const gpsTransportes = evento?.transportes || [];
+      const gpsReadings = gpsTransportes.map((t) => {
+        const gpsSrc = (t.gpsData && t.gpsData.length > 0) ? t.gpsData
+                     : (t.gpsUnits && t.gpsUnits.length > 0) ? t.gpsUnits
+                     : [];
+        const g = gpsSrc[0]; // most recent reading for this unit
+        const unitName = g?.name || t.gpsUnits?.[0]?.name || t.placa || null;
+        const get = (field) => {
+          const fromG = g?.data?.[field];
+          const fromR = t.registro?.[field];
+          const val = isValid(fromG) ? fromG.trim() : isValid(fromR) ? fromR.trim() : null;
+          return val;
+        };
+        return {
+          unit: unitName,
+          ultimo_posicionamiento: get('ultimo_posicionamiento'),
+          ubicacion: get('ubicacion'),
+          coordenadas: get('coordenadas'),
+          velocidad: get('velocidad'),
+        };
+      }).filter(r => r.ubicacion || r.coordenadas || r.velocidad || r.ultimo_posicionamiento);
 
-      const joinUnique = (field) => {
-        const vals = new Set();
-        // Event-level transportes (snapshot at event creation time)
-        for (const e of eventos) {
-          extractFromTransportes(e.transportes, field, vals);
-        }
-        // Bitacora top-level transportes as fallback (updated throughout monitoring)
-        if (vals.size === 0) {
-          extractFromTransportes(bitacora.transportes, field, vals);
-        }
-        return vals.size > 0 ? [...vals].join(' | ') : null;
+      // Flat joined strings kept for Excel export and legacy filters
+      const joinField = (field) => {
+        const vals = gpsReadings.map(r => r[field]).filter(Boolean);
+        return vals.length > 0 ? vals.join(' | ') : null;
       };
 
       return {
-        _id: bitacora._id,
+        _id: `${bitacora._id}_${evento?._id || evento?.nombre}`,
         bitacora_id: bitacora.bitacora_id,
         folio_servicio: (() => {
           const raw = (bitacora.folio_servicio || bitacora.edited_bitacora?.folio_servicio || '').trim();
-          return raw && raw.toUpperCase() !== 'S/N' ? raw : null;
+          return raw && !isSentinel(raw) ? raw : null;
         })(),
         cliente: getSafeFieldValue(bitacora.cliente),
-        linea_transporte: getTransportLines(bitacora.transportes),
-        operador: getTransportOperators(bitacora.transportes),
-        origen: getLocationName(bitacora.origen, bitacora.origenInfo, 'ORIGEN'),
-        destino: getLocationName(bitacora.destino, bitacora.destinoInfo, 'DESTINO'),
+        linea_transporte: getTransportLines(bitacora.transportes, bitacora.linea_transporte),
+        operador: getTransportOperators(bitacora.transportes, bitacora.operador),
+        origen: (() => {
+          const id = bitacora.origen?.toString();
+          const o = origenById.get(id) || origenByName.get((bitacora.origen || '').toLowerCase());
+          return o ? `${o.nombre}${o.estado ? ', ' + o.estado : ''}`.trim() : getSafeFieldValue(bitacora.origen);
+        })(),
+        destino: (() => {
+          const id = bitacora.destino?.toString();
+          const d = destinoById.get(id) || destinoByName.get((bitacora.destino || '').toLowerCase());
+          return d ? `${d.nombre}${d.estado ? ', ' + d.estado : ''}`.trim() : getSafeFieldValue(bitacora.destino);
+        })(),
         status: getSafeFieldValue(bitacora.status),
         createdAt: bitacora.createdAt,
-        categorias: categorias,
-        totalEventos: bitacora.eventos.length,
-        ultimo_posicionamiento: joinUnique('ultimo_posicionamiento'),
-        ubicacion: joinUnique('ubicacion'),
-        coordenadas: joinUnique('coordenadas'),
-        velocidad: joinUnique('velocidad'),
+        categorias: categoria ? [categoria] : [],
+        eventoNombres: evento?.nombre ? [evento.nombre] : [],
+        totalEventos: 1,
+        gpsReadings,
+        ultimo_posicionamiento: joinField('ultimo_posicionamiento'),
+        ubicacion: joinField('ubicacion'),
+        coordenadas: joinField('coordenadas'),
+        velocidad: joinField('velocidad'),
       };
     });
 
@@ -7342,110 +7233,50 @@ app.get('/dashboard/lineas-transporte-stats', async (req, res) => {
       }
     }
 
-    // Obtener tipos de eventos para categorías
-    const eventTypes = await EventType.find({ categoria: { $in: ['ENA', 'ONC', 'DR', 'FM'] } });
-    const eventNamesByCategory = {};
-    eventTypes.forEach(eventType => {
-      if (!eventNamesByCategory[eventType.categoria]) {
-        eventNamesByCategory[eventType.categoria] = [];
-      }
-      eventNamesByCategory[eventType.categoria].push(eventType.evento);
-    });
-
-    // Agregar filtro para bitácoras con anomalías
+    // Use cached event types (no fresh DB fetch per request)
+    const eventTypes = await getCachedAnomalyEventTypes();
     const allEventNames = eventTypes.map(et => et.evento);
+
+    // Pre-filter bitacoras to only those with anomaly events
     bitacoraFilter['eventos.nombre'] = { $in: allEventNames };
 
-    // Obtener líneas de transporte del modelo LineaTransporte
-    let lineasTransporte = [];
-    if (clientFilter !== 'all') {
-      // Si hay un cliente específico seleccionado, obtener solo las líneas de ese cliente
-      lineasTransporte = await LineaTransporte.find({ cliente: clientFilter }).select('nombre');
-    } else {
-      // Si no hay cliente seleccionado, obtener todas las líneas de transporte
-      lineasTransporte = await LineaTransporte.find({}).select('nombre');
-    }
+    // Fetch reference data in parallel
+    const lineasTransporte = await LineaTransporte.find(
+      clientFilter !== 'all' ? { cliente: clientFilter } : {}
+    ).select('nombre').lean();
 
-    // Obtener estadísticas por línea de transporte usando la misma lógica que bitacoras-anomalias
+    // Optimized pipeline: pre-filter eliminates the unwind+lookup+regroup pattern
     const transportLineStats = await Bitacora.aggregate([
       { $match: bitacoraFilter },
-      { $unwind: '$eventos' },
-      {
-        $lookup: {
-          from: 'eventtypes',
-          localField: 'eventos.nombre',
-          foreignField: 'evento',
-          as: 'eventTypeInfo'
-        }
-      },
+      { $unwind: '$transportes' },
       {
         $match: {
-          'eventTypeInfo.categoria': { $ne: 'General' }
+          'transportes.lineaTransporte': { $exists: true, $nin: [null, '', 'N/A'] }
         }
       },
-      {
-        $group: {
-          _id: '$_id',
-          bitacora_id: { $first: '$bitacora_id' },
-          cliente: { $first: '$cliente' },
-          transportes: { $first: '$transportes' },
-          eventos: { $push: '$eventos' },
-          eventTypes: { $push: '$eventTypeInfo' }
-        }
-      },
-      // Apply transport line filter if specified (case-insensitive)
       ...(lineaTransporte !== 'all' ? [{
         $match: {
           $expr: {
-            $in: [
-              { $toLower: { $trim: { input: lineaTransporte } } },
-              {
-                $map: {
-                  input: '$transportes',
-                  as: 'transporte',
-                  in: { $toLower: { $trim: { input: '$$transporte.lineaTransporte' } } }
-                }
-              }
+            $eq: [
+              { $toLower: { $trim: { input: '$transportes.lineaTransporte' } } },
+              { $toLower: { $trim: { input: lineaTransporte } } }
             ]
           }
         }
       }] : []),
-      // Apply operator filter if specified (case-insensitive)
       ...(operador !== 'all' ? [{
         $match: {
           $expr: {
-            $in: [
-              { $toLower: { $trim: { input: operador } } },
-              {
-                $map: {
-                  input: '$transportes',
-                  as: 'transporte',
-                  in: { $toLower: { $trim: { input: '$$transporte.operador' } } }
-                }
-              }
+            $eq: [
+              { $toLower: { $trim: { input: '$transportes.operador' } } },
+              { $toLower: { $trim: { input: operador } } }
             ]
           }
         }
       }] : []),
-      // Unwind transportes to get individual transport lines
-      { $unwind: '$transportes' },
-      // Filter out invalid transport lines
-      {
-        $match: {
-          'transportes.lineaTransporte': {
-            $exists: true,
-            $ne: null,
-            $ne: '',
-            $ne: 'N/A'
-          }
-        }
-      },
       {
         $group: {
-          _id: {
-            lineaTransporte: '$transportes.lineaTransporte',
-            cliente: '$cliente'
-          },
+          _id: { lineaTransporte: '$transportes.lineaTransporte', cliente: '$cliente' },
           anomalias: { $sum: 1 },
           bitacoras: { $addToSet: '$_id' }
         }
@@ -7639,109 +7470,54 @@ app.get('/dashboard/operadores-stats', async (req, res) => {
       }
     }
 
-    // Obtener tipos de eventos para categorías
-    const eventTypes = await EventType.find({ categoria: { $in: ['ENA', 'ONC', 'DR', 'FM'] } });
-    const eventNamesByCategory = {};
-    eventTypes.forEach(eventType => {
-      if (!eventNamesByCategory[eventType.categoria]) {
-        eventNamesByCategory[eventType.categoria] = [];
-      }
-      eventNamesByCategory[eventType.categoria].push(eventType.evento);
-    });
-
-    // Agregar filtro para bitácoras con anomalías
+    // Use cached event types (no fresh DB fetch per request)
+    const eventTypes = await getCachedAnomalyEventTypes();
     const allEventNames = eventTypes.map(et => et.evento);
+
+    // Pre-filter bitacoras to only those with anomaly events
     bitacoraFilter['eventos.nombre'] = { $in: allEventNames };
 
-    // Obtener operadores del modelo Operador
+    // Fetch operadores reference data
     let operadores = [];
     if (lineaTransporte !== 'all') {
-      // Si hay una línea de transporte específica seleccionada, obtener solo los operadores de esa línea
-      operadores = await Operador.find({ lineaTransporte: lineaTransporte }).select('nombre');
+      operadores = await Operador.find({ lineaTransporte: lineaTransporte }).select('nombre').lean();
     } else if (clientFilter !== 'all') {
-      // Si no hay línea de transporte seleccionada pero sí hay cliente, obtener todas las líneas del cliente
-      const lineasDelCliente = await LineaTransporte.find({ cliente: clientFilter }).select('nombre');
+      const lineasDelCliente = await LineaTransporte.find({ cliente: clientFilter }).select('nombre').lean();
       const nombresLineas = lineasDelCliente.map(lt => lt.nombre);
-      operadores = await Operador.find({ lineaTransporte: { $in: nombresLineas } }).select('nombre');
+      operadores = await Operador.find({ lineaTransporte: { $in: nombresLineas } }).select('nombre').lean();
     } else {
-      // Si no hay filtros aplicados, obtener todos los operadores
-      operadores = await Operador.find({}).select('nombre');
+      operadores = await Operador.find({}).select('nombre').lean();
     }
 
-    // Obtener estadísticas por operador usando la misma lógica que bitacoras-anomalias
+    // Optimized pipeline: pre-filter eliminates the unwind+lookup+regroup pattern
     const operatorStats = await Bitacora.aggregate([
       { $match: bitacoraFilter },
-      { $unwind: '$eventos' },
-      {
-        $lookup: {
-          from: 'eventtypes',
-          localField: 'eventos.nombre',
-          foreignField: 'evento',
-          as: 'eventTypeInfo'
-        }
-      },
+      { $unwind: '$transportes' },
       {
         $match: {
-          'eventTypeInfo.categoria': { $ne: 'General' }
+          'transportes.operador': { $exists: true, $nin: [null, '', 'N/A'] }
         }
       },
-      {
-        $group: {
-          _id: '$_id',
-          bitacora_id: { $first: '$bitacora_id' },
-          cliente: { $first: '$cliente' },
-          transportes: { $first: '$transportes' },
-          eventos: { $push: '$eventos' },
-          eventTypes: { $push: '$eventTypeInfo' }
-        }
-      },
-      // Apply transport line filter if specified (case-insensitive)
       ...(lineaTransporte !== 'all' ? [{
         $match: {
           $expr: {
-            $in: [
-              { $toLower: { $trim: { input: lineaTransporte } } },
-              {
-                $map: {
-                  input: '$transportes',
-                  as: 'transporte',
-                  in: { $toLower: { $trim: { input: '$$transporte.lineaTransporte' } } }
-                }
-              }
+            $eq: [
+              { $toLower: { $trim: { input: '$transportes.lineaTransporte' } } },
+              { $toLower: { $trim: { input: lineaTransporte } } }
             ]
           }
         }
       }] : []),
-      // Apply operator filter if specified (case-insensitive)
       ...(operador !== 'all' ? [{
         $match: {
           $expr: {
-            $in: [
-              { $toLower: { $trim: { input: operador } } },
-              {
-                $map: {
-                  input: '$transportes',
-                  as: 'transporte',
-                  in: { $toLower: { $trim: { input: '$$transporte.operador' } } }
-                }
-              }
+            $eq: [
+              { $toLower: { $trim: { input: '$transportes.operador' } } },
+              { $toLower: { $trim: { input: operador } } }
             ]
           }
         }
       }] : []),
-      // Unwind transportes to get individual operators
-      { $unwind: '$transportes' },
-      // Filter out invalid operators
-      {
-        $match: {
-          'transportes.operador': {
-            $exists: true,
-            $ne: null,
-            $ne: '',
-            $ne: 'N/A'
-          }
-        }
-      },
       {
         $group: {
           _id: {
@@ -7916,77 +7692,20 @@ app.get('/dashboard/event-categories-stats', async (req, res) => {
       ];
     }
 
-    // Obtener tipos de eventos para categorías
-    const eventTypes = await EventType.find({ categoria: { $in: ['ENA', 'ONC', 'DR', 'FM'] } });
+    // Use cached event types + build category map (no fresh DB fetch)
+    const eventTypes = await getCachedAnomalyEventTypes();
     const allEventNames = eventTypes.map(et => et.evento);
+    const eventTypeCategoryMap = new Map(eventTypes.map(et => [et.evento?.toLowerCase(), et.categoria]));
 
-    // Agregar filtro para bitácoras con anomalías
+    // Pre-filter to bitacoras with anomaly events
     bitacoraFilter['eventos.nombre'] = { $in: allEventNames };
 
-    // Obtener estadísticas por categoría de evento con validación de catálogo
-    const eventCategoryStats = await Bitacora.aggregate([
+    // Aggregate by event nombre — no $lookup to eventtypes/lineatransportes/operadores
+    const rawCategoryStats = await Bitacora.aggregate([
       { $match: bitacoraFilter },
       { $unwind: '$eventos' },
-      {
-        $match: {
-          'eventos.nombre': { $in: allEventNames }
-        }
-      },
-      // Unwind the transportes array within each evento
-      { $unwind: '$eventos.transportes' },
-      // Verify that the transport line exists in the official catalog
-      {
-        $lookup: {
-          from: 'lineatransportes',
-          let: {
-            lineaTransporte: '$eventos.transportes.lineaTransporte',
-            cliente: '$cliente'
-          },
-          pipeline: [
-            {
-              $match: {
-                $expr: {
-                  $and: [
-                    { $eq: [{ $toLower: { $trim: { input: '$nombre' } } }, { $toLower: { $trim: { input: '$$lineaTransporte' } } }] },
-                    { $eq: [{ $toLower: { $trim: { input: '$cliente' } } }, { $toLower: { $trim: { input: '$$cliente' } } }] }
-                  ]
-                }
-              }
-            }
-          ],
-          as: 'lineaTransporteInfo'
-        }
-      },
-      // Verify that the operator exists in the official catalog and is linked to the transport line
-      {
-        $lookup: {
-          from: 'operadores',
-          let: {
-            operador: '$eventos.transportes.operador',
-            lineaTransporte: '$eventos.transportes.lineaTransporte'
-          },
-          pipeline: [
-            {
-              $match: {
-                $expr: {
-                  $and: [
-                    { $eq: [{ $toLower: { $trim: { input: '$nombre' } } }, { $toLower: { $trim: { input: '$$operador' } } }] },
-                    { $eq: [{ $toLower: { $trim: { input: '$lineaTransporte' } } }, { $toLower: { $trim: { input: '$$lineaTransporte' } } }] }
-                  ]
-                }
-              }
-            }
-          ],
-          as: 'operadorInfo'
-        }
-      },
-      // Only include records where transport line exists in catalog (less restrictive)
-      {
-        $match: {
-          lineaTransporteInfo: { $ne: [] }
-        }
-      },
-      // Apply transport line filter if specified
+      { $match: { 'eventos.nombre': { $in: allEventNames } } },
+      ...(lineaTransporte !== 'all' || operador !== 'all' ? [{ $unwind: '$eventos.transportes' }] : []),
       ...(lineaTransporte !== 'all' ? [{
         $match: {
           $expr: {
@@ -7997,7 +7716,6 @@ app.get('/dashboard/event-categories-stats', async (req, res) => {
           }
         }
       }] : []),
-      // Apply operator filter if specified
       ...(operador !== 'all' ? [{
         $match: {
           $expr: {
@@ -8008,22 +7726,16 @@ app.get('/dashboard/event-categories-stats', async (req, res) => {
           }
         }
       }] : []),
-      {
-        $lookup: {
-          from: 'eventtypes',
-          localField: 'eventos.nombre',
-          foreignField: 'evento',
-          as: 'eventTypeInfo'
-        }
-      },
-      {
-        $group: {
-          _id: { $arrayElemAt: ['$eventTypeInfo.categoria', 0] },
-          count: { $sum: 1 }
-        }
-      },
-      { $sort: { count: -1 } }
+      { $group: { _id: '$eventos.nombre', count: { $sum: 1 } } }
     ]);
+
+    // Map event names to categories in JS
+    const catCounts = {};
+    for (const stat of rawCategoryStats) {
+      const cat = eventTypeCategoryMap.get(stat._id?.toLowerCase());
+      if (cat) catCounts[cat] = (catCounts[cat] || 0) + stat.count;
+    }
+    const eventCategoryStats = catCounts;
 
     // Define colors for each category
     const categoryColors = {
@@ -8033,27 +7745,12 @@ app.get('/dashboard/event-categories-stats', async (req, res) => {
       'DR': '#ef4444'   // Red
     };
 
-    // Format the data with colors and ensure all categories are present
-    const allCategories = ['ENA', 'FM', 'ONC', 'DR'];
-    const formattedCategories = allCategories.map(category => {
-      const found = eventCategoryStats.find(stat => stat._id === category);
-      return {
-        categoria: category,
-        count: found ? found.count : 0,
-        color: categoryColors[category]
-      };
-    });
-
-    // Debug logging
-    console.log('[DEBUG] Event categories endpoint:', {
-      clientFilter,
-      lineaTransporte,
-      operador,
-      eventCategoryStatsCount: eventCategoryStats.length,
-      formattedCategoriesCount: formattedCategories.length,
-      eventCategoryStatsRaw: eventCategoryStats,
-      formattedCategories
-    });
+    // Format with colors
+    const formattedCategories = ['ENA', 'FM', 'ONC', 'DR'].map(cat => ({
+      categoria: cat,
+      count: eventCategoryStats[cat] || 0,
+      color: categoryColors[cat]
+    }));
 
     res.status(200).json(formattedCategories);
   } catch (error) {
@@ -8866,6 +8563,19 @@ app.get("/control-patios/dashboard-summary", async (req, res) => {
     const distinctPlates = await ControlPatios.distinct("placa", baseQuery);
     const distinctLineas = await ControlPatios.distinct("linea_transporte", baseQuery);
 
+    // Remolque stats
+    const remolqueQuery = {};
+    if (baseQuery.cliente) remolqueQuery.cliente = baseQuery.cliente;
+    if (baseQuery.fecha_hora_inicio) remolqueQuery.fecha_hora_entrada = baseQuery.fecha_hora_inicio;
+
+    const remolques = await RemolqueVisita.find(remolqueQuery).sort({ fecha_hora_entrada: -1 });
+    const remolquesEnPatio = remolques.filter(r => r.status === "En patio").length;
+    const tractoresEnPatio = movements.filter(m => m.status === "En patio").length;
+    const conCambioRemolque = movements.filter(m => m.hubo_cambio_remolque === true).length;
+    const sinCambioRemolque = movements.filter(m => m.hubo_cambio_remolque === false).length;
+
+    const distinctRemolquePlates = await RemolqueVisita.distinct("placa", remolqueQuery);
+
     res.json({
       totalRecords,
       anomaliesCount,
@@ -8876,7 +8586,13 @@ app.get("/control-patios/dashboard-summary", async (req, res) => {
       entryEvents,
       exitEvents,
       distinctPlates,
-      distinctLineas
+      distinctLineas,
+      remolques,
+      remolquesEnPatio,
+      tractoresEnPatio,
+      conCambioRemolque,
+      sinCambioRemolque,
+      distinctRemolquePlates,
     });
   } catch (err) {
     console.error("Error in dashboard-summary:", err);
@@ -8907,49 +8623,60 @@ app.patch("/patio-anomalies/:id/resolve", async (req, res) => {
 
 app.post("/control-patios", async (req, res) => {
   try {
-    const { placa, linea_transporte, fecha_hora_inicio, cliente, confidence, image_preview, source } = req.body;
+    const { placa, placa_remolque, remolque_linea_transporte, linea_transporte, fecha_hora_inicio, cliente, confidence, image_preview, source } = req.body;
     const usuario_registro = req.session?.user?.email || "Unknown";
+    const entryDate = fecha_hora_inicio ? new Date(fecha_hora_inicio) : new Date();
 
-    // 1. Check for anomalies (Duplicate plate currently in patio)
+    // 1. Check for anomalies (duplicate tractor plate in patio)
     const existing = await ControlPatios.findOne({ placa: placa.toUpperCase(), status: "En patio" });
-    let anomaly_flag = false;
-    
+
     const record = new ControlPatios({
       placa,
       linea_transporte,
-      fecha_hora_inicio: fecha_hora_inicio || new Date(),
+      fecha_hora_inicio: entryDate,
       cliente,
       usuario_registro,
       confidence,
       image_preview,
-      movement_type: "cycle"
+      movement_type: "cycle",
+      anomaly_flag: !!existing,
     });
-
-    if (existing) {
-      anomaly_flag = true;
-      record.anomaly_flag = true;
-    }
 
     await record.save();
 
-    // 2. Create Entry Event
-    const entryEvent = new PatioEntryEvent({
-      plate: placa.toUpperCase(),
-      entry_datetime: record.fecha_hora_inicio,
-      source: source || "Manual"
-    });
-    await entryEvent.save();
+    // 2. Create remolque visit if trailer plate provided
+    if (placa_remolque && placa_remolque.trim()) {
+      const remolqueRecord = new RemolqueVisita({
+        placa: placa_remolque.trim(),
+        linea_transporte: remolque_linea_transporte || null,
+        cliente,
+        fecha_hora_entrada: entryDate,
+        tractor_entrada_id: record._id,
+        tractor_entrada_placa: placa.toUpperCase(),
+      });
+      await remolqueRecord.save();
 
-    // 3. Create anomaly if duplicate
+      record.placa_remolque_entrada = placa_remolque.trim().toUpperCase();
+      record.remolque_entrada_id = remolqueRecord._id;
+      await record.save();
+    }
+
+    // 3. Create Entry Event
+    await new PatioEntryEvent({
+      plate: placa.toUpperCase(),
+      entry_datetime: entryDate,
+      source: source || "Manual",
+    }).save();
+
+    // 4. Create anomaly if duplicate
     if (existing) {
-      const anomaly = new PatioAnomaly({
+      await new PatioAnomaly({
         movement_id: record._id,
         plate: placa.toUpperCase(),
         anomaly_type: "duplicate_plate",
         severity: "medium",
-        description: `Vehículo con placa ${placa} ya se encuentra registrado en el patio.`
-      });
-      await anomaly.save();
+        description: `Vehículo con placa ${placa} ya se encuentra registrado en el patio.`,
+      }).save();
     }
 
     res.status(201).json(record);
@@ -8978,41 +8705,70 @@ app.get("/control-patios", async (req, res) => {
 app.patch("/control-patios/:id/salida", async (req, res) => {
   try {
     const { id } = req.params;
-    const { fecha_hora_salida, source } = req.body;
+    // remolque_exit: "same" | "different" | "none"
+    // remolque_salida_id: ObjectId of the RemolqueVisita that's leaving with this tractor
+    const { fecha_hora_salida, source, remolque_exit, remolque_salida_id } = req.body;
 
     const record = await ControlPatios.findById(id);
     if (!record) return res.status(404).json({ error: "Record not found" });
 
-    record.fecha_hora_salida = fecha_hora_salida || new Date();
-    
+    const exitDate = fecha_hora_salida ? new Date(fecha_hora_salida) : new Date();
+    record.fecha_hora_salida = exitDate;
+
     // Calculate stay seconds
-    if (record.fecha_hora_inicio && record.fecha_hora_salida) {
-      const diff = new Date(record.fecha_hora_salida).getTime() - new Date(record.fecha_hora_inicio).getTime();
-      record.stay_seconds = Math.floor(diff / 1000);
-      
-      // Anomaly: Unusual duration (e.g., > 24 hours or < 1 minute)
-      if (record.stay_seconds > 86400 || record.stay_seconds < 60) {
-        record.anomaly_flag = true;
-        const anomaly = new PatioAnomaly({
-          movement_id: record._id,
-          plate: record.placa,
-          anomaly_type: "unusual_duration",
-          severity: "low",
-          description: `Duración de estadía inusual: ${record.stay_seconds < 60 ? `${record.stay_seconds} segundos` : `${Math.floor(record.stay_seconds / 60)} minutos`}.`
-        });
-        await anomaly.save();
+    const diff = exitDate.getTime() - new Date(record.fecha_hora_inicio).getTime();
+    record.stay_seconds = Math.floor(diff / 1000);
+
+    if (record.stay_seconds > 86400 || record.stay_seconds < 60) {
+      record.anomaly_flag = true;
+      await new PatioAnomaly({
+        movement_id: record._id,
+        plate: record.placa,
+        anomaly_type: "unusual_duration",
+        severity: "low",
+        description: `Duración de estadía inusual: ${record.stay_seconds < 60 ? `${record.stay_seconds} segundos` : `${Math.floor(record.stay_seconds / 60)} minutos`}.`,
+      }).save();
+    }
+
+    // Handle remolque exit logic
+    if (remolque_exit === "none") {
+      // Tractor leaves without any trailer
+      record.placa_remolque_salida = null;
+      record.remolque_salida_id = null;
+      record.hubo_cambio_remolque = record.remolque_entrada_id ? true : null;
+    } else if (remolque_exit === "same" && record.remolque_entrada_id) {
+      // Tractor leaves with the same trailer it came in with
+      const remolque = await RemolqueVisita.findById(record.remolque_entrada_id);
+      if (remolque) {
+        remolque.fecha_hora_salida = exitDate;
+        remolque.tractor_salida_id = record._id;
+        remolque.tractor_salida_placa = record.placa;
+        await remolque.save();
       }
+      record.placa_remolque_salida = record.placa_remolque_entrada;
+      record.remolque_salida_id = record.remolque_entrada_id;
+      record.hubo_cambio_remolque = false;
+    } else if (remolque_exit === "different" && remolque_salida_id) {
+      // Tractor leaves with a different trailer
+      const remolque = await RemolqueVisita.findById(remolque_salida_id);
+      if (remolque) {
+        remolque.fecha_hora_salida = exitDate;
+        remolque.tractor_salida_id = record._id;
+        remolque.tractor_salida_placa = record.placa;
+        await remolque.save();
+      }
+      record.placa_remolque_salida = remolque ? remolque.placa : null;
+      record.remolque_salida_id = remolque_salida_id;
+      record.hubo_cambio_remolque = true;
     }
 
     await record.save();
 
-    // Create Exit Event
-    const exitEvent = new PatioExitEvent({
+    await new PatioExitEvent({
       plate: record.placa,
-      exit_datetime: record.fecha_hora_salida,
-      source: source || "Manual"
-    });
-    await exitEvent.save();
+      exit_datetime: exitDate,
+      source: source || "Manual",
+    }).save();
 
     res.json(record);
   } catch (err) {
@@ -9051,6 +8807,67 @@ app.delete("/control-patios/:id", async (req, res) => {
     res.json({ message: "Record deleted successfully" });
   } catch (err) {
     console.error("Error deleting control-patios record:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── Remolque Visitas ──────────────────────────────────────────────────────────
+
+app.get("/remolque-visitas", async (req, res) => {
+  try {
+    const { cliente, status } = req.query;
+    const query = {};
+    if (cliente && cliente !== "all") query.cliente = cliente;
+    if (status) query.status = status;
+    const records = await RemolqueVisita.find(query).sort({ fecha_hora_entrada: -1 });
+    res.json(records);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post("/remolque-visitas", async (req, res) => {
+  try {
+    const { placa, linea_transporte, cliente, fecha_hora_entrada, tractor_entrada_id, tractor_entrada_placa } = req.body;
+    const record = new RemolqueVisita({
+      placa,
+      linea_transporte,
+      cliente,
+      fecha_hora_entrada: fecha_hora_entrada || new Date(),
+      tractor_entrada_id: tractor_entrada_id || null,
+      tractor_entrada_placa: tractor_entrada_placa || null,
+    });
+    await record.save();
+    res.status(201).json(record);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.patch("/remolque-visitas/:id/salida", async (req, res) => {
+  try {
+    const { fecha_hora_salida, tractor_salida_id, tractor_salida_placa, placa_confirmada, linea_transporte } = req.body;
+    const record = await RemolqueVisita.findById(req.params.id);
+    if (!record) return res.status(404).json({ error: "Remolque record not found" });
+
+    record.fecha_hora_salida = fecha_hora_salida ? new Date(fecha_hora_salida) : new Date();
+    if (tractor_salida_id) record.tractor_salida_id = tractor_salida_id;
+    if (tractor_salida_placa) record.tractor_salida_placa = tractor_salida_placa;
+    if (placa_confirmada) record.placa = placa_confirmada.toUpperCase().trim();
+    if (linea_transporte) record.linea_transporte = linea_transporte;
+    await record.save();
+    res.json(record);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete("/remolque-visitas/:id", async (req, res) => {
+  try {
+    const deleted = await RemolqueVisita.findByIdAndDelete(req.params.id);
+    if (!deleted) return res.status(404).json({ error: "Record not found" });
+    res.json({ message: "Deleted successfully" });
+  } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });

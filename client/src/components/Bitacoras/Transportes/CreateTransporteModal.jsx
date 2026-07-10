@@ -143,8 +143,7 @@ const CreateTransporteModal = ({show, handleClose, addTransporte, transportes, b
     }
   };
 
-  const handleSubmitTransporte = async (e) => {
-    e.preventDefault();
+  const doSave = async () => {
     if (transporteData.telefono && !validatePhoneNumber(transporteData.telefono)) {
       setPhoneError("El número debe tener exactamente 10 dígitos");
       return;
@@ -217,6 +216,8 @@ const CreateTransporteModal = ({show, handleClose, addTransporte, transportes, b
     setDraftOperadorText("");
     handleClose();
   };
+
+  const handleSubmitTransporte = (e) => { e.preventDefault(); };
 
   // ── Step content renderers ─────────────────────────────────────
 
@@ -490,7 +491,7 @@ const CreateTransporteModal = ({show, handleClose, addTransporte, transportes, b
             : <><i className="fa-solid fa-arrow-left me-1"></i>Anterior</>}
         </button>
         {isLastStep ? (
-          <button type="submit" className="btn btn-success">
+          <button type="button" className="btn btn-success" onClick={doSave}>
             <i className="fa-solid fa-check me-1"></i>Guardar
           </button>
         ) : (

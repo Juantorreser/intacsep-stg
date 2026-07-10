@@ -56,6 +56,11 @@ const ControlPatiosSchema = new mongoose.Schema(
       enum: ["entry", "exit", "cycle"],
       default: "cycle",
     },
+    placa_remolque_entrada: { type: String, uppercase: true, trim: true, default: null },
+    remolque_entrada_id: { type: mongoose.Schema.Types.ObjectId, ref: "RemolqueVisita", default: null },
+    placa_remolque_salida: { type: String, uppercase: true, trim: true, default: null },
+    remolque_salida_id: { type: mongoose.Schema.Types.ObjectId, ref: "RemolqueVisita", default: null },
+    hubo_cambio_remolque: { type: Boolean, default: null },
   },
   { timestamps: true }
 );

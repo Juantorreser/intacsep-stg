@@ -357,24 +357,39 @@ const UsersPage = () => {
             </select>
           </div>
           <div className="mb-3">
-            <label htmlFor="inactivityTimeout" className="form-label">
-              Tiempo de inactividad personal (Minutos)
-            </label>
-            <input
-              type="number"
-              className="form-control"
-              id="inactivityTimeout"
-              min={0}
-              value={formData.inactivityTimeout ?? ""}
-              onChange={handleChange}
-              placeholder="Vacío = usar configuración global"
-            />
+            <label className="form-label">Tiempo de inactividad personal</label>
+
+            <div className="form-check mb-2">
+              <input
+                className="form-check-input"
+                type="checkbox"
+                id="infiniteSession"
+                checked={formData.inactivityTimeout === 0}
+                onChange={(e) => setFormData(prev => ({ ...prev, inactivityTimeout: e.target.checked ? 0 : "" }))}
+              />
+              <label className="form-check-label" htmlFor="infiniteSession">
+                Sesión infinita — nunca expirará por inactividad
+              </label>
+            </div>
+
+            {formData.inactivityTimeout !== 0 && (
+              <input
+                type="number"
+                className="form-control"
+                id="inactivityTimeout"
+                min={1}
+                value={formData.inactivityTimeout ?? ""}
+                onChange={handleChange}
+                placeholder="Vacío = usar configuración global"
+              />
+            )}
+
             <div className="form-text">
-              {Number(formData.inactivityTimeout) === 0
-                ? "Sesión infinita — nunca expirará por inactividad"
+              {formData.inactivityTimeout === 0
+                ? "Este usuario nunca será desconectado por inactividad."
                 : Number(formData.inactivityTimeout) > 0
-                  ? `Sesión expirará tras ${formData.inactivityTimeout} min de inactividad`
-                  : "Vacío o sin valor = usará la configuración global del sistema"}
+                  ? `La sesión expirará tras ${formData.inactivityTimeout} min de inactividad.`
+                  : "Sin valor personal — usará la configuración global del sistema."}
             </div>
           </div>
         </ModalTemplate>

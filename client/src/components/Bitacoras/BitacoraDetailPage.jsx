@@ -1046,25 +1046,16 @@ const BitacoraDetailPage = ({edited}) => {
     }
   }, [editedTransporte?.lineaTransporte, isEditTransporteModalVisible]);
 
-  // useEffect to handle operador validation when lineaTransporte changes
+  // useEffect to validate operador when the operadores list is refreshed
   useEffect(() => {
-    if (
-      isEditTransporteModalVisible &&
-      editedTransporte?.lineaTransporte &&
-      editedTransporte?.operador
-    ) {
-      // Check if current operador is still valid for the new lineaTransporte
-      const currentOperador = editedTransporte.operador;
-      const isOperadorValid = operadores.some((op) => op.nombre === currentOperador);
-
-      if (!isOperadorValid) {
-        console.log("Current operador is not valid for the new lineaTransporte, resetting");
-        setEditedTransporte((prev) => ({
-          ...prev,
-          operador: "",
-        }));
-      }
-    }
+    if (!isEditTransporteModalVisible) return;
+    // Use functional updater to avoid stale closure on editedTransporte
+    setEditedTransporte((prev) => {
+      if (!prev?.lineaTransporte || !prev?.operador) return prev;
+      const isOperadorValid = operadores.some((op) => op.nombre === prev.operador);
+      if (!isOperadorValid) return { ...prev, operador: "" };
+      return prev;
+    });
   }, [operadores, isEditTransporteModalVisible]);
 
   const token = import.meta.env.VITE_WIALON_TOKEN;
@@ -2603,7 +2594,7 @@ const BitacoraDetailPage = ({edited}) => {
                       setEditDraftLineaText("");
                       setOperadores([]);
                       setEditedTransporte((prev) => ({ ...prev, lineaTransporte: selectedLinea, operador: "" }));
-                      if (selectedLinea && selectedLinea !== "all") fetchOperadores(selectedLinea);
+                      // fetch is handled by the useEffect watching editedTransporte.lineaTransporte
                     }}>
                     <option value="">Selecciona una línea de transporte</option>
                     {lineasTransporte.map((linea) => (
@@ -2623,7 +2614,7 @@ const BitacoraDetailPage = ({edited}) => {
                         setEditDraftLineaText(val);
                         setOperadores([]);
                         setEditedTransporte((prev) => ({ ...prev, lineaTransporte: val, operador: "" }));
-                        if (val) fetchOperadores(val);
+                        // fetch handled by useEffect watching editedTransporte.lineaTransporte
                       }}
                     />
                   )}

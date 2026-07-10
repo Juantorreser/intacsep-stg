@@ -31,6 +31,7 @@ import ReporteEventosPage from "./components/ReporteEventosPage";
 import ReporteEstadisticasPage from "./components/ReporteEstadisticasPage";
 import PlacaTestPage from "./components/PlacaTest/PlacaTestPage";
 import ControlPatiosDashboard from "./components/PlacaTest/ControlPatiosDashboard";
+import ReporteControlPatiosPage from "./components/PlacaTest/ReporteControlPatiosPage";
 
 function App() {
   return (
@@ -65,6 +66,7 @@ function App() {
         <Route path="/reporte-estadisticas" element={<ReporteEstadisticasPage />} />
         <Route path="/placa-test" element={<PlacaTestPage />} />
         <Route path="/reporte-control-patios" element={<ControlPatiosDashboard />} />
+        <Route path="/reporte-detalle-patios" element={<ReporteControlPatiosPage />} />
       </Routes>
     </SidebarProvider>
   );

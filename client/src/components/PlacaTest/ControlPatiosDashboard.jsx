@@ -95,7 +95,13 @@ const ControlPatiosDashboard = () => {
     movements: [],
     entryEvents: [],
     exitEvents: [],
-    distinctPlates: []
+    distinctPlates: [],
+    distinctRemolquePlates: [],
+    remolques: [],
+    remolquesEnPatio: 0,
+    tractoresEnPatio: 0,
+    conCambioRemolque: 0,
+    sinCambioRemolque: 0,
   });
   
   const [selectedPlates, setSelectedPlates] = useState([]);
@@ -190,7 +196,10 @@ const ControlPatiosDashboard = () => {
       return;
     }
     const exportData = filteredMovements.map((m) => ({
-      Placa: m.placa ? m.placa.toUpperCase() : "—",
+      "Placa Camión": m.placa ? m.placa.toUpperCase() : "—",
+      "Remolque Entrada": m.placa_remolque_entrada || "—",
+      "Remolque Salida": m.placa_remolque_salida || (m.fecha_hora_salida ? "Sin remolque" : "—"),
+      "Cambio Remolque": m.hubo_cambio_remolque === true ? "Sí" : m.hubo_cambio_remolque === false ? "No" : "—",
       "Línea de Transporte": m.linea_transporte || "—",
       Entrada: m.fecha_hora_inicio ? `${formatDate(m.fecha_hora_inicio)} ${formatTime(m.fecha_hora_inicio)}` : "—",
       Salida: m.fecha_hora_salida ? `${formatDate(m.fecha_hora_salida)} ${formatTime(m.fecha_hora_salida)}` : "En patio",
@@ -292,9 +301,12 @@ const ControlPatiosDashboard = () => {
     // Table of Movements
     doc.autoTable({
       startY: 92,
-      head: [["Placa", "Línea de Transporte", "Entrada", "Salida", "Duración", "Estado"]],
+      head: [["Placa Camión", "Rem. Entrada", "Rem. Salida", "Cambio", "Línea", "Entrada", "Salida", "Duración", "Estado"]],
       body: filteredMovements.map(m => [
         m.placa ? m.placa.toUpperCase() : "—",
+        m.placa_remolque_entrada || "—",
+        m.placa_remolque_salida || (m.fecha_hora_salida ? "Sin remolque" : "—"),
+        m.hubo_cambio_remolque === true ? "Sí" : m.hubo_cambio_remolque === false ? "No" : "—",
         m.linea_transporte || "—",
         m.fecha_hora_inicio ? `${formatDate(m.fecha_hora_inicio)} ${formatTime(m.fecha_hora_inicio)}` : "—",
         m.fecha_hora_salida ? `${formatDate(m.fecha_hora_salida)} ${formatTime(m.fecha_hora_salida)}` : "En patio",
@@ -318,8 +330,19 @@ const ControlPatiosDashboard = () => {
   };
 
   const columns = [
-    { key: "placa", header: "Placa", className: "fw-bold text-uppercase" },
-    { key: "linea_transporte", header: "Línea de Transporte" },
+    { key: "placa", header: "Placa Camión", className: "fw-bold text-uppercase" },
+    { key: "placa_remolque_entrada", header: "Remolque entrada", render: (row) => row.placa_remolque_entrada || <span className="text-muted">—</span> },
+    { key: "placa_remolque_salida", header: "Remolque salida", render: (row) => row.placa_remolque_salida || (row.fecha_hora_salida ? <span className="text-muted small">Sin remolque</span> : <span className="text-muted">—</span>) },
+    {
+      key: "swap",
+      header: "Cambio",
+      render: (row) => {
+        if (row.hubo_cambio_remolque === true) return <span className="badge bg-warning text-dark">Cambio remolque</span>;
+        if (row.hubo_cambio_remolque === false) return <span className="badge bg-success">Salió igual</span>;
+        return row.placa_remolque_entrada ? <span className="badge bg-secondary">En patio</span> : <span className="text-muted small">Sin remolque</span>;
+      },
+    },
+    { key: "linea_transporte", header: "Línea" },
     { key: "fecha_hora_inicio", header: "Entrada", render: (row) => `${formatDate(row.fecha_hora_inicio)} ${formatTime(row.fecha_hora_inicio)}` },
     { key: "fecha_hora_salida", header: "Salida", render: (row) => row.fecha_hora_salida ? `${formatDate(row.fecha_hora_salida)} ${formatTime(row.fecha_hora_salida)}` : <span className="badge bg-info">En patio</span> },
     { key: "stay_seconds", header: "Duración", render: (row) => formatDuration(row.stay_seconds) },
@@ -339,8 +362,8 @@ const ControlPatiosDashboard = () => {
           onToggleSidebar={() => setIsMobileSidebarOpen(true)}
           filters={
             <FilterBar onClear={handleClearFilters}>
-              <MultiSelect 
-                label="Placas"
+              <MultiSelect
+                label="Placas camión"
                 options={data.distinctPlates || []}
                 value={selectedPlates}
                 onChange={setSelectedPlates}
@@ -375,32 +398,42 @@ const ControlPatiosDashboard = () => {
 
         <div className="px-3 mt-4">
           <div className="row g-3 mb-4 text-center">
-            <div className="col-md-3">
+            <div className="col-6 col-md-2">
               <div className="card kpi-card border-0 shadow-sm">
-                <div className="kpi-label">Registros Totales</div>
-                <div className="kpi-value fw-bold text-primary">{filteredMovements.length}</div>
+                <div className="kpi-label">Camiones en patio</div>
+                <div className="kpi-value fw-bold text-primary">{data.tractoresEnPatio}</div>
               </div>
             </div>
-            <div className="col-md-3">
+            <div className="col-6 col-md-2">
               <div className="card kpi-card border-0 shadow-sm">
-                <div className="kpi-label">Anomalías Activas</div>
-                <div className="kpi-value fw-bold text-danger">{data.anomaliesCount}</div>
+                <div className="kpi-label">Remolques en patio</div>
+                <div className="kpi-value fw-bold text-secondary">{data.remolquesEnPatio}</div>
               </div>
             </div>
-            <div className="col-md-3">
+            <div className="col-6 col-md-2">
               <div className="card kpi-card border-0 shadow-sm">
-                <div className="kpi-label">Mayor Tiempo</div>
-                <div className="kpi-value fw-bold text-info" style={{ fontSize: "0.9rem" }}>
+                <div className="kpi-label">Con cambio remolque</div>
+                <div className="kpi-value fw-bold text-warning">{data.conCambioRemolque}</div>
+              </div>
+            </div>
+            <div className="col-6 col-md-2">
+              <div className="card kpi-card border-0 shadow-sm">
+                <div className="kpi-label">Sin cambio remolque</div>
+                <div className="kpi-value fw-bold text-success">{data.sinCambioRemolque}</div>
+              </div>
+            </div>
+            <div className="col-6 col-md-2">
+              <div className="card kpi-card border-0 shadow-sm">
+                <div className="kpi-label">Mayor estadía</div>
+                <div className="kpi-value fw-bold text-info" style={{ fontSize: "0.8rem" }}>
                   {data.longestStay ? `${data.longestStay.plate}: ${formatDuration(data.longestStay.seconds)}` : "—"}
                 </div>
               </div>
             </div>
-            <div className="col-md-3">
+            <div className="col-6 col-md-2">
               <div className="card kpi-card border-0 shadow-sm">
-                <div className="kpi-label">Menor Tiempo</div>
-                <div className="kpi-value fw-bold text-success" style={{ fontSize: "0.9rem" }}>
-                  {data.shortestStay ? `${data.shortestStay.plate}: ${formatDuration(data.shortestStay.seconds)}` : "—"}
-                </div>
+                <div className="kpi-label">Anomalías activas</div>
+                <div className="kpi-value fw-bold text-danger">{data.anomaliesCount}</div>
               </div>
             </div>
           </div>

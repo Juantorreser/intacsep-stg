@@ -191,7 +191,13 @@ const Sidebar = () => {
                       {showReporteControlPatios && (
                         <li onClick={() => navigate("/reporte-control-patios")}>
                           <i className="fa fa-warehouse"></i>
-                          <span>Control de Patios</span>
+                          <span>Dashboard Patios</span>
+                        </li>
+                      )}
+                      {showReporteControlPatios && (
+                        <li onClick={() => navigate("/reporte-detalle-patios")}>
+                          <i className="fa fa-list-alt"></i>
+                          <span>Reporte Patios</span>
                         </li>
                       )}
                     </ul>
