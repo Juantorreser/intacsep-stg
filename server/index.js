@@ -2219,6 +2219,26 @@ app.patch("/bitacora/:id", async (req, res) => {
 
     // Update the existing bitacora with the new data
     const oldData = bitacora.toObject();
+
+    // When transportes are being replaced, preserve internalId from existing subdocs
+    // (or generate one if missing) so event-to-transporte linkage stays stable across edits.
+    if (updatedData.transportes) {
+      const existingById = new Map(bitacora.transportes.map((t) => [t.id, t]));
+      const existingByInternalId = new Map(
+        bitacora.transportes.filter((t) => t.internalId).map((t) => [t.internalId, t])
+      );
+      updatedData.transportes = updatedData.transportes.map((t) => {
+        // Try to find matching existing transporte by internalId first, then by id
+        const existing =
+          (t.internalId && existingByInternalId.get(t.internalId)) ||
+          existingById.get(t.id);
+        return {
+          ...t,
+          internalId: existing?.internalId || t.internalId || new mongoose.Types.ObjectId().toString(),
+        };
+      });
+    }
+
     Object.assign(bitacora, updatedData);
     if (updatedData.custodia) bitacora.markModified('custodia');
 
@@ -2350,7 +2370,7 @@ app.patch("/bitacora/:id", async (req, res) => {
 app.post("/bitacoras/:id/transportes", async (req, res) => {
   try {
     const bitacoraId = req.params.id;
-    const { id, tracto, remolque, operador, lineaTransporte, telefono, gpsUnits } = req.body;
+    const { id, internalId, tracto, remolque, operador, lineaTransporte, telefono, gpsUnits } = req.body;
 
     // Find the bitacora by ID (exclude deleted)
     const bitacora = await Bitacora.findOne({
@@ -2364,6 +2384,7 @@ app.post("/bitacoras/:id/transportes", async (req, res) => {
     // Create a new Transporte object
     const newTransporte = {
       id,
+      internalId: internalId || new mongoose.Types.ObjectId().toString(),
       tracto,
       remolque,
       lineaTransporte,
@@ -3934,10 +3955,16 @@ app.put("/drafts/:id/accept", async (req, res) => {
       setFields["eventos.$[].transportes.$[t].operador"] = finalOperadorNombre;
     }
     if (Object.keys(setFields).length > 0) {
+      // Match by internalId if available (stable across id changes), fallback to id
+      const bitacoraForDraft = await Bitacora.findById(draft.bitacora_id).select("transportes").lean();
+      const matchingT = bitacoraForDraft?.transportes?.find((t) => t.id === draft.transporte_id);
+      const arrayFilter = matchingT?.internalId
+        ? { $or: [{ "t.internalId": matchingT.internalId }, { "t.id": draft.transporte_id }] }
+        : { "t.id": draft.transporte_id };
       await Bitacora.updateOne(
         { _id: draft.bitacora_id },
         { $set: setFields },
-        { arrayFilters: [{ "t.id": draft.transporte_id }] }
+        { arrayFilters: [arrayFilter] }
       );
     }
 
@@ -3993,10 +4020,15 @@ app.put("/drafts/:id/reject-with-replacement", async (req, res) => {
         setFields["eventos.$[].transportes.$[t].operador"] = operador;
       }
       if (Object.keys(setFields).length > 0) {
+        const bitacoraForDraft2 = await Bitacora.findById(draft.bitacora_id).select("transportes").lean();
+        const matchingT2 = bitacoraForDraft2?.transportes?.find((t) => t.id === draft.transporte_id);
+        const arrayFilter2 = matchingT2?.internalId
+          ? { $or: [{ "t.internalId": matchingT2.internalId }, { "t.id": draft.transporte_id }] }
+          : { "t.id": draft.transporte_id };
         await Bitacora.updateOne(
           { _id: draft.bitacora_id },
           { $set: setFields },
-          { arrayFilters: [{ "t.id": draft.transporte_id }] }
+          { arrayFilters: [arrayFilter2] }
         );
       }
 
@@ -6635,8 +6667,8 @@ app.get('/dashboard/bitacoras-anomalias', async (req, res) => {
     // Pre-fetch reference data in parallel — avoids per-doc $lookup inside aggregation
     const [allEventTypes, allOrigens, allDestinos] = await Promise.all([
       EventType.find({}).lean(),
-      (await import('./models/Origen.js')).default.find({}).lean().catch(() => []),
-      (await import('./models/Destino.js')).default.find({}).lean().catch(() => []),
+      Origen.find({}).lean(),
+      Destino.find({}).lean(),
     ]);
 
     // Build in-memory Maps for O(1) resolution

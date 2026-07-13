@@ -2478,6 +2478,24 @@ $gray: #223b53;
   100% { background-position: -200% 0; }
 }
 
+@keyframes rowHighlightFade {
+  0%   { background-color: #fef9c3; }
+  100% { background-color: transparent; }
+}
+
+.dt-row-highlighted td {
+  animation: rowHighlightFade 2.5s ease forwards;
+  background-color: transparent;
+}
+
+.dt-cross-link {
+  cursor: pointer;
+  color: #0d6efd;
+  text-decoration: underline dotted;
+  font-weight: 600;
+  &:hover { color: #0a58ca; text-decoration: underline; }
+}
+
 #dashboard {
   .card {
     border: none;

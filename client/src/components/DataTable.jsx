@@ -1,3 +1,4 @@
+import {useEffect, useRef} from "react";
 import usePagination from "../hooks/usePagination";
 
 /**
@@ -131,7 +132,14 @@ const DataTable = ({
   initialItemsPerPage = 25,
   rowKey = (row) => row._id,
   stickyHeader = true,
+  highlightId = null,
+  rowClassName = null,
 }) => {
+  const highlightRef = useRef(null);
+
+  const getRowKey = (row) =>
+    typeof rowKey === "function" ? rowKey(row) : row[rowKey];
+
   const {
     currentPage,
     itemsPerPage,
@@ -144,11 +152,22 @@ const DataTable = ({
     handleItemsPerPageChange,
   } = usePagination(data, initialItemsPerPage);
 
+  useEffect(() => {
+    if (!highlightId) return;
+    const idx = data.findIndex((row) => getRowKey(row) === highlightId);
+    if (idx === -1) return;
+    const targetPage = Math.floor(idx / itemsPerPage) + 1;
+    if (targetPage !== currentPage) handlePageChange(targetPage);
+  }, [highlightId]); // eslint-disable-line
+
+  useEffect(() => {
+    if (highlightRef.current) {
+      highlightRef.current.scrollIntoView({behavior: "smooth", block: "center"});
+    }
+  });
+
   const hasActions = actions.length > 0;
   const colCount = columns.length + (hasActions ? 1 : 0);
-
-  const getRowKey = (row) =>
-    typeof rowKey === "function" ? rowKey(row) : row[rowKey];
 
   const isActionVisible = (action, row) => {
     if (!("show" in action)) return true;
@@ -189,8 +208,16 @@ const DataTable = ({
                   </td>
                 </tr>
               ) : (
-                paginatedData.map((row, rowIndex) => (
-                  <tr key={getRowKey(row)}>
+                paginatedData.map((row, rowIndex) => {
+                  const key = getRowKey(row);
+                  const isHighlighted = highlightId && key === highlightId;
+                  const extraClass = typeof rowClassName === "function" ? rowClassName(row) : (rowClassName || "");
+                  return (
+                  <tr
+                    key={key}
+                    ref={isHighlighted ? highlightRef : null}
+                    className={[isHighlighted ? "dt-row-highlighted" : "", extraClass].filter(Boolean).join(" ")}
+                  >
                     {columns.map((col) => (
                       <td
                         key={col.key}
@@ -224,7 +251,8 @@ const DataTable = ({
                       </td>
                     )}
                   </tr>
-                ))
+                  );
+                })
               )}
             </tbody>
           </table>

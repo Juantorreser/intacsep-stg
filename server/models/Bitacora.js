@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 const TransporteSchema = new mongoose.Schema(
   {
     id: { type: String, unique: true, required: true },
+    internalId: { type: String, default: null },
     remolque: {
       eco: String,
       placa: String,

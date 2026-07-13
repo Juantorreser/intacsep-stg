@@ -166,6 +166,7 @@ const CreateTransporteModal = ({show, handleClose, addTransporte, transportes, b
 
     const newTransporte = {
       id: newId,
+      internalId: crypto.randomUUID(),
       ...transporteData,
       gpsUnits: selectedGpsUnits.map((unit) => ({wialonId: unit.id, name: unit.name, data: {}})),
     };

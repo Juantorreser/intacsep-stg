@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import Sidebar from "../Sidebar";
 import PageHeader from "../PageHeader";
+import FilterBar from "../FilterBar";
 import ModalTemplate from "../ModalTemplate";
 import DataTable from "../DataTable";
 import { useAuth } from "../../context/AuthContext";
@@ -75,7 +76,9 @@ const PlacaTestPage = () => {
   const [error, setError] = useState("");
   const [savedRecords, setSavedRecords] = useState([]);
   const [remolqueRecords, setRemolqueRecords] = useState([]);
-  const [searchTerm, setSearchTerm] = useState("");
+  const [filters, setFilters] = useState({ placa: "", linea: "", status: "", fechaDesde: "", fechaHasta: "" });
+  const handleFilterChange = (e) => setFilters(prev => ({ ...prev, [e.target.name]: e.target.value }));
+  const clearFilters = () => setFilters({ placa: "", linea: "", status: "", fechaDesde: "", fechaHasta: "" });
   const [showModal, setShowModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [idToDelete, setIdToDelete] = useState(null);
@@ -83,6 +86,7 @@ const PlacaTestPage = () => {
   const [isSmartMode, setIsSmartMode] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [activeTab, setActiveTab] = useState("tractos");
+  const [highlightedId, setHighlightedId] = useState(null);
 
   const [lineasTransporte, setLineasTransporte] = useState([]);
   const [roleData, setRoleData] = useState(null);
@@ -270,10 +274,7 @@ const PlacaTestPage = () => {
       setError("La placa del remolque no puede ser igual a la placa del tracto.");
       return;
     }
-    if (isSalidaMode && formData.placa.toUpperCase() !== selectedRecordForSalida.placa.toUpperCase()) {
-      setError("La placa debe coincidir exactamente para registrar la salida.");
-      return;
-    }
+
     setSaving(true);
     try {
       if (isEditMode && formData._id) {
@@ -373,24 +374,50 @@ const PlacaTestPage = () => {
   const submitText = saving ? "Guardando..." : isEditMode ? "Actualizar" : isSalidaMode ? "Registrar salida" : "Registrar ingreso";
 
   const tractosEnPatio = savedRecords.filter(r => r.status === "En patio").length;
-  const tractorRecords = savedRecords;
-  const filteredTractores = tractorRecords.filter(r =>
-    r.placa?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    r.linea_transporte?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    r.placa_remolque_entrada?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    r.placa_remolque_salida?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-  const filteredRemolques = remolqueRecords.filter(r =>
-    r.placa?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    r.tractor_entrada_placa?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    r.tractor_salida_placa?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+
+  const applyDateFilter = (dateStr, desde, hasta) => {
+    if (!dateStr) return !desde && !hasta;
+    const d = new Date(dateStr);
+    if (desde && d < new Date(desde)) return false;
+    if (hasta && d > new Date(hasta + "T23:59:59")) return false;
+    return true;
+  };
+
+  const filteredTractores = savedRecords.filter(r => {
+    const matchPlaca = !filters.placa || r.placa?.toLowerCase().includes(filters.placa.toLowerCase()) || r.placa_remolque_entrada?.toLowerCase().includes(filters.placa.toLowerCase()) || r.placa_remolque_salida?.toLowerCase().includes(filters.placa.toLowerCase());
+    const matchLinea = !filters.linea || r.linea_transporte === filters.linea;
+    const matchStatus = !filters.status || r.status === filters.status;
+    const matchDate = applyDateFilter(r.fecha_hora_inicio, filters.fechaDesde, filters.fechaHasta);
+    return matchPlaca && matchLinea && matchStatus && matchDate;
+  });
+  const filteredRemolques = remolqueRecords.filter(r => {
+    const matchPlaca = !filters.placa || r.placa?.toLowerCase().includes(filters.placa.toLowerCase()) || r.tractor_entrada_placa?.toLowerCase().includes(filters.placa.toLowerCase()) || r.tractor_salida_placa?.toLowerCase().includes(filters.placa.toLowerCase());
+    const matchLinea = !filters.linea || r.linea_de_transporte === filters.linea || r.linea_transporte === filters.linea;
+    const matchStatus = !filters.status || r.status === filters.status;
+    const matchDate = applyDateFilter(r.fecha_hora_entrada, filters.fechaDesde, filters.fechaHasta);
+    return matchPlaca && matchLinea && matchStatus && matchDate;
+  });
+
+  const navigateToRemolque = (placa) => {
+    if (!placa) return;
+    const rec = remolqueRecords.find(r => r.placa?.toUpperCase() === placa.toUpperCase());
+    if (!rec) return;
+    setHighlightedId(rec._id);
+    setActiveTab("remolques");
+  };
+  const navigateToTracto = (placa) => {
+    if (!placa) return;
+    const rec = savedRecords.find(r => r.placa?.toUpperCase() === placa.toUpperCase());
+    if (!rec) return;
+    setHighlightedId(rec._id);
+    setActiveTab("tractos");
+  };
 
   const tractoColumns = [
     { key: "placa", header: "Placa", className: "fw-bold text-uppercase" },
     { key: "linea_transporte", header: "Línea", render: (row) => row.linea_transporte || <span className="text-muted">—</span> },
-    { key: "remolque_entrada", header: "Remolque entrada", render: (row) => row.placa_remolque_entrada || <span className="text-muted">—</span> },
-    { key: "remolque_salida", header: "Remolque salida", render: (row) => row.fecha_hora_salida ? (row.placa_remolque_salida || <span className="text-muted">Sin remolque</span>) : <span className="text-muted">—</span> },
+    { key: "remolque_entrada", header: "Remolque entrada", render: (row) => row.placa_remolque_entrada ? <span className="dt-cross-link" onClick={() => navigateToRemolque(row.placa_remolque_entrada)}>{row.placa_remolque_entrada}</span> : <span className="text-muted">—</span> },
+    { key: "remolque_salida", header: "Remolque salida", render: (row) => row.fecha_hora_salida ? (row.placa_remolque_salida ? <span className="dt-cross-link" onClick={() => navigateToRemolque(row.placa_remolque_salida)}>{row.placa_remolque_salida}</span> : <span className="text-muted">Sin remolque</span>) : <span className="text-muted">—</span> },
     { key: "fecha_hora_inicio", header: "Entrada", render: (row) => formatDate(row.fecha_hora_inicio) },
     {
       key: "fecha_hora_salida",
@@ -405,8 +432,8 @@ const PlacaTestPage = () => {
 
   const remolqueColumns = [
     { key: "placa", header: "Placa", className: "fw-bold text-uppercase" },
-    { key: "tracto_entrada", header: "Tracto entrada", render: (row) => row.tractor_entrada_placa || <span className="text-muted">—</span> },
-    { key: "tracto_salida", header: "Tracto salida", render: (row) => row.fecha_hora_salida ? (row.tractor_salida_placa || <span className="text-muted">—</span>) : <span className="text-muted">—</span> },
+    { key: "tracto_entrada", header: "Tracto entrada", render: (row) => row.tractor_entrada_placa ? <span className="dt-cross-link" onClick={() => navigateToTracto(row.tractor_entrada_placa)}>{row.tractor_entrada_placa}</span> : <span className="text-muted">—</span> },
+    { key: "tracto_salida", header: "Tracto salida", render: (row) => row.fecha_hora_salida ? (row.tractor_salida_placa ? <span className="dt-cross-link" onClick={() => navigateToTracto(row.tractor_salida_placa)}>{row.tractor_salida_placa}</span> : <span className="text-muted">—</span>) : <span className="text-muted">—</span> },
     { key: "fecha_hora_entrada", header: "Entrada", render: (row) => formatDate(row.fecha_hora_entrada) },
     { key: "fecha_hora_salida", header: "Salida", render: (row) => row.fecha_hora_salida ? formatDate(row.fecha_hora_salida) : <span className="badge bg-secondary">En patio</span> },
     { key: "status", header: "Estado", render: (row) => <span className={`badge ${row.status === "En patio" ? "bg-info" : "bg-success"}`}>{row.status}</span> },
@@ -432,140 +459,111 @@ const PlacaTestPage = () => {
         .remolque-choice-btn { border: 2px solid #dee2e6; border-radius: 10px; padding: 14px; cursor: pointer; transition: all 0.15s; background: #fff; }
         .remolque-choice-btn.active { border-color: #0d6efd; background: #f0f6ff; }
         .remolque-choice-btn:hover { border-color: #0d6efd; }
-        .patio-stat-card {
-          display: flex; align-items: center; gap: 8px;
-          background: #fff; border-radius: 10px;
-          padding: 0 14px;
-          height: 38px;
-          box-shadow: 0 1px 3px rgba(0,0,0,0.06);
-          border: 1.5px solid #e5e7eb;
-          white-space: nowrap;
+        .patio-tab-bar {
+          display: flex; gap: 4px;
+          background: #f1f5f9; border-radius: 12px;
+          padding: 4px;
+          width: fit-content;
         }
-        .patio-stat-icon {
-          width: 22px; height: 22px; border-radius: 6px;
-          display: flex; align-items: center; justify-content: center;
-          font-size: 11px; flex-shrink: 0;
+        .patio-tab-btn {
+          display: flex; align-items: center; gap: 7px;
+          padding: 7px 18px; border-radius: 9px;
+          border: none; background: transparent;
+          font-size: 0.875rem; font-weight: 500; color: #64748b;
+          cursor: pointer; transition: all 0.15s; white-space: nowrap;
         }
-        .patio-stat-count { font-size: 0.95rem; font-weight: 700; line-height: 1; }
-        .patio-stat-label { font-size: 0.72rem; color: #6c757d; font-weight: 500; }
-        .patio-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; animation: pulse-dot 2s infinite; }
-        @keyframes pulse-dot {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0.4; }
+        .patio-tab-btn.active {
+          background: #fff; color: #1e293b;
+          box-shadow: 0 1px 4px rgba(0,0,0,0.10);
+          font-weight: 600;
         }
-        .patio-search-wrap {
-          position: relative; max-width: 380px;
+        .patio-tab-btn:hover:not(.active) { background: rgba(255,255,255,0.6); color: #334155; }
+        .patio-tab-count {
+          font-size: 0.72rem; font-weight: 700; padding: 1px 7px;
+          border-radius: 20px; background: #e2e8f0; color: #475569; line-height: 1.6;
         }
-        .patio-search-icon {
-          position: absolute; left: 13px; top: 50%; transform: translateY(-50%);
-          color: #9ca3af; font-size: 13px; pointer-events: none;
-        }
-        .patio-search-input {
-          width: 100%; height: 38px;
-          padding: 0 36px 0 36px;
-          border: 1.5px solid #e5e7eb; border-radius: 10px;
-          background: #fff; font-size: 0.875rem; color: #111827;
-          outline: none; transition: border-color 0.15s, box-shadow 0.15s;
-          box-shadow: 0 1px 3px rgba(0,0,0,0.06);
-        }
-        .patio-search-input:focus {
-          border-color: #6366f1;
-          box-shadow: 0 0 0 3px rgba(99,102,241,0.12);
-        }
-        .patio-search-input::placeholder { color: #9ca3af; }
-        .patio-search-clear {
-          position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
-          background: none; border: none; color: #9ca3af; cursor: pointer;
-          padding: 2px 4px; font-size: 12px; line-height: 1;
-        }
-        .patio-search-clear:hover { color: #374151; }
+        .patio-tab-btn.active .patio-tab-count { background: #e0e7ff; color: #4338ca; }
       `}</style>
       <div className="w-100 d-flex h-100 mt-0">
         <div className="sidebar-wrapper"><Sidebar /></div>
         <div className={`content-wrapper ${isSidebarCollapsed ? "sidebar-collapsed" : ""}`}>
-          <PageHeader title="Control de patios" onToggleSidebar={() => setIsMobileSidebarOpen(true)}>
+          <PageHeader
+            title="Control de patios"
+            onToggleSidebar={() => setIsMobileSidebarOpen(true)}
+            filters={
+              <FilterBar onClear={clearFilters}>
+                <input
+                  type="text"
+                  className="form-control form-control-sm border-0 bg-white shadow-sm"
+                  placeholder="Buscar placa..."
+                  name="placa"
+                  value={filters.placa}
+                  onChange={handleFilterChange}
+                />
+                <select
+                  className="form-control form-control-sm border-0 bg-white shadow-sm"
+                  name="linea"
+                  value={filters.linea}
+                  onChange={handleFilterChange}
+                >
+                  <option value="">Todas las líneas</option>
+                  {lineasTransporte.map(l => <option key={l._id} value={l.nombre}>{l.nombre}</option>)}
+                </select>
+                <select
+                  className="form-control form-control-sm border-0 bg-white shadow-sm"
+                  name="status"
+                  value={filters.status}
+                  onChange={handleFilterChange}
+                >
+                  <option value="">Todos los estados</option>
+                  <option value="En patio">En patio</option>
+                  <option value="Salida">Salida</option>
+                </select>
+                <input
+                  type="date"
+                  className="form-control form-control-sm border-0 bg-white shadow-sm"
+                  name="fechaDesde"
+                  value={filters.fechaDesde}
+                  onChange={handleFilterChange}
+                  title="Fecha desde"
+                />
+                <input
+                  type="date"
+                  className="form-control form-control-sm border-0 bg-white shadow-sm"
+                  name="fechaHasta"
+                  value={filters.fechaHasta}
+                  onChange={handleFilterChange}
+                  title="Fecha hasta"
+                />
+              </FilterBar>
+            }
+          >
             <button className="new-btn" onClick={() => handleOpenModal()} title="Nuevo registro">
               <i className="fa fa-plus"></i>
             </button>
           </PageHeader>
 
           <div className="settings-content">
-            <div className="d-flex align-items-center gap-3 mb-4 flex-wrap">
-              <div className="patio-stat-card">
-                <div className="patio-stat-icon" style={{ background: "#e8f0fe" }}>
-                  <i className="fa fa-truck" style={{ color: "#1a73e8" }}></i>
-                </div>
-                <span className="patio-stat-count" style={{ color: "#1a73e8" }}>
-                  {savedRecords.filter(r => r.status === "En patio").length}
-                </span>
-                <span className="patio-dot" style={{ background: "#1a73e8" }}></span>
-                <span className="patio-stat-label">Tractoes en patio</span>
-              </div>
-
-              <div className="patio-stat-card">
-                <div className="patio-stat-icon" style={{ background: "#f3e8ff" }}>
-                  <i className="fa fa-trailer" style={{ color: "#7c3aed" }}></i>
-                </div>
-                <span className="patio-stat-count" style={{ color: "#7c3aed" }}>
-                  {remolquesEnPatio.length}
-                </span>
-                <span className="patio-dot" style={{ background: "#7c3aed" }}></span>
-                <span className="patio-stat-label">Remolques en patio</span>
-              </div>
-
-              <div className="patio-stat-card">
-                <div className="patio-stat-icon" style={{ background: "#fef9c3" }}>
-                  <i className="fa fa-exchange-alt" style={{ color: "#d97706" }}></i>
-                </div>
-                <span className="patio-stat-count" style={{ color: "#d97706" }}>
-                  {savedRecords.filter(r => r.hubo_cambio_remolque === true).length}
-                </span>
-                <span className="patio-stat-label">Cambios remolque</span>
-              </div>
-
-              <div className="patio-search-wrap ms-auto">
-                <i className="fa fa-search patio-search-icon"></i>
-                <input
-                  type="text"
-                  className="patio-search-input"
-                  placeholder="Buscar placa tracto, remolque, línea..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
-                {searchTerm && (
-                  <button className="patio-search-clear" onClick={() => setSearchTerm("")} type="button">
-                    <i className="fa fa-times"></i>
-                  </button>
-                )}
+            <div className="d-flex align-items-center gap-3 mb-3 flex-wrap">
+              <div className="patio-tab-bar">
+                <button
+                  className={`patio-tab-btn ${activeTab === "tractos" ? "active" : ""}`}
+                  onClick={() => { setActiveTab("tractos"); setHighlightedId(null); }}
+                >
+                  <i className="fa fa-truck"></i>
+                  Tractos
+                  <span className="patio-tab-count">{tractosEnPatio} en patio</span>
+                </button>
+                <button
+                  className={`patio-tab-btn ${activeTab === "remolques" ? "active" : ""}`}
+                  onClick={() => { setActiveTab("remolques"); setHighlightedId(null); }}
+                >
+                  <i className="fa fa-trailer"></i>
+                  Remolques
+                  <span className="patio-tab-count">{remolqueRecords.filter(r => r.status === "En patio").length} en patio</span>
+                </button>
               </div>
             </div>
-            {/* Tabs */}
-            <ul className="nav nav-tabs mb-3">
-              <li className="nav-item">
-                <button
-                  className={`nav-link ${activeTab === "tractos" ? "active" : ""}`}
-                  onClick={() => setActiveTab("tractos")}
-                >
-                  <i className="fa fa-truck me-2"></i>
-                  Tractos
-                  <span className={`badge ms-2 ${activeTab === "tractos" ? "bg-primary" : "bg-secondary"}`}>
-                    {tractosEnPatio} en patio
-                  </span>
-                </button>
-              </li>
-              <li className="nav-item">
-                <button
-                  className={`nav-link ${activeTab === "remolques" ? "active" : ""}`}
-                  onClick={() => setActiveTab("remolques")}
-                >
-                  <i className="fa fa-trailer me-2"></i>
-                  Remolques
-                  <span className={`badge ms-2 ${activeTab === "remolques" ? "bg-primary" : "bg-secondary"}`}>
-                    {remolqueRecords.filter(r => r.status === "En patio").length} en patio
-                  </span>
-                </button>
-              </li>
-            </ul>
             {activeTab === "tractos" ? (
               <DataTable
                 data={filteredTractores}
@@ -573,6 +571,7 @@ const PlacaTestPage = () => {
                 actions={tractoActions}
                 maxHeight="calc(100vh - 340px)"
                 emptyMessage="No se encontraron tractos."
+                highlightId={highlightedId}
               />
             ) : (
               <DataTable
@@ -581,6 +580,7 @@ const PlacaTestPage = () => {
                 actions={remolqueActions}
                 maxHeight="calc(100vh - 340px)"
                 emptyMessage="No se encontraron remolques."
+                highlightId={highlightedId}
               />
             )}
           </div>
@@ -643,7 +643,6 @@ const PlacaTestPage = () => {
                     placeholder="Ej. ABC-123"
                     value={formData.placa}
                     onChange={(e) => setFormData(prev => ({ ...prev, placa: e.target.value.toUpperCase() }))}
-                    readOnly={isSalidaMode}
                   />
                   <span className="input-group-text"><i className="fa fa-truck"></i></span>
                 </div>

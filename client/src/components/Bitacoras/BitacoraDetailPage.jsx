@@ -513,6 +513,7 @@ const BitacoraDetailPage = ({edited}) => {
     const updatedEditedTransporte = {
       ...editedTransporte,
       id: updatedId,
+      internalId: editedTransporte.internalId || editedTransporte.originalInternalId || undefined,
       gpsUnits: selectedGpsUnits.map((unit) => ({
         wialonId: unit.id,
         name: unit.name,
@@ -607,7 +608,9 @@ const BitacoraDetailPage = ({edited}) => {
 
   useEffect(() => {
     if (selectedTransporte) {
-      const updatedTransporte = bitacora.transportes.find((t) => t.id === selectedTransporte.id);
+      const updatedTransporte = bitacora.transportes.find((t) =>
+        (t.internalId && selectedTransporte.internalId && t.internalId === selectedTransporte.internalId) || t.id === selectedTransporte.id
+      );
       if (updatedTransporte) {
         setSelectedTransporte(updatedTransporte);
       }
@@ -1252,8 +1255,17 @@ const BitacoraDetailPage = ({edited}) => {
     });
   };
 
+  // Stable match: internalId takes priority over id (supports legacy records without internalId)
+  const transporteMatch = (a, b) =>
+    (a.internalId && b.internalId && a.internalId === b.internalId) || a.id === b.id;
+
   const isTransporteUsedInEventos = (transporteId) => {
-    return bitacora.eventos.some((evento) => evento.transportes.some((t) => t.id === transporteId));
+    const mainT = bitacora.transportes?.find((t) => t.id === transporteId);
+    return bitacora.eventos.some((evento) =>
+      evento.transportes.some((t) =>
+        mainT ? transporteMatch(mainT, t) : t.id === transporteId
+      )
+    );
   };
 
   const isTransporteInEvento = isTransporteUsedInEventos(editedTransporte?.originalId);
@@ -1267,11 +1279,11 @@ const BitacoraDetailPage = ({edited}) => {
         e.nombre === "CIERRE DE SERVICIO" ||
         e.nombre === "cierre de servicio"
     );
-    const transportesInCierre = new Set(
-      cierreEventos.flatMap((e) => e.transportes.map((t) => t.id))
-    );
+    const closedTransportes = cierreEventos.flatMap((e) => e.transportes);
 
-    return bitacoraToCheck.transportes.every((t) => transportesInCierre.has(t.id));
+    return bitacoraToCheck.transportes.every((t) =>
+      closedTransportes.some((ct) => transporteMatch(t, ct))
+    );
   };
 
   const handleEditSubmit = async (e, updatedBitacora) => {
@@ -1628,20 +1640,20 @@ const BitacoraDetailPage = ({edited}) => {
                           const validacionEvento = bitacora.eventos.find(
                             (evento) =>
                               evento.nombre.toLowerCase() === "validación" &&
-                              evento.transportes.some((tr) => tr.id === t.id)
+                              evento.transportes.some((tr) => transporteMatch(t, tr))
                           );
                           const inicioMonitoreo = validacionEvento
-                            ? validacionEvento.transportes.find((tr) => tr.id === t.id)
+                            ? validacionEvento.transportes.find((tr) => transporteMatch(t, tr))
                                 ?.inicioMonitoreo
                             : null;
 
                           const cierreEvento = bitacora.eventos.find(
                             (evento) =>
                               evento.nombre.toLowerCase() === "cierre de servicio" &&
-                              evento.transportes.some((tr) => tr.id === t.id)
+                              evento.transportes.some((tr) => transporteMatch(t, tr))
                           );
                           const finalMonitoreo = cierreEvento
-                            ? cierreEvento.transportes.find((tr) => tr.id === t.id)?.finalMonitoreo
+                            ? cierreEvento.transportes.find((tr) => transporteMatch(t, tr))?.finalMonitoreo
                             : null;
 
                           return (
@@ -1825,7 +1837,7 @@ const BitacoraDetailPage = ({edited}) => {
                                 )}
                               </div>
 
-                              {roleData?.operador?.read && (
+                              {roleData?.bit_transportes?.read && (
                                 <div className="operador-section mt-4">
                                   <h6 className="fw-semibold mb-3">Información del Operador</h6>
                                   <div className="row">
