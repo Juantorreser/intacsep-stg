@@ -463,7 +463,7 @@ const PlacaTestPage = () => {
       header: "Salida",
       render: (row) => row.fecha_hora_salida
         ? formatDate(row.fecha_hora_salida)
-        : <button className="btn btn-sm btn-outline-warning" onClick={() => handleOpenModal(row)}>Marcar salida</button>,
+        : roleData?.control_patios?.update ? <button className="btn btn-sm btn-outline-warning" onClick={() => handleOpenModal(row)}>Marcar salida</button> : <span className="text-muted">—</span>,
     },
     { key: "status", header: "Estado", render: (row) => <span className={`badge ${row.status === "En patio" ? "bg-info" : "bg-success"}`}>{row.status}</span> },
     { key: "swap", header: "Cambio remolque", render: (row) => <SwapBadge record={row} /> },
@@ -484,7 +484,7 @@ const PlacaTestPage = () => {
     { icon: "fas fa-trash", className: "btn btn-danger", title: "Eliminar", onClick: (row) => deleteEntry(row._id, "tractor"), show: roleData?.control_patios?.delete },
   ];
   const remolqueActions = [
-    { icon: "fas fa-trash", className: "btn btn-danger", title: "Eliminar", onClick: (row) => deleteEntry(row._id, "remolque"), show: roleData?.control_patios?.delete },
+    { icon: "fas fa-trash", className: "btn btn-danger", title: "Eliminar", onClick: (row) => deleteEntry(row._id, "remolque"), show: roleData?.control_patios_remolques?.delete },
   ];
 
   return (
@@ -577,9 +577,11 @@ const PlacaTestPage = () => {
               </FilterBar>
             }
           >
-            <button className="new-btn" onClick={() => handleOpenModal()} title="Nuevo registro">
-              <i className="fa fa-plus"></i>
-            </button>
+            {roleData?.control_patios?.create && (
+              <button className="new-btn" onClick={() => handleOpenModal()} title="Nuevo registro">
+                <i className="fa fa-plus"></i>
+              </button>
+            )}
           </PageHeader>
 
           <div className="settings-content">
@@ -593,14 +595,16 @@ const PlacaTestPage = () => {
                   Tractos
                   <span className="patio-tab-count">{tractosEnPatio} en patio</span>
                 </button>
-                <button
-                  className={`patio-tab-btn ${activeTab === "remolques" ? "active" : ""}`}
-                  onClick={() => { setActiveTab("remolques"); setHighlightedId(null); }}
-                >
-                  <i className="fa fa-trailer"></i>
-                  Remolques
-                  <span className="patio-tab-count">{remolqueRecords.filter(r => r.status === "En patio").length} en patio</span>
-                </button>
+                {roleData?.control_patios_remolques?.read && (
+                  <button
+                    className={`patio-tab-btn ${activeTab === "remolques" ? "active" : ""}`}
+                    onClick={() => { setActiveTab("remolques"); setHighlightedId(null); }}
+                  >
+                    <i className="fa fa-trailer"></i>
+                    Remolques
+                    <span className="patio-tab-count">{remolqueRecords.filter(r => r.status === "En patio").length} en patio</span>
+                  </button>
+                )}
               </div>
             </div>
             {activeTab === "tractos" ? (
@@ -707,7 +711,7 @@ const PlacaTestPage = () => {
               </div>
 
               {/* 3. Remolque checkbox + 4. remolque photo/plate (entry and exit) */}
-              {!isEditMode && (
+              {!isEditMode && roleData?.control_patios_remolques?.create && (
                 <div className="col-12">
                   <div className="form-check">
                     <input

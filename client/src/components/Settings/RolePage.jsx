@@ -49,6 +49,7 @@ const RolePage = () => {
     reporte_estadisticas: {create: false, read: false, update: false, delete: false},
     reporte_control_patios: {create: false, read: false, update: false, delete: false},
     control_patios: {create: false, read: false, update: false, delete: false},
+    control_patios_remolques: {create: false, read: false, update: false, delete: false},
   });
 
   const [editRole, setEditRole] = useState(null);
@@ -90,6 +91,7 @@ const RolePage = () => {
     reporte_estadisticas: {create: false, read: false, update: false, delete: false},
     reporte_control_patios: {create: false, read: false, update: false, delete: false},
     control_patios: {create: false, read: false, update: false, delete: false},
+    control_patios_remolques: {create: false, read: false, update: false, delete: false},
   });
 
   const [showModal, setShowModal] = useState(false);
@@ -398,7 +400,8 @@ const RolePage = () => {
     reporte_eventos: "Reporte eventos",
     reporte_estadisticas: "Reporte de puntualidad",
     reporte_control_patios: "Control de Patios",
-    control_patios: "Control de patios",
+    control_patios: "Control de patios — Tractos",
+    control_patios_remolques: "Control de patios — Remolques",
   };
 
   const renderPermissionRow = (key, roleData, setRoleData) => {
@@ -555,7 +558,7 @@ const RolePage = () => {
                           <tr className="table-group-divider fw-bold bg-secondary text-white">
                             <td colSpan="6">Monitoreo</td>
                           </tr>
-                          {["bitacoras", "planes_embarque", "buscador_plan", "control_patios"].map((key) =>
+                          {["bitacoras", "planes_embarque", "buscador_plan", "control_patios", "control_patios_remolques"].map((key) =>
                             renderPermissionRow(key, editRoleData, setEditRoleData)
                           )}
                           <tr className="table-group-divider fw-bold bg-secondary text-white">
