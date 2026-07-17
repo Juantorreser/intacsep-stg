@@ -2,16 +2,32 @@ import React from "react";
 import {formatDate} from "../../utils/dateUtils"; // Ensure you have a utility to format dates
 import {Container, Row, Col} from "react-bootstrap";
 
+const tMatch = (a, b) =>
+  (a.internalId && b.internalId && a.internalId === b.internalId) || a.id === b.id;
+
+const getTransporteLabel = (t) => {
+  const id = t.id || "";
+  if (!id) return "Sin ID";
+  if (id.startsWith("T") && id.includes("_")) return id;
+  const parts = id.split("_");
+  if (parts.length >= 3) return `${parts[1]} - ${parts[2]}`;
+  if (parts.length === 2) return `${parts[0]} - ${parts[1]}`;
+  return id;
+};
+
 const BitacoraDetail = React.forwardRef(({bitacora, transporteId = ""}, ref) => {
-  // Filter transportes based on transporteId
-  const filteredTransportes = transporteId
-    ? bitacora.transportes.filter((transporte) => transporte.id === transporteId)
+  // Find the selected transporte object (needed for internalId-aware matching)
+  const selectedTransporte = transporteId
+    ? bitacora.transportes.find((t) => t.id === transporteId || t.internalId === transporteId)
+    : null;
+
+  const filteredTransportes = selectedTransporte
+    ? bitacora.transportes.filter((t) => tMatch(t, selectedTransporte))
     : bitacora.transportes;
 
-  // If a transporteId is selected, filter events based on that transporte
-  const filteredEventos = transporteId
+  const filteredEventos = selectedTransporte
     ? bitacora.eventos.filter((evento) =>
-        evento.transportes.some((transporte) => transporte.id === transporteId)
+        evento.transportes.some((t) => tMatch(t, selectedTransporte))
       )
     : bitacora.eventos;
 
@@ -95,10 +111,8 @@ const BitacoraDetail = React.forwardRef(({bitacora, transporteId = ""}, ref) => 
             );
 
             // Get the corresponding transporte object inside evento.transportes
-            const transporteValidacion = eventoValidacion?.transportes.find(
-              (t) => t.id === transporte.id
-            );
-            const transporteCierre = eventoCierre?.transportes.find((t) => t.id === transporte.id);
+            const transporteValidacion = eventoValidacion?.transportes.find((t) => tMatch(t, transporte));
+            const transporteCierre = eventoCierre?.transportes.find((t) => tMatch(t, transporte));
 
             // Extract dates from the found transportes
             const inicioMonitoreo = transporteValidacion
@@ -112,11 +126,7 @@ const BitacoraDetail = React.forwardRef(({bitacora, transporteId = ""}, ref) => 
               <Row key={index}>
                 <hr />
                 <div className="card-body transportCard">
-                  <div className="d-flex flex-row title fw-bold fs-4">{`${
-                    transporte.id.includes("_")
-                      ? `${transporte.id.split("_")[1]} - ${transporte.id.split("_")[2]}`
-                      : transporte.id
-                  }`}</div>
+                  <div className="d-flex flex-row title fw-bold fs-4">{getTransporteLabel(transporte)}</div>
                   <Row>
                     <Col className="text-center">
                       <p>
@@ -264,7 +274,7 @@ const BitacoraDetail = React.forwardRef(({bitacora, transporteId = ""}, ref) => 
                     </p>
                     {evento.transportes
                       ?.filter((t) =>
-                        transporteId ? filteredTransportes.some((ft) => ft.id === t.id) : true
+                        selectedTransporte ? filteredTransportes.some((ft) => tMatch(ft, t)) : true
                       )
                       .map((t) => (
                         <Row>

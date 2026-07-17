@@ -21,7 +21,7 @@ const CreateTransporteModal = ({show, handleClose, addTransporte, transportes, b
     telefono: "",
     gpsUnits: [],
   });
-  const [idMethod, setIdMethod] = useState("manual");
+  const [idMethod, setIdMethod] = useState("automatic");
   const [selectedGpsUnits, setSelectedGpsUnits] = useState([]);
   const [gpsSearchTerm, setGpsSearchTerm] = useState("");
   const [operadores, setOperadores] = useState([]);
@@ -153,10 +153,8 @@ const CreateTransporteModal = ({show, handleClose, addTransporte, transportes, b
     if (idMethod === "wialon") {
       if (selectedGpsUnits.length === 0) { alert("Seleccione al menos una unidad GPS."); return; }
       newId = generateTransporteId();
-    } else if (idMethod === "automatic") {
-      newId = generateTransporteId();
     } else {
-      newId = `blank_${Date.now()}`;
+      newId = generateTransporteId();
     }
 
     if (transportes.some((t) => t.id === newId)) {
@@ -166,7 +164,6 @@ const CreateTransporteModal = ({show, handleClose, addTransporte, transportes, b
 
     const newTransporte = {
       id: newId,
-      internalId: crypto.randomUUID(),
       ...transporteData,
       gpsUnits: selectedGpsUnits.map((unit) => ({wialonId: unit.id, name: unit.name, data: {}})),
     };
@@ -228,7 +225,6 @@ const CreateTransporteModal = ({show, handleClose, addTransporte, transportes, b
         <Form.Label className="fw-semibold">Método de identificación</Form.Label>
         <div className="wizard-radio-group">
           {[
-            {value: "manual",    label: "Manual (ID vacío)",  icon: "fa-solid fa-pen"},
             {value: "automatic", label: "Automático",         icon: "fa-solid fa-magic-wand-sparkles"},
             {value: "wialon",    label: "GPS ID",             icon: "fa-solid fa-satellite-dish"},
           ].map(({value, label, icon}) => (
@@ -320,11 +316,10 @@ const CreateTransporteModal = ({show, handleClose, addTransporte, transportes, b
         </Form.Group>
       )}
 
-      {(idMethod === "automatic" || idMethod === "manual") && (
+      {idMethod === "automatic" && (
         <Form.Group className="mb-3">
           <Form.Label className="fw-semibold">ID generado</Form.Label>
-          <Form.Control type="text"
-            value={idMethod === "automatic" ? generateTransporteId() : "(ID en blanco)"} disabled />
+          <Form.Control type="text" value={generateTransporteId()} disabled />
           <Form.Text className="text-muted">
             Formato: T{String(transportes.length + 1).padStart(3, "0")}_{transporteData.tracto.placa || "N/A"}
           </Form.Text>

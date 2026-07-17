@@ -11,6 +11,19 @@ import CreateTransporteModal from "./Transportes/CreateTransporteModal";
 import NewEventModal from "./Eventos/NewEventModal";
 import {useSidebar} from "../../context/SidebarContext";
 
+const tMatch = (a, b) =>
+  (a.internalId && b.internalId && a.internalId === b.internalId) || a.id === b.id;
+
+const getTransporteLabel = (transporte) => {
+  const id = transporte.id || "";
+  if (!id) return "Sin ID";
+  if (id.startsWith("T") && id.includes("_")) return id;
+  const parts = id.split("_");
+  if (parts.length >= 3) return `${parts[1]} - ${parts[2]}`;
+  if (parts.length === 2) return `${parts[0]} - ${parts[1]}`;
+  return id;
+};
+
 const BitacoraDetailPage = ({edited}) => {
   const {id} = useParams();
   const {user, verifyToken, setUser} = useAuth();
@@ -568,12 +581,7 @@ const BitacoraDetailPage = ({edited}) => {
               <p className="card-text">
                 <strong>Transportes:</strong>{" "}
                 {transportes && transportes.length > 0
-                  ? transportes.map((transporte, index) => {
-                      const transporteId = transporte.id.includes("_")
-                        ? transporte.id.split("_")[1] // Obtiene la parte después del '_'
-                        : transporte.id; // Mantiene el ID original
-
-                      return (
+                  ? transportes.map((transporte, index) => (
                         <a
                           href="#"
                           key={index}
@@ -582,11 +590,10 @@ const BitacoraDetailPage = ({edited}) => {
                             e.preventDefault();
                             handleShowTransporteModal(transporte);
                           }}>
-                          {`${bitacora.bitacora_id}.${transporteId}`}
+                          {`${bitacora.bitacora_id}.${getTransporteLabel(transporte)}`}
                           {index < transportes.length - 1 ? ", " : ""}
                         </a>
-                      );
-                    })
+                      ))
                   : ""}
               </p>
               <p className="card-text">
@@ -826,14 +833,13 @@ const BitacoraDetailPage = ({edited}) => {
       return events.some((event) => event.nombre === eventToStart);
     } else if (bitacora.status === "iniciada") {
       // Obtener todos los transportes que han sido incluidos en un evento "CIERRE DE SERVICIO"
-      const transportesConCierre = new Set(
-        events
-          .filter((event) => event.nombre === eventToFinish)
-          .flatMap((event) => event.transportes.map((t) => t.id)) // Suponiendo que transportes es un array de objetos con ID
-      );
+      const cierreTransportes = events
+        .filter((event) => event.nombre === eventToFinish)
+        .flatMap((event) => event.transportes);
 
-      // Verificar si TODOS los transportes de la bitácora están en un evento "CIERRE DE SERVICIO"
-      return bitacora.transportes.every((transporte) => transportesConCierre.has(transporte.id));
+      return bitacora.transportes.every((transporte) =>
+        cierreTransportes.some((ct) => tMatch(ct, transporte))
+      );
     }
 
     return false;
@@ -951,9 +957,8 @@ const BitacoraDetailPage = ({edited}) => {
 
   const handleCheckboxChange = (e) => {
     const {value, checked} = e.target;
-    const transporteId = value;
     const transporteToAdd = bitacora.transportes.find(
-      (transporte) => String(transporte.id) === transporteId
+      (transporte) => String(transporte.internalId || transporte.id) === value
     );
 
     if (value === "all") {
@@ -1213,23 +1218,17 @@ const BitacoraDetailPage = ({edited}) => {
                   <div className="col-md-4 border-end pe-3">
                     <h5 className="fw-semibold">Lista de Transportes</h5>
                     <ul className="list-group">
-                      {bitacora.transportes.map((transporte) => {
-                        const transporteId = transporte.id.includes("_")
-                          ? transporte.id.split("_")[1] // Obtiene la parte después del '_'
-                          : transporte.id; // Mantiene el ID original
-
-                        return (
+                      {bitacora.transportes.map((transporte) => (
                           <li
-                            key={transporte.id}
+                            key={transporte.internalId || transporte.id}
                             className={`list-group-item mt-2 ${
-                              selectedTransporte?.id === transporte.id ? "active" : ""
+                              selectedTransporte && tMatch(selectedTransporte, transporte) ? "active" : ""
                             }`}
                             onClick={() => handleSelectTransporte(transporte)}
                             style={{cursor: "pointer"}}>
-                            GPS ID: {`${transporteId}`}
+                            {getTransporteLabel(transporte)}
                           </li>
-                        );
-                      })}
+                        ))}
                     </ul>
                   </div>
 

@@ -27,6 +27,12 @@ const BuscadorPlanPage = () => {
   // Success state
   const [started, setStarted] = useState(null); // { bitacora_id, bitacora_num_id }
 
+  const [planPerms, setPlanPerms] = useState({
+    linea_transporte: true,
+    operador: true,
+    telefono: true,
+  });
+
   const {user} = useAuth();
   const {isSidebarCollapsed, setIsMobileSidebarOpen} = useSidebar();
   const baseUrl = import.meta.env.VITE_BASE_URL;
@@ -36,7 +42,14 @@ const BuscadorPlanPage = () => {
     if (!user) return;
     fetch(`${baseUrl}/roles/${user.role}`, {credentials: "include"})
       .then((r) => r.json())
-      .then((role) => { if (!role?.buscador_plan?.read) navigate("/"); })
+      .then((role) => {
+        if (!role?.buscador_plan?.read) navigate("/");
+        setPlanPerms({
+          linea_transporte: role?.plan_linea_transporte ?? true,
+          operador:         role?.plan_operador ?? true,
+          telefono:         role?.plan_telefono ?? true,
+        });
+      })
       .catch(() => {});
   }, [user, baseUrl, navigate]);
 
@@ -84,9 +97,9 @@ const BuscadorPlanPage = () => {
   };
 
   const isFormValid =
-    transporteData.lineaTransporte.trim() &&
-    transporteData.operador.trim() &&
-    transporteData.telefono.trim();
+    (!planPerms.linea_transporte || transporteData.lineaTransporte.trim()) &&
+    (!planPerms.operador         || transporteData.operador.trim()) &&
+    (!planPerms.telefono         || transporteData.telefono.trim());
   const isPlanUsed = !!plan?.linked_bitacora;
 
   const handleConfirmStart = async (e) => {
@@ -101,9 +114,9 @@ const BuscadorPlanPage = () => {
         credentials: "include",
         body: JSON.stringify({
           creado_por:      `${user?.firstName ?? ""} ${user?.lastName ?? ""}`.trim(),
-          lineaTransporte: transporteData.lineaTransporte.trim(),
-          operador:        transporteData.operador.trim(),
-          telefono:        transporteData.telefono.trim(),
+          lineaTransporte: planPerms.linea_transporte ? transporteData.lineaTransporte.trim() : "",
+          operador:        planPerms.operador         ? transporteData.operador.trim()         : "",
+          telefono:        planPerms.telefono         ? transporteData.telefono.trim()         : "",
         }),
       });
       if (!res.ok) {
@@ -322,53 +335,63 @@ const BuscadorPlanPage = () => {
           </div>
 
           {/* Transporte data fields */}
-          <p className="fw-semibold mb-2" style={{fontSize: "0.9rem"}}>
-            Datos del transporte <span className="text-danger">*</span>
-          </p>
-          <div className="d-flex flex-column gap-3">
-            <div>
-              <label className="form-label fw-semibold" style={{fontSize: "0.85rem"}}>
-                Línea de Transporte <span className="text-danger">*</span>
-              </label>
-              <input
-                type="text"
-                className="form-control"
-                name="lineaTransporte"
-                value={transporteData.lineaTransporte}
-                onChange={handleFieldChange}
-                placeholder="Ej. TRANSPORTES XYZ"
-                autoComplete="off"
-              />
-            </div>
-            <div>
-              <label className="form-label fw-semibold" style={{fontSize: "0.85rem"}}>
-                Operador <span className="text-danger">*</span>
-              </label>
-              <input
-                type="text"
-                className="form-control"
-                name="operador"
-                value={transporteData.operador}
-                onChange={handleFieldChange}
-                placeholder="Nombre del operador"
-                autoComplete="off"
-              />
-            </div>
-            <div>
-              <label className="form-label fw-semibold" style={{fontSize: "0.85rem"}}>
-                Teléfono <span className="text-danger">*</span>
-              </label>
-              <input
-                type="tel"
-                className="form-control"
-                name="telefono"
-                value={transporteData.telefono}
-                onChange={handleFieldChange}
-                placeholder="Ej. 55 1234 5678"
-                autoComplete="off"
-              />
-            </div>
-          </div>
+          {(planPerms.linea_transporte || planPerms.operador || planPerms.telefono) && (
+            <>
+              <p className="fw-semibold mb-2" style={{fontSize: "0.9rem"}}>
+                Datos del transporte <span className="text-danger">*</span>
+              </p>
+              <div className="d-flex flex-column gap-3">
+                {planPerms.linea_transporte && (
+                  <div>
+                    <label className="form-label fw-semibold" style={{fontSize: "0.85rem"}}>
+                      Línea de Transporte <span className="text-danger">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      className="form-control"
+                      name="lineaTransporte"
+                      value={transporteData.lineaTransporte}
+                      onChange={handleFieldChange}
+                      placeholder="Ej. TRANSPORTES XYZ"
+                      autoComplete="off"
+                    />
+                  </div>
+                )}
+                {planPerms.operador && (
+                  <div>
+                    <label className="form-label fw-semibold" style={{fontSize: "0.85rem"}}>
+                      Operador <span className="text-danger">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      className="form-control"
+                      name="operador"
+                      value={transporteData.operador}
+                      onChange={handleFieldChange}
+                      placeholder="Nombre del operador"
+                      autoComplete="off"
+                    />
+                  </div>
+                )}
+                {planPerms.telefono && (
+                  <div>
+                    <label className="form-label fw-semibold" style={{fontSize: "0.85rem"}}>
+                      Teléfono <span className="text-danger">*</span>
+                    </label>
+                    <input
+                      type="tel"
+                      className="form-control"
+                      name="telefono"
+                      value={transporteData.telefono}
+                      onChange={handleFieldChange}
+                      placeholder="Ej. 55 1234 5678"
+                      autoComplete="off"
+                    />
+                  </div>
+                )}
+              </div>
+            </>
+          )}
         </ModalTemplate>
       )}
     </section>

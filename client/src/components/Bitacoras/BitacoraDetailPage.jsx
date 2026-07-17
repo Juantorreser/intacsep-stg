@@ -14,14 +14,19 @@ import {convertToUpperCase} from "../../utils/utils";
 import ModalTemplate from "../../components/ModalTemplate"; // make sure path is valid
 import {useSidebar} from "../../context/SidebarContext";
 
+const getTransporteLabel = (transporte) => {
+  const id = transporte.id || "";
+  if (!id) return "Sin ID";
+  if (id.startsWith("T") && id.includes("_")) return id;
+  const parts = id.split("_");
+  if (parts.length >= 3) return `${parts[1]} - ${parts[2]}`;
+  if (parts.length === 2) return `${parts[0]} - ${parts[1]}`;
+  return id;
+};
+
 const CollapsibleTransporte = ({transporte}) => {
   const [isOpen, setIsOpen] = useState(false);
-
-  const displayId = transporte.id.startsWith("T")
-    ? transporte.id
-    : transporte.id.includes("_")
-    ? `${transporte.id.split("_")[1]} - ${transporte.id.split("_")[2]}`
-    : transporte.id;
+  const displayId = getTransporteLabel(transporte);
 
   return (
     <div className="mb-3">
@@ -260,11 +265,7 @@ const EventCard = ({event, events, bitacora, setBitacora, setEventos, handleEdit
           <Form.Control
             type="text"
             name="transportes"
-            value={formData.transportes
-              .map((t) =>
-                t.id.includes("_") ? `${t.id.split("_")[1]} - ${t.id.split("_")[2]}` : t.id
-              )
-              .join(", ")}
+            value={formData.transportes.map((t) => getTransporteLabel(t)).join(", ")}
             disabled
           />
         </Form.Group>
@@ -327,6 +328,7 @@ const BitacoraDetailPage = ({edited}) => {
   const [finishButtonDisabled, setFinishButtonDisabled] = useState(false);
   const [drafts, setDrafts] = useState([]);
   const [showDraftsModal, setShowDraftsModal] = useState(false);
+  const [draftModalDismissed, setDraftModalDismissed] = useState(false);
   const [editDraftLineaText, setEditDraftLineaText] = useState("");
   const [editDraftOperadorText, setEditDraftOperadorText] = useState("");
   const [pendingRejectDraftId, setPendingRejectDraftId] = useState(null);
@@ -513,7 +515,9 @@ const BitacoraDetailPage = ({edited}) => {
     const updatedEditedTransporte = {
       ...editedTransporte,
       id: updatedId,
-      internalId: editedTransporte.internalId || editedTransporte.originalInternalId || undefined,
+      internalId: editedTransporte.internalId || undefined,
+      // _originalId lets the server locate this transporte when the display id changed
+      _originalId: editedTransporte.originalId,
       gpsUnits: selectedGpsUnits.map((unit) => ({
         wialonId: unit.id,
         name: unit.name,
@@ -834,6 +838,27 @@ const BitacoraDetailPage = ({edited}) => {
       if (response.ok) {
         const data = await response.json();
 
+        // Silently repair any evento copies whose internalId doesn't match their transporte
+        fetch(`${baseUrl}/bitacora/${id}/repair-internalids`, {
+          method: "POST",
+          credentials: "include",
+        }).then(async (r) => {
+          if (r.ok) {
+            const { repaired } = await r.json();
+            if (repaired) {
+              // Re-fetch so the UI sees the corrected internalIds
+              const r2 = await fetch(`${baseUrl}/bitacora/${id}`, { credentials: "include" });
+              if (r2.ok) {
+                const fixed = await r2.json();
+                setBitacora(fixed);
+                setEditedBitacora(processBitacoraForEdit(fixed));
+                setTransportes(fixed.transportes);
+                setSelectedTransportes(fixed.transportes);
+              }
+            }
+          }
+        }).catch(() => {});
+
         setBitacora(data);
         setEditedBitacora(processBitacoraForEdit(data));
         setTransportes(data.transportes);
@@ -1004,7 +1029,8 @@ const BitacoraDetailPage = ({edited}) => {
   }, [bitacora?._id, roleData]);
 
   useEffect(() => {
-    if (roleData?.aceptar_draft && bitacora?.draft_pendiente && drafts.length > 0) {
+    const hasPending = drafts.some((d) => d.status === "pendiente");
+    if (roleData?.aceptar_draft && bitacora?.draft_pendiente && hasPending && !draftModalDismissed) {
       setShowDraftsModal(true);
     }
   }, [drafts]);
@@ -1015,6 +1041,9 @@ const BitacoraDetailPage = ({edited}) => {
         method: "PUT",
         credentials: "include",
       });
+      // Reset dismissed so any remaining pending drafts can surface after this action,
+      // but close the modal first — it will reopen only if there are still pending drafts.
+      setDraftModalDismissed(false);
       await fetchDrafts();
       await fetchBitacora();
     } catch (e) {
@@ -1660,7 +1689,7 @@ const BitacoraDetailPage = ({edited}) => {
                             <div
                               key={t.id}
                               className="transporte-monitoreo mb-3 p-3 bg-light rounded">
-                              <h6 className="fw-semibold mb-2">Transporte ID: {t.id}</h6>
+                              <h6 className="fw-semibold mb-2">{getTransporteLabel(t)}</h6>
                               {t.gpsUnits && t.gpsUnits.length > 0 && (
                                 <div className="mb-2">
                                   <small className="text-muted">
@@ -1709,14 +1738,11 @@ const BitacoraDetailPage = ({edited}) => {
                           {roleData?.gps_id?.read && (
                             <div className="transporte-list">
                               {bitacora.transportes.map((transporte) => {
-                                const displayId = transporte.id.startsWith("T")
-                                  ? transporte.id
-                                  : transporte.id.includes("_")
-                                  ? `${transporte.id.split("_")[1]} - ${
-                                      transporte.id.split("_")[2]
-                                    }`
-                                  : transporte.id;
-
+                                const isBeingEdited = editedTransporte && selectedTransporte &&
+                                  transporteMatch(transporte, selectedTransporte);
+                                const liveTransporte = isBeingEdited
+                                  ? { ...transporte, id: editedTransporte.id }
+                                  : transporte;
                                 return (
                                   <div
                                     key={transporte.id}
@@ -1725,8 +1751,7 @@ const BitacoraDetailPage = ({edited}) => {
                                     }`}
                                     onClick={() => handleSelectTransporte(transporte)}>
                                     <span className="transporte-id">
-                                      {transporte.id.startsWith("T") ? "Transporte" : "GPS"} ID:{" "}
-                                      {displayId}
+                                      {getTransporteLabel(liveTransporte)}
                                     </span>
                                     {transporte.gpsUnits && transporte.gpsUnits.length > 0 && (
                                       <small className="d-block text-muted">
@@ -1868,11 +1893,8 @@ const BitacoraDetailPage = ({edited}) => {
                                   </div>
 
                                   {/* GPS Asociados - Compatible con versiones anteriores y nuevas */}
-                                  {(selectedTransporte.gpsUnits &&
-                                    selectedTransporte.gpsUnits.length > 0) ||
-                                  (selectedTransporte.id &&
-                                    !selectedTransporte.id.startsWith("blank_") &&
-                                    !selectedTransporte.id.startsWith("T")) ? (
+                                  {selectedTransporte.gpsUnits &&
+                                  selectedTransporte.gpsUnits.length > 0 ? (
                                     <div className="gps-asociados-section mt-3">
                                       <h6 className="fw-semibold mb-3">GPS Asociados</h6>
                                       <div className="row">
@@ -1880,28 +1902,13 @@ const BitacoraDetailPage = ({edited}) => {
                                           <div className="info-group mb-2">
                                             <label className="info-label">IDs de GPS:</label>
                                             <div className="info-value">
-                                              {selectedTransporte.gpsUnits &&
-                                              selectedTransporte.gpsUnits.length > 0 ? (
-                                                // Nueva estructura: múltiples GPS
-                                                <div className="d-flex flex-wrap gap-2">
-                                                  {selectedTransporte.gpsUnits.map((gps, index) => (
-                                                    <span key={index} className="badge bg-primary">
-                                                      {gps.name} (ID: {gps.wialonId})
-                                                    </span>
-                                                  ))}
-                                                </div>
-                                              ) : selectedTransporte.id &&
-                                                !selectedTransporte.id.startsWith("blank_") &&
-                                                !selectedTransporte.id.startsWith("T") ? (
-                                                // Estructura anterior: GPS único
-                                                <span className="badge bg-secondary">
-                                                  GPS ID: {selectedTransporte.id}
-                                                </span>
-                                              ) : (
-                                                <span className="text-muted">
-                                                  Sin GPS asociados
-                                                </span>
-                                              )}
+                                              <div className="d-flex flex-wrap gap-2">
+                                                {selectedTransporte.gpsUnits.map((gps, index) => (
+                                                  <span key={index} className="badge bg-primary">
+                                                    {gps.name} (ID: {gps.wialonId})
+                                                  </span>
+                                                ))}
+                                              </div>
                                             </div>
                                           </div>
                                         </div>
@@ -2291,21 +2298,9 @@ const BitacoraDetailPage = ({edited}) => {
             {/* GPS step */}
             {currentKey === "gps" && (
               <div className="wizard-step-content">
-                {isTransporteInEvento ? (
-                  <>
-                    <Form.Group className="mb-3">
-                      <Form.Label>ID actual</Form.Label>
-                      <Form.Control type="text" value={editedTransporte.id} disabled />
-                      <Form.Text className="text-muted">
-                        Este transporte ya está vinculado a un evento, por lo tanto no puede cambiar
-                        su ID.
-                      </Form.Text>
-                    </Form.Group>
-                  </>
-                ) : (
-                  <>
-                    <Form.Group className="mb-3">
-                      <Form.Label>Método de ID</Form.Label>
+                <>
+                  <Form.Group className="mb-3">
+                    <Form.Label>Método de ID</Form.Label>
                       <div>
                         <Form.Check
                           type="radio"
@@ -2516,7 +2511,6 @@ const BitacoraDetailPage = ({edited}) => {
                       </Form.Group>
                     )}
                   </>
-                )}
               </div>
             )}
 
@@ -2530,11 +2524,8 @@ const BitacoraDetailPage = ({edited}) => {
                     <Form.Control
                       type="text"
                       value={editedTransporte.tracto[field] || ""}
-                      disabled={isTransporteInEvento && field === "placa"}
                       onChange={(e) => {
                         const value = e.target.value;
-
-                        if (isTransporteInEvento && field === "placa") return; // prevent change
 
                         setEditedTransporte((prev) => {
                           const updatedTracto = {
@@ -2733,13 +2724,13 @@ const BitacoraDetailPage = ({edited}) => {
         <ModalTemplate
           show={showDraftsModal}
           title="Borradores pendientes de aprobación"
-          onClose={() => setShowDraftsModal(false)}
+          onClose={() => { setShowDraftsModal(false); setDraftModalDismissed(true); }}
           hideFooter>
-          {drafts.length === 0 ? (
+          {drafts.filter((d) => d.status === "pendiente").length === 0 ? (
             <p className="text-muted">No hay borradores pendientes.</p>
           ) : (
             <div className="d-flex flex-column gap-3">
-              {drafts.map((draft) => {
+              {drafts.filter((d) => d.status === "pendiente").map((draft) => {
                 const isPlanDraft = !!draft.transporte;
                 return (
                 <div key={draft._id} className="border rounded p-3 bg-light">
@@ -2836,11 +2827,7 @@ const BitacoraDetailPage = ({edited}) => {
                         telefono:        telefonoVal,
                       });
                       setIdMethod(isPlanDraft ? "automatic" : (
-                        transporte.id &&
-                        !transporte.id.startsWith("T") &&
-                        !transporte.id.startsWith("blank_")
-                          ? "wialon"
-                          : "automatic"
+                        transporte.gpsUnits?.length > 0 ? "wialon" : "automatic"
                       ));
                       // For plan drafts, pre-fill the text inputs with the confirmed values
                       if (isPlanDraft) {

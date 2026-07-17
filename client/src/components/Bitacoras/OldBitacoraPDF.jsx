@@ -2,16 +2,21 @@ import React from "react";
 import {formatDate} from "../../utils/dateUtils"; // Ensure you have a utility to format dates
 import {Container, Row, Col} from "react-bootstrap";
 
+const tMatch = (a, b) =>
+  (a.internalId && b.internalId && a.internalId === b.internalId) || a.id === b.id;
+
 const OldBitacoraDetail = React.forwardRef(({bitacora, transporteId = ""}, ref) => {
-  // Filter transportes based on transporteId
-  const filteredTransportes = transporteId
-    ? bitacora.transportes.filter((transporte) => transporte.id === transporteId)
+  const selectedTransporte = transporteId
+    ? bitacora.transportes.find((t) => t.id === transporteId || t.internalId === transporteId)
+    : null;
+
+  const filteredTransportes = selectedTransporte
+    ? bitacora.transportes.filter((t) => tMatch(t, selectedTransporte))
     : bitacora.transportes;
 
-  // If a transporteId is selected, filter events based on that transporte
-  const filteredEventos = transporteId
+  const filteredEventos = selectedTransporte
     ? bitacora.eventos.filter((evento) =>
-        evento.transportes.some((transporte) => transporte.id === transporteId)
+        evento.transportes.some((t) => tMatch(t, selectedTransporte))
       )
     : bitacora.eventos;
 

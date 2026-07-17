@@ -43,6 +43,9 @@ const RolePage = () => {
     ver_bitacoras_cerradas: true,
     crear_draft_transporte: false,
     aceptar_draft: false,
+    plan_linea_transporte: true,
+    plan_operador: true,
+    plan_telefono: true,
     planes_embarque: {create: false, read: false, update: false, delete: false},
     buscador_plan: {create: false, read: false, update: false, delete: false},
     reporte_eventos: {create: false, read: false, update: false, delete: false},
@@ -85,6 +88,9 @@ const RolePage = () => {
     ver_bitacoras_cerradas: true,
     crear_draft_transporte: false,
     aceptar_draft: false,
+    plan_linea_transporte: true,
+    plan_operador: true,
+    plan_telefono: true,
     planes_embarque: {create: false, read: false, update: false, delete: false},
     buscador_plan: {create: false, read: false, update: false, delete: false},
     reporte_eventos: {create: false, read: false, update: false, delete: false},
@@ -249,7 +255,7 @@ const RolePage = () => {
   // Handle role edit button click
   const handleEditClick = (role) => {
     setEditRole(role);
-    setEditRoleData({ver_bitacoras_cerradas: true, crear_draft_transporte: false, aceptar_draft: false, ...role});
+    setEditRoleData({ver_bitacoras_cerradas: true, crear_draft_transporte: false, aceptar_draft: false, plan_linea_transporte: true, plan_operador: true, plan_telefono: true, ...role});
     setIsEditing(true); // << ENABLE EDIT MODE
   };
 
@@ -267,7 +273,7 @@ const RolePage = () => {
         const updatedRole = await response.json();
         setRoles(roles.map((role) => (role._id === id ? updatedRole : role)));
         setEditRole(updatedRole);
-        setEditRoleData({ver_bitacoras_cerradas: true, ...updatedRole});
+        setEditRoleData({ver_bitacoras_cerradas: true, plan_linea_transporte: true, plan_operador: true, plan_telefono: true, ...updatedRole});
         setIsEditing(false);
         showToast("Rol actualizado correctamente", "success");
       } else {
@@ -282,7 +288,7 @@ const RolePage = () => {
 
   // Handle cancel edit
   const handleCancelEdit = () => {
-    setEditRoleData({ver_bitacoras_cerradas: true, ...editRole});
+    setEditRoleData({ver_bitacoras_cerradas: true, plan_linea_transporte: true, plan_operador: true, plan_telefono: true, ...editRole});
     setIsEditing(false);
   };
 
@@ -481,7 +487,7 @@ const RolePage = () => {
                     onChange={(e) => {
                       const selected = roles.find((r) => r._id === e.target.value);
                       setEditRole(selected || null);
-                      setEditRoleData({ver_bitacoras_cerradas: true, ...JSON.parse(JSON.stringify(selected))});
+                      setEditRoleData({ver_bitacoras_cerradas: true, plan_linea_transporte: true, plan_operador: true, plan_telefono: true, ...JSON.parse(JSON.stringify(selected))});
                     }}>
                     <option value="">-- Seleccione un rol --</option>
                     {roles.map((role) => (
@@ -633,6 +639,34 @@ const RolePage = () => {
                               id={key}
                               className="form-check-input me-2"
                               checked={editRoleData[key] ?? defaultVal}
+                              disabled={!isEditing}
+                              onChange={(e) =>
+                                setEditRoleData((prev) => ({ ...prev, [key]: e.target.checked }))
+                              }
+                            />
+                            <label htmlFor={key} className="form-check-label fw-semibold">
+                              {label}
+                            </label>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Sección de Planes de embarque — campos visibles */}
+                    <div className="mt-3 pt-3 border-top">
+                      <h6 className="mb-2 text-secondary">Planes de embarque — campos del transporte</h6>
+                      <div className="bg-light p-3 rounded">
+                        {[
+                          { key: "plan_linea_transporte", label: "Mostrar campo Línea de Transporte" },
+                          { key: "plan_operador",         label: "Mostrar campo Operador" },
+                          { key: "plan_telefono",         label: "Mostrar campo Teléfono" },
+                        ].map(({ key, label }) => (
+                          <div className="d-flex align-items-center mb-2" key={key}>
+                            <input
+                              type="checkbox"
+                              id={key}
+                              className="form-check-input me-2"
+                              checked={editRoleData[key] ?? true}
                               disabled={!isEditing}
                               onChange={(e) =>
                                 setEditRoleData((prev) => ({ ...prev, [key]: e.target.checked }))

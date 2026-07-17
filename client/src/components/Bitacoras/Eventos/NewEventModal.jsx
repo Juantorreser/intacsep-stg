@@ -3,6 +3,22 @@ import {useAuth} from "../../../context/AuthContext";
 import {useParams} from "react-router-dom";
 import ModalTemplate from "../../ModalTemplate";
 
+const getTransporteLabel = (transporte) => {
+  const id = transporte.id || "";
+  if (!id) return "Sin ID";
+  if (id.startsWith("T") && id.includes("_")) return id;
+  const parts = id.split("_");
+  if (parts.length >= 3) return `${parts[1]} - ${parts[2]}`;
+  if (parts.length === 2) return `${parts[0]} - ${parts[1]}`;
+  return id;
+};
+
+// Match by internalId when both have it, fall back to display id
+const tMatch = (a, b) =>
+  (a.internalId && b.internalId && a.internalId === b.internalId) || a.id === b.id;
+
+const isManualTransporte = (t) => !t.gpsUnits || t.gpsUnits.length === 0;
+
 const NewEventModal = ({show, onClose, edited, eventTypes, onEventAdded}) => {
   const [bitacora, setBitacora] = useState(null);
   const {id} = useParams();
@@ -299,11 +315,11 @@ const NewEventModal = ({show, onClose, edited, eventTypes, onEventAdded}) => {
     let updatedTransportes = [...newEvent.transportes];
 
     if (checked) {
-      if (!updatedTransportes.some((t) => t.id === transporteCopy.id)) {
+      if (!updatedTransportes.some((t) => tMatch(t, transporteCopy))) {
         updatedTransportes.push(transporteCopy);
       }
     } else {
-      updatedTransportes = updatedTransportes.filter((t) => t.id !== transporteCopy.id);
+      updatedTransportes = updatedTransportes.filter((t) => !tMatch(t, transporteCopy));
     }
 
     setNewEvent((prev) => ({
@@ -414,12 +430,14 @@ const NewEventModal = ({show, onClose, edited, eventTypes, onEventAdded}) => {
       bitacora?.eventos.filter((evento) => evento.nombre.toLowerCase() === "arribo a destino") ||
       [];
 
-    const transportesConArriboDestino = new Set(
-      eventosArriboDestino.flatMap((evento) => evento.transportes.map((t) => t.id))
-    );
+    const transporteMatchesEvento = (candidate, eventoTransportes) =>
+      eventoTransportes.some((et) => {
+        if (candidate.internalId && et.internalId && candidate.internalId === et.internalId) return true;
+        return et.id === candidate.id;
+      });
 
     const allTransportesInArriboDestino = bitacora.transportes.every((t) =>
-      transportesConArriboDestino.has(t.id)
+      eventosArriboDestino.some((ev) => transporteMatchesEvento(t, ev.transportes))
     );
 
     try {
@@ -459,10 +477,10 @@ const NewEventModal = ({show, onClose, edited, eventTypes, onEventAdded}) => {
     }
   };
 
-  const handleManualRegistroChange = (transporteId, field, value) => {
+  const handleManualRegistroChange = (transporteInternalId, field, value) => {
     setNewEvent((prev) => {
       const updatedTransportes = prev.transportes.map((t) => {
-        if (t.id === transporteId) {
+        if (t.internalId ? t.internalId === transporteInternalId : t.id === transporteInternalId) {
           return {
             ...t,
             registro: {
@@ -481,10 +499,10 @@ const NewEventModal = ({show, onClose, edited, eventTypes, onEventAdded}) => {
     });
   };
 
-  const handleGpsDataChange = (transporteId, gpsIndex, field, value) => {
+  const handleGpsDataChange = (transporteInternalId, gpsIndex, field, value) => {
     setNewEvent((prev) => {
       const updatedTransportes = prev.transportes.map((t) => {
-        if (t.id === transporteId) {
+        if (t.internalId ? t.internalId === transporteInternalId : t.id === transporteInternalId) {
           const updatedGpsData = [...(t.gpsData || [])];
           if (updatedGpsData[gpsIndex]) {
             updatedGpsData[gpsIndex] = {
@@ -530,39 +548,27 @@ const NewEventModal = ({show, onClose, edited, eventTypes, onEventAdded}) => {
                   bitacora?.eventos?.filter(
                     (evento) => evento.nombre.toLowerCase() === "cierre de servicio"
                   ) || [];
-
-                const transportesEnCierre = new Set(
-                  cierreEventos.flatMap((evento) => evento.transportes.map((t) => t.id))
+                return !cierreEventos.some((ev) =>
+                  ev.transportes.some((t) => tMatch(t, transporte))
                 );
-
-                return !transportesEnCierre.has(transporte.id);
               })
               .map((transporte) => {
-                const transporteId = transporte.id.includes("_")
-                  ? `${transporte.id.split("_")[1]}`
-                  : transporte.id;
-
+                const isSelected = newEvent.transportes.some((t) => tMatch(t, transporte));
                 return (
                   <div
-                    className={`transportes-checkbox ${
-                      newEvent.transportes.some((t) => t.id === transporte.id) ? "checked" : ""
-                    }`}
-                    key={transporte.id}>
+                    className={`transportes-checkbox ${isSelected ? "checked" : ""}`}
+                    key={transporte.internalId || transporte.id}>
                     <input
                       type="checkbox"
-                      className={`form-check-input ${
-                        newEvent.transportes.some((t) => t.id === transporte.id)
-                          ? "border-success"
-                          : ""
-                      }`}
-                      id={`transporte-${transporte.id}`}
+                      className={`form-check-input ${isSelected ? "border-success" : ""}`}
+                      id={`transporte-${transporte.internalId || transporte.id}`}
                       name="transportes"
                       value={transporte.id}
                       onChange={handleCheckboxChange}
-                      checked={newEvent.transportes.some((t) => t.id === transporte.id)}
+                      checked={isSelected}
                     />
-                    <label className="form-check-label" htmlFor={`transporte-${transporte.id}`}>
-                      {`${transporteId}${transporte.tracto?.eco ? ` - ${transporte.tracto.eco}` : ""}`}
+                    <label className="form-check-label" htmlFor={`transporte-${transporte.internalId || transporte.id}`}>
+                      {`${getTransporteLabel(transporte)}${transporte.tracto?.eco ? ` - ${transporte.tracto.eco}` : ""}`}
                     </label>
                   </div>
                 );
@@ -599,34 +605,31 @@ const NewEventModal = ({show, onClose, edited, eventTypes, onEventAdded}) => {
                     bitacora?.eventos.filter((evento) => evento.nombre.toLowerCase() === "arribo a destino") ||
                     [];
 
-                  // Extraer IDs de transportes en eventos "Validación"
-                  const transportesConValidacion = new Set(
-                    eventosValidacion.flatMap((evento) => evento.transportes.map((t) => t.id?.toLowerCase()))
-                  );
+                  // Build a matcher that checks id OR internalId so renamed transportes stay linked
+                  const transporteInSet = (eventoTransportes, candidate) =>
+                    eventoTransportes.some((et) => {
+                      if (candidate.internalId && et.internalId && candidate.internalId === et.internalId) return true;
+                      return et.id?.toLowerCase() === candidate.id?.toLowerCase();
+                    });
 
-                  // Extraer IDs de transportes en eventos "Inicio de recorrido"
-                  const transportesConInicioRecorrido = new Set(
-                    eventosInicioRecorrido.flatMap((evento) => evento.transportes.map((t) => t.id?.toLowerCase()))
-                  );
-
-                  // Extraer IDs de transportes en eventos "Arribo a destino"
-                  const transportesConArriboDestino = new Set(
-                    eventosArriboDestino.flatMap((evento) => evento.transportes.map((t) => t.id?.toLowerCase()))
-                  );
+                  const allTransportesInEvento = (candidatos, eventoList) =>
+                    candidatos.every((c) =>
+                      eventoList.some((ev) => transporteInSet(ev.transportes, c))
+                    );
 
                   // Verificar si TODOS los selectedTransportes están en eventos de "Validación"
-                  const allSelectedTransportesInValidacion = newEvent.transportes.every((t) =>
-                    transportesConValidacion.has(t.id?.toLowerCase())
+                  const allSelectedTransportesInValidacion = allTransportesInEvento(
+                    newEvent.transportes, eventosValidacion
                   );
 
                   // Verificar si TODOS los selectedTransportes están en eventos de "Inicio de recorrido"
-                  const allSelectedTransportesInInicioRecorrido = newEvent.transportes.every((t) =>
-                    transportesConInicioRecorrido.has(t.id?.toLowerCase())
+                  const allSelectedTransportesInInicioRecorrido = allTransportesInEvento(
+                    newEvent.transportes, eventosInicioRecorrido
                   );
 
                   // Verificar si TODOS los selectedTransportes están en eventos de "Arribo a destino"
-                  allSelectedTransportesInArriboDestino = newEvent.transportes.every((t) =>
-                    transportesConArriboDestino.has(t.id?.toLowerCase())
+                  allSelectedTransportesInArriboDestino = allTransportesInEvento(
+                    newEvent.transportes, eventosArriboDestino
                   );
 
                   if (allSelectedTransportesInValidacion) {
@@ -719,38 +722,26 @@ const NewEventModal = ({show, onClose, edited, eventTypes, onEventAdded}) => {
           <hr />
 
           <div>
-            {newEvent.transportes?.map((t) => (
-              <div key={t.id} className="border mb-2 rounded shadow-sm">
+            {newEvent.transportes?.map((t) => {
+              const tKey = t.internalId || t.id;
+              const isManual = isManualTransporte(t);
+              return (
+              <div key={tKey} className="border mb-2 rounded shadow-sm">
                 <div
                   className="d-flex justify-content-between align-items-center p-2 bg-light border-bottom"
                   style={{cursor: "pointer"}}
-                  onClick={() => toggleCollapse(t.id)}>
-                  <div className="fw-bold">
-                    {t.id.startsWith("T")
-                      ? t.id
-                      : t.id.includes("_")
-                      ? `${t.id.split("_")[1]} - ${t.id.split("_")[2]}`
-                      : t.id}
-                  </div>
+                  onClick={() => toggleCollapse(tKey)}>
+                  <div className="fw-bold">{getTransporteLabel(t)}</div>
 
                   <div className="d-flex align-items-center gap-2">
-                    <span
-                      className={`badge ${
-                        t.id.startsWith("blank_") ||
-                        (t.id.startsWith("T") && (!t.gpsUnits || t.gpsUnits.length === 0))
-                          ? "bg-secondary"
-                          : "bg-success"
-                      }`}>
-                      {t.id.startsWith("blank_") ||
-                      (t.id.startsWith("T") && (!t.gpsUnits || t.gpsUnits.length === 0))
-                        ? "Manual"
-                        : "GPS"}
+                    <span className={`badge ${isManual ? "bg-secondary" : "bg-success"}`}>
+                      {isManual ? "Manual" : "GPS"}
                     </span>
-                    <span className="ms-2 fs-5">{openTransportId === t.id ? "−" : "+"}</span>
+                    <span className="ms-2 fs-5">{openTransportId === tKey ? "−" : "+"}</span>
                   </div>
                 </div>
 
-                {openTransportId === t.id && (
+                {openTransportId === tKey && (
                   <div className="p-3">
                     {/* Mostrar múltiples GPS si existen */}
                     {t.gpsData && t.gpsData.length > 0 ? (
@@ -777,7 +768,7 @@ const NewEventModal = ({show, onClose, edited, eventTypes, onEventAdded}) => {
                                   className="form-control form-control-sm"
                                   value={gps.data?.[field] || ""}
                                   onChange={(e) =>
-                                    handleGpsDataChange(t.id, index, field, e.target.value)
+                                    handleGpsDataChange(tKey, index, field, e.target.value)
                                   }
                                   placeholder="Datos obtenidos de Wialon (editable)"
                                 />
@@ -799,34 +790,19 @@ const NewEventModal = ({show, onClose, edited, eventTypes, onEventAdded}) => {
                           <div className="mb-3" key={field}>
                             <label className="form-label fw-bold text-capitalize">
                               {field.replace("_", " ")}{" "}
-                              {(t.id.startsWith("blank_") ||
-                                (t.id.startsWith("T") &&
-                                  (!t.gpsUnits || t.gpsUnits.length === 0))) && (
+                              {isManual && (
                                 <span className="text-danger fw-normal ms-1">(Requerido)</span>
                               )}
                             </label>
                             <input
                               type="text"
-                              className={`form-control ${
-                                t.id.startsWith("blank_") ||
-                                (t.id.startsWith("T") && (!t.gpsUnits || t.gpsUnits.length === 0))
-                                  ? "border-danger"
-                                  : ""
-                              }`}
+                              className={`form-control ${isManual ? "border-danger" : ""}`}
                               value={t.registro?.[field] || ""}
                               onChange={(e) =>
-                                handleManualRegistroChange(t.id, field, e.target.value)
+                                handleManualRegistroChange(tKey, field, e.target.value)
                               }
-                              required={
-                                t.id.startsWith("blank_") ||
-                                (t.id.startsWith("T") && (!t.gpsUnits || t.gpsUnits.length === 0))
-                              }
-                              placeholder={
-                                t.id.startsWith("blank_") ||
-                                (t.id.startsWith("T") && (!t.gpsUnits || t.gpsUnits.length === 0))
-                                  ? "Ingresa valor manualmente"
-                                  : ""
-                              }
+                              required={isManual}
+                              placeholder={isManual ? "Ingresa valor manualmente" : ""}
                             />
                           </div>
                         ))}
@@ -835,7 +811,7 @@ const NewEventModal = ({show, onClose, edited, eventTypes, onEventAdded}) => {
                   </div>
                 )}
               </div>
-            ))}
+            );})}
           </div>
         </form>
       </div>

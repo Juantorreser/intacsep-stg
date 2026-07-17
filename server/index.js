@@ -1868,6 +1868,42 @@ app.get("/bitacoras/deleted", async (req, res) => {
   }
 });
 
+// Repair internalIds on evento copies so renamed transportes stay linked to their events.
+app.post("/bitacora/:id/repair-internalids", async (req, res) => {
+  try {
+    const bitacora = await Bitacora.findById(req.params.id);
+    if (!bitacora) return res.status(404).json({ error: "Bitácora not found" });
+
+    const byInternalId = new Map(
+      bitacora.transportes.filter((t) => t.internalId).map((t) => [t.internalId, t])
+    );
+    const byId = new Map(bitacora.transportes.map((t) => [t.id, t]));
+
+    let dirty = false;
+    bitacora.eventos?.forEach((evento) => {
+      evento.transportes?.forEach((et, i) => {
+        const resolved =
+          (et.internalId && byInternalId.get(et.internalId)) ||
+          byId.get(et.id);
+        if (resolved?.internalId && resolved.internalId !== et.internalId) {
+          evento.transportes[i] = { ...(et.toObject?.() ?? et), internalId: resolved.internalId };
+          dirty = true;
+        }
+      });
+    });
+
+    if (dirty) {
+      bitacora.markModified("eventos");
+      await bitacora.save({ validateModifiedOnly: true });
+    }
+
+    res.json({ repaired: dirty });
+  } catch (e) {
+    console.error("Error repairing internalIds:", e);
+    res.status(500).json({ error: "Repair failed" });
+  }
+});
+
 app.get("/bitacora/:id", async (req, res) => {
   try {
     // Use aggregation to resolve origen and destino names
@@ -2220,23 +2256,56 @@ app.patch("/bitacora/:id", async (req, res) => {
     // Update the existing bitacora with the new data
     const oldData = bitacora.toObject();
 
-    // When transportes are being replaced, preserve internalId from existing subdocs
-    // (or generate one if missing) so event-to-transporte linkage stays stable across edits.
+    // Preserve internalId across transporte updates — it must never change once assigned.
+    // Match incoming transportes to existing ones by: internalId → current id → _originalId (id changed).
+    // Evento transporte copies also get their internalId stamped so future matches work.
     if (updatedData.transportes) {
       const existingById = new Map(bitacora.transportes.map((t) => [t.id, t]));
       const existingByInternalId = new Map(
         bitacora.transportes.filter((t) => t.internalId).map((t) => [t.internalId, t])
       );
+
       updatedData.transportes = updatedData.transportes.map((t) => {
-        // Try to find matching existing transporte by internalId first, then by id
         const existing =
           (t.internalId && existingByInternalId.get(t.internalId)) ||
-          existingById.get(t.id);
-        return {
-          ...t,
-          internalId: existing?.internalId || t.internalId || new mongoose.Types.ObjectId().toString(),
-        };
+          existingById.get(t.id) ||
+          (t._originalId && existingById.get(t._originalId));
+        const { _originalId, ...rest } = t;
+        // Use existing internalId (immutable), or incoming one, or let schema default generate one
+        return { ...rest, internalId: existing?.internalId || t.internalId || undefined };
       });
+
+      // Build old-id → resolved transporte map for evento copy repair
+      const resolvedByInternalId = new Map(
+        updatedData.transportes.filter((t) => t.internalId).map((t) => [t.internalId, t])
+      );
+      // Map every old display id to its resolved transporte (covers id-change case)
+      const oldIdToResolved = new Map();
+      bitacora.transportes.forEach((oldT) => {
+        const resolved = oldT.internalId ? resolvedByInternalId.get(oldT.internalId) : null;
+        if (resolved) oldIdToResolved.set(oldT.id, resolved);
+      });
+
+      // Stamp correct internalId into evento copies — even ones that already have
+      // a Mongoose-generated random internalId (assigned when the original transporte
+      // had no internalId, which causes tMatch to fail after an id rename).
+      if (bitacora.eventos?.length) {
+        let eventosDirty = false;
+        bitacora.eventos.forEach((evento) => {
+          if (!evento.transportes?.length) return;
+          evento.transportes.forEach((et, i) => {
+            // First try matching by current internalId; fall back to old display id
+            const resolved =
+              (et.internalId && resolvedByInternalId.get(et.internalId)) ||
+              oldIdToResolved.get(et.id);
+            if (resolved?.internalId && resolved.internalId !== et.internalId) {
+              evento.transportes[i] = { ...(et.toObject?.() ?? et), internalId: resolved.internalId };
+              eventosDirty = true;
+            }
+          });
+        });
+        if (eventosDirty) bitacora.markModified('eventos');
+      }
     }
 
     Object.assign(bitacora, updatedData);
@@ -2381,10 +2450,9 @@ app.post("/bitacoras/:id/transportes", async (req, res) => {
       return res.status(404).json({ message: "Bitacora not found" });
     }
 
-    // Create a new Transporte object
+    // Create a new Transporte object (internalId auto-assigned by schema default)
     const newTransporte = {
       id,
-      internalId: internalId || new mongoose.Types.ObjectId().toString(),
       tracto,
       remolque,
       lineaTransporte,

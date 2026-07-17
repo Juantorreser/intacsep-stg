@@ -267,9 +267,9 @@ const BitacorasPage = () => {
     setSelectedBitacora(bitacora);
     setShowPrintModal(!showPrintModal);
 
-    const closedIds = getClosedTransportesFromEventos(bitacora);
+    const closedTransportes = getClosedTransportesFromEventos(bitacora);
     const allTransportesClosed =
-      bitacora.transportes?.every((t) => closedIds.includes(t.id)) ?? false;
+      bitacora.transportes?.every((t) => closedTransportes.some((ct) => tMatch(ct, t))) ?? false;
 
     setSelectedOption(allTransportesClosed ? "all" : "one");
   };
@@ -610,21 +610,37 @@ const BitacorasPage = () => {
     }, 10); // Adjusted delay to ensure rendering completion
   };
 
+  const tMatch = (a, b) =>
+    (a.internalId && b.internalId && a.internalId === b.internalId) || a.id === b.id;
+
+  const getTransporteLabel = (transporte) => {
+    const id = transporte?.id || "";
+    if (!id) return "Sin ID";
+    if (id.startsWith("T") && id.includes("_")) return id;
+    const parts = id.split("_");
+    if (parts.length >= 3) return `${parts[1]} - ${parts[2]}`;
+    if (parts.length === 2) return `${parts[0]} - ${parts[1]}`;
+    return id;
+  };
+
+  // Returns current transporte objects (from bitacora.transportes) that have a cierre evento.
   const getClosedTransportesFromEventos = (bitacora) => {
-    const closedIds = new Set();
+    const closedRefs = [];
 
     bitacora?.eventos?.forEach((evento) => {
       if (evento.nombre.toUpperCase() === "CIERRE DE SERVICIO" && evento.transportes) {
-        evento.transportes.forEach((t) => closedIds.add(t.id));
+        evento.transportes.forEach((et) => closedRefs.push(et));
       }
     });
 
-    return Array.from(closedIds);
+    // Return the live transporte objects matched by internalId or id
+    return (bitacora?.transportes || []).filter((t) =>
+      closedRefs.some((ref) => tMatch(ref, t))
+    );
   };
 
   const isAnyTransporteClosed = (bitacora) => {
-    const closedIds = getClosedTransportesFromEventos(bitacora);
-    return closedIds.length > 0;
+    return getClosedTransportesFromEventos(bitacora).length > 0;
   };
 
   // Delete handlers
@@ -1312,9 +1328,9 @@ const BitacorasPage = () => {
               {/* Radio Buttons */}
               <div className="mb-3">
                 {(() => {
-                  const closedIds = getClosedTransportesFromEventos(selectedBitacora);
+                  const closedTransportes = getClosedTransportesFromEventos(selectedBitacora);
                   const allClosed =
-                    selectedBitacora?.transportes?.every((t) => closedIds.includes(t.id)) ?? false;
+                    selectedBitacora?.transportes?.every((t) => closedTransportes.some((ct) => tMatch(ct, t))) ?? false;
 
                   return (
                     <div className="d-flex">
@@ -1362,9 +1378,9 @@ const BitacorasPage = () => {
                     onChange={handleSelectChange}
                     required>
                     <option value="">Seleccionar ID</option>
-                    {getClosedTransportesFromEventos(selectedBitacora).map((transporteId) => (
-                      <option value={transporteId} key={transporteId}>
-                        {transporteId.split("_")[1]} - {transporteId.split("_")[2]}
+                    {getClosedTransportesFromEventos(selectedBitacora).map((t) => (
+                      <option value={t.internalId || t.id} key={t.internalId || t.id}>
+                        {getTransporteLabel(t)}
                       </option>
                     ))}
                   </select>
