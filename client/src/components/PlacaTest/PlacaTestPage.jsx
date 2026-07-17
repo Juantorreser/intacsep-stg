@@ -67,8 +67,47 @@ const PlacaTestPage = () => {
   const { isSidebarCollapsed, setIsMobileSidebarOpen } = useSidebar();
   const navigate = useNavigate();
 
-  const cameraInputRef = useRef(null);
-  const remolqueCameraInputRef = useRef(null);
+  const openCameraInput = (handler) => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = "image/*";
+    input.capture = "environment";
+    input.style.cssText = "position:fixed;top:-9999px;left:-9999px;opacity:0;";
+    document.body.appendChild(input);
+
+    const cleanup = () => {
+      if (document.body.contains(input)) document.body.removeChild(input);
+      window.removeEventListener("popstate", onPopState);
+    };
+
+    // Android Chrome pushes a history entry when the camera activity opens.
+    // When the camera closes it pops that entry, which React Router intercepts
+    // as a back-navigation. We push a dummy state first so the pop is absorbed
+    // here instead of reaching the router.
+    const onPopState = (e) => {
+      if (e.state?.__cameraGuard) {
+        // camera closed without selecting — just clean up
+        cleanup();
+      }
+    };
+    window.addEventListener("popstate", onPopState);
+    history.pushState({ __cameraGuard: true }, "");
+
+    input.addEventListener("change", (e) => {
+      // Pop our guard state so browser history stays clean
+      if (history.state?.__cameraGuard) history.back();
+      handler(e);
+      // Defer removal so Android doesn't treat the DOM mutation as navigation
+      setTimeout(cleanup, 100);
+    });
+
+    input.addEventListener("cancel", () => {
+      if (history.state?.__cameraGuard) history.back();
+      setTimeout(cleanup, 100);
+    });
+
+    input.click();
+  };
   const [capturedDataUrl, setCapturedDataUrl] = useState(null);
   const [capturedBlob, setCapturedBlob] = useState(null);
   const [ocrLoading, setOcrLoading] = useState(false);
@@ -609,10 +648,9 @@ const PlacaTestPage = () => {
           <div className="d-flex flex-column gap-4">
             {!isEditMode && (
               <div className="d-flex flex-wrap gap-2 justify-content-center border-bottom pb-3">
-                <button type="button" className="btn btn-primary px-4" onClick={() => cameraInputRef.current.click()}>
+                <button type="button" className="btn btn-primary px-4" onClick={() => openCameraInput(handleImageSelected)}>
                   <i className="fa fa-camera me-2"></i>{capturedDataUrl ? "Tomar otra foto" : "Tomar foto tracto"}
                 </button>
-                <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" hidden onChange={handleImageSelected} />
               </div>
             )}
 
@@ -696,10 +734,9 @@ const PlacaTestPage = () => {
                       <div className="mt-3 p-3 rounded" style={{ background: "#f8f5ff", border: "1.5px solid #ddd6fe" }}>
                         <div className="d-flex justify-content-between align-items-end mb-2">
                           <label className="form-label fw-bold mb-0 small">Placa Remolque *</label>
-                          <button type="button" className="btn btn-outline-secondary btn-sm" onClick={() => remolqueCameraInputRef.current.click()}>
+                          <button type="button" className="btn btn-outline-secondary btn-sm" onClick={() => openCameraInput(handleRemolqueImageSelected)}>
                             <i className="fa fa-camera me-1"></i>Foto remolque
                           </button>
-                          <input ref={remolqueCameraInputRef} type="file" accept="image/*" capture="environment" hidden onChange={handleRemolqueImageSelected} />
                         </div>
                         <div className="input-group">
                           <input

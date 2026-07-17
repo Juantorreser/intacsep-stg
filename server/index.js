@@ -6677,9 +6677,9 @@ app.get('/dashboard/bitacoras-anomalias', async (req, res) => {
       .filter(et => et.categoria && et.categoria !== 'General')
       .map(et => et.evento);
 
-    const origenById = new Map(allOrigens.map(o => [o._id.toString(), o]));
+    const origenById = new Map(allOrigens.map(o => [o._id.toString().toLowerCase(), o]));
     const origenByName = new Map(allOrigens.map(o => [o.nombre?.toLowerCase(), o]));
-    const destinoById = new Map(allDestinos.map(d => [d._id.toString(), d]));
+    const destinoById = new Map(allDestinos.map(d => [d._id.toString().toLowerCase(), d]));
     const destinoByName = new Map(allDestinos.map(d => [d.nombre?.toLowerCase(), d]));
 
     let bitacorasConAnomalias;
@@ -6881,14 +6881,24 @@ app.get('/dashboard/bitacoras-anomalias', async (req, res) => {
         linea_transporte: getTransportLines(bitacora.transportes, bitacora.linea_transporte),
         operador: getTransportOperators(bitacora.transportes, bitacora.operador),
         origen: (() => {
-          const id = bitacora.origen?.toString();
-          const o = origenById.get(id) || origenByName.get((bitacora.origen || '').toLowerCase());
-          return o ? `${o.nombre}${o.estado ? ', ' + o.estado : ''}`.trim() : getSafeFieldValue(bitacora.origen);
+          const raw = bitacora.origen;
+          if (!raw) return null;
+          const key = raw.toString().toLowerCase();
+          const o = origenById.get(key) || origenByName.get(key);
+          if (o) return `${o.nombre}${o.estado && o.estado !== 'SELECCIONE UN ESTADO' ? ', ' + o.estado : ''}`.trim();
+          // Plain string that isn't an ObjectId — return as-is
+          if (!/^[0-9a-f]{24}$/i.test(raw)) return raw;
+          // ObjectId with no matching catalog entry — don't expose raw ID
+          return null;
         })(),
         destino: (() => {
-          const id = bitacora.destino?.toString();
-          const d = destinoById.get(id) || destinoByName.get((bitacora.destino || '').toLowerCase());
-          return d ? `${d.nombre}${d.estado ? ', ' + d.estado : ''}`.trim() : getSafeFieldValue(bitacora.destino);
+          const raw = bitacora.destino;
+          if (!raw) return null;
+          const key = raw.toString().toLowerCase();
+          const d = destinoById.get(key) || destinoByName.get(key);
+          if (d) return `${d.nombre}${d.estado && d.estado !== 'SELECCIONE UN ESTADO' ? ', ' + d.estado : ''}`.trim();
+          if (!/^[0-9a-f]{24}$/i.test(raw)) return raw;
+          return null;
         })(),
         status: getSafeFieldValue(bitacora.status),
         createdAt: bitacora.createdAt,
