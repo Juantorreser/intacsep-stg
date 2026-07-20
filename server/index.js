@@ -468,7 +468,7 @@ app.post("/refresh_token", async (req, res) => {
     };
 
     const newAccessToken = jwt.sign({ user: publicUser }, JWT_SECRET, {
-      expiresIn: "15m",
+      expiresIn: "60m",
     });
 
     //save tokens in cookie
