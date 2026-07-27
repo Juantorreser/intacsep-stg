@@ -38,6 +38,13 @@ const compressImage = (file) =>
     img.src = url;
   });
 
+const toDateTimeLocal = (iso) => {
+  if (!iso) return "";
+  const d = new Date(iso);
+  const pad = (n) => n.toString().padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+};
+
 const formatDate = (iso) => {
   if (!iso) return "—";
   try { return new Date(iso).toLocaleString(); } catch { return iso; }
@@ -220,7 +227,7 @@ const PlacaTestPage = () => {
         setIsEditMode(true);
         setSelectedRecordForSalida(null);
         setIsSmartMode(false);
-        setFormData({ placa: record.placa, placaRemolque: record.placa_remolque_entrada || "", lineaTransporte: record.linea_transporte, hasRemolque: false, cliente: record.cliente, timestamp: record.fecha_hora_inicio, _id: record._id });
+        setFormData({ placa: record.placa, placaRemolque: record.placa_remolque_entrada || "", lineaTransporte: record.linea_transporte, hasRemolque: false, cliente: record.cliente, timestamp: record.fecha_hora_inicio, fechaEntrada: toDateTimeLocal(record.fecha_hora_inicio), fechaSalida: toDateTimeLocal(record.fecha_hora_salida), _id: record._id });
       } else {
         setIsEditMode(false);
         setSelectedRecordForSalida(record);
@@ -332,7 +339,12 @@ const PlacaTestPage = () => {
         const response = await authFetch(`${baseUrl}/control-patios/${formData._id}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ placa: formData.placa, linea_transporte: formData.lineaTransporte }),
+          body: JSON.stringify({
+            placa: formData.placa,
+            linea_transporte: formData.lineaTransporte,
+            fecha_hora_inicio: formData.fechaEntrada ? new Date(formData.fechaEntrada).toISOString() : undefined,
+            fecha_hora_salida: formData.fechaSalida ? new Date(formData.fechaSalida).toISOString() : null,
+          }),
         });
         if (response.ok) { loadSavedRecords(); setShowModal(false); }
         else { const e = await response.json(); setError(e.error || "Error al actualizar el registro."); }
@@ -774,10 +786,34 @@ const PlacaTestPage = () => {
                 </div>
               )}
 
-              <div className="col-12 border-top pt-2">
-                <label className="form-label text-muted small mb-0">Fecha y Hora de registro</label>
-                <div className="fw-bold">{formatDate(formData.timestamp)}</div>
-              </div>
+              {isEditMode ? (
+                <>
+                  <div className="col-12 border-top pt-2">
+                    <label className="form-label fw-bold mb-1">Fecha y hora de entrada</label>
+                    <input
+                      type="datetime-local"
+                      className="form-control"
+                      value={formData.fechaEntrada || ""}
+                      onChange={(e) => setFormData(prev => ({...prev, fechaEntrada: e.target.value}))}
+                      required
+                    />
+                  </div>
+                  <div className="col-12">
+                    <label className="form-label fw-bold mb-1">Fecha y hora de salida <span className="text-muted fw-normal">(vacío = en patio)</span></label>
+                    <input
+                      type="datetime-local"
+                      className="form-control"
+                      value={formData.fechaSalida || ""}
+                      onChange={(e) => setFormData(prev => ({...prev, fechaSalida: e.target.value}))}
+                    />
+                  </div>
+                </>
+              ) : (
+                <div className="col-12 border-top pt-2">
+                  <label className="form-label text-muted small mb-0">Fecha y Hora de registro</label>
+                  <div className="fw-bold">{formatDate(formData.timestamp)}</div>
+                </div>
+              )}
             </div>
           </div>
         )}

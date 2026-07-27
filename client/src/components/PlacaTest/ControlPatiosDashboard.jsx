@@ -178,6 +178,50 @@ const ControlPatiosDashboard = () => {
     }));
   }, [filteredMovements]);
 
+  // ── Edit record ──────────────────────────────────────────────────────────
+  const [editRecord, setEditRecord] = useState(null);
+  const [editForm, setEditForm] = useState({});
+  const [saving, setSaving] = useState(false);
+
+  const openEdit = (row) => {
+    setEditRecord(row);
+    setEditForm({
+      placa: row.placa || "",
+      linea_transporte: row.linea_transporte || "",
+      fecha_hora_inicio: row.fecha_hora_inicio ? toDateTimeLocal(new Date(row.fecha_hora_inicio)) : "",
+      fecha_hora_salida: row.fecha_hora_salida ? toDateTimeLocal(new Date(row.fecha_hora_salida)) : "",
+    });
+  };
+
+  const closeEdit = () => { setEditRecord(null); setEditForm({}); };
+
+  const handleEditSubmit = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      const body = {
+        placa: editForm.placa,
+        linea_transporte: editForm.linea_transporte,
+        fecha_hora_inicio: editForm.fecha_hora_inicio ? new Date(editForm.fecha_hora_inicio).toISOString() : undefined,
+        fecha_hora_salida: editForm.fecha_hora_salida ? new Date(editForm.fecha_hora_salida).toISOString() : null,
+      };
+      const res = await fetch(`${baseUrl}/control-patios/${editRecord._id}`, {
+        method: "PUT",
+        credentials: "include",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify(body),
+      });
+      if (res.ok) {
+        closeEdit();
+        fetchDashboardData();
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const handleResolveAnomaly = async (id) => {
     try {
       const res = await fetch(`${baseUrl}/patio-anomalies/${id}/resolve`, {
@@ -347,6 +391,16 @@ const ControlPatiosDashboard = () => {
     { key: "fecha_hora_salida", header: "Salida", render: (row) => row.fecha_hora_salida ? `${formatDate(row.fecha_hora_salida)} ${formatTime(row.fecha_hora_salida)}` : <span className="badge bg-info">En patio</span> },
     { key: "stay_seconds", header: "Duración", render: (row) => formatDuration(row.stay_seconds) },
     { key: "status", header: "Estado", render: (row) => <span className={`badge bg-${row.status === "En patio" ? "info" : "success"}`}>{row.status}</span> },
+    ...(roleData?.control_patios?.update ? [{
+      key: "_actions",
+      header: "",
+      className: "text-end",
+      render: (row) => (
+        <button className="action-btn btn-primary" title="Editar" onClick={() => openEdit(row)}>
+          <i className="fas fa-edit"></i>
+        </button>
+      ),
+    }] : []),
   ];
 
   if (!user || !roleData) return <div className="p-4">Cargando dashboard...</div>;
@@ -551,6 +605,59 @@ const ControlPatiosDashboard = () => {
           </div>
         </div>
       </div>
+      {/* ── Edit Modal ── */}
+      {editRecord && (
+        <div className="modal-backdrop-custom" onClick={closeEdit}>
+          <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-card__header">
+              <span className="modal-card__title">Editar registro</span>
+              <button className="modal-card__close" onClick={closeEdit}><i className="fa fa-times"></i></button>
+            </div>
+            <form onSubmit={handleEditSubmit} className="modal-card__body">
+              <div className="modal-field">
+                <label className="modal-label">Placa camión</label>
+                <input
+                  value={editForm.placa}
+                  onChange={(e) => setEditForm(f => ({...f, placa: e.target.value.toUpperCase()}))}
+                  required
+                />
+              </div>
+              <div className="modal-field">
+                <label className="modal-label">Línea de transporte</label>
+                <input
+                  value={editForm.linea_transporte}
+                  onChange={(e) => setEditForm(f => ({...f, linea_transporte: e.target.value}))}
+                  required
+                />
+              </div>
+              <div className="modal-field">
+                <label className="modal-label">Fecha/hora entrada</label>
+                <input
+                  type="datetime-local"
+                  value={editForm.fecha_hora_inicio}
+                  onChange={(e) => setEditForm(f => ({...f, fecha_hora_inicio: e.target.value}))}
+                  required
+                />
+              </div>
+              <div className="modal-field">
+                <label className="modal-label">Fecha/hora salida <span className="text-muted">(vacío = en patio)</span></label>
+                <input
+                  type="datetime-local"
+                  value={editForm.fecha_hora_salida}
+                  onChange={(e) => setEditForm(f => ({...f, fecha_hora_salida: e.target.value}))}
+                />
+              </div>
+              <div className="modal-card__footer">
+                <button type="button" className="btn btn-sm btn-outline-secondary" onClick={closeEdit}>Cancelar</button>
+                <button type="submit" className="btn btn-sm btn-primary" disabled={saving}>
+                  {saving ? <><i className="fa fa-spinner fa-spin me-1"></i>Guardando…</> : "Guardar cambios"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       <style>{`
         .kpi-card {
           height: 70px;
@@ -581,6 +688,34 @@ const ControlPatiosDashboard = () => {
           .filter-bar__inputs { flex-direction: column; gap: 10px; }
           .page-header h1 { font-size: 1.25rem; }
         }
+        .modal-backdrop-custom {
+          position: fixed; inset: 0; background: rgba(15,23,42,0.45);
+          display: flex; align-items: center; justify-content: center; z-index: 1050;
+        }
+        .modal-card {
+          background: #fff; border-radius: 12px; width: 440px; max-width: 96vw;
+          box-shadow: 0 20px 60px rgba(0,0,0,0.18); overflow: hidden;
+        }
+        .modal-card__header {
+          display: flex; align-items: center; justify-content: space-between;
+          padding: 16px 20px; border-bottom: 1px solid #f1f5f9;
+        }
+        .modal-card__title { font-size: 0.95rem; font-weight: 600; color: #1e293b; }
+        .modal-card__close {
+          background: none; border: none; color: #94a3b8; cursor: pointer;
+          padding: 2px 6px; font-size: 1rem; border-radius: 4px;
+        }
+        .modal-card__close:hover { background: #f1f5f9; color: #475569; }
+        .modal-card__body { padding: 20px; display: flex; flex-direction: column; gap: 14px; }
+        .modal-field { display: flex; flex-direction: column; gap: 4px; }
+        .modal-label { font-size: 0.75rem; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; }
+        .modal-card__body input {
+          width: 100%; padding: 6px 10px; font-size: 0.875rem;
+          border: 1px solid #cbd5e1; border-radius: 6px; background: #fff;
+          color: #1e293b; outline: none; box-sizing: border-box;
+        }
+        .modal-card__body input:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,0.12); }
+        .modal-card__footer { display: flex; justify-content: flex-end; gap: 8px; padding-top: 8px; }
       `}</style>
     </div>
   );
