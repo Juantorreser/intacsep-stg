@@ -342,8 +342,10 @@ const PlacaTestPage = () => {
           body: JSON.stringify({
             placa: formData.placa,
             linea_transporte: formData.lineaTransporte,
-            fecha_hora_inicio: formData.fechaEntrada ? new Date(formData.fechaEntrada).toISOString() : undefined,
-            fecha_hora_salida: formData.fechaSalida ? new Date(formData.fechaSalida).toISOString() : null,
+            ...(roleData?.control_patios_editar_fechas && {
+              fecha_hora_inicio: formData.fechaEntrada ? new Date(formData.fechaEntrada).toISOString() : undefined,
+              fecha_hora_salida: formData.fechaSalida ? new Date(formData.fechaSalida).toISOString() : null,
+            }),
           }),
         });
         if (response.ok) { loadSavedRecords(); setShowModal(false); }
@@ -786,16 +788,20 @@ const PlacaTestPage = () => {
                 </div>
               )}
 
-              {isEditMode ? (
+              <div className="col-12 border-top pt-2">
+                <label className="form-label text-muted small mb-0">Fecha y Hora de registro</label>
+                <div className="fw-bold">{formatDate(formData.timestamp)}</div>
+              </div>
+
+              {isEditMode && roleData?.control_patios_editar_fechas && (
                 <>
-                  <div className="col-12 border-top pt-2">
+                  <div className="col-12">
                     <label className="form-label fw-bold mb-1">Fecha y hora de entrada</label>
                     <input
                       type="datetime-local"
                       className="form-control"
                       value={formData.fechaEntrada || ""}
                       onChange={(e) => setFormData(prev => ({...prev, fechaEntrada: e.target.value}))}
-                      required
                     />
                   </div>
                   <div className="col-12">
@@ -808,11 +814,6 @@ const PlacaTestPage = () => {
                     />
                   </div>
                 </>
-              ) : (
-                <div className="col-12 border-top pt-2">
-                  <label className="form-label text-muted small mb-0">Fecha y Hora de registro</label>
-                  <div className="fw-bold">{formatDate(formData.timestamp)}</div>
-                </div>
               )}
             </div>
           </div>

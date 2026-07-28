@@ -43,6 +43,7 @@ const RolePage = () => {
     ver_bitacoras_cerradas: true,
     crear_draft_transporte: false,
     aceptar_draft: false,
+    control_patios_editar_fechas: false,
     plan_linea_transporte: true,
     plan_operador: true,
     plan_telefono: true,
@@ -88,6 +89,7 @@ const RolePage = () => {
     ver_bitacoras_cerradas: true,
     crear_draft_transporte: false,
     aceptar_draft: false,
+    control_patios_editar_fechas: false,
     plan_linea_transporte: true,
     plan_operador: true,
     plan_telefono: true,
@@ -632,6 +634,7 @@ const RolePage = () => {
                           { key: "ver_bitacoras_cerradas", label: "Ver bitácoras cerradas", defaultVal: true },
                           { key: "crear_draft_transporte", label: "Crear borrador de transporte (línea / operador)", defaultVal: false },
                           { key: "aceptar_draft", label: "Aceptar / rechazar borradores de transporte", defaultVal: false },
+                          { key: "control_patios_editar_fechas", label: "Control de patios — Editar fecha/hora de entrada y salida", defaultVal: false },
                         ].map(({ key, label, defaultVal }) => (
                           <div className="d-flex align-items-center mb-2" key={key}>
                             <input
