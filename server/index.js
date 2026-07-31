@@ -7954,11 +7954,15 @@ app.get("/planes-embarque/search/carrier", async (req, res) => {
 // POST start a plan — create a bitacora from an existing plan
 app.post("/planes-embarque/:id/start", async (req, res) => {
   try {
-    const { creado_por, lineaTransporte, operador, telefono } = req.body;
+    const { creado_por, lineaTransporte, operador, telefono, tipoUnidad } = req.body;
     const plan = await PlanDeEmbarque.findById(req.params.id)
       .populate("cliente", "razon_social")
       .populate("destino", "nombre");
     if (!plan) return res.status(404).json({ message: "Plan no encontrado" });
+
+    if (tipoUnidad) {
+      await PlanDeEmbarque.findByIdAndUpdate(plan._id, { tipoUnidad });
+    }
 
     const existingBitacora = await Bitacora.findOne(
       {
@@ -7997,6 +8001,7 @@ app.post("/planes-embarque/:id/start", async (req, res) => {
       horaSalida:      plan.horaSalida,
       citaEntrega:     plan.citaEntrega,
       transporte:      plan.transporte,
+      tipoUnidad:      tipoUnidad || plan.tipoUnidad || null,
       lineaTransporte: lineaTransporte?.trim() || null,
       operador:        operador?.trim() || null,
       telefono:        telefono?.trim() || null,
@@ -8007,6 +8012,8 @@ app.post("/planes-embarque/:id/start", async (req, res) => {
       folio_servicio:    plan.carrierMove, // Map carrierMove to folio_servicio
       cliente:           plan.cliente?.razon_social,
       destino:           plan.destino?._id?.toString() ?? "",
+      origen:            plan.origen?._id?.toString() ?? "",
+      tipoUnidad:        tipoUnidad || plan.tipoUnidad || null,
       status:            "plan de embarque",
       fechaPlanEmbarque: new Date(),
       planDeEmbarque_id: plan._id,

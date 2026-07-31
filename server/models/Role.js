@@ -43,6 +43,7 @@ const RoleSchema = new mongoose.Schema({
   plan_linea_transporte: { type: Boolean, default: true },
   plan_operador: { type: Boolean, default: true },
   plan_telefono: { type: Boolean, default: true },
+  plan_tipo_unidad: { type: Boolean, default: true },
   planes_embarque: permissionSchema,
   buscador_plan: permissionSchema,
   reporte_eventos: permissionSchema,

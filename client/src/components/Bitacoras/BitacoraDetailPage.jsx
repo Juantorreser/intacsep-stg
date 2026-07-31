@@ -1599,6 +1599,12 @@ const BitacoraDetailPage = ({edited}) => {
                               {getLocationText(bitacora.destino, destinos)}
                             </span>
                           </div>
+                          {bitacora.tipoUnidad && (
+                            <div className="info-group mb-3">
+                              <label className="info-label">Tipo de Unidad:</label>
+                              <span className="info-value">{bitacora.tipoUnidad}</span>
+                            </div>
+                          )}
                         </div>
                       </div>
 

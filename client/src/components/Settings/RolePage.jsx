@@ -47,6 +47,7 @@ const RolePage = () => {
     plan_linea_transporte: true,
     plan_operador: true,
     plan_telefono: true,
+    plan_tipo_unidad: true,
     planes_embarque: {create: false, read: false, update: false, delete: false},
     buscador_plan: {create: false, read: false, update: false, delete: false},
     reporte_eventos: {create: false, read: false, update: false, delete: false},
@@ -93,6 +94,7 @@ const RolePage = () => {
     plan_linea_transporte: true,
     plan_operador: true,
     plan_telefono: true,
+    plan_tipo_unidad: true,
     planes_embarque: {create: false, read: false, update: false, delete: false},
     buscador_plan: {create: false, read: false, update: false, delete: false},
     reporte_eventos: {create: false, read: false, update: false, delete: false},
@@ -257,7 +259,7 @@ const RolePage = () => {
   // Handle role edit button click
   const handleEditClick = (role) => {
     setEditRole(role);
-    setEditRoleData({ver_bitacoras_cerradas: true, crear_draft_transporte: false, aceptar_draft: false, plan_linea_transporte: true, plan_operador: true, plan_telefono: true, ...role});
+    setEditRoleData({ver_bitacoras_cerradas: true, crear_draft_transporte: false, aceptar_draft: false, plan_linea_transporte: true, plan_operador: true, plan_telefono: true, plan_tipo_unidad: true, ...role});
     setIsEditing(true); // << ENABLE EDIT MODE
   };
 
@@ -275,7 +277,7 @@ const RolePage = () => {
         const updatedRole = await response.json();
         setRoles(roles.map((role) => (role._id === id ? updatedRole : role)));
         setEditRole(updatedRole);
-        setEditRoleData({ver_bitacoras_cerradas: true, plan_linea_transporte: true, plan_operador: true, plan_telefono: true, ...updatedRole});
+        setEditRoleData({ver_bitacoras_cerradas: true, plan_linea_transporte: true, plan_operador: true, plan_telefono: true, plan_tipo_unidad: true, ...updatedRole});
         setIsEditing(false);
         showToast("Rol actualizado correctamente", "success");
       } else {
@@ -290,7 +292,7 @@ const RolePage = () => {
 
   // Handle cancel edit
   const handleCancelEdit = () => {
-    setEditRoleData({ver_bitacoras_cerradas: true, plan_linea_transporte: true, plan_operador: true, plan_telefono: true, ...editRole});
+    setEditRoleData({ver_bitacoras_cerradas: true, plan_linea_transporte: true, plan_operador: true, plan_telefono: true, plan_tipo_unidad: true, ...editRole});
     setIsEditing(false);
   };
 
@@ -489,7 +491,7 @@ const RolePage = () => {
                     onChange={(e) => {
                       const selected = roles.find((r) => r._id === e.target.value);
                       setEditRole(selected || null);
-                      setEditRoleData({ver_bitacoras_cerradas: true, plan_linea_transporte: true, plan_operador: true, plan_telefono: true, ...JSON.parse(JSON.stringify(selected))});
+                      setEditRoleData({ver_bitacoras_cerradas: true, plan_linea_transporte: true, plan_operador: true, plan_telefono: true, plan_tipo_unidad: true, ...JSON.parse(JSON.stringify(selected))});
                     }}>
                     <option value="">-- Seleccione un rol --</option>
                     {roles.map((role) => (
@@ -680,6 +682,24 @@ const RolePage = () => {
                             </label>
                           </div>
                         ))}
+                      </div>
+                      <h6 className="mb-2 mt-3 text-secondary">Planes de embarque — información general</h6>
+                      <div className="bg-light p-3 rounded">
+                        <div className="d-flex align-items-center mb-2">
+                          <input
+                            type="checkbox"
+                            id="plan_tipo_unidad"
+                            className="form-check-input me-2"
+                            checked={editRoleData.plan_tipo_unidad ?? true}
+                            disabled={!isEditing}
+                            onChange={(e) =>
+                              setEditRoleData((prev) => ({ ...prev, plan_tipo_unidad: e.target.checked }))
+                            }
+                          />
+                          <label htmlFor="plan_tipo_unidad" className="form-check-label fw-semibold">
+                            Mostrar campo Tipo de Unidad
+                          </label>
+                        </div>
                       </div>
                     </div>
 
