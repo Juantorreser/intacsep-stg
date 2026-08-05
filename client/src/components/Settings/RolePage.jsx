@@ -48,6 +48,7 @@ const RolePage = () => {
     plan_operador: true,
     plan_telefono: true,
     plan_tipo_unidad: true,
+    bit_evento_fecha: false,
     planes_embarque: {create: false, read: false, update: false, delete: false},
     buscador_plan: {create: false, read: false, update: false, delete: false},
     reporte_eventos: {create: false, read: false, update: false, delete: false},
@@ -95,6 +96,7 @@ const RolePage = () => {
     plan_operador: true,
     plan_telefono: true,
     plan_tipo_unidad: true,
+    bit_evento_fecha: false,
     planes_embarque: {create: false, read: false, update: false, delete: false},
     buscador_plan: {create: false, read: false, update: false, delete: false},
     reporte_eventos: {create: false, read: false, update: false, delete: false},
@@ -259,7 +261,7 @@ const RolePage = () => {
   // Handle role edit button click
   const handleEditClick = (role) => {
     setEditRole(role);
-    setEditRoleData({ver_bitacoras_cerradas: true, crear_draft_transporte: false, aceptar_draft: false, plan_linea_transporte: true, plan_operador: true, plan_telefono: true, plan_tipo_unidad: true, ...role});
+    setEditRoleData({ver_bitacoras_cerradas: true, crear_draft_transporte: false, aceptar_draft: false, plan_linea_transporte: true, plan_operador: true, plan_telefono: true, plan_tipo_unidad: true, bit_evento_fecha: false, ...role});
     setIsEditing(true); // << ENABLE EDIT MODE
   };
 
@@ -277,7 +279,7 @@ const RolePage = () => {
         const updatedRole = await response.json();
         setRoles(roles.map((role) => (role._id === id ? updatedRole : role)));
         setEditRole(updatedRole);
-        setEditRoleData({ver_bitacoras_cerradas: true, plan_linea_transporte: true, plan_operador: true, plan_telefono: true, plan_tipo_unidad: true, ...updatedRole});
+        setEditRoleData({ver_bitacoras_cerradas: true, plan_linea_transporte: true, plan_operador: true, plan_telefono: true, plan_tipo_unidad: true, bit_evento_fecha: false, ...updatedRole});
         setIsEditing(false);
         showToast("Rol actualizado correctamente", "success");
       } else {
@@ -292,7 +294,7 @@ const RolePage = () => {
 
   // Handle cancel edit
   const handleCancelEdit = () => {
-    setEditRoleData({ver_bitacoras_cerradas: true, plan_linea_transporte: true, plan_operador: true, plan_telefono: true, plan_tipo_unidad: true, ...editRole});
+    setEditRoleData({ver_bitacoras_cerradas: true, plan_linea_transporte: true, plan_operador: true, plan_telefono: true, plan_tipo_unidad: true, bit_evento_fecha: false, ...editRole});
     setIsEditing(false);
   };
 
@@ -491,7 +493,7 @@ const RolePage = () => {
                     onChange={(e) => {
                       const selected = roles.find((r) => r._id === e.target.value);
                       setEditRole(selected || null);
-                      setEditRoleData({ver_bitacoras_cerradas: true, plan_linea_transporte: true, plan_operador: true, plan_telefono: true, plan_tipo_unidad: true, ...JSON.parse(JSON.stringify(selected))});
+                      setEditRoleData({ver_bitacoras_cerradas: true, plan_linea_transporte: true, plan_operador: true, plan_telefono: true, plan_tipo_unidad: true, bit_evento_fecha: false, ...JSON.parse(JSON.stringify(selected))});
                     }}>
                     <option value="">-- Seleccione un rol --</option>
                     {roles.map((role) => (
@@ -698,6 +700,28 @@ const RolePage = () => {
                           />
                           <label htmlFor="plan_tipo_unidad" className="form-check-label fw-semibold">
                             Mostrar campo Tipo de Unidad
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Sección de Bitácora — Edición de fechas */}
+                    <div className="mt-3 pt-3 border-top">
+                      <h6 className="mb-2 text-secondary">Bitácora — Edición de eventos</h6>
+                      <div className="bg-light p-3 rounded">
+                        <div className="d-flex align-items-center mb-2">
+                          <input
+                            type="checkbox"
+                            id="bit_evento_fecha"
+                            className="form-check-input me-2"
+                            checked={editRoleData.bit_evento_fecha ?? false}
+                            disabled={!isEditing}
+                            onChange={(e) =>
+                              setEditRoleData((prev) => ({ ...prev, bit_evento_fecha: e.target.checked }))
+                            }
+                          />
+                          <label htmlFor="bit_evento_fecha" className="form-check-label fw-semibold">
+                            Permitir editar fecha y hora de eventos
                           </label>
                         </div>
                       </div>

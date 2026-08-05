@@ -147,9 +147,12 @@ const EventCard = ({event, events, bitacora, setBitacora, setEventos, handleEdit
 
   const handleFormSubmit = async (e) => {
     e.preventDefault();
+    const updatedCreatedAt = roleData?.bit_evento_fecha && formData.createdAt
+      ? new Date(formData.createdAt).toISOString()
+      : createdAt;
     const updatedEventos = bitacora.eventos.map((evt) =>
       evt._id === event._id
-        ? {...evt, descripcion: formData.descripcion, frecuencia: formData.frecuencia}
+        ? {...evt, descripcion: formData.descripcion, frecuencia: formData.frecuencia, createdAt: updatedCreatedAt}
         : evt
     );
     const oldEvent = bitacora.eventos.find((evt) => evt._id === event._id);
@@ -256,6 +259,22 @@ const EventCard = ({event, events, bitacora, setBitacora, setEventos, handleEdit
           <Form.Label>Nombre</Form.Label>
           <Form.Control type="text" name="nombre" value={formData.nombre} disabled />
         </Form.Group>
+        {roleData?.bit_evento_fecha && (
+          <Form.Group className="mb-3">
+            <Form.Label>Fecha y Hora</Form.Label>
+            <Form.Control
+              type="datetime-local"
+              name="createdAt"
+              value={(() => {
+                if (!formData.createdAt) return "";
+                const d = new Date(formData.createdAt);
+                const pad = (n) => String(n).padStart(2, "0");
+                return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+              })()}
+              onChange={handleInputChange}
+            />
+          </Form.Group>
+        )}
         <Form.Group className="mb-3">
           <Form.Label>Registrado Por</Form.Label>
           <Form.Control type="text" name="registrado_por" value={formData.registrado_por} disabled />
