@@ -473,8 +473,8 @@ const ReporteEventosPage = () => {
     const planEvento = bitEventos.find(
       (e) => ["PLAN DE EMBARQUE", "PRESENCIA EN ORIGEN"].includes(e.nombre?.toUpperCase())
     );
-    const citaCarga  = planEvento?.metadata?.citaCarga;
-    const horaSalida = planEvento?.metadata?.horaSalida;
+    const citaCarga  = bit.planDeEmbarque?.citaCarga  ?? planEvento?.metadata?.citaCarga;
+    const horaSalida = bit.planDeEmbarque?.horaSalida ?? planEvento?.metadata?.horaSalida;
 
     // Derive inicio/final from evento transportes (same logic as BitacoraDetail)
     const validacionEvento = bitEventos.find(
@@ -863,12 +863,12 @@ const ReporteEventosPage = () => {
                                 )}
                               </span>
                               {/inicio de recorrido/i.test(evento.nombre) &&
-                                planDeEmbarqueEvento?.metadata?.horaSalida && (
+                                (selectedBitacora.planDeEmbarque?.horaSalida ?? planDeEmbarqueEvento?.metadata?.horaSalida) && (
                                 <span className="reporte-timeline__plan-diff">
                                   <i className="fas fa-calendar-check"></i>
-                                  Plan: {formatDateTime(planDeEmbarqueEvento.metadata.horaSalida)}
+                                  Plan: {formatDateTime(selectedBitacora.planDeEmbarque?.horaSalida ?? planDeEmbarqueEvento?.metadata?.horaSalida)}
                                   &nbsp;·&nbsp;
-                                  Desfase: {formatDeviation(evento.createdAt, planDeEmbarqueEvento.metadata.horaSalida)}
+                                  Desfase: {formatDeviation(evento.createdAt, selectedBitacora.planDeEmbarque?.horaSalida ?? planDeEmbarqueEvento?.metadata?.horaSalida)}
                                 </span>
                               )}
                             </div>

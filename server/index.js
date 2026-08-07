@@ -693,11 +693,26 @@ app.get("/bitacoras", async (req, res) => {
     ]);
     const destinoMap = Object.fromEntries(destinos.map(d => [d._id.toString(), d.nombre]));
     const origenMap  = Object.fromEntries(origenes.map(o => [o._id.toString(), o.nombre]));
+
+    // Batch-lookup linked PlanDeEmbarque docs so clients can use live plan dates
+    // instead of stale metadata snapshots.
+    const planIds = [...new Set(
+      bitacoras.map(b => b.planDeEmbarque_id?.toString()).filter(Boolean)
+    )];
+    const planDocs = planIds.length
+      ? await PlanDeEmbarque.find(
+          { _id: { $in: planIds } },
+          { citaCarga: 1, horaSalida: 1, citaEntrega: 1, carrierMove: 1, tipoUnidad: 1 }
+        ).lean()
+      : [];
+    const planMap = Object.fromEntries(planDocs.map(p => [p._id.toString(), p]));
+
     const enriched = bitacoras.map(b => ({
       ...b.toObject(),
       // When destino/origen is a name string (edited bitácora fallback), use it directly
       destino_nombre: destinoMap[b.destino] || (!isObjectId(b.destino) ? b.destino : "") || "",
       origen_nombre:  origenMap[b.origen]   || (!isObjectId(b.origen)  ? b.origen  : "") || "",
+      planDeEmbarque: planMap[b.planDeEmbarque_id?.toString()] || null,
     }));
 
     res.status(200).json({
@@ -8497,16 +8512,16 @@ app.get("/reporte-estadisticas", async (req, res) => {
       };
 
       const citaCarga =
-        getMetadataValue(presenciaOrigenEvento?.metadata, ["citaCarga", "cita_carga", "Cita de Carga", "citacarga"])
-        ?? plan?.citaCarga
+        plan?.citaCarga
+        ?? getMetadataValue(presenciaOrigenEvento?.metadata, ["citaCarga", "cita_carga", "Cita de Carga", "citacarga"])
         ?? null;
       const horaSalida =
-        getMetadataValue(presenciaOrigenEvento?.metadata, ["horaSalida", "hora_salida", "Hora de Salida", "horasalida"])
-        ?? plan?.horaSalida
+        plan?.horaSalida
+        ?? getMetadataValue(presenciaOrigenEvento?.metadata, ["horaSalida", "hora_salida", "Hora de Salida", "horasalida"])
         ?? null;
       const citaEntrega =
-        getMetadataValue(presenciaOrigenEvento?.metadata, ["citaEntrega", "cita_entrega", "Cita de Entrega", "citaentrega"])
-        ?? plan?.citaEntrega
+        plan?.citaEntrega
+        ?? getMetadataValue(presenciaOrigenEvento?.metadata, ["citaEntrega", "cita_entrega", "Cita de Entrega", "citaentrega"])
         ?? null;
       const planEmbarqueAt = presenciaOrigenEvento?.createdAt ?? null;
       const validacionAt = validacionEvento?.createdAt ?? null;
