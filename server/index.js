@@ -48,6 +48,14 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 const JWT_SECRET = process.env.JWT_SECRET;
 const JWT_SECRET_REFRESH = process.env.JWT_SECRET_REFRESH;
+const isProduction = process.env.NODE_ENV === "production";
+// Browsers reject SameSite=None cookies that are not Secure. Local HTTP
+// development is same-site across ports, so Lax works without TLS.
+const authCookieOptions = {
+  httpOnly: true,
+  sameSite: isProduction ? "None" : "Lax",
+  secure: isProduction,
+};
 
 //midleware
 const allowedOrigins = [
@@ -87,7 +95,7 @@ app.use(
     secret: process.env.SESSION_SECRET, // Replace with your actual secret
     resave: false,
     saveUninitialized: true,
-    cookie: {secure: true}, // Set to true if using HTTPS
+    cookie: {secure: isProduction},
   })
 );
 
@@ -168,17 +176,9 @@ app.post("/login", async (req, res) => {
     });
 
     // Save tokens in cookies
-    res.cookie("access_token", accessToken, {
-      httpOnly: true,
-      sameSite: "None", // or "Lax" depending on your needs
-      secure: process.env.NODE_ENV === "production",
-    });
+    res.cookie("access_token", accessToken, authCookieOptions);
 
-    res.cookie("refresh_token", refreshToken, {
-      httpOnly: true,
-      sameSite: "None", // or "Lax" depending on your needs
-      secure: process.env.NODE_ENV === "production",
-    });
+    res.cookie("refresh_token", refreshToken, authCookieOptions);
 
     user.refresh_token = refreshToken;
     await user.save();
@@ -220,16 +220,8 @@ app.post("/register", async (req, res) => {
 });
 
 app.post("/logout", (req, res) => {
-  res.clearCookie("access_token", {
-    httpOnly: true,
-    sameSite: "None",
-    secure: true,
-  });
-  res.clearCookie("refresh_token", {
-    httpOnly: true,
-    sameSite: "None",
-    secure: true,
-  });
+  res.clearCookie("access_token", authCookieOptions);
+  res.clearCookie("refresh_token", authCookieOptions);
   res.status(200).send("Successful");
 });
 
@@ -305,12 +297,8 @@ app.post("/refresh_token", async (req, res) => {
     });
 
     //save tokens in cookie
-    res.clearCookie("access_token");
-    res.cookie("access_token", newAccessToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
-    });
+    res.clearCookie("access_token", authCookieOptions);
+    res.cookie("access_token", newAccessToken, authCookieOptions);
     res.json({message: "Access Token Refreshed", token: newAccessToken});
   } catch (e) {
     res.status(403).json({message: "No Token Refreshed"});
